@@ -1,0 +1,261 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Roboto", system-ui, sans-serif;
+  --font-body: "Lato", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-bg: #f4f6f2;
+  --color-surface: #ffffff;
+  --color-surface-2: #eceee7;
+  --color-border: #dde1d6;
+  --color-ink: #12172a;
+  --color-ink-2: #4c5568;
+  --color-ink-3: #7d8496;
+
+  --color-brand: #4d7c0f;
+  --color-brand-ink: #3f6212;
+  --color-brand-dark: #0e1835;
+  --color-brand-tint: #eef4dc;
+
+  --color-gold: #a9781e;
+  --color-gold-tint: #f7efdc;
+
+  --color-cat-1: #2a78d6;
+  --color-cat-2: #eb6834;
+  --color-cat-3: #1baf7a;
+  --color-cat-4: #eda100;
+
+  --color-good: #0ca30c;
+  --color-good-tint: #e4f5e3;
+  --color-warning: #b8790a;
+  --color-warning-tint: #fbefd9;
+  --color-critical: #d03b3b;
+  --color-critical-tint: #fbe4e2;
+}
+
+/* Dark mode: OS preference (unless a manual light override is set), or an explicit manual toggle. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #10141f;
+    --color-surface: #181d2c;
+    --color-surface-2: #1e2436;
+    --color-border: #2c3348;
+    --color-ink: #eef1f8;
+    --color-ink-2: #b9bfd2;
+    --color-ink-3: #8991a8;
+
+    --color-brand: #8fc93f;
+    --color-brand-ink: #bfe36b;
+    --color-brand-dark: #070c18;
+    --color-brand-tint: #1e2a12;
+
+    --color-gold: #d8ae5e;
+    --color-gold-tint: #2e2717;
+
+    --color-cat-1: #3987e5;
+    --color-cat-2: #d95926;
+    --color-cat-3: #199e70;
+    --color-cat-4: #c98500;
+
+    --color-good: #0ca30c;
+    --color-good-tint: #123018;
+    --color-warning: #fab219;
+    --color-warning-tint: #332507;
+    --color-critical: #e66767;
+    --color-critical-tint: #331414;
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-bg: #10141f;
+  --color-surface: #181d2c;
+  --color-surface-2: #1e2436;
+  --color-border: #2c3348;
+  --color-ink: #eef1f8;
+  --color-ink-2: #b9bfd2;
+  --color-ink-3: #8991a8;
+
+  --color-brand: #8fc93f;
+  --color-brand-ink: #bfe36b;
+  --color-brand-dark: #070c18;
+  --color-brand-tint: #1e2a12;
+
+  --color-gold: #d8ae5e;
+  --color-gold-tint: #2e2717;
+
+  --color-cat-1: #3987e5;
+  --color-cat-2: #d95926;
+  --color-cat-3: #199e70;
+  --color-cat-4: #c98500;
+
+  --color-good: #0ca30c;
+  --color-good-tint: #123018;
+  --color-warning: #fab219;
+  --color-warning-tint: #332507;
+  --color-critical: #e66767;
+  --color-critical-tint: #331414;
+}
+
+/* Per-role accent — Employee keeps the default green above; Manager and HR Admin get their own. */
+[data-role="manager"] {
+  --color-brand: #2f6fb0;
+  --color-brand-ink: #1f4f85;
+  --color-brand-tint: #e3edf7;
+}
+
+[data-role="admin"] {
+  --color-brand: #b5790f;
+  --color-brand-ink: #8f5f0c;
+  --color-brand-tint: #faf0dd;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-role="manager"]:not([data-theme="light"]) {
+    --color-brand: #5b9bdb;
+    --color-brand-ink: #8ec2ea;
+    --color-brand-tint: #16283a;
+  }
+
+  [data-role="admin"]:not([data-theme="light"]) {
+    --color-brand: #e0a83f;
+    --color-brand-ink: #f0c877;
+    --color-brand-tint: #3a2a10;
+  }
+}
+
+[data-theme="dark"][data-role="manager"] {
+  --color-brand: #5b9bdb;
+  --color-brand-ink: #8ec2ea;
+  --color-brand-tint: #16283a;
+}
+
+[data-theme="dark"][data-role="admin"] {
+  --color-brand: #e0a83f;
+  --color-brand-ink: #f0c877;
+  --color-brand-tint: #3a2a10;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  color-scheme: light dark;
+}
+
+.font-num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--color-brand-tint);
+  color: var(--color-brand-ink);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toast-enter {
+  animation: toast-in 0.2s ease-out;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.skeleton {
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+  background-color: var(--color-surface-2);
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.overlay-enter {
+  animation: overlay-in 0.15s ease-out;
+}
+
+.panel-enter {
+  animation: panel-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Login page: the sign-in card needs more separation from its panel in dark
+   mode, since --color-surface and --color-bg are both very dark and read as
+   nearly the same tone side by side. */
+.login-card {
+  background: var(--color-surface);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .login-card {
+    background: var(--color-surface-2);
+    box-shadow:
+      0 24px 60px -20px rgba(0, 0, 0, 0.65),
+      0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+}
+
+:root[data-theme="dark"] .login-card {
+  background: var(--color-surface-2);
+  box-shadow:
+    0 24px 60px -20px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Ambient app background: soft role-tinted glows + a faint dot texture.
+   Fixed to the viewport (not the page), sits behind all normal-flow content
+   via z-index, and re-tints automatically per role/theme since it only
+   references existing CSS variables. */
+.app-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(680px circle at 6% 8%, color-mix(in srgb, var(--color-brand) 14%, transparent), transparent 60%),
+    radial-gradient(720px circle at 96% 94%, color-mix(in srgb, var(--color-gold) 12%, transparent), transparent 60%),
+    radial-gradient(circle, color-mix(in srgb, var(--color-ink-3) 14%, transparent) 1px, transparent 1px);
+  background-size:
+    auto,
+    auto,
+    24px 24px;
+  background-repeat: no-repeat, no-repeat, repeat;
+}
