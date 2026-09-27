@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "@/features/auth/AuthContext";
 import { Button } from "@/components/ui/Button";
 
 const STORAGE_KEY = "msma-hris-tour-seen";
@@ -36,19 +35,14 @@ const STEPS: TourStep[] = [
  * than blocking the tour.
  */
 export function FirstLoginTour() {
-  const { user } = useAuth();
-  const [stepIndex, setStepIndex] = useState<number | null>(null);
-  const [rect, setRect] = useState<DOMRect | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
+  const [stepIndex, setStepIndex] = useState<number | null>(() => {
     try {
-      if (localStorage.getItem(STORAGE_KEY)) return;
+      return localStorage.getItem(STORAGE_KEY) ? null : 0;
     } catch {
-      return;
+      return null;
     }
-    setStepIndex(0);
-  }, [user]);
+  });
+  const [rect, setRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
     if (stepIndex === null) return;

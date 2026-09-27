@@ -90,7 +90,7 @@ export function AdminCompliancePage() {
         actions={<Button icon={<ShieldIcon className="h-3.75 w-3.75" />} onClick={openAdd}>Add filing</Button>}
       />
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3.5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(190px,1fr))] sm:gap-3.5">
         <StatTile label="Filed" value={counts.filed} tone="good" />
         <StatTile label="Due soon" value={counts.dueSoon} tone="warn" />
         <StatTile label="Overdue" value={counts.overdue} tone="crit" />

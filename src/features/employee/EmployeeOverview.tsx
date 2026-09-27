@@ -246,7 +246,7 @@ export function EmployeeOverview() {
         }
       />
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3.5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(190px,1fr))] sm:gap-3.5">
         <StatTile
           label="Net pay · this cutoff"
           value={latestPayslip ? formatPHP(latestPayslip.net) : <Skeleton className="h-7 w-24" />}

@@ -48,14 +48,15 @@ export function LoginPage() {
 
   return (
     <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
-      <div className="flex flex-col justify-center bg-brand-dark px-6 py-12 text-white sm:px-10 lg:px-16">
+      <div className="flex flex-col justify-center bg-brand-dark px-6 py-6 text-white sm:px-10 lg:px-16 lg:py-12">
         <div className="mx-auto flex w-full max-w-md flex-col gap-8">
           <div className="flex items-center gap-2.5">
             <img src="/brand/msma-mark.png" alt="MSMA" className="h-9 w-auto" />
             <div className="font-display text-lg font-extrabold">MSMA</div>
+            <p className="ml-1 text-sm text-white/70 lg:hidden">People operations for MSMA Group</p>
           </div>
 
-          <div>
+          <div className="hidden lg:block">
             <h1 className="font-display text-3xl font-extrabold leading-tight sm:text-4xl">
               People operations for MSMA Group
             </h1>
@@ -64,7 +65,7 @@ export function LoginPage() {
             </p>
           </div>
 
-          <ul className="flex flex-col gap-3.5">
+          <ul className="hidden flex-col gap-3.5 lg:flex">
             {highlights.map((h) => (
               <li key={h.text} className="flex items-center gap-3 text-sm text-white/85">
                 <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-white/10">
@@ -75,14 +76,14 @@ export function LoginPage() {
             ))}
           </ul>
 
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/70">
+          <span className="hidden w-fit items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/70 lg:inline-flex">
             <span className="h-1.5 w-1.5 flex-none rounded-full bg-[#8fc93f]" />
             Demo environment · sample data
           </span>
         </div>
       </div>
 
-      <div className="flex items-center justify-center bg-bg px-4 py-10">
+      <div className="flex items-center justify-center bg-bg px-4 py-6 lg:py-10">
         <div className="login-card panel-enter w-full max-w-md rounded-2xl border border-border p-6 text-ink shadow-lg sm:p-7">
           <div className="mb-6">
             <div className="font-display text-lg font-extrabold">Sign in</div>

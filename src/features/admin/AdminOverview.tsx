@@ -150,7 +150,7 @@ export function AdminOverview() {
         }
       />
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3.5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(190px,1fr))] sm:gap-3.5">
         <StatTile
           label="Total headcount"
           value={stats?.totalHeadcount ?? <Skeleton className="h-7 w-14" />}

@@ -63,7 +63,7 @@ export function ManagerTrainings() {
         }
       />
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3.5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(190px,1fr))] sm:gap-3.5">
         <StatTile label="Team completion rate" value={`${completionRate}%`} tone="good" />
         <StatTile label="Completed" value={completedCount} delta={`of ${records.length} assignments`} />
       </div>

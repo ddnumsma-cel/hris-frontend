@@ -27,7 +27,7 @@ export function ManagerAttendancePage() {
     <>
       <ContentHead title="Attendance" subtitle={formatToday()} />
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3.5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(190px,1fr))] sm:gap-3.5">
         <StatTile label="Attendance rate" value={`${managerTeamStats.attendanceRate}%`} delta="last 14 days" tone="good" />
         <StatTile label="On leave today" value={managerTeamStats.onLeaveToday} delta="of the team" />
         <StatTile label="Team headcount" value={managerTeamStats.teamHeadcount} />

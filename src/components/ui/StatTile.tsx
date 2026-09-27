@@ -24,11 +24,11 @@ export function StatTile({
   icon?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-surface p-4 shadow-sm">
-      <span className="text-xs font-semibold text-ink-2">{label}</span>
-      <span className="font-display font-num text-2xl font-bold">{value}</span>
+    <div className="flex flex-col gap-1 rounded-xl border border-border bg-surface p-3 shadow-sm sm:gap-1.5 sm:p-4">
+      <span className="text-[0.7rem] font-semibold text-ink-2 sm:text-xs">{label}</span>
+      <span className="font-display font-num text-lg font-bold sm:text-2xl">{value}</span>
       {delta && (
-        <span className={clsx("flex items-center gap-1 text-xs font-semibold", toneClasses[tone])}>
+        <span className={clsx("flex items-center gap-1 text-[0.7rem] font-semibold sm:text-xs", toneClasses[tone])}>
           {icon}
           {delta}
         </span>
