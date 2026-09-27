@@ -20,8 +20,9 @@ import {
   fetchOnboardingPipeline,
   fetchPayrollCostBreakdown,
   fetchPayrollRunSteps,
+  fetchProfessionalLicenses,
 } from "@/lib/api";
-import { getEffectiveCompliance, getEffectivePayrollSteps } from "@/lib/automation";
+import { getCpdStatus, getEffectiveCompliance, getEffectivePayrollSteps } from "@/lib/automation";
 import { downloadTextFile, toCsv } from "@/lib/download";
 import { formatPHPCompact, formatToday } from "@/lib/format";
 import type { Employee } from "@/lib/types";
@@ -61,6 +62,10 @@ export function AdminOverview() {
     queryKey: ["admin", "certificate-requests"],
     queryFn: fetchCertificateRequestsForReview,
   });
+  const licensesQuery = useQuery({
+    queryKey: ["admin", "professional-licenses"],
+    queryFn: fetchProfessionalLicenses,
+  });
 
   const stats = statsQuery.data;
 
@@ -93,6 +98,19 @@ export function AdminOverview() {
         detail: r.purpose,
         tone: ageDays >= 5 ? "crit" : "warn",
         action: { label: "Process", onClick: () => navigate("/admin/certificates") },
+      });
+    }
+  }
+  for (const license of licensesQuery.data ?? []) {
+    const cpd = getCpdStatus(license);
+    if (cpd.status === "Overdue" || cpd.status === "Due soon") {
+      attentionItems.push({
+        id: `cpd-${license.id}`,
+        icon: <ShieldIcon className="h-4 w-4" />,
+        title: `${license.employeeName}'s CPD units are ${cpd.status === "Overdue" ? "past deadline" : "due soon"}`,
+        detail: cpd.note,
+        tone: cpd.status === "Overdue" ? "crit" : "warn",
+        action: { label: "Review", onClick: () => navigate("/admin/compliance") },
       });
     }
   }

@@ -14,6 +14,8 @@ dist-ssr
 .certs
 docs/inbox
 
+.claude
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

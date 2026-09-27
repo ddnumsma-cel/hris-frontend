@@ -17,10 +17,11 @@ import {
   fetchEmployeeThirteenthMonth,
   fetchLeaveBalances,
   fetchMyLeaveRequests,
+  fetchMyProfessionalLicense,
   fetchMyTrainingRecords,
   fetchPayslips,
 } from "@/lib/api";
-import { isTrainingOverdue } from "@/lib/automation";
+import { getCpdStatus, isTrainingOverdue } from "@/lib/automation";
 import { formatPHP, formatToday } from "@/lib/format";
 import {
   BuildingIcon,
@@ -34,6 +35,7 @@ import {
   GraduationCapIcon,
   HomeIcon,
   LoaderIcon,
+  ShieldIcon,
   WalletIcon,
 } from "@/components/icons";
 import { AttentionPanel, type AttentionItem } from "@/components/shared/AttentionPanel";
@@ -68,6 +70,10 @@ export function EmployeeOverview() {
   const benefitsQuery = useQuery({ queryKey: ["employee", "benefits"], queryFn: fetchEmployeeBenefits });
   const myTrainingsQuery = useQuery({ queryKey: ["employee", "my-trainings"], queryFn: fetchMyTrainingRecords });
   const myLeaveQuery = useQuery({ queryKey: ["employee", "my-leave-requests"], queryFn: fetchMyLeaveRequests });
+  const licenseQuery = useQuery({
+    queryKey: ["employee", "professional-license"],
+    queryFn: fetchMyProfessionalLicense,
+  });
 
   const employee = employeeQuery.data;
   const latestPayslip = payslipsQuery.data?.[0];
@@ -116,6 +122,19 @@ export function EmployeeOverview() {
         detail: r.detail,
         tone: "info",
         action: { label: "View", onClick: () => navigate("/employee/leave-dtr") },
+      });
+    }
+  }
+  if (licenseQuery.data) {
+    const cpd = getCpdStatus(licenseQuery.data);
+    if (cpd.status === "Due soon" || cpd.status === "Overdue") {
+      attentionItems.push({
+        id: `cpd-${licenseQuery.data.id}`,
+        icon: <ShieldIcon className="h-4 w-4" />,
+        title: `Your CPD units are ${cpd.status === "Overdue" ? "past deadline" : "due soon"}`,
+        detail: cpd.note,
+        tone: cpd.status === "Overdue" ? "crit" : "warn",
+        action: { label: "View", onClick: () => navigate("/employee/201-file") },
       });
     }
   }

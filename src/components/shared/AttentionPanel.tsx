@@ -20,7 +20,7 @@ const toneBg: Record<AttentionItem["tone"], string> = {
 
 export function AttentionPanel({ items }: { items: AttentionItem[] }) {
   return (
-    <Card>
+    <Card data-tour="attention-panel">
       <CardHeader
         title="Needs your attention"
         meta={items.length ? `${items.length} auto-detected` : "All clear"}

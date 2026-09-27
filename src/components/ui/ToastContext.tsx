@@ -7,6 +7,7 @@ interface ToastItem {
   id: number;
   message: string;
   tone: ToastTone;
+  leaving?: boolean;
 }
 
 interface ToastContextValue {
@@ -15,11 +16,16 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
+const EXIT_DURATION_MS = 150;
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const dismiss = useCallback((id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, EXIT_DURATION_MS);
   }, []);
 
   const show = useCallback(
@@ -38,7 +44,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`toast-enter pointer-events-auto flex w-full max-w-sm items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold shadow-lg ${
+            className={`pointer-events-auto flex w-full max-w-sm items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold shadow-lg ${
+              t.leaving ? "toast-leave" : "toast-enter"
+            } ${
               t.tone === "good" ? "border-good/30 bg-good-tint text-good" : "border-critical/30 bg-critical-tint text-critical"
             }`}
           >

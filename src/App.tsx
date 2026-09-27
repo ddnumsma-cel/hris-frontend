@@ -9,6 +9,7 @@ import { PageLoadingFallback } from "@/components/layout/PageLoadingFallback";
 import { useAuth } from "@/features/auth/AuthContext";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { OfficeFilterProvider } from "@/features/admin/OfficeFilterContext";
+import { FirstLoginTour } from "@/components/shared/FirstLoginTour";
 
 const AssistantWidget = lazy(() =>
   import("@/features/assistant/AssistantWidget").then((m) => ({ default: m.AssistantWidget })),
@@ -168,6 +169,7 @@ function App() {
             <AssistantWidget />
           </Suspense>
         )}
+        {user && <FirstLoginTour />}
       </div>
     </OfficeFilterProvider>
   );

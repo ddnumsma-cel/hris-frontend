@@ -1,21 +1,30 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ContentHead } from "@/components/layout/RolePage";
-import { Card } from "@/components/ui/Card";
+import { Card, CardHeader } from "@/components/ui/Card";
 import { Chip, type ChipVariant } from "@/components/ui/Chip";
 import { StatTile } from "@/components/ui/StatTile";
 import { Button } from "@/components/ui/Button";
+import { MiniAvatar } from "@/components/ui/MiniAvatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastContext";
 import { EditIcon, ShieldIcon } from "@/components/icons";
-import { deleteComplianceItem, fetchComplianceCalendar, updateComplianceStatus } from "@/lib/api";
-import { getEffectiveCompliance } from "@/lib/automation";
+import { LogCpdUnitsDialog } from "@/components/shared/LogCpdUnitsDialog";
+import { deleteComplianceItem, fetchComplianceCalendar, fetchProfessionalLicenses, updateComplianceStatus } from "@/lib/api";
+import { getCpdStatus, getEffectiveCompliance } from "@/lib/automation";
 import { formatToday } from "@/lib/format";
-import type { ComplianceItem } from "@/lib/types";
+import type { ComplianceItem, CpdStatus, ProfessionalLicense } from "@/lib/types";
 import { ComplianceItemDialog } from "./ComplianceItemDialog";
 
 const complianceVariant: Record<string, ChipVariant> = {
   Filed: "good",
+  "Due soon": "warn",
+  Overdue: "crit",
+};
+
+const cpdVariant: Record<CpdStatus, ChipVariant> = {
+  Compliant: "good",
+  "In progress": "neutral",
   "Due soon": "warn",
   Overdue: "crit",
 };
@@ -26,7 +35,12 @@ export function AdminCompliancePage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ComplianceItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<ComplianceItem | null>(null);
+  const [loggingLicense, setLoggingLicense] = useState<ProfessionalLicense | null>(null);
   const complianceQuery = useQuery({ queryKey: ["admin", "compliance-calendar"], queryFn: fetchComplianceCalendar });
+  const licensesQuery = useQuery({
+    queryKey: ["admin", "professional-licenses"],
+    queryFn: fetchProfessionalLicenses,
+  });
   const items = complianceQuery.data;
 
   const mutation = useMutation({
@@ -44,6 +58,10 @@ export function AdminCompliancePage() {
   });
 
   const effective = useMemo(() => (items ?? []).map((item) => ({ item, ...getEffectiveCompliance(item) })), [items]);
+  const licenses = useMemo(
+    () => (licensesQuery.data ?? []).map((license) => ({ license, ...getCpdStatus(license) })),
+    [licensesQuery.data],
+  );
 
   const counts = useMemo(
     () => ({
@@ -141,6 +159,57 @@ export function AdminCompliancePage() {
         </div>
       </Card>
 
+      <Card>
+        <CardHeader title="Professional licenses" meta="CPA · CPD compliance" />
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-[0.82rem]">
+            <thead>
+              <tr>
+                {["Employee", "License No.", "CPD units", "Cycle ends", "Status", ""].map((h) => (
+                  <th
+                    key={h}
+                    className="border-b border-border px-4 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wider text-ink-3"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {licenses.map(({ license, status, note }) => (
+                <tr key={license.id}>
+                  <td className="border-b border-border px-4 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <MiniAvatar initials={license.employeeInitials} />
+                      {license.employeeName}
+                    </div>
+                  </td>
+                  <td className="font-num border-b border-border px-4 py-2.5">{license.licenseNumber}</td>
+                  <td className="font-num border-b border-border px-4 py-2.5">
+                    {license.cpdUnitsEarned}/{license.cpdUnitsRequired}
+                  </td>
+                  <td className="border-b border-border px-4 py-2.5">{license.cycleEndDate}</td>
+                  <td className="border-b border-border px-4 py-2.5">
+                    <Chip variant={cpdVariant[status]}>
+                      {status} · {note}
+                    </Chip>
+                  </td>
+                  <td className="border-b border-border px-4 py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setLoggingLicense(license)}
+                      className="text-xs font-bold text-brand-ink"
+                    >
+                      Log units
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
       <ComplianceItemDialog
         open={dialogOpen}
         existing={editingItem}
@@ -155,6 +224,12 @@ export function AdminCompliancePage() {
         isPending={deleteMutation.isPending}
         onConfirm={() => deleteMutation.mutate(deletingItem!.id)}
         onClose={() => setDeletingItem(null)}
+      />
+
+      <LogCpdUnitsDialog
+        license={loggingLicense}
+        onClose={() => setLoggingLicense(null)}
+        onSubmitted={() => toast.show("CPD units logged.")}
       />
     </>
   );

@@ -18,6 +18,7 @@ import type {
   Payslip,
   PayrollCostSegment,
   PayrollRunStep,
+  ProfessionalLicense,
   TeamRosterMember,
   TrainingRecord,
   WorkforceAlert,
@@ -378,4 +379,55 @@ export let employeeCases: EmployeeCase[] = [
 
 export function setEmployeeCases(next: EmployeeCase[]) {
   employeeCases = next;
+}
+
+export let professionalLicenses: ProfessionalLicense[] = [
+  {
+    id: "lic-1",
+    employeeId: "MSMA-00482",
+    employeeName: "Angela Dela Cruz",
+    employeeInitials: "AD",
+    licenseType: "CPA",
+    licenseNumber: "0123456",
+    cpdUnitsEarned: 58,
+    cpdUnitsRequired: 60,
+    cycleEndDate: "Oct 1, 2026",
+  },
+  {
+    id: "lic-2",
+    employeeId: "MSMA-00317",
+    employeeName: "Rafael Ortiz",
+    employeeInitials: "RO",
+    licenseType: "CPA",
+    licenseNumber: "0087654",
+    cpdUnitsEarned: 50,
+    cpdUnitsRequired: 60,
+    cycleEndDate: "Sept 20, 2026",
+  },
+  {
+    id: "lic-3",
+    employeeId: "MSMA-00203",
+    employeeName: "Carla Uy",
+    employeeInitials: "CU",
+    licenseType: "CPA",
+    licenseNumber: "0145233",
+    cpdUnitsEarned: 60,
+    cpdUnitsRequired: 60,
+    cycleEndDate: "Mar 15, 2027",
+  },
+  {
+    id: "lic-4",
+    employeeId: "MSMA-00623",
+    employeeName: "Paolo Cruz",
+    employeeInitials: "PC",
+    licenseType: "CPA",
+    licenseNumber: "0198812",
+    cpdUnitsEarned: 25,
+    cpdUnitsRequired: 60,
+    cycleEndDate: "Dec 1, 2026",
+  },
+];
+
+export function setProfessionalLicenses(next: ProfessionalLicense[]) {
+  professionalLicenses = next;
 }

@@ -1,4 +1,4 @@
-import type { ComplianceItem, PayrollRunStep, TrainingRecord } from "./types";
+import type { ComplianceItem, CpdStatus, PayrollRunStep, ProfessionalLicense, TrainingRecord } from "./types";
 
 const monthIndex: Record<string, number> = {
   jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
@@ -47,6 +47,36 @@ export function getEffectiveCompliance(item: ComplianceItem, now = new Date()): 
     return { status: "Due soon", note: diff === 0 ? "Due today" : `Due in ${diff} day${diff === 1 ? "" : "s"}` };
   }
   return { status: "Due soon", note: `Due in ${diff} days` };
+}
+
+/**
+ * PRC-style CPD (Continuing Professional Development) compliance for a CPA
+ * license: units already met beats the deadline regardless of date; short of
+ * that, urgency is computed live from the cycle end date the same way
+ * compliance filings are, instead of relying on someone to flip a status.
+ */
+export function getCpdStatus(
+  license: ProfessionalLicense,
+  now = new Date(),
+): { status: CpdStatus; note: string } {
+  const { cpdUnitsEarned, cpdUnitsRequired } = license;
+  const unitsLabel = `${cpdUnitsEarned}/${cpdUnitsRequired} units`;
+
+  if (cpdUnitsEarned >= cpdUnitsRequired) {
+    return { status: "Compliant", note: unitsLabel };
+  }
+
+  const due = parseFlexibleDate(license.cycleEndDate, now.getFullYear());
+  if (!due) return { status: "In progress", note: unitsLabel };
+
+  const diff = daysUntil(due, now);
+  if (diff < 0) {
+    return { status: "Overdue", note: `${unitsLabel} · ${Math.abs(diff)} day${Math.abs(diff) === 1 ? "" : "s"} past deadline` };
+  }
+  if (diff <= DUE_SOON_WINDOW_DAYS) {
+    return { status: "Due soon", note: `${unitsLabel} · due in ${diff} day${diff === 1 ? "" : "s"}` };
+  }
+  return { status: "In progress", note: `${unitsLabel} · due ${license.cycleEndDate}` };
 }
 
 /** True when a training's due date has passed and it still isn't completed. */

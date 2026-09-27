@@ -51,6 +51,7 @@ export function AssistantWidget() {
     <>
       <button
         type="button"
+        data-tour="assistant-button"
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Close AI assistant" : "Open AI assistant"}
         className="fixed bottom-5 right-5 z-90 flex h-13 w-13 items-center justify-center rounded-full bg-brand text-white shadow-lg transition-transform active:scale-95"

@@ -24,6 +24,7 @@ import {
   payrollRunSteps,
   payslips,
   performanceReviewStatuses,
+  professionalLicenses,
   setAnnouncements,
   setCertificateRequests,
   setComplianceCalendar,
@@ -35,6 +36,7 @@ import {
   setLeaveRequests,
   setOffboardingCases,
   setPerformanceReviewStatuses,
+  setProfessionalLicenses,
   setTrainingRecords,
   teamRoster,
   trainingRecords,
@@ -151,6 +153,20 @@ export function fetchMyAssets() {
 
 export function fetchMyTrainingRecords() {
   return delay(trainingRecords.filter((t) => t.employeeName === currentEmployee.name));
+}
+
+export function fetchMyProfessionalLicense() {
+  return delay(professionalLicenses.find((l) => l.employeeId === currentEmployee.id));
+}
+
+export function fetchProfessionalLicenses() {
+  return delay(professionalLicenses);
+}
+
+export async function updateCpdUnits(id: string, cpdUnitsEarned: number) {
+  const next = professionalLicenses.map((l) => (l.id === id ? { ...l, cpdUnitsEarned } : l));
+  setProfessionalLicenses(next);
+  return delay(next.find((l) => l.id === id)!);
 }
 
 export function fetchCertificateRequests() {

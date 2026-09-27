@@ -230,3 +230,17 @@ export interface EmployeeCase {
   filedOn: string;
   summary: string;
 }
+
+export type CpdStatus = "Compliant" | "In progress" | "Due soon" | "Overdue";
+
+export interface ProfessionalLicense {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeInitials: string;
+  licenseType: string;
+  licenseNumber: string;
+  cpdUnitsEarned: number;
+  cpdUnitsRequired: number;
+  cycleEndDate: string;
+}

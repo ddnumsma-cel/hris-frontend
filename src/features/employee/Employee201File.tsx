@@ -8,9 +8,11 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastContext";
 import { BriefcaseIcon, CameraIcon, DownloadIcon, EditIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { enrollFaceId, fetchCurrentEmployee, fetchMyAssets } from "@/lib/api";
+import { enrollFaceId, fetchCurrentEmployee, fetchMyAssets, fetchMyProfessionalLicense } from "@/lib/api";
+import { getCpdStatus } from "@/lib/automation";
 import { formatToday } from "@/lib/format";
-import type { Employee } from "@/lib/types";
+import type { CpdStatus, Employee } from "@/lib/types";
+import { LogCpdUnitsDialog } from "@/components/shared/LogCpdUnitsDialog";
 import { EditProfileDialog } from "./EditProfileDialog";
 import { FaceScanDialog } from "./FaceScanDialog";
 import { print201File } from "./printTemplates";
@@ -20,14 +22,28 @@ const statusVariant: Record<Employee["status"], ChipVariant> = {
   "On leave": "neutral",
 };
 
+const cpdVariant: Record<CpdStatus, ChipVariant> = {
+  Compliant: "good",
+  "In progress": "neutral",
+  "Due soon": "warn",
+  Overdue: "crit",
+};
+
 export function Employee201File() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [editOpen, setEditOpen] = useState(false);
   const [faceEnrollOpen, setFaceEnrollOpen] = useState(false);
+  const [logCpdOpen, setLogCpdOpen] = useState(false);
   const employeeQuery = useQuery({ queryKey: ["employee", "me"], queryFn: fetchCurrentEmployee });
   const assetsQuery = useQuery({ queryKey: ["employee", "my-assets"], queryFn: fetchMyAssets });
+  const licenseQuery = useQuery({
+    queryKey: ["employee", "professional-license"],
+    queryFn: fetchMyProfessionalLicense,
+  });
   const employee = employeeQuery.data;
+  const license = licenseQuery.data;
+  const cpd = license ? getCpdStatus(license) : null;
 
   const enrollMutation = useMutation({
     mutationFn: enrollFaceId,
@@ -140,6 +156,38 @@ export function Employee201File() {
         </CardBody>
       </Card>
 
+      {license && cpd && (
+        <Card>
+          <CardHeader title="Professional license" meta={license.licenseType} />
+          <CardBody className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-2.5">
+              <div>
+                <div className="text-[0.85rem] font-semibold">License No. {license.licenseNumber}</div>
+                <div className="text-xs text-ink-2">CPD cycle ends {license.cycleEndDate}</div>
+              </div>
+              <Chip variant={cpdVariant[cpd.status]}>{cpd.status}</Chip>
+            </div>
+            <div>
+              <div className="mb-1.5 flex justify-between text-xs text-ink-2">
+                <span>CPD units</span>
+                <span className="font-num font-semibold text-ink">{cpd.note}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-surface-2">
+                <span
+                  className="block h-full rounded-full bg-brand"
+                  style={{
+                    width: `${Math.min(100, Math.round((license.cpdUnitsEarned / license.cpdUnitsRequired) * 100))}%`,
+                  }}
+                />
+              </div>
+            </div>
+            <Button variant="ghost" className="self-start" onClick={() => setLogCpdOpen(true)}>
+              Log CPD units
+            </Button>
+          </CardBody>
+        </Card>
+      )}
+
       <Card>
         <CardHeader title="My assets" meta="Company-issued equipment" />
         <CardBody className="flex flex-col gap-3">
@@ -174,6 +222,12 @@ export function Employee201File() {
         mode="enroll"
         onClose={() => setFaceEnrollOpen(false)}
         onSuccess={() => enrollMutation.mutate()}
+      />
+
+      <LogCpdUnitsDialog
+        license={logCpdOpen ? (license ?? null) : null}
+        onClose={() => setLogCpdOpen(false)}
+        onSubmitted={() => toast.show("CPD units logged.")}
       />
     </>
   );
