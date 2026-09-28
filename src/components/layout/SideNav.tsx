@@ -103,7 +103,7 @@ export function SideNav({ groups }: { groups: SideNavGroup[] }) {
       {/* Desktop: sticky sidebar */}
       <aside
         data-tour="sidenav"
-        className="hidden sm:sticky sm:top-13.5 sm:flex sm:w-55 sm:flex-none sm:flex-col sm:gap-4.5 sm:self-stretch sm:border-r sm:border-border sm:px-3.5 sm:py-4.5 md:top-14.5"
+        className="hidden sm:sticky sm:top-13.5 sm:flex sm:h-[calc(100dvh-3.375rem)] sm:w-55 sm:flex-none sm:flex-col sm:gap-4.5 sm:overflow-y-auto sm:border-r sm:border-border sm:px-3.5 sm:py-4.5 md:top-14.5 md:h-[calc(100dvh-3.625rem)]"
       >
         <NavGroupList groups={groups} />
       </aside>

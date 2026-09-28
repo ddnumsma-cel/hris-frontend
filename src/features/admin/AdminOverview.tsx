@@ -417,6 +417,7 @@ export function AdminOverview() {
           }
         }
         onClose={() => setProfileEmployee(null)}
+        documentsHref={(id) => `/admin/201-files?employee=${id}`}
       />
 
       <PostAnnouncementDialog

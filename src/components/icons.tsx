@@ -9,6 +9,7 @@ import {
   Calendar,
   Camera,
   Check,
+  CircleCheck,
   CheckSquare,
   ChevronDown,
   Clock,
@@ -36,8 +37,10 @@ import {
   Search,
   SearchX,
   Settings,
+  UserCheck,
   ShieldCheck,
   Sun,
+  Trash2,
   Upload,
   User,
   UserMinus,
@@ -113,6 +116,10 @@ export function CheckIcon(props: IconProps) {
   return <Check strokeWidth={strokeWidth} {...props} />;
 }
 
+export function CheckCircleIcon(props: IconProps) {
+  return <CircleCheck strokeWidth={strokeWidth} {...props} />;
+}
+
 export function XIcon(props: IconProps) {
   return <X strokeWidth={strokeWidth} {...props} />;
 }
@@ -173,6 +180,10 @@ export function EditIcon(props: IconProps) {
   return <Pencil strokeWidth={strokeWidth} {...props} />;
 }
 
+export function TrashIcon(props: IconProps) {
+  return <Trash2 strokeWidth={strokeWidth} {...props} />;
+}
+
 export function UserMinusIcon(props: IconProps) {
   return <UserMinus strokeWidth={strokeWidth} {...props} />;
 }
@@ -231,4 +242,8 @@ export function LockIcon(props: IconProps) {
 
 export function SettingsIcon(props: IconProps) {
   return <Settings strokeWidth={strokeWidth} {...props} />;
+}
+
+export function UserCheckIcon(props: IconProps) {
+  return <UserCheck strokeWidth={strokeWidth} {...props} />;
 }

@@ -7,6 +7,7 @@ export function ConfirmDialog({
   message,
   confirmLabel = "Remove",
   pendingLabel = "Removing…",
+  cancelLabel = "Cancel",
   isPending,
   onConfirm,
   onClose,
@@ -16,6 +17,7 @@ export function ConfirmDialog({
   message: string;
   confirmLabel?: string;
   pendingLabel?: string;
+  cancelLabel?: string;
   isPending?: boolean;
   onConfirm: () => void;
   onClose: () => void;
@@ -25,7 +27,7 @@ export function ConfirmDialog({
       <p className="text-sm text-ink-2">{message}</p>
       <div className="mt-4 flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={onClose}>
-          Cancel
+          {cancelLabel}
         </Button>
         <Button type="button" variant="danger" disabled={isPending} onClick={onConfirm}>
           {isPending ? pendingLabel : confirmLabel}

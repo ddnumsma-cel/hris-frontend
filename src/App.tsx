@@ -38,6 +38,10 @@ const AdminCertificateRequests = lazy(() =>
   import("@/features/admin/AdminCertificateRequests").then((m) => ({ default: m.AdminCertificateRequests })),
 );
 const AdminReports = lazy(() => import("@/features/admin/AdminReports").then((m) => ({ default: m.AdminReports })));
+const AdminPersonnelFiles = lazy(() =>
+  import("@/features/admin/AdminPersonnelFiles").then((m) => ({ default: m.AdminPersonnelFiles })),
+);
+const AdminSettings = lazy(() => import("@/features/admin/AdminSettings").then((m) => ({ default: m.AdminSettings })));
 
 const EmployeeLayout = lazy(() =>
   import("@/features/employee/EmployeeLayout").then((m) => ({ default: m.EmployeeLayout })),
@@ -86,6 +90,13 @@ const ManagerPerformance = lazy(() =>
 const ManagerTrainings = lazy(() =>
   import("@/features/manager/ManagerTrainings").then((m) => ({ default: m.ManagerTrainings })),
 );
+const ManagerAttendanceApprovals = lazy(() =>
+  import("@/features/manager/ManagerAttendanceApprovals").then((m) => ({ default: m.ManagerAttendanceApprovals })),
+);
+const ManagerPayroll = lazy(() => import("@/features/manager/ManagerPayroll").then((m) => ({ default: m.ManagerPayroll })));
+const ManagerSettings = lazy(() =>
+  import("@/features/manager/ManagerSettings").then((m) => ({ default: m.ManagerSettings })),
+);
 const ManagerCases = lazy(() => import("@/features/manager/ManagerCases").then((m) => ({ default: m.ManagerCases })));
 
 function App() {
@@ -132,10 +143,13 @@ function App() {
               <Route path="approvals" element={<ManagerApprovals />} />
               <Route path="calendar" element={<ManagerCalendar />} />
               <Route path="attendance" element={<ManagerAttendancePage />} />
+              <Route path="attendance-approvals" element={<ManagerAttendanceApprovals />} />
               <Route path="workforce" element={<ManagerWorkforcePage />} />
               <Route path="performance" element={<ManagerPerformance />} />
               <Route path="trainings" element={<ManagerTrainings />} />
               <Route path="cases" element={<ManagerCases />} />
+            <Route path="payroll" element={<ManagerPayroll />} />
+              <Route path="settings" element={<ManagerSettings />} />
             </Route>
 
             <Route
@@ -148,6 +162,7 @@ function App() {
             >
               <Route index element={<AdminOverview />} />
               <Route path="directory" element={<AdminDirectory />} />
+              <Route path="201-files" element={<AdminPersonnelFiles />} />
               <Route path="org-chart" element={<AdminOrgChart />} />
               <Route path="onboarding" element={<AdminOnboardingPage />} />
               <Route path="offboarding" element={<AdminOffboarding />} />
@@ -158,6 +173,7 @@ function App() {
               <Route path="payroll-runs" element={<AdminPayrollRuns />} />
               <Route path="compliance" element={<AdminCompliancePage />} />
               <Route path="reports" element={<AdminReports />} />
+            <Route path="settings" element={<AdminSettings />} />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

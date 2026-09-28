@@ -321,3 +321,56 @@ export interface AuditLogEntry {
   detail?: string;
   timestamp: string;
 }
+
+// --- Partner-side attendance approvals ---
+// DTR exceptions an employee files against their own time record (a missed
+// scan, a late arrival with a valid reason, an unscheduled WFH day). Nothing
+// here touches the DTR until the Partner approves it.
+
+export type AttendanceRequestKind = "Missed clock-out" | "Missed clock-in" | "Late justification" | "Remote work" | "Time correction";
+export type AttendanceRequestStatus = "Pending" | "Approved" | "Declined";
+
+export interface AttendanceRequest {
+  id: string;
+  employeeName: string;
+  employeeInitials: string;
+  employeeRole: string;
+  kind: AttendanceRequestKind;
+  date: string;
+  recordedTime: string;
+  requestedTime: string;
+  reason: string;
+  status: AttendanceRequestStatus;
+  filedOn: string;
+}
+
+// --- Partner profile (Settings) ---
+
+export interface PartnerProfile {
+  name: string;
+  initials: string;
+  title: string;
+  email: string;
+  phone: string;
+  office: Employee["office"];
+  emergencyContact: string;
+  about: string;
+}
+
+// HR's own profile (Settings) has the same shape as the Partner's.
+export type AdminProfile = PartnerProfile;
+
+// --- Company payroll register ---
+// One entry per employee for the open cutoff. Pay figures are inputs; the
+// computed lines (statutory, tax, net) come from lib/payroll.ts.
+
+export type PayrollEntryStatus = "Draft" | "Approved" | "Released";
+
+export interface PayrollEntry {
+  employeeId: string;
+  monthlyBasic: number;
+  allowance: number;
+  overtimeHours: number;
+  otherDeductions: number;
+  status: PayrollEntryStatus;
+}

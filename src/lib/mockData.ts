@@ -19,6 +19,10 @@ import type {
   PayrollCostSegment,
   PayrollRunStep,
   AuditLogEntry,
+  AttendanceRequest,
+  AdminProfile,
+  PartnerProfile,
+  PayrollEntry,
   PersonnelDocument,
   PersonnelDocumentType,
   PersonnelProfile,
@@ -76,11 +80,15 @@ const standardPayslipBreakdown: Payslip["breakdown"] = [
   { label: "Pag-IBIG salary loan", amount: 200, kind: "deduction" },
 ];
 
-export const payslips: Payslip[] = [
+export let payslips: Payslip[] = [
   { id: "PS-2609B", cutoffLabel: "Sept 16–30, 2026", gross: 42000, deductions: 4033.33, net: 37966.67, status: "Processing", breakdown: standardPayslipBreakdown },
   { id: "PS-2609A", cutoffLabel: "Sept 1–15, 2026", gross: 42000, deductions: 4033.33, net: 37966.67, status: "Paid", breakdown: standardPayslipBreakdown },
   { id: "PS-2608B", cutoffLabel: "Aug 16–31, 2026", gross: 42000, deductions: 4033.33, net: 37966.67, status: "Paid", breakdown: standardPayslipBreakdown },
 ];
+
+export function setPayslips(next: Payslip[]) {
+  payslips = next;
+}
 
 export let announcements: Announcement[] = [
   { id: "an-1", title: "BIR Form 2316 for 2025 is now available for download", postedOn: "Posted Sept 20, 2026" },
@@ -280,11 +288,83 @@ export function setPerformanceReviewStatuses(next: Record<string, "Submitted" | 
   performanceReviewStatuses = next;
 }
 
-export const currentManager = {
+const defaultManagerProfile: PartnerProfile = {
   name: "Rafael Ortiz",
   initials: "RO",
   title: "Audit & Assurance Team Lead",
+  email: "rafael.ortiz@msma.ph",
+  phone: "+63 917 555 0142",
+  office: "Cebu HQ",
+  emergencyContact: "",
+  about: "",
 };
+
+const MANAGER_PROFILE_KEY = "msma-hris-partner-profile";
+
+// The Partner's own profile is the one record in this prototype that
+// survives a reload, so the info they enter in Settings sticks.
+function loadManagerProfile(): PartnerProfile {
+  try {
+    const stored = localStorage.getItem(MANAGER_PROFILE_KEY);
+    if (stored) return { ...defaultManagerProfile, ...(JSON.parse(stored) as Partial<PartnerProfile>) };
+  } catch {
+    // Storage blocked or corrupt — fall back to the seed profile.
+  }
+  return defaultManagerProfile;
+}
+
+export let currentManager: PartnerProfile = loadManagerProfile();
+
+export function setCurrentManager(next: PartnerProfile) {
+  currentManager = next;
+  try {
+    localStorage.setItem(MANAGER_PROFILE_KEY, JSON.stringify(next));
+  } catch {
+    // Non-fatal: the change still applies for this session.
+  }
+}
+
+export let attendanceRequests: AttendanceRequest[] = [
+  { id: "ar-1", employeeName: "Bea Santos", employeeInitials: "BS", employeeRole: "Audit Associate", kind: "Missed clock-out", date: "Sept 24, 2026", recordedTime: "In 8:52 AM · Out —", requestedTime: "Out 6:15 PM", reason: "Left straight from the client site in Mandaue; scanner was not reachable.", status: "Pending", filedOn: "2026-09-25" },
+  { id: "ar-2", employeeName: "Carla Uy", employeeInitials: "CU", employeeRole: "Senior Associate", kind: "Late justification", date: "Sept 25, 2026", recordedTime: "In 9:32 AM", requestedTime: "In 9:32 AM (excused)", reason: "Flooding along Banilad; team lead was informed by 8:30 AM.", status: "Pending", filedOn: "2026-09-25" },
+  { id: "ar-3", employeeName: "Jon Ababa", employeeInitials: "JA", employeeRole: "Associate", kind: "Remote work", date: "Sept 26, 2026", recordedTime: "No scan", requestedTime: "WFH 9:00 AM – 6:00 PM", reason: "Working remotely on the Q3 inventory count report.", status: "Pending", filedOn: "2026-09-26" },
+  { id: "ar-4", employeeName: "Miguel Reyes", employeeInitials: "MR", employeeRole: "Audit Associate", kind: "Time correction", date: "Sept 23, 2026", recordedTime: "In 10:04 AM", requestedTime: "In 8:56 AM", reason: "Fingerprint scanner failed to read; security logbook shows 8:56 AM.", status: "Pending", filedOn: "2026-09-24" },
+  { id: "ar-5", employeeName: "Grace Tan", employeeInitials: "GT", employeeRole: "Audit Associate", kind: "Missed clock-in", date: "Sept 22, 2026", recordedTime: "In — · Out 6:02 PM", requestedTime: "In 8:48 AM", reason: "Forgot to scan in after the morning client call.", status: "Approved", filedOn: "2026-09-22" },
+  { id: "ar-6", employeeName: "Dennis Lim", employeeInitials: "DL", employeeRole: "Associate", kind: "Late justification", date: "Sept 19, 2026", recordedTime: "In 10:40 AM", requestedTime: "In 10:40 AM (excused)", reason: "Overslept.", status: "Declined", filedOn: "2026-09-19" },
+];
+
+export function setAttendanceRequests(next: AttendanceRequest[]) {
+  attendanceRequests = next;
+}
+
+export const payrollCutoff = {
+  label: "Sept 16–30, 2026",
+  payDate: "Sept 30, 2026",
+  // Must match the employee-side payslip for the same cutoff so releasing
+  // payroll here flips that payslip to Paid.
+  payslipId: "PS-2609B",
+};
+
+export let payrollEntries: PayrollEntry[] = [
+  { employeeId: "MSMA-00482", monthlyBasic: 70000, allowance: 4000, overtimeHours: 6, otherDeductions: 200, status: "Draft" },
+  { employeeId: "MSMA-00317", monthlyBasic: 95000, allowance: 5000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
+  { employeeId: "MSMA-00560", monthlyBasic: 32000, allowance: 2000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
+  { employeeId: "MSMA-00611", monthlyBasic: 45000, allowance: 3000, overtimeHours: 4, otherDeductions: 500, status: "Draft" },
+  { employeeId: "MSMA-00098", monthlyBasic: 26000, allowance: 1500, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
+  { employeeId: "MSMA-00203", monthlyBasic: 48000, allowance: 3000, overtimeHours: 8, otherDeductions: 0, status: "Draft" },
+  { employeeId: "MSMA-00276", monthlyBasic: 28000, allowance: 2000, overtimeHours: 2.5, otherDeductions: 0, status: "Draft" },
+  { employeeId: "MSMA-00341", monthlyBasic: 28000, allowance: 2000, overtimeHours: 0, otherDeductions: 1000, status: "Draft" },
+  { employeeId: "MSMA-00398", monthlyBasic: 32000, allowance: 2000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
+  { employeeId: "MSMA-00623", monthlyBasic: 34000, allowance: 2000, overtimeHours: 3, otherDeductions: 0, status: "Draft" },
+  { employeeId: "MSMA-00701", monthlyBasic: 25000, allowance: 1500, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
+  { employeeId: "MSMA-00733", monthlyBasic: 30000, allowance: 2000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
+  { employeeId: "MSMA-00812", monthlyBasic: 27000, allowance: 1500, overtimeHours: 5, otherDeductions: 0, status: "Draft" },
+  { employeeId: "MSMA-00845", monthlyBasic: 22000, allowance: 3000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
+];
+
+export function setPayrollEntries(next: PayrollEntry[]) {
+  payrollEntries = next;
+}
 
 export const myDtrLog: DtrLogEntry[] = [
   { date: "Sept 25, 2026", timeIn: "8:58 AM", timeOut: "6:05 PM", status: "On time", location: "Onsite", method: "Fingerprint" },
@@ -304,11 +384,40 @@ export function setCertificateRequests(next: CertificateRequest[]) {
   certificateRequests = next;
 }
 
-export const currentAdmin = {
+const defaultAdminProfile: AdminProfile = {
   name: "Dinah Marquez",
   initials: "DM",
   title: "HR & People Operations Head",
+  email: "dinah.marquez@msma.ph",
+  phone: "+63 917 555 0118",
+  office: "Cebu HQ",
+  emergencyContact: "",
+  about: "",
 };
+
+const ADMIN_PROFILE_KEY = "msma-hris-admin-profile";
+
+// Like the Partner's, HR's own profile survives a reload so Settings edits stick.
+function loadAdminProfile(): AdminProfile {
+  try {
+    const stored = localStorage.getItem(ADMIN_PROFILE_KEY);
+    if (stored) return { ...defaultAdminProfile, ...(JSON.parse(stored) as Partial<AdminProfile>) };
+  } catch {
+    // Storage blocked or corrupt — fall back to the seed profile.
+  }
+  return defaultAdminProfile;
+}
+
+export let currentAdmin: AdminProfile = loadAdminProfile();
+
+export function setCurrentAdmin(next: AdminProfile) {
+  currentAdmin = next;
+  try {
+    localStorage.setItem(ADMIN_PROFILE_KEY, JSON.stringify(next));
+  } catch {
+    // Non-fatal: the change still applies for this session.
+  }
+}
 
 export let offboardingCases: OffboardingCase[] = [
   { id: "off-1", employeeName: "Grace Tan", employeeInitials: "GT", department: "Audit & Assurance", lastDay: "Oct 15, 2026", stage: "Clearance in progress" },
@@ -557,6 +666,37 @@ function buildPersonnelDocuments(
         : {}),
     };
     return { ...doc, ...overrides[type] };
+  });
+}
+
+export interface NewHireGovernmentId {
+  idType: string;
+  idNumber?: string;
+  idExpiry?: string;
+  fileName?: string;
+}
+
+/** A fresh 201 checklist for someone just added through the directory:
+ * everything Missing (situational documents Not applicable) except the
+ * government ID, when HR scanned one while adding them. */
+export function buildNewHireDocuments(employeeId: string, governmentId?: NewHireGovernmentId): PersonnelDocument[] {
+  const situational: PersonnelDocumentType[] = [
+    "Marriage Certificate (PSA)",
+    "Child's Birth Certificate",
+    "Professional License",
+  ];
+  const today = new Date().toISOString().slice(0, 10);
+  return PERSONNEL_DOCUMENT_TYPES.map((type, i) => {
+    const doc: PersonnelDocument = {
+      id: `doc-${employeeId}-${i + 1}`,
+      employeeId,
+      type,
+      status: situational.includes(type) ? "Not applicable" : "Missing",
+    };
+    if (type === "Valid Government ID" && governmentId) {
+      return { ...doc, status: "Submitted", uploadedOn: today, ...governmentId };
+    }
+    return doc;
   });
 }
 

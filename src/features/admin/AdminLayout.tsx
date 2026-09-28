@@ -6,9 +6,11 @@ import {
   BriefcaseIcon,
   FileIcon,
   FlagIcon,
+  FolderIcon,
   GraduationCapIcon,
   GridIcon,
   OrgChartIcon,
+  SettingsIcon,
   ShieldIcon,
   UserMinusIcon,
   UserPlusIcon,
@@ -27,6 +29,7 @@ export function AdminLayout() {
               items: [
                 { label: "Overview", to: "/admin", end: true, icon: <GridIcon /> },
                 { label: "Employee Directory", to: "/admin/directory", icon: <UsersIcon /> },
+                { label: "201 Files", to: "/admin/201-files", icon: <FolderIcon /> },
                 { label: "Org Chart", to: "/admin/org-chart", icon: <OrgChartIcon /> },
                 { label: "Onboarding", to: "/admin/onboarding", icon: <UserPlusIcon /> },
                 { label: "Offboarding", to: "/admin/offboarding", icon: <UserMinusIcon /> },
@@ -48,6 +51,10 @@ export function AdminLayout() {
                 { label: "Compliance", to: "/admin/compliance", icon: <ShieldIcon /> },
                 { label: "Reports", to: "/admin/reports", icon: <BarChartIcon /> },
               ],
+            },
+            {
+              title: "Account",
+              items: [{ label: "Settings", to: "/admin/settings", icon: <SettingsIcon /> }],
             },
           ]}
         />

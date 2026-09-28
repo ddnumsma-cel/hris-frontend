@@ -1,6 +1,7 @@
 import {
   adminOverviewStats,
   announcements,
+  attendanceRequests,
   attendanceTrend,
   auditLogEntries,
   certificateRequests,
@@ -8,6 +9,8 @@ import {
   complianceCalendar,
   currentAdmin,
   currentEmployee,
+  currentManager,
+  setCurrentAdmin,
   employeeBenefits,
   employeeCases,
   employeeDirectory,
@@ -22,6 +25,8 @@ import {
   onLeaveToday,
   onboardingPipeline,
   payrollCostBreakdown,
+  payrollCutoff,
+  payrollEntries,
   payrollRunSteps,
   payslips,
   performanceReviewStatuses,
@@ -29,18 +34,23 @@ import {
   personnelProfiles,
   professionalLicenses,
   setAnnouncements,
+  setAttendanceRequests,
   setAuditLogEntries,
   setCertificateRequests,
   setComplianceCalendar,
   setCompanyAssets,
   setCurrentEmployee,
+  setCurrentManager,
   setEmployeeBenefits,
   setEmployeeCases,
   setEmployeeDirectory,
   setLeaveRequests,
   setOffboardingCases,
+  setPayrollEntries,
+  setPayslips,
   setPerformanceReviewStatuses,
   setPersonnelDocuments,
+  buildNewHireDocuments,
   setPersonnelProfiles,
   setProfessionalLicenses,
   setTrainingRecords,
@@ -50,6 +60,8 @@ import {
 } from "./mockData";
 import type {
   Announcement,
+  AttendanceRequest,
+  AttendanceRequestStatus,
   AuditLogEntry,
   CaseStatus,
   CaseType,
@@ -66,6 +78,9 @@ import type {
   LeaveType,
   OffboardingCase,
   OffboardingStage,
+  AdminProfile,
+  PartnerProfile,
+  PayrollEntry,
   PersonnelDocument,
   PersonnelDocumentChecklistItem,
   PersonnelDocumentStatus,
@@ -73,6 +88,7 @@ import type {
   TrainingRecord,
   TrainingStatus,
 } from "./types";
+import { getCredential, getCredentials, setCredential } from "./credentials";
 
 /**
  * Every function here stands in for a real HTTP call. Swap the body for a
@@ -542,11 +558,30 @@ export function fetchEmployeeDirectory() {
 }
 
 export interface CreateEmployeeInput {
-  name: string;
+  lastName: string;
+  firstName: string;
+  middleName?: string;
+  suffix?: string;
+  birthDate?: string;
+  email?: string;
+  phone?: string;
   position: string;
   department: string;
   office: Employee["office"];
   cluster: Employee["cluster"];
+  /** Scanned or typed ID details — becomes the new hire's "Valid Government ID" 201 document. */
+  governmentId?: { idType: string; idNumber?: string; idExpiry?: string; fileName?: string };
+}
+
+/** "Juan P. Dela Cruz Jr." — how names read across the directory. */
+export function formatEmployeeName(
+  input: Pick<CreateEmployeeInput, "firstName" | "middleName" | "lastName" | "suffix">,
+) {
+  const middleInitial = input.middleName?.trim() ? `${input.middleName.trim()[0]!.toUpperCase()}.` : "";
+  return [input.firstName, middleInitial, input.lastName, input.suffix]
+    .map((p) => p?.trim())
+    .filter(Boolean)
+    .join(" ");
 }
 
 function initialsFor(name: string) {
@@ -559,18 +594,26 @@ function initialsFor(name: string) {
 }
 
 export async function createEmployee(input: CreateEmployeeInput): Promise<Employee> {
+  const name = formatEmployeeName(input);
   const employee: Employee = {
     id: `MSMA-${Math.floor(10_000 + Math.random() * 89_999)}`,
-    name: input.name,
-    initials: initialsFor(input.name),
+    name,
+    initials: initialsFor(`${input.firstName} ${input.lastName}`),
     position: input.position,
     department: input.department,
     office: input.office,
     cluster: input.cluster,
     status: "Active",
+    email: input.email || undefined,
+    phone: input.phone || undefined,
   };
 
   setEmployeeDirectory([employee, ...employeeDirectory]);
+  setPersonnelProfiles([
+    ...personnelProfiles,
+    { employeeId: employee.id, dependents: [], birthDate: input.birthDate || undefined },
+  ]);
+  setPersonnelDocuments([...personnelDocuments, ...buildNewHireDocuments(employee.id, input.governmentId)]);
   return delay(employee);
 }
 
@@ -815,4 +858,140 @@ export async function createAnnouncement(input: CreateAnnouncementInput): Promis
   };
   setAnnouncements([announcement, ...announcements]);
   return delay(announcement);
+}
+
+// ---- Partner: attendance approvals ----
+
+export function fetchAttendanceRequests() {
+  return delay(attendanceRequests);
+}
+
+export async function updateAttendanceRequestStatus(
+  id: string,
+  status: Exclude<AttendanceRequestStatus, "Pending">,
+): Promise<AttendanceRequest> {
+  const next = attendanceRequests.map((r) => (r.id === id ? { ...r, status } : r));
+  setAttendanceRequests(next);
+  return delay(next.find((r) => r.id === id)!);
+}
+
+// ---- Partner: settings ----
+
+export function fetchManagerProfile() {
+  return delay(currentManager);
+}
+
+export type UpdateManagerProfileInput = Omit<PartnerProfile, "initials">;
+
+export async function updateManagerProfile(input: UpdateManagerProfileInput): Promise<PartnerProfile> {
+  const updated: PartnerProfile = { ...input, initials: initialsFor(input.name) };
+  setCurrentManager(updated);
+  return delay(updated);
+}
+
+// ---- HR: settings ----
+
+export function fetchAdminProfile() {
+  return delay(currentAdmin);
+}
+
+export type UpdateAdminProfileInput = Omit<AdminProfile, "initials">;
+
+export async function updateAdminProfile(input: UpdateAdminProfileInput): Promise<AdminProfile> {
+  const updated: AdminProfile = { ...input, initials: initialsFor(input.name) };
+  setCurrentAdmin(updated);
+  return delay(updated);
+}
+
+export interface ChangeCredentialsInput {
+  currentPassword: string;
+  username: string;
+  newPassword?: string;
+}
+
+// Rejects (like a real auth endpoint would) when the current password is
+// wrong or the username is already used by another account.
+export async function changeAdminCredentials(input: ChangeCredentialsInput): Promise<{ username: string }> {
+  const current = getCredential("admin");
+  const username = input.username.trim().toLowerCase();
+  await delay(null);
+  if (input.currentPassword !== current.password) throw new Error("Your current password is incorrect.");
+  if (getCredentials().some((c) => c.role !== "admin" && c.username === username)) {
+    throw new Error(`The username "${username}" is already taken.`);
+  }
+  setCredential("admin", username, input.newPassword || current.password);
+  return { username };
+}
+
+// ---- Partner: company payroll ----
+
+export interface PayrollRegisterRow {
+  employee: Employee;
+  entry: PayrollEntry;
+}
+
+// New hires added through the directory have no pay record yet; seed one
+// so they still show up on the register for the Partner to fill in.
+function defaultPayrollEntry(employeeId: string): PayrollEntry {
+  return { employeeId, monthlyBasic: 25000, allowance: 0, overtimeHours: 0, otherDeductions: 0, status: "Draft" };
+}
+
+function entryFor(employeeId: string) {
+  return payrollEntries.find((e) => e.employeeId === employeeId) ?? defaultPayrollEntry(employeeId);
+}
+
+function upsertPayrollEntries(updated: PayrollEntry[]) {
+  const byId = new Map(payrollEntries.map((e) => [e.employeeId, e]));
+  for (const entry of updated) byId.set(entry.employeeId, entry);
+  setPayrollEntries([...byId.values()]);
+}
+
+export function fetchPayrollCutoff() {
+  return delay(payrollCutoff);
+}
+
+export function fetchPayrollRegister(): Promise<PayrollRegisterRow[]> {
+  return delay(employeeDirectory.map((employee) => ({ employee, entry: entryFor(employee.id) })));
+}
+
+export type UpdatePayrollEntryInput = Pick<
+  PayrollEntry,
+  "monthlyBasic" | "allowance" | "overtimeHours" | "otherDeductions"
+>;
+
+/** Editing a figure sends the entry back to Draft so it has to be re-approved. */
+export async function updatePayrollEntry(employeeId: string, input: UpdatePayrollEntryInput): Promise<PayrollEntry> {
+  const existing = entryFor(employeeId);
+  if (existing.status === "Released") throw new Error("Released payroll can no longer be edited.");
+  const updated: PayrollEntry = { ...existing, ...input, status: "Draft" };
+  upsertPayrollEntries([updated]);
+  return delay(updated);
+}
+
+export async function approvePayrollEntries(employeeIds: string[]): Promise<void> {
+  const ids = new Set(employeeIds);
+  upsertPayrollEntries(
+    employeeDirectory
+      .filter((e) => ids.has(e.id))
+      .map((e) => entryFor(e.id))
+      .filter((entry) => entry.status === "Draft")
+      .map((entry) => ({ ...entry, status: "Approved" as const })),
+  );
+  return delay(undefined);
+}
+
+export async function revertPayrollEntry(employeeId: string): Promise<void> {
+  const existing = entryFor(employeeId);
+  if (existing.status === "Approved") upsertPayrollEntries([{ ...existing, status: "Draft" }]);
+  return delay(undefined);
+}
+
+/** Releases every approved entry and marks the matching employee payslip as paid. */
+export async function releaseApprovedPayroll(): Promise<number> {
+  const approved = employeeDirectory.map((e) => entryFor(e.id)).filter((entry) => entry.status === "Approved");
+  upsertPayrollEntries(approved.map((entry) => ({ ...entry, status: "Released" as const })));
+  if (approved.some((entry) => entry.employeeId === currentEmployee.id)) {
+    setPayslips(payslips.map((p) => (p.id === payrollCutoff.payslipId ? { ...p, status: "Paid" } : p)));
+  }
+  return delay(approved.length);
 }
