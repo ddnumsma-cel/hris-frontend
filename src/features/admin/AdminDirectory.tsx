@@ -12,13 +12,13 @@ import { SearchIcon, SearchXIcon, UserPlusIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EditIcon } from "@/components/icons";
+import { PersonnelFileDialog } from "@/components/shared/PersonnelFileDialog";
 import { deleteEmployee, fetchEmployeeDirectory } from "@/lib/api";
 import { formatToday } from "@/lib/format";
 import { clusterOptions } from "@/lib/schemas";
 import type { Cluster, Employee } from "@/lib/types";
 import { AddEmployeeDialog } from "./AddEmployeeDialog";
 import { EditEmployeeDialog } from "./EditEmployeeDialog";
-import { EmployeeProfileDialog } from "./EmployeeProfileDialog";
 import { useOfficeFilter } from "./OfficeFilterContext";
 
 const employeeStatusVariant: Record<Employee["status"], ChipVariant> = {
@@ -246,7 +246,21 @@ export function AdminDirectory() {
         onSubmitted={() => toast.show("New employee added to the directory.")}
       />
 
-      <EmployeeProfileDialog employee={profileEmployee} onClose={() => setProfileEmployee(null)} />
+      <PersonnelFileDialog
+        subject={
+          profileEmployee && {
+            id: profileEmployee.id,
+            name: profileEmployee.name,
+            initials: profileEmployee.initials,
+            position: profileEmployee.position,
+            department: profileEmployee.department,
+            office: profileEmployee.office,
+            cluster: profileEmployee.cluster,
+            status: profileEmployee.status,
+          }
+        }
+        onClose={() => setProfileEmployee(null)}
+      />
 
       <EditEmployeeDialog
         employee={editingEmployee}

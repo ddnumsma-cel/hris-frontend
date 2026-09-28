@@ -1,4 +1,11 @@
-import type { ComplianceItem, CpdStatus, PayrollRunStep, ProfessionalLicense, TrainingRecord } from "./types";
+import type {
+  ComplianceItem,
+  CpdStatus,
+  PayrollRunStep,
+  PersonnelDocument,
+  ProfessionalLicense,
+  TrainingRecord,
+} from "./types";
 
 const monthIndex: Record<string, number> = {
   jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
@@ -23,6 +30,60 @@ export function parseFlexibleDate(label: string, fallbackYear = new Date().getFu
 function daysUntil(date: Date, now = new Date()): number {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.round((date.getTime() - startOfToday.getTime()) / 86_400_000);
+}
+
+/** Parses the plain "YYYY-MM-DD" dates used by personnel records, as a local
+ * date rather than UTC (avoids the off-by-one-day pitfall of `new Date(iso)`). */
+export function parseIsoDate(iso: string): Date | null {
+  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+/** Age in whole years as of `now`. */
+export function getAge(birthDateIso: string, now = new Date()): number | null {
+  const birth = parseIsoDate(birthDateIso);
+  if (!birth) return null;
+  let age = now.getFullYear() - birth.getFullYear();
+  const hasHadBirthdayThisYear =
+    now.getMonth() > birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() >= birth.getDate());
+  if (!hasHadBirthdayThisYear) age -= 1;
+  return age;
+}
+
+/** PH optional-retirement age under RA 7641 — a starting point for
+ * age-based workforce-planning rules, not a hard cutoff. */
+export const OPTIONAL_RETIREMENT_AGE = 60;
+
+/** Live status for any expiry date on a personnel document (government ID,
+ * professional license) — same due-soon/overdue computation as compliance
+ * filings, so nobody has to remember to flag an expiring ID by hand. */
+export function getDocumentExpiryStatus(
+  expiryIso: string,
+  now = new Date(),
+): { status: "OK" | "Due soon" | "Overdue"; note: string } {
+  const expiry = parseIsoDate(expiryIso);
+  if (!expiry) return { status: "OK", note: expiryIso };
+
+  const diff = daysUntil(expiry, now);
+  if (diff < 0) return { status: "Overdue", note: `Expired ${Math.abs(diff)} day${Math.abs(diff) === 1 ? "" : "s"} ago` };
+  if (diff <= DUE_SOON_WINDOW_DAYS) return { status: "Due soon", note: diff === 0 ? "Expires today" : `Expires in ${diff} days` };
+  return { status: "OK", note: `Expires ${expiryIso}` };
+}
+
+/** Every expiring/expired field (government ID, professional license) on one
+ * employee's personnel documents — used to drive attention-panel items. */
+export function getExpiringPersonnelFields(doc: PersonnelDocument, now = new Date()) {
+  const fields: { label: string; status: "Due soon" | "Overdue"; note: string }[] = [];
+  if (doc.idExpiry) {
+    const r = getDocumentExpiryStatus(doc.idExpiry, now);
+    if (r.status !== "OK") fields.push({ label: `${doc.idType ?? "Government ID"}`, status: r.status, note: r.note });
+  }
+  if (doc.licenseExpiry) {
+    const r = getDocumentExpiryStatus(doc.licenseExpiry, now);
+    if (r.status !== "OK") fields.push({ label: "Professional license (on file)", status: r.status, note: r.note });
+  }
+  return fields;
 }
 
 const DUE_SOON_WINDOW_DAYS = 7;

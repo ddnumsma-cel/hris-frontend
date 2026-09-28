@@ -6,12 +6,22 @@ import { Chip, type ChipVariant } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastContext";
-import { BriefcaseIcon, CameraIcon, DownloadIcon, EditIcon } from "@/components/icons";
+import { BriefcaseIcon, CameraIcon, DownloadIcon, EditIcon, FileIcon, UploadIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { enrollFaceId, fetchCurrentEmployee, fetchMyAssets, fetchMyProfessionalLicense } from "@/lib/api";
+import {
+  enrollFaceId,
+  fetchCurrentEmployee,
+  fetchMyAssets,
+  fetchMyPersonnelChecklist,
+  fetchMyPhoto,
+  fetchMyProfessionalLicense,
+  removeMyPersonnelDocument,
+  updateMyPhoto,
+  uploadMyPersonnelDocument,
+} from "@/lib/api";
 import { getCpdStatus } from "@/lib/automation";
 import { formatToday } from "@/lib/format";
-import type { CpdStatus, Employee } from "@/lib/types";
+import type { CpdStatus, Employee, PersonnelDocumentChecklistItem, PersonnelDocumentStatus } from "@/lib/types";
 import { LogCpdUnitsDialog } from "@/components/shared/LogCpdUnitsDialog";
 import { EditProfileDialog } from "./EditProfileDialog";
 import { FaceScanDialog } from "./FaceScanDialog";
@@ -29,6 +39,13 @@ const cpdVariant: Record<CpdStatus, ChipVariant> = {
   Overdue: "crit",
 };
 
+const checklistVariant: Record<PersonnelDocumentStatus, ChipVariant> = {
+  Missing: "warn",
+  Submitted: "neutral",
+  Verified: "good",
+  "Not applicable": "neutral",
+};
+
 export function Employee201File() {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -41,6 +58,11 @@ export function Employee201File() {
     queryKey: ["employee", "professional-license"],
     queryFn: fetchMyProfessionalLicense,
   });
+  const checklistQuery = useQuery({
+    queryKey: ["employee", "personnel-checklist"],
+    queryFn: fetchMyPersonnelChecklist,
+  });
+  const photoQuery = useQuery({ queryKey: ["employee", "my-photo"], queryFn: fetchMyPhoto });
   const employee = employeeQuery.data;
   const license = licenseQuery.data;
   const cpd = license ? getCpdStatus(license) : null;
@@ -53,6 +75,46 @@ export function Employee201File() {
       toast.show("Face ID enrolled. You can now clock in remotely with a face scan.");
     },
   });
+
+  const uploadMutation = useMutation({
+    mutationFn: ({ id, fileName }: { id: string; fileName: string }) => uploadMyPersonnelDocument(id, fileName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee", "personnel-checklist"] });
+      toast.show("Document uploaded — HR will verify it shortly.");
+    },
+  });
+
+  const photoMutation = useMutation({
+    mutationFn: updateMyPhoto,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employee", "my-photo"] }),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: removeMyPersonnelDocument,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee", "personnel-checklist"] });
+      toast.show("Upload removed — you can submit it again.");
+    },
+  });
+
+  function readAsDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleUpload(doc: PersonnelDocumentChecklistItem, files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    uploadMutation.mutate({ id: doc.id, fileName: file.name });
+    if (doc.type === "Application Form / Resume" && file.type.startsWith("image/")) {
+      const dataUrl = await readAsDataUrl(file);
+      photoMutation.mutate(dataUrl);
+    }
+  }
 
   function download() {
     if (!employee) return;
@@ -80,9 +142,13 @@ export function Employee201File() {
         <CardHeader title="Employment record" />
         <CardBody className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 text-base font-bold text-ink-2">
-              {employee?.initials ?? <Skeleton className="h-4 w-6 rounded-full" />}
-            </span>
+            {photoQuery.data ? (
+              <img src={photoQuery.data} alt="" className="h-12 w-12 flex-none rounded-full object-cover" />
+            ) : (
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 text-base font-bold text-ink-2">
+                {employee?.initials ?? <Skeleton className="h-4 w-6 rounded-full" />}
+              </span>
+            )}
             <div>
               <div className="font-display text-base font-bold">
                 {employee?.name ?? <Skeleton className="h-4.5 w-32" />}
@@ -126,6 +192,53 @@ export function Employee201File() {
               <dd className="mt-0.5">{employee?.emergencyContact ?? "—"}</dd>
             </div>
           </div>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader title="Required documents" meta="Pre-employment & identity records" />
+        <CardBody className="flex flex-col gap-3">
+          <p className="text-xs text-ink-2">
+            HR keeps the full record on file. This is your submission status — reach out to HR if something looks
+            wrong.
+          </p>
+          {checklistQuery.isLoading && <Skeleton className="h-24 w-full" />}
+          {checklistQuery.data
+            ?.filter((doc) => doc.status !== "Not applicable")
+            .map((doc) => (
+              <div key={doc.id} className="flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5">
+                  <FileIcon className="h-4 w-4 flex-none text-ink-3" />
+                  <span className="text-[0.85rem]">{doc.type}</span>
+                </div>
+                <div className="flex flex-none items-center gap-2.5">
+                  <Chip variant={checklistVariant[doc.status]}>{doc.status}</Chip>
+                  {(doc.status === "Missing" || doc.status === "Submitted") && (
+                    <label className="flex cursor-pointer items-center gap-1 text-xs font-bold text-brand-ink">
+                      <UploadIcon className="h-3.5 w-3.5" />
+                      {doc.status === "Missing" ? "Upload" : "Replace"}
+                      <input
+                        type="file"
+                        accept={doc.type === "Application Form / Resume" ? "application/pdf,image/*" : undefined}
+                        className="hidden"
+                        disabled={uploadMutation.isPending}
+                        onChange={(e) => handleUpload(doc, e.target.files)}
+                      />
+                    </label>
+                  )}
+                  {doc.status === "Submitted" && (
+                    <button
+                      type="button"
+                      onClick={() => removeMutation.mutate(doc.id)}
+                      disabled={removeMutation.isPending}
+                      className="text-xs font-bold text-critical disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
         </CardBody>
       </Card>
 

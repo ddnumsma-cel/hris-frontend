@@ -2,6 +2,7 @@ import {
   adminOverviewStats,
   announcements,
   attendanceTrend,
+  auditLogEntries,
   certificateRequests,
   companyAssets,
   complianceCalendar,
@@ -24,8 +25,11 @@ import {
   payrollRunSteps,
   payslips,
   performanceReviewStatuses,
+  personnelDocuments,
+  personnelProfiles,
   professionalLicenses,
   setAnnouncements,
+  setAuditLogEntries,
   setCertificateRequests,
   setComplianceCalendar,
   setCompanyAssets,
@@ -36,6 +40,8 @@ import {
   setLeaveRequests,
   setOffboardingCases,
   setPerformanceReviewStatuses,
+  setPersonnelDocuments,
+  setPersonnelProfiles,
   setProfessionalLicenses,
   setTrainingRecords,
   teamRoster,
@@ -44,12 +50,15 @@ import {
 } from "./mockData";
 import type {
   Announcement,
+  AuditLogEntry,
   CaseStatus,
   CaseType,
   CertificateRequest,
   CertificateRequestStatus,
+  CivilStatus,
   ComplianceItem,
   CompanyAsset,
+  Dependent,
   Employee,
   EmployeeBenefit,
   EmployeeCase,
@@ -57,6 +66,10 @@ import type {
   LeaveType,
   OffboardingCase,
   OffboardingStage,
+  PersonnelDocument,
+  PersonnelDocumentChecklistItem,
+  PersonnelDocumentStatus,
+  PersonnelProfile,
   TrainingRecord,
   TrainingStatus,
 } from "./types";
@@ -167,6 +180,169 @@ export async function updateCpdUnits(id: string, cpdUnitsEarned: number) {
   const next = professionalLicenses.map((l) => (l.id === id ? { ...l, cpdUnitsEarned } : l));
   setProfessionalLicenses(next);
   return delay(next.find((l) => l.id === id)!);
+}
+
+// --- 201 File: HR/manager-side (full detail) ---
+
+export function fetchPersonnelProfile(employeeId: string) {
+  return delay(personnelProfiles.find((p) => p.employeeId === employeeId));
+}
+
+export function fetchAllPersonnelProfiles() {
+  return delay(personnelProfiles);
+}
+
+export function fetchMyPhoto() {
+  return delay(personnelProfiles.find((p) => p.employeeId === currentEmployee.id)?.photoDataUrl);
+}
+
+export async function updateMyPhoto(photoDataUrl: string) {
+  return updatePersonnelProfile(currentEmployee.id, { photoDataUrl });
+}
+
+export async function updatePersonnelProfile(
+  employeeId: string,
+  input: UpdatePersonnelProfileInput,
+  actor?: AuditActor,
+) {
+  const existing = personnelProfiles.find((p) => p.employeeId === employeeId);
+  const next: PersonnelProfile = { employeeId, dependents: [], ...existing, ...input };
+  setPersonnelProfiles([...personnelProfiles.filter((p) => p.employeeId !== employeeId), next]);
+  if (actor) logPersonnelAccess(employeeId, actor, "Edited", "Personal profile");
+  return delay(next);
+}
+
+export function fetchPersonnelDocuments(employeeId: string) {
+  return delay(personnelDocuments.filter((d) => d.employeeId === employeeId));
+}
+
+export function fetchAllPersonnelDocuments() {
+  return delay(personnelDocuments);
+}
+
+export interface UpdatePersonnelProfileInput {
+  photoDataUrl?: string;
+  birthDate?: string;
+  civilStatus?: CivilStatus;
+  dependents?: Dependent[];
+}
+
+export interface UpdatePersonnelDocumentInput {
+  status?: PersonnelDocumentStatus;
+  idType?: string;
+  idNumber?: string;
+  idExpiry?: string;
+  licenseNumber?: string;
+  licenseExpiry?: string;
+}
+
+export async function updatePersonnelDocument(id: string, input: UpdatePersonnelDocumentInput, actor?: AuditActor) {
+  const next = personnelDocuments.map((d) => (d.id === id ? { ...d, ...input } : d));
+  const updated = next.find((d) => d.id === id)!;
+  setPersonnelDocuments(next);
+  if (actor) {
+    logPersonnelAccess(
+      updated.employeeId,
+      actor,
+      input.status === "Verified" ? "Verified" : "Edited",
+      updated.type,
+      input.status === "Verified" ? undefined : "Details updated",
+    );
+  }
+  return delay(updated);
+}
+
+/** HR/manager reset — clears a document back to Missing, including its file
+ * and any structured fields (ID/license number, expiry). Used when a document
+ * or the details on it were wrong and need a clean re-submission. */
+export async function removePersonnelDocument(id: string, actor?: AuditActor) {
+  const target = personnelDocuments.find((d) => d.id === id);
+  const next = personnelDocuments.map((d) =>
+    d.id === id
+      ? {
+          id: d.id,
+          employeeId: d.employeeId,
+          type: d.type,
+          status: "Missing" as const,
+        }
+      : d,
+  );
+  setPersonnelDocuments(next);
+  if (actor && target) logPersonnelAccess(target.employeeId, actor, "Removed", target.type, "Reset to Missing");
+  return delay(next.find((d) => d.id === id)!);
+}
+
+// --- Audit log ---
+
+export interface AuditActor {
+  name: string;
+  role: "manager" | "admin";
+}
+
+function logPersonnelAccess(
+  employeeId: string,
+  actor: AuditActor,
+  action: AuditLogEntry["action"],
+  target: string,
+  detail?: string,
+) {
+  const entry: AuditLogEntry = {
+    id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    employeeId,
+    actorName: actor.name,
+    actorRole: actor.role,
+    action,
+    target,
+    detail,
+    timestamp: new Date().toISOString(),
+  };
+  setAuditLogEntries([entry, ...auditLogEntries]);
+}
+
+export function logPersonnelView(employeeId: string, actor: AuditActor, target = "201 File") {
+  logPersonnelAccess(employeeId, actor, "Viewed", target);
+}
+
+export function fetchAuditLog(employeeId: string) {
+  return delay(
+    auditLogEntries
+      .filter((e) => e.employeeId === employeeId)
+      .sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
+  );
+}
+
+// --- 201 File: employee-side (checklist only, no sensitive fields) ---
+
+function toChecklistItem(doc: PersonnelDocument): PersonnelDocumentChecklistItem {
+  return { id: doc.id, type: doc.type, status: doc.status };
+}
+
+export function fetchMyPersonnelChecklist() {
+  return delay(
+    personnelDocuments.filter((d) => d.employeeId === currentEmployee.id).map(toChecklistItem),
+  );
+}
+
+export async function uploadMyPersonnelDocument(id: string, fileName: string) {
+  const next = personnelDocuments.map((d) =>
+    d.id === id && d.employeeId === currentEmployee.id
+      ? { ...d, status: "Submitted" as const, fileName, uploadedOn: new Date().toISOString().slice(0, 10) }
+      : d,
+  );
+  setPersonnelDocuments(next);
+  return delay(toChecklistItem(next.find((d) => d.id === id)!));
+}
+
+/** Employee undoing their own submission — only allowed before HR verifies
+ * it (once Verified, only HR/manager can reset it, via removePersonnelDocument). */
+export async function removeMyPersonnelDocument(id: string) {
+  const next = personnelDocuments.map((d) =>
+    d.id === id && d.employeeId === currentEmployee.id && d.status === "Submitted"
+      ? { id: d.id, employeeId: d.employeeId, type: d.type, status: "Missing" as const }
+      : d,
+  );
+  setPersonnelDocuments(next);
+  return delay(toChecklistItem(next.find((d) => d.id === id)!));
 }
 
 export function fetchCertificateRequests() {

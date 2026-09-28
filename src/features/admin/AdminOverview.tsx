@@ -9,8 +9,19 @@ import { Button } from "@/components/ui/Button";
 import { MiniAvatar } from "@/components/ui/MiniAvatar";
 import { Skeleton, SkeletonRows } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastContext";
-import { BellIcon, CheckIcon, DownloadIcon, FileQuestionIcon, ShieldIcon, UserPlusIcon } from "@/components/icons";
+import {
+  BellIcon,
+  CheckIcon,
+  DownloadIcon,
+  FileQuestionIcon,
+  IdCardIcon,
+  ShieldIcon,
+  UserPlusIcon,
+  UsersIcon,
+} from "@/components/icons";
 import { AttentionPanel, type AttentionItem } from "@/components/shared/AttentionPanel";
+import { ClockInOutControl } from "@/components/shared/ClockInOutControl";
+import { PersonnelFileDialog } from "@/components/shared/PersonnelFileDialog";
 import {
   fetchAdminOverviewStats,
   fetchCertificateRequestsForReview,
@@ -18,16 +29,25 @@ import {
   fetchEmployeeDirectory,
   fetchHeadcountByOffice,
   fetchOnboardingPipeline,
+  fetchAllPersonnelDocuments,
+  fetchAllPersonnelProfiles,
   fetchPayrollCostBreakdown,
   fetchPayrollRunSteps,
   fetchProfessionalLicenses,
 } from "@/lib/api";
-import { getCpdStatus, getEffectiveCompliance, getEffectivePayrollSteps } from "@/lib/automation";
+import {
+  getAge,
+  getCpdStatus,
+  getEffectiveCompliance,
+  getEffectivePayrollSteps,
+  getExpiringPersonnelFields,
+  OPTIONAL_RETIREMENT_AGE,
+} from "@/lib/automation";
 import { downloadTextFile, toCsv } from "@/lib/download";
 import { formatPHPCompact, formatToday } from "@/lib/format";
+import { currentAdmin } from "@/lib/mockData";
 import type { Employee } from "@/lib/types";
 import { AddEmployeeDialog } from "./AddEmployeeDialog";
-import { EmployeeProfileDialog } from "./EmployeeProfileDialog";
 import { HeadcountChart } from "./HeadcountChart";
 import { PayrollCostChart } from "./PayrollCostChart";
 import { PostAnnouncementDialog } from "./PostAnnouncementDialog";
@@ -65,6 +85,14 @@ export function AdminOverview() {
   const licensesQuery = useQuery({
     queryKey: ["admin", "professional-licenses"],
     queryFn: fetchProfessionalLicenses,
+  });
+  const personnelDocumentsQuery = useQuery({
+    queryKey: ["admin", "personnel-documents"],
+    queryFn: fetchAllPersonnelDocuments,
+  });
+  const personnelProfilesQuery = useQuery({
+    queryKey: ["admin", "personnel-profiles"],
+    queryFn: fetchAllPersonnelProfiles,
   });
 
   const stats = statsQuery.data;
@@ -114,6 +142,33 @@ export function AdminOverview() {
       });
     }
   }
+  const employeeNameById = new Map((directoryQuery.data ?? []).map((e) => [e.id, e.name]));
+  for (const doc of personnelDocumentsQuery.data ?? []) {
+    for (const field of getExpiringPersonnelFields(doc)) {
+      attentionItems.push({
+        id: `personnel-${doc.id}-${field.label}`,
+        icon: <IdCardIcon className="h-4 w-4" />,
+        title: `${employeeNameById.get(doc.employeeId) ?? doc.employeeId}'s ${field.label} is ${field.status === "Overdue" ? "expired" : "expiring soon"}`,
+        detail: field.note,
+        tone: field.status === "Overdue" ? "crit" : "warn",
+        action: { label: "Review", onClick: () => navigate("/admin/directory") },
+      });
+    }
+  }
+  for (const profile of personnelProfilesQuery.data ?? []) {
+    if (!profile.birthDate) continue;
+    const age = getAge(profile.birthDate);
+    if (age !== null && age >= OPTIONAL_RETIREMENT_AGE) {
+      attentionItems.push({
+        id: `retirement-${profile.employeeId}`,
+        icon: <UsersIcon className="h-4 w-4" />,
+        title: `${employeeNameById.get(profile.employeeId) ?? profile.employeeId} is retirement-eligible`,
+        detail: `${age} years old — optional retirement age under RA 7641`,
+        tone: "info",
+        action: { label: "Review", onClick: () => navigate("/admin/directory") },
+      });
+    }
+  }
 
   function handleExportReport() {
     if (!directoryQuery.data) return;
@@ -137,6 +192,7 @@ export function AdminOverview() {
         subtitle={`All offices · Cebu HQ, Manila, Davao · ${formatToday()}`}
         actions={
           <>
+            <ClockInOutControl personName={currentAdmin.name.split(" ")[0]} />
             <Button variant="ghost" icon={<DownloadIcon className="h-3.75 w-3.75" />} onClick={handleExportReport}>
               Export report
             </Button>
@@ -347,7 +403,21 @@ export function AdminOverview() {
         onSubmitted={() => toast.show("New employee added to the directory.")}
       />
 
-      <EmployeeProfileDialog employee={profileEmployee} onClose={() => setProfileEmployee(null)} />
+      <PersonnelFileDialog
+        subject={
+          profileEmployee && {
+            id: profileEmployee.id,
+            name: profileEmployee.name,
+            initials: profileEmployee.initials,
+            position: profileEmployee.position,
+            department: profileEmployee.department,
+            office: profileEmployee.office,
+            cluster: profileEmployee.cluster,
+            status: profileEmployee.status,
+          }
+        }
+        onClose={() => setProfileEmployee(null)}
+      />
 
       <PostAnnouncementDialog
         open={announcementOpen}

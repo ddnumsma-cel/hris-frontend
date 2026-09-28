@@ -244,3 +244,80 @@ export interface ProfessionalLicense {
   cpdUnitsRequired: number;
   cycleEndDate: string;
 }
+
+// --- 201 File: pre-employment / identity records ---
+// Full detail (including the structured fields below) is HR- and
+// manager-visible only. Employees see a submission checklist of these same
+// document types, without the sensitive fields or the file itself.
+
+export type PersonnelDocumentType =
+  | "Application Form / Resume"
+  | "Birth Certificate (PSA)"
+  | "Marriage Certificate (PSA)"
+  | "Child's Birth Certificate"
+  | "Valid Government ID"
+  | "Diploma / Transcript of Records"
+  | "Professional License"
+  | "Certificate of Employment (Previous)"
+  | "NBI Clearance"
+  | "Police/Barangay Clearance"
+  | "Pre-Employment Medical Result";
+
+export type PersonnelDocumentStatus = "Missing" | "Submitted" | "Verified" | "Not applicable";
+
+export interface PersonnelDocument {
+  id: string;
+  employeeId: string;
+  type: PersonnelDocumentType;
+  status: PersonnelDocumentStatus;
+  fileName?: string;
+  uploadedOn?: string;
+  // Populated only for the document types where it applies.
+  idType?: string;
+  idNumber?: string;
+  idExpiry?: string;
+  licenseNumber?: string;
+  licenseExpiry?: string;
+}
+
+/** The employee-safe projection of a PersonnelDocument — status only, no
+ * sensitive fields and no file — used by the employee's own checklist view. */
+export interface PersonnelDocumentChecklistItem {
+  id: string;
+  type: PersonnelDocumentType;
+  status: PersonnelDocumentStatus;
+}
+
+export type CivilStatus = "Single" | "Married" | "Widowed" | "Separated";
+
+export interface Dependent {
+  id: string;
+  name: string;
+  relationship: "Spouse" | "Child";
+  birthDate?: string;
+}
+
+export interface PersonnelProfile {
+  employeeId: string;
+  photoDataUrl?: string;
+  birthDate?: string;
+  civilStatus?: CivilStatus;
+  dependents: Dependent[];
+}
+
+// --- Audit log for restricted personnel data ---
+// Every view, edit, verify, or removal touching a 201 File's sensitive
+// fields is recorded here — who did it, to whose record, and when.
+
+export type AuditAction = "Viewed" | "Edited" | "Verified" | "Removed";
+
+export interface AuditLogEntry {
+  id: string;
+  employeeId: string;
+  actorName: string;
+  actorRole: "manager" | "admin";
+  action: AuditAction;
+  target: string;
+  detail?: string;
+  timestamp: string;
+}

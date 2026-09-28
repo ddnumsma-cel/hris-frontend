@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
@@ -17,12 +17,13 @@ import {
   fetchEmployeeThirteenthMonth,
   fetchLeaveBalances,
   fetchMyLeaveRequests,
+  fetchMyPersonnelChecklist,
   fetchMyProfessionalLicense,
   fetchMyTrainingRecords,
   fetchPayslips,
 } from "@/lib/api";
 import { getCpdStatus, isTrainingOverdue } from "@/lib/automation";
-import { formatPHP, formatToday } from "@/lib/format";
+import { formatElapsed, formatPHP, formatToday } from "@/lib/format";
 import {
   BuildingIcon,
   CalendarIcon,
@@ -53,10 +54,17 @@ export function EmployeeOverview() {
   const toast = useToast();
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [certDialogOpen, setCertDialogOpen] = useState(false);
-  const [clockedIn, setClockedIn] = useState<string | null>(null);
+  const [clockedIn, setClockedIn] = useState<Date | null>(null);
   const [scanning, setScanning] = useState(false);
   const [workLocation, setWorkLocation] = useState<WorkLocation>("Onsite");
   const [faceScanOpen, setFaceScanOpen] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    if (!clockedIn) return;
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, [clockedIn]);
 
   const employeeQuery = useQuery({ queryKey: ["employee", "me"], queryFn: fetchCurrentEmployee });
   const balancesQuery = useQuery({ queryKey: ["employee", "leave-balances"], queryFn: fetchLeaveBalances });
@@ -73,6 +81,10 @@ export function EmployeeOverview() {
   const licenseQuery = useQuery({
     queryKey: ["employee", "professional-license"],
     queryFn: fetchMyProfessionalLicense,
+  });
+  const checklistQuery = useQuery({
+    queryKey: ["employee", "personnel-checklist"],
+    queryFn: fetchMyPersonnelChecklist,
   });
 
   const employee = employeeQuery.data;
@@ -138,6 +150,17 @@ export function EmployeeOverview() {
       });
     }
   }
+  const missingDocs = (checklistQuery.data ?? []).filter((d) => d.status === "Missing");
+  if (missingDocs.length > 0) {
+    attentionItems.push({
+      id: "personnel-docs-missing",
+      icon: <FileIcon className="h-4 w-4" />,
+      title: `${missingDocs.length} document${missingDocs.length === 1 ? "" : "s"} still needed for your 201 file`,
+      detail: missingDocs.map((d) => d.type).join(", "),
+      tone: "warn",
+      action: { label: "Upload", onClick: () => navigate("/employee/201-file") },
+    });
+  }
 
   function handleClockOut() {
     setScanning(true);
@@ -163,8 +186,10 @@ export function EmployeeOverview() {
     setScanning(true);
     setTimeout(() => {
       setScanning(false);
-      const time = new Date().toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
-      setClockedIn(time);
+      const clockInTime = new Date();
+      setClockedIn(clockInTime);
+      setNow(clockInTime);
+      const time = clockInTime.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
       toast.show(`Clocked in at ${time} (Onsite) — confirmed by the office biometric scanner.`);
     }, 900);
   }
@@ -176,8 +201,10 @@ export function EmployeeOverview() {
 
   function handleFaceScanSuccess() {
     setFaceScanOpen(false);
-    const time = new Date().toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
-    setClockedIn(time);
+    const clockInTime = new Date();
+    setClockedIn(clockInTime);
+    setNow(clockInTime);
+    const time = clockInTime.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
     toast.show(`Face verified. Clocked in at ${time} (Remote).`);
   }
 
@@ -216,6 +243,13 @@ export function EmployeeOverview() {
                   Remote
                 </button>
               </div>
+            )}
+            {clockedIn && (
+              <span className="flex items-center gap-1.5 rounded-lg border border-good/30 bg-good-tint px-2.5 py-1.5 text-xs font-bold text-good">
+                <ClockIcon className="h-3.5 w-3.5" />
+                Clocked in at {clockedIn.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })} ·{" "}
+                {formatElapsed(now.getTime() - clockedIn.getTime())}
+              </span>
             )}
             <Button
               variant="ghost"

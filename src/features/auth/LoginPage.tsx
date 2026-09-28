@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { CalendarIcon, FingerprintIcon, LockIcon, OrgChartIcon, PersonIcon, ShieldIcon } from "@/components/icons";
 import { demoCredentials, findCredential } from "@/lib/credentials";
 import { useAuth } from "./AuthContext";
@@ -48,6 +49,8 @@ export function LoginPage() {
 
   return (
     <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
+      <ThemeToggle className="fixed right-4 top-4 z-50 border border-border bg-surface text-ink-2 shadow-sm hover:bg-surface-2" />
+
       <div className="flex flex-col justify-center bg-brand-dark px-6 py-6 text-white sm:px-10 lg:px-16 lg:py-12">
         <div className="mx-auto flex w-full max-w-md flex-col gap-8">
           <div className="flex items-center gap-2.5">
@@ -107,7 +110,7 @@ export function LoginPage() {
                     setError(null);
                   }}
                   placeholder="Enter your username"
-                  className="w-full bg-transparent text-sm outline-none"
+                  className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink-3"
                 />
               </div>
             </div>
@@ -128,7 +131,7 @@ export function LoginPage() {
                     setError(null);
                   }}
                   placeholder="Enter your password"
-                  className="w-full bg-transparent text-sm outline-none"
+                  className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink-3"
                 />
               </div>
               {error && <p className="mt-1 text-xs font-medium text-critical">{error}</p>}

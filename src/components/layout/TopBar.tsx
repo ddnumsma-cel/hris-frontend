@@ -4,9 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useOfficeFilter, type OfficeFilter } from "@/features/admin/OfficeFilterContext";
-import { fetchAnnouncements } from "@/lib/api";
-import { getEffectiveTheme, applyTheme, type Theme } from "@/lib/theme";
-import { BellIcon, BuildingIcon, CheckIcon, ChevronDownIcon, LogOutIcon, MoonIcon, SearchIcon, SunIcon } from "../icons";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { fetchAnnouncements, fetchMyPhoto } from "@/lib/api";
+import { BellIcon, BuildingIcon, CheckIcon, ChevronDownIcon, LogOutIcon, SearchIcon } from "../icons";
 
 const roleLabels = {
   employee: "Employee",
@@ -23,20 +23,18 @@ export function TopBar() {
   const [officeMenuOpen, setOfficeMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
-  const [theme, setTheme] = useState<Theme>(() => (typeof window === "undefined" ? "light" : getEffectiveTheme()));
   const announcementsQuery = useQuery({ queryKey: ["employee", "announcements"], queryFn: fetchAnnouncements });
   const notifications = announcementsQuery.data ?? [];
+  const photoQuery = useQuery({
+    queryKey: ["employee", "my-photo"],
+    queryFn: fetchMyPhoto,
+    enabled: user?.role === "employee",
+  });
 
   function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" && searchValue.trim()) {
       navigate(`/admin/directory?q=${encodeURIComponent(searchValue.trim())}`);
     }
-  }
-
-  function toggleTheme() {
-    const next: Theme = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    applyTheme(next);
   }
 
   function handleLogout() {
@@ -121,14 +119,7 @@ export function TopBar() {
           </div>
         )}
 
-        <button
-          type="button"
-          aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-          onClick={toggleTheme}
-          className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-white/10"
-        >
-          {theme === "dark" ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
-        </button>
+        <ThemeToggle className="hover:bg-white/10" />
 
         <div className="relative">
           <button
@@ -176,9 +167,13 @@ export function TopBar() {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex h-7.5 w-7.5 items-center justify-center rounded-full bg-gold text-xs font-bold text-[#2B1C05]">
-            {user.initials}
-          </div>
+          {photoQuery.data ? (
+            <img src={photoQuery.data} alt="" className="h-7.5 w-7.5 flex-none rounded-full object-cover" />
+          ) : (
+            <div className="flex h-7.5 w-7.5 items-center justify-center rounded-full bg-gold text-xs font-bold text-[#2B1C05]">
+              {user.initials}
+            </div>
+          )}
           <div className="hidden leading-tight sm:block">
             <div className="text-sm font-bold">{user.name}</div>
             <div className="text-xs text-[#AFCBC8]">{user.title}</div>

@@ -6,9 +6,11 @@ import { StatTile } from "@/components/ui/StatTile";
 import { Button } from "@/components/ui/Button";
 import { MiniAvatar } from "@/components/ui/MiniAvatar";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { AlertTriangleIcon, CheckSquareIcon, ClockIcon, GraduationCapIcon } from "@/components/icons";
+import { AlertTriangleIcon, CheckSquareIcon, ClockIcon, GraduationCapIcon, IdCardIcon } from "@/components/icons";
 import { AttentionPanel, type AttentionItem } from "@/components/shared/AttentionPanel";
+import { ClockInOutControl } from "@/components/shared/ClockInOutControl";
 import {
+  fetchAllPersonnelDocuments,
   fetchApprovalsQueue,
   fetchAttendanceTrend,
   fetchOnLeaveToday,
@@ -17,7 +19,7 @@ import {
   fetchTeamTrainingRecords,
   fetchWorkforceAlerts,
 } from "@/lib/api";
-import { isTrainingOverdue } from "@/lib/automation";
+import { getExpiringPersonnelFields, isTrainingOverdue } from "@/lib/automation";
 import { formatToday } from "@/lib/format";
 import { currentManager, managerTeamStats } from "@/lib/mockData";
 import { ApprovalsQueue } from "./ApprovalsQueue";
@@ -38,6 +40,10 @@ export function ManagerOverview() {
   const reviewStatusesQuery = useQuery({
     queryKey: ["manager", "performance-review-statuses"],
     queryFn: fetchPerformanceReviewStatuses,
+  });
+  const personnelDocumentsQuery = useQuery({
+    queryKey: ["manager", "personnel-documents"],
+    queryFn: fetchAllPersonnelDocuments,
   });
 
   const roster = rosterQuery.data ?? [];
@@ -83,6 +89,20 @@ export function ManagerOverview() {
       });
     }
   }
+  const teamMemberIds = new Set(roster.map((m) => m.id));
+  const teamNameById = new Map(roster.map((m) => [m.id, m.name]));
+  for (const doc of personnelDocumentsQuery.data ?? []) {
+    if (!teamMemberIds.has(doc.employeeId)) continue;
+    for (const field of getExpiringPersonnelFields(doc)) {
+      attentionItems.push({
+        id: `personnel-${doc.id}-${field.label}`,
+        icon: <IdCardIcon className="h-4 w-4" />,
+        title: `${teamNameById.get(doc.employeeId)}'s ${field.label} is ${field.status === "Overdue" ? "expired" : "expiring soon"}`,
+        detail: `${field.note} — see Team roster below to open their 201 file`,
+        tone: field.status === "Overdue" ? "crit" : "warn",
+      });
+    }
+  }
 
   return (
     <>
@@ -90,12 +110,15 @@ export function ManagerOverview() {
         title="Audit & Assurance — Team Overview"
         subtitle={`${currentManager.name}, ${currentManager.title} · Cebu HQ · ${formatToday()}`}
         actions={
-          <Button
-            icon={<CheckSquareIcon className="h-3.75 w-3.75" />}
-            onClick={() => navigate("/manager/approvals")}
-          >
-            Review approvals
-          </Button>
+          <>
+            <ClockInOutControl personName={currentManager.name.split(" ")[0]} />
+            <Button
+              icon={<CheckSquareIcon className="h-3.75 w-3.75" />}
+              onClick={() => navigate("/manager/approvals")}
+            >
+              Review approvals
+            </Button>
+          </>
         }
       />
 

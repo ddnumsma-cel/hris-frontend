@@ -19,7 +19,10 @@ import {
   FileText,
   Folder,
   GraduationCap,
+  HeartPulse,
+  History,
   Home,
+  IdCard,
   Inbox,
   LayoutGrid,
   Loader2,
@@ -29,11 +32,13 @@ import {
   Moon,
   Network,
   Pencil,
+  Plus,
   Search,
   SearchX,
   Settings,
   ShieldCheck,
   Sun,
+  Upload,
   User,
   UserMinus,
   UserPlus,
@@ -190,6 +195,26 @@ export function SearchXIcon(props: IconProps) {
 
 export function FileQuestionIcon(props: IconProps) {
   return <FileQuestion strokeWidth={strokeWidth} {...props} />;
+}
+
+export function UploadIcon(props: IconProps) {
+  return <Upload strokeWidth={strokeWidth} {...props} />;
+}
+
+export function IdCardIcon(props: IconProps) {
+  return <IdCard strokeWidth={strokeWidth} {...props} />;
+}
+
+export function HeartPulseIcon(props: IconProps) {
+  return <HeartPulse strokeWidth={strokeWidth} {...props} />;
+}
+
+export function PlusIcon(props: IconProps) {
+  return <Plus strokeWidth={strokeWidth} {...props} />;
+}
+
+export function HistoryIcon(props: IconProps) {
+  return <History strokeWidth={strokeWidth} {...props} />;
 }
 
 export function LoaderIcon(props: IconProps) {

@@ -37,8 +37,8 @@ function NavGroupList({ groups, onNavigate }: { groups: SideNavGroup[]; onNaviga
                   onClick={onNavigate}
                   className={({ isActive }) =>
                     clsx(
-                      "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-ink-2",
-                      isActive && "bg-brand-tint font-bold text-brand-ink [&_svg]:text-brand-ink",
+                      "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium",
+                      isActive ? "bg-brand-tint font-bold text-brand-ink [&_svg]:text-brand-ink" : "text-ink-2",
                     )
                   }
                 >
