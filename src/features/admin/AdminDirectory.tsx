@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
@@ -11,11 +11,13 @@ import { SkeletonRows } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastContext";
 import { SearchIcon, SearchXIcon, UserPlusIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EditIcon, TrashIcon } from "@/components/icons";
 import { PersonnelFileDialog } from "@/components/shared/PersonnelFileDialog";
 import { deleteEmployee, fetchEmployeeDirectory } from "@/lib/api";
 import { formatToday } from "@/lib/format";
+import { useRowsThatFit } from "@/lib/useRowsThatFit";
 import { clusterOptions } from "@/lib/schemas";
 import type { Cluster, Employee } from "@/lib/types";
 import { AddEmployeeDialog } from "./AddEmployeeDialog";
@@ -27,6 +29,7 @@ const employeeStatusVariant: Record<Employee["status"], ChipVariant> = {
   "On leave": "neutral",
 };
 
+const PAGE_SIZE = 10;
 const iconButtonClass = "flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface-2";
 
 function RowActions({ employee, onEdit, onRemove }: { employee: Employee; onEdit: () => void; onRemove: () => void }) {
@@ -68,12 +71,15 @@ export function AdminDirectory() {
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [clusterFilter, setClusterFilter] = useState<ClusterFilter>("All clusters");
+  const [page, setPage] = useState(1);
   const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
   const [profileEmployee, setProfileEmployee] = useState<Employee | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [deletingEmployee, setDeletingEmployee] = useState<Employee | null>(null);
   const directoryQuery = useQuery({ queryKey: ["admin", "employee-directory"], queryFn: fetchEmployeeDirectory });
   const { office } = useOfficeFilter();
+  const tableCardRef = useRef<HTMLDivElement>(null);
+  const pageSize = useRowsThatFit(tableCardRef, PAGE_SIZE, directoryQuery.isLoading);
 
   const deleteMutation = useMutation({
     mutationFn: deleteEmployee,
@@ -100,10 +106,15 @@ export function AdminDirectory() {
     );
   }, [directoryQuery.data, search, office, clusterFilter]);
 
+  // Clamp so the page stays valid when filters or deletions shrink the list.
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   return (
     <>
       <ContentHead
-        title="Employee Directory"
+        title="201 Files"
         subtitle={`${office === "All offices" ? "All offices" : office} · ${formatToday()}`}
         actions={
           <Button icon={<UserPlusIcon className="h-3.75 w-3.75" />} onClick={() => setAddEmployeeOpen(true)}>
@@ -118,14 +129,20 @@ export function AdminDirectory() {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             placeholder="Search name, department, office…"
             className="w-full bg-transparent text-sm outline-none placeholder:text-ink-3"
           />
         </div>
         <select
           value={clusterFilter}
-          onChange={(e) => setClusterFilter(e.target.value as ClusterFilter)}
+          onChange={(e) => {
+            setClusterFilter(e.target.value as ClusterFilter);
+            setPage(1);
+          }}
           aria-label="Filter by cluster"
           className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
         >
@@ -158,7 +175,7 @@ export function AdminDirectory() {
                   <div className="skeleton h-14 w-full rounded-lg" />
                 </Card>
               ))}
-            {filtered.map((emp) => (
+            {pageRows.map((emp) => (
               <Card key={emp.id} className="cursor-pointer p-3.5 transition-colors hover:bg-surface-2/60"
                 onClick={() => setProfileEmployee(emp)}
               >
@@ -198,15 +215,15 @@ export function AdminDirectory() {
           </div>
 
           {/* Desktop: table (sm and up) */}
-          <Card className="hidden overflow-hidden sm:block">
-            <div className="max-h-[calc(100dvh-16.5rem)] min-h-[16rem] overflow-auto">
+          <Card ref={tableCardRef} className="hidden overflow-hidden sm:block">
+            <div className="overflow-x-auto">
               <table className="w-full border-collapse text-[0.82rem]">
                 <thead>
                   <tr>
                     {["Employee", "Department", "Cluster", "Office", "Status", ""].map((h) => (
                       <th
                         key={h}
-                        className="sticky top-0 z-10 border-b border-border bg-surface px-4 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wider text-ink-3"
+                        className="border-b border-border bg-surface px-4 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wider text-ink-3"
                       >
                         {h}
                       </th>
@@ -215,7 +232,7 @@ export function AdminDirectory() {
                 </thead>
                 <tbody>
                   {directoryQuery.isLoading && <SkeletonRows columns={6} />}
-                  {filtered.map((emp) => (
+                  {pageRows.map((emp) => (
                     <tr key={emp.id}
                       tabIndex={0}
                       onClick={() => setProfileEmployee(emp)}
@@ -257,6 +274,16 @@ export function AdminDirectory() {
               </table>
             </div>
           </Card>
+
+          {filtered.length > pageSize && (
+            <Pagination
+              page={currentPage}
+              pageCount={pageCount}
+              pageSize={pageSize}
+              total={filtered.length}
+              onPageChange={setPage}
+            />
+          )}
         </>
       )}
 
@@ -283,7 +310,7 @@ export function AdminDirectory() {
           }
         }
         onClose={() => setProfileEmployee(null)}
-        documentsHref={(id) => `/admin/201-files?employee=${id}`}
+        documentsHref={(id) => `/admin/directory?employee=${id}`}
       />
 
       <EditEmployeeDialog

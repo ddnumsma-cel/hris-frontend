@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
@@ -23,6 +23,19 @@ export function TopBar() {
   const [officeMenuOpen, setOfficeMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const headerRef = useRef<HTMLElement>(null);
+
+  // Publish the bar's real height so the sticky sidebar sits right under it,
+  // however tall the bar ends up (font, wrapping, zoom).
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const observer = new ResizeObserver(() => {
+      document.documentElement.style.setProperty("--topbar-h", `${header.offsetHeight}px`);
+    });
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [user]);
   const announcementsQuery = useQuery({ queryKey: ["employee", "announcements"], queryFn: fetchAnnouncements });
   const notifications = announcementsQuery.data ?? [];
   const photoQuery = useQuery({
@@ -45,7 +58,7 @@ export function TopBar() {
   if (!user) return null;
 
   return (
-    <header className="sticky top-0 z-40 flex flex-wrap items-center gap-3.5 border-b border-white/10 bg-brand-dark px-4.5 py-2.5 text-[#F2FAF9]">
+    <header ref={headerRef} className="sticky top-0 z-40 flex flex-wrap items-center gap-3.5 border-b border-white/10 bg-brand-dark px-4.5 py-2.5 text-[#F2FAF9]">
       <div className="flex items-center gap-2.5 whitespace-nowrap font-display text-base font-extrabold tracking-tight">
         <img src="/brand/msma-mark.png" alt="MSMA" className="h-7.5 w-auto" />
         MSMA

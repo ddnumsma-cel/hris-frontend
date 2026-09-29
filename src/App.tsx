@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { TopBar } from "@/components/layout/TopBar";
 import { ProtectedRoute, RootRedirect } from "@/components/layout/ProtectedRoute";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
@@ -15,6 +15,9 @@ const AssistantWidget = lazy(() =>
   import("@/features/assistant/AssistantWidget").then((m) => ({ default: m.AssistantWidget })),
 );
 
+const ManagerReportPage = lazy(() =>
+  import("@/features/manager/reports/ManagerReportPage").then((m) => ({ default: m.ManagerReportPage })),
+);
 const AdminLayout = lazy(() => import("@/features/admin/AdminLayout").then((m) => ({ default: m.AdminLayout })));
 const AdminOverview = lazy(() => import("@/features/admin/AdminOverview").then((m) => ({ default: m.AdminOverview })));
 const AdminDirectory = lazy(() => import("@/features/admin/AdminDirectory").then((m) => ({ default: m.AdminDirectory })));
@@ -148,7 +151,9 @@ function App() {
               <Route path="performance" element={<ManagerPerformance />} />
               <Route path="trainings" element={<ManagerTrainings />} />
               <Route path="cases" element={<ManagerCases />} />
-            <Route path="payroll" element={<ManagerPayroll />} />
+              <Route path="payroll" element={<ManagerPayroll />} />
+              <Route path="reports" element={<Navigate to="/manager/reports/overtime" replace />} />
+              <Route path="reports/:reportId" element={<ManagerReportPage />} />
               <Route path="settings" element={<ManagerSettings />} />
             </Route>
 
@@ -161,8 +166,8 @@ function App() {
               }
             >
               <Route index element={<AdminOverview />} />
-              <Route path="directory" element={<AdminDirectory />} />
-              <Route path="201-files" element={<AdminPersonnelFiles />} />
+              <Route path="directory" element={<AdminPersonnelFiles />} />
+              <Route path="201-files" element={<AdminDirectory />} />
               <Route path="org-chart" element={<AdminOrgChart />} />
               <Route path="onboarding" element={<AdminOnboardingPage />} />
               <Route path="offboarding" element={<AdminOffboarding />} />

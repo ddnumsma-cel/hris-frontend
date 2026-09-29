@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Roboto", system-ui, sans-serif;
-  --font-body: "Lato", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-num: "IBM Plex Mono", ui-monospace, monospace;
+  --font-display: "Poppins", system-ui, sans-serif;
+  --font-body: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-num: "Poppins", system-ui, sans-serif;
 
   --color-bg: #f4f6f2;
   --color-surface: #ffffff;
@@ -138,6 +138,11 @@
 
 * {
   box-sizing: border-box;
+}
+
+:root {
+  /* Overwritten with the top bar's measured height (TopBar.tsx); this is the fallback. */
+  --topbar-h: 3.625rem;
 }
 
 body {
@@ -320,4 +325,12 @@ body {
     auto,
     24px 24px;
   background-repeat: no-repeat, no-repeat, repeat;
+}
+
+/* Hide the scrollbar but keep scrolling as a fallback on very short windows. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
