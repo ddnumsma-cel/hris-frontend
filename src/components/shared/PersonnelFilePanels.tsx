@@ -53,7 +53,8 @@ const tableHeadClass =
   "border-b border-border bg-surface-2/50 px-3.5 py-2 text-xs font-medium tracking-[0.01em] text-ink-3";
 
 /** Completion summary plus the verify/edit/remove list of an employee's 201 documents. */
-export function PersonnelDocumentsPanel({ employeeId }: { employeeId: string }) {
+/** `readOnly` hides verify/edit/remove — for views where another page owns those actions. */
+export function PersonnelDocumentsPanel({ employeeId, readOnly = false }: { employeeId: string; readOnly?: boolean }) {
   const queryClient = useQueryClient();
   const actor = useAuditActor();
   const [editingDoc, setEditingDoc] = useState<PersonnelDocument | null>(null);
@@ -110,10 +111,16 @@ export function PersonnelDocumentsPanel({ employeeId }: { employeeId: string }) 
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border">
-        <div className={clsx(tableHeadClass, "hidden grid-cols-[1fr_8.5rem_7rem] gap-3 sm:grid")}>
+        <div
+          className={clsx(
+            tableHeadClass,
+            "hidden gap-3 sm:grid",
+            readOnly ? "grid-cols-[1fr_8.5rem]" : "grid-cols-[1fr_8.5rem_7rem]",
+          )}
+        >
           <span>Pre-employment & identity documents</span>
           <span>Status</span>
-          <span className="text-right">Actions</span>
+          {!readOnly && <span className="text-right">Actions</span>}
         </div>
         <ul className="divide-y divide-border">
           {documentsQuery.isLoading &&
@@ -126,6 +133,7 @@ export function PersonnelDocumentsPanel({ employeeId }: { employeeId: string }) 
             <DocumentRow
               key={doc.id}
               doc={doc}
+              readOnly={readOnly}
               verifying={verifyMutation.isPending && verifyMutation.variables === doc.id}
               onVerify={() => verifyMutation.mutate(doc.id)}
               onEdit={() => setEditingDoc(doc)}
@@ -206,12 +214,14 @@ const docIconClasses: Record<PersonnelDocumentStatus, string> = {
 
 function DocumentRow({
   doc,
+  readOnly,
   verifying,
   onVerify,
   onEdit,
   onRemove,
 }: {
   doc: PersonnelDocument;
+  readOnly: boolean;
   verifying: boolean;
   onVerify: () => void;
   onEdit: () => void;
@@ -244,7 +254,12 @@ function DocumentRow({
   }
 
   return (
-    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 px-3.5 py-3 sm:grid-cols-[1fr_8.5rem_7rem]">
+    <li
+      className={clsx(
+        "grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 px-3.5 py-3",
+        readOnly ? "sm:grid-cols-[1fr_8.5rem]" : "sm:grid-cols-[1fr_8.5rem_7rem]",
+      )}
+    >
       <div className="flex min-w-0 items-center gap-3">
         <span
           className={clsx("flex h-8 w-8 flex-none items-center justify-center rounded-lg", docIconClasses[doc.status])}
@@ -259,40 +274,42 @@ function DocumentRow({
       <div className="justify-self-end sm:justify-self-start">
         <Chip variant={docStatusVariant[doc.status]}>{doc.status}</Chip>
       </div>
-      <div className="col-span-2 flex items-center justify-end gap-0.5 sm:col-span-1">
-        {doc.status === "Submitted" && (
+      {!readOnly && (
+        <div className="col-span-2 flex items-center justify-end gap-0.5 sm:col-span-1">
+          {doc.status === "Submitted" && (
+            <button
+              type="button"
+              onClick={onVerify}
+              disabled={verifying}
+              aria-label={`Verify ${doc.type}`}
+              title="Mark as verified"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-good hover:bg-good-tint disabled:opacity-50"
+            >
+              <CheckCircleIcon className="h-4 w-4" />
+            </button>
+          )}
           <button
             type="button"
-            onClick={onVerify}
-            disabled={verifying}
-            aria-label={`Verify ${doc.type}`}
-            title="Mark as verified"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-good hover:bg-good-tint disabled:opacity-50"
+            onClick={onEdit}
+            aria-label={`Edit ${doc.type}`}
+            title="Edit"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-2 hover:bg-surface-2 hover:text-ink"
           >
-            <CheckCircleIcon className="h-4 w-4" />
+            <EditIcon className="h-3.5 w-3.5" />
           </button>
-        )}
-        <button
-          type="button"
-          onClick={onEdit}
-          aria-label={`Edit ${doc.type}`}
-          title="Edit"
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-2 hover:bg-surface-2 hover:text-ink"
-        >
-          <EditIcon className="h-3.5 w-3.5" />
-        </button>
-        {hasFile && (
-          <button
-            type="button"
-            onClick={onRemove}
-            aria-label={`Remove ${doc.type}`}
-            title="Remove"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-critical hover:bg-critical-tint"
-          >
-            <TrashIcon className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
+          {hasFile && (
+            <button
+              type="button"
+              onClick={onRemove}
+              aria-label={`Remove ${doc.type}`}
+              title="Remove"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-critical hover:bg-critical-tint"
+            >
+              <TrashIcon className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
     </li>
   );
 }

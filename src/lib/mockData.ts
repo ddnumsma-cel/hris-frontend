@@ -176,20 +176,20 @@ export function setComplianceCalendar(next: ComplianceItem[]) {
 }
 
 export let employeeDirectory: Employee[] = [
-  { id: "MSMA-00482", name: "Angela Dela Cruz", initials: "AD", position: "Senior Tax Associate", department: "Tax Advisory", office: "Cebu HQ", cluster: "RPM", status: "Active", reportsToId: "admin" },
-  { id: "MSMA-00317", name: "Rafael Ortiz", initials: "RO", position: "Team Lead", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "Active", reportsToId: "admin" },
-  { id: "MSMA-00560", name: "Bea Santos", initials: "BS", position: "Audit Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "On leave", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00611", name: "Miguel Reyes", initials: "MR", position: "Legal Associate", department: "Corporate Legal", office: "Manila", cluster: "ADS", status: "Active", reportsToId: "admin" },
-  { id: "MSMA-00098", name: "Lourdes Vitug", initials: "LV", position: "Bookkeeper", department: "Bookkeeping", office: "Davao", cluster: "RPM", status: "Active", reportsToId: "admin" },
-  { id: "MSMA-00203", name: "Carla Uy", initials: "CU", position: "Senior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "Active", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00276", name: "Jon Ababa", initials: "JA", position: "Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "ADS", status: "Active", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00341", name: "Dennis Lim", initials: "DL", position: "Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "RPM", status: "On leave", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00398", name: "Grace Tan", initials: "GT", position: "Audit Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "On leave", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00623", name: "Paolo Cruz", initials: "PC", position: "Tax Associate", department: "Tax Advisory", office: "Cebu HQ", cluster: "ADS", status: "Active", reportsToId: "MSMA-00482" },
-  { id: "MSMA-00701", name: "Ramon Bautista", initials: "RB", position: "Bookkeeper", department: "Bookkeeping", office: "Davao", cluster: "RPM", status: "Active", reportsToId: "admin" },
-  { id: "MSMA-00733", name: "Michelle Aquino", initials: "MA", position: "Paralegal", department: "Corporate Legal", office: "Manila", cluster: "ADS", status: "Active", reportsToId: "admin" },
-  { id: "MSMA-00812", name: "Joel Nierves", initials: "JN", position: "IT Support Associate", department: "Admin & Support", office: "Cebu HQ", cluster: "Admin & Support", status: "Active", reportsToId: "admin" },
-  { id: "MSMA-00845", name: "Ferdz Salazar", initials: "FS", position: "Liaison Officer", department: "Admin & Support", office: "Cebu HQ", cluster: "Admin & Support", status: "Active", reportsToId: "admin" },
+  { id: "MSMA-00482", name: "Angela Dela Cruz", initials: "AD", position: "Senior Tax Associate", department: "Tax Advisory", office: "Cebu HQ", cluster: "RPM", status: "Active", email: "angela.delacruz@msma.ph", phone: "+63 917 123 4567", reportsToId: "admin" },
+  { id: "MSMA-00317", name: "Rafael Ortiz", initials: "RO", position: "Team Lead", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "rafael.ortiz@msma.ph", phone: "+63 917 555 0142", reportsToId: "admin" },
+  { id: "MSMA-00560", name: "Bea Santos", initials: "BS", position: "Audit Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "On leave", email: "bea.santos@msma.ph", phone: "+63 921 660 3720", reportsToId: "MSMA-00317" },
+  { id: "MSMA-00611", name: "Miguel Reyes", initials: "MR", position: "Legal Associate", department: "Corporate Legal", office: "Manila", cluster: "ADS", status: "Active", email: "miguel.reyes@msma.ph", phone: "+63 921 711 5607", reportsToId: "admin" },
+  { id: "MSMA-00098", name: "Lourdes Vitug", initials: "LV", position: "Bookkeeper", department: "Bookkeeping", office: "Davao", cluster: "RPM", status: "Active", email: "lourdes.vitug@msma.ph", phone: "+63 921 198 4626", reportsToId: "admin" },
+  { id: "MSMA-00203", name: "Carla Uy", initials: "CU", position: "Senior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "carla.uy@msma.ph", phone: "+63 921 303 8511", reportsToId: "MSMA-00317" },
+  { id: "MSMA-00276", name: "Jon Ababa", initials: "JA", position: "Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "jon.ababa@msma.ph", phone: "+63 917 376 2212", reportsToId: "MSMA-00317" },
+  { id: "MSMA-00341", name: "Dennis Lim", initials: "DL", position: "Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "RPM", status: "On leave", email: "dennis.lim@msma.ph", phone: "+63 921 441 4617", reportsToId: "MSMA-00317" },
+  { id: "MSMA-00398", name: "Grace Tan", initials: "GT", position: "Audit Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "On leave", email: "grace.tan@msma.ph", phone: "+63 921 498 6726", reportsToId: "MSMA-00317" },
+  { id: "MSMA-00623", name: "Paolo Cruz", initials: "PC", position: "Tax Associate", department: "Tax Advisory", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "paolo.cruz@msma.ph", phone: "+63 921 723 6051", reportsToId: "MSMA-00482" },
+  { id: "MSMA-00701", name: "Ramon Bautista", initials: "RB", position: "Bookkeeper", department: "Bookkeeping", office: "Davao", cluster: "RPM", status: "Active", email: "ramon.bautista@msma.ph", phone: "+63 921 801 8937", reportsToId: "admin" },
+  { id: "MSMA-00733", name: "Michelle Aquino", initials: "MA", position: "Paralegal", department: "Corporate Legal", office: "Manila", cluster: "ADS", status: "Active", email: "michelle.aquino@msma.ph", phone: "+63 919 833 1121", reportsToId: "admin" },
+  { id: "MSMA-00812", name: "Joel Nierves", initials: "JN", position: "IT Support Associate", department: "Admin & Support", office: "Cebu HQ", cluster: "Admin & Support", status: "Active", email: "joel.nierves@msma.ph", phone: "+63 921 912 4044", reportsToId: "admin" },
+  { id: "MSMA-00845", name: "Ferdz Salazar", initials: "FS", position: "Liaison Officer", department: "Admin & Support", office: "Cebu HQ", cluster: "Admin & Support", status: "Active", email: "ferdz.salazar@msma.ph", phone: "+63 921 945 5265", reportsToId: "admin" },
 ];
 
 export function setEmployeeDirectory(next: Employee[]) {

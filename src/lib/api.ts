@@ -89,6 +89,7 @@ import type {
   TrainingStatus,
 } from "./types";
 import { getCredential, getCredentials, setCredential } from "./credentials";
+import { buildEmployeeFileRecords } from "./employmentRecords";
 import { teamReports, type ReportId } from "./reportsData";
 
 /**
@@ -618,27 +619,6 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Employ
   return delay(employee);
 }
 
-export interface UpdateEmployeeInput {
-  name: string;
-  position: string;
-  department: string;
-  office: Employee["office"];
-  cluster: Employee["cluster"];
-  status: Employee["status"];
-}
-
-export async function updateEmployee(id: string, input: UpdateEmployeeInput): Promise<Employee> {
-  const existing = employeeDirectory.find((e) => e.id === id);
-  const updated: Employee = { ...existing!, ...input, initials: initialsFor(input.name) };
-  setEmployeeDirectory(employeeDirectory.map((e) => (e.id === id ? updated : e)));
-  return delay(updated);
-}
-
-export async function deleteEmployee(id: string): Promise<void> {
-  setEmployeeDirectory(employeeDirectory.filter((e) => e.id !== id));
-  return delay(undefined);
-}
-
 export interface RegisterEmployeeInput {
   name: string;
   position: string;
@@ -1001,4 +981,21 @@ export async function releaseApprovedPayroll(): Promise<number> {
 
 export function fetchTeamReport(id: ReportId) {
   return delay(teamReports[id]);
+}
+
+// ---- 201 File: government numbers, employment, during employment, separation ----
+
+export function fetchEmployeeFileRecords(employeeId: string) {
+  const employee = employeeDirectory.find((e) => e.id === employeeId);
+  return delay(employee ? buildEmployeeFileRecords(employee) : null);
+}
+
+/** Date hired for every directory entry, keyed by employee ID — for the directory cards. */
+export function fetchEmployeeHireDates() {
+  return delay(
+    Object.fromEntries(employeeDirectory.map((e) => [e.id, buildEmployeeFileRecords(e).employment.dateHired])) as Record<
+      string,
+      string
+    >,
+  );
 }

@@ -20,7 +20,6 @@ const ManagerReportPage = lazy(() =>
 );
 const AdminLayout = lazy(() => import("@/features/admin/AdminLayout").then((m) => ({ default: m.AdminLayout })));
 const AdminOverview = lazy(() => import("@/features/admin/AdminOverview").then((m) => ({ default: m.AdminOverview })));
-const AdminDirectory = lazy(() => import("@/features/admin/AdminDirectory").then((m) => ({ default: m.AdminDirectory })));
 const AdminOnboardingPage = lazy(() =>
   import("@/features/admin/AdminOnboardingPage").then((m) => ({ default: m.AdminOnboardingPage })),
 );
@@ -167,7 +166,6 @@ function App() {
             >
               <Route index element={<AdminOverview />} />
               <Route path="directory" element={<AdminPersonnelFiles />} />
-              <Route path="201-files" element={<AdminDirectory />} />
               <Route path="org-chart" element={<AdminOrgChart />} />
               <Route path="onboarding" element={<AdminOnboardingPage />} />
               <Route path="offboarding" element={<AdminOffboarding />} />
