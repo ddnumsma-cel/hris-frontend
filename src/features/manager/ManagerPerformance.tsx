@@ -40,7 +40,7 @@ export function ManagerPerformance() {
         <CardBody>
           <div className="mb-1.5 flex justify-between text-sm">
             <span className="text-ink-2">Progress</span>
-            <span className="font-num font-bold">{reviewProgressPercent}%</span>
+            <span className="font-num font-semibold">{reviewProgressPercent}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-surface-2">
             <span

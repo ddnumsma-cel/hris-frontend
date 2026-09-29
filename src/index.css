@@ -1,9 +1,11 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Poppins", system-ui, sans-serif;
-  --font-body: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-num: "Poppins", system-ui, sans-serif;
+  /* Lexend everywhere; --font-sans makes it Tailwind's default "sans" too. */
+  --font-sans: "Lexend", "Avenir Next", "Avenir", "Century Gothic", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-sans);
+  --font-body: var(--font-sans);
+  --font-num: var(--font-sans);
 
   --color-bg: #f4f6f2;
   --color-surface: #ffffff;
@@ -150,12 +152,30 @@ body {
   background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-body);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   color-scheme: light dark;
 }
 
 /* Tailwind v4's preflight no longer gives buttons a pointer cursor; restore it
    app-wide for every clickable control. */
 @layer base {
+  /* Form controls don't inherit the page font by default. */
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    letter-spacing: inherit;
+  }
+
+  /* Digits in tables line up column to column (amounts, dates, IDs, counts). */
+  td,
+  th {
+    font-variant-numeric: tabular-nums;
+  }
+
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
   [role="tab"],
@@ -306,25 +326,409 @@ body {
     0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
-/* Ambient app background: soft role-tinted glows + a faint dot texture.
-   Fixed to the viewport (not the page), sits behind all normal-flow content
-   via z-index, and re-tints automatically per role/theme since it only
-   references existing CSS variables. */
+/* Ambient app background: a pale base gradient with soft blue and lime glows.
+   Fixed to the viewport (not the page) and sits behind all normal-flow
+   content via z-index; the frosted sidebar blurs whatever is behind it. */
 .app-background {
+  --app-bg-base: linear-gradient(160deg, #eef1fa 0%, #f4f5f9 55%, #eef3dd 100%);
+  --app-bg-glow-blue: rgba(47, 99, 214, 0.14);
+  --app-bg-glow-lime: rgba(200, 230, 34, 0.22);
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
   background-color: var(--color-bg);
   background-image:
-    radial-gradient(680px circle at 6% 8%, color-mix(in srgb, var(--color-brand) 14%, transparent), transparent 60%),
-    radial-gradient(720px circle at 96% 94%, color-mix(in srgb, var(--color-gold) 12%, transparent), transparent 60%),
-    radial-gradient(circle, color-mix(in srgb, var(--color-ink-3) 14%, transparent) 1px, transparent 1px);
-  background-size:
-    auto,
-    auto,
-    24px 24px;
-  background-repeat: no-repeat, no-repeat, repeat;
+    radial-gradient(680px circle at 6% 8%, var(--app-bg-glow-blue), transparent 60%),
+    radial-gradient(720px circle at 96% 94%, var(--app-bg-glow-lime), transparent 60%),
+    var(--app-bg-base);
+  background-repeat: no-repeat;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .app-background {
+    --app-bg-base: linear-gradient(160deg, #0b1220 0%, #161d33 100%);
+    --app-bg-glow-blue: rgba(47, 99, 214, 0.22);
+    --app-bg-glow-lime: rgba(200, 230, 34, 0.06);
+  }
+}
+
+:root[data-theme="dark"] .app-background {
+  --app-bg-base: linear-gradient(160deg, #0b1220 0%, #161d33 100%);
+  --app-bg-glow-blue: rgba(47, 99, 214, 0.22);
+  --app-bg-glow-lime: rgba(200, 230, 34, 0.06);
+}
+
+/* Sidebar and top bar: frosted-glass chrome with its own palette (Midnight
+   Navy + Signal Lime), independent of the per-role accent colors used
+   elsewhere. Layered as components so Tailwind utilities on the same element
+   still win. */
+@layer components {
+  .sidebar,
+  .topbar {
+    --sb-bg: rgba(255, 255, 255, 0.55);
+    --sb-text: #15182a;
+    --sb-muted: #5a6075;
+    --sb-border: rgba(21, 24, 42, 0.1);
+    --sb-hover: rgba(2, 24, 80, 0.05);
+    --sb-field: rgba(255, 255, 255, 0.6);
+    --sb-active-bg: linear-gradient(135deg, #021850 0%, #0a2670 50%, #1f3f94 100%);
+    --sb-active-glow: rgba(2, 24, 80, 0.28);
+    --sb-lime: #c8e622;
+    --sb-mark: #021850;
+    --sb-avatar-bg: #021850;
+    --sb-dot-ring: #ffffff;
+    --sb-focus: #2f63d6;
+
+    background: var(--sb-bg);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    color: var(--sb-text);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .sidebar,
+    :root:not([data-theme="light"]) .topbar {
+      --sb-bg: rgba(11, 18, 32, 0.5);
+      --sb-text: #e9ecf5;
+      --sb-muted: #8b93ab;
+      --sb-border: rgba(255, 255, 255, 0.08);
+      --sb-hover: rgba(255, 255, 255, 0.05);
+      --sb-field: rgba(255, 255, 255, 0.04);
+      --sb-active-bg: linear-gradient(135deg, #1f2f66 0%, #243c85 50%, #2f63d6 100%);
+      --sb-active-glow: rgba(47, 99, 214, 0.3);
+      --sb-mark: #c8e622;
+      --sb-avatar-bg: #1f2f66;
+      --sb-dot-ring: #0b1220;
+    }
+  }
+
+  :root[data-theme="dark"] .sidebar,
+  :root[data-theme="dark"] .topbar {
+    --sb-bg: rgba(11, 18, 32, 0.5);
+    --sb-text: #e9ecf5;
+    --sb-muted: #8b93ab;
+    --sb-border: rgba(255, 255, 255, 0.08);
+    --sb-hover: rgba(255, 255, 255, 0.05);
+    --sb-field: rgba(255, 255, 255, 0.04);
+    --sb-active-bg: linear-gradient(135deg, #1f2f66 0%, #243c85 50%, #2f63d6 100%);
+    --sb-active-glow: rgba(47, 99, 214, 0.3);
+    --sb-mark: #c8e622;
+    --sb-avatar-bg: #1f2f66;
+    --sb-dot-ring: #0b1220;
+  }
+
+  .sidebar-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 16px 12px 12px;
+  }
+
+  .sidebar-section-label {
+    margin-bottom: 6px;
+    padding: 0 8px;
+    color: var(--sb-muted);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+
+  .sidebar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .sidebar-item {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 10px;
+    border-radius: 8px;
+    padding: 7px 8px;
+    color: var(--sb-text);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 20px;
+    text-align: left;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .sidebar-item:hover {
+    background-color: var(--sb-hover);
+  }
+
+  .sidebar-icon {
+    display: flex;
+    flex: none;
+    color: var(--sb-muted);
+    transition: color 0.2s ease;
+  }
+
+  .sidebar-icon > svg {
+    width: 17px;
+    height: 17px;
+    stroke-width: 1.8;
+  }
+
+  /* A collapsible parent whose sub-page is open. */
+  .sidebar-item[data-child-active="true"] {
+    font-weight: 600;
+  }
+
+  .sidebar-item[data-child-active="true"] .sidebar-icon {
+    color: var(--sb-text);
+  }
+
+  .sidebar-expand {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    margin-left: auto;
+    color: var(--sb-muted);
+    transition: transform 0.2s ease;
+  }
+
+  .sidebar-item[aria-expanded="true"] .sidebar-expand {
+    transform: rotate(180deg);
+  }
+
+  .sidebar-sublist {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 2px 0 4px 16px;
+    border-left: 1px solid var(--sb-border);
+    padding-left: 8px;
+  }
+
+  .sidebar-subitem {
+    color: var(--sb-muted);
+  }
+
+  .sidebar-subitem:hover {
+    color: var(--sb-text);
+  }
+
+  .sidebar-item[aria-current="page"] {
+    background: var(--sb-active-bg);
+    box-shadow:
+      0 6px 16px -6px var(--sb-active-glow),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    font-weight: 600;
+  }
+
+  .sidebar-item[aria-current="page"] .sidebar-icon {
+    color: var(--sb-lime);
+  }
+
+  .sidebar-active-chevron {
+    flex: none;
+    margin-left: auto;
+    margin-right: 2px;
+    color: var(--sb-lime);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .sidebar-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    color: var(--sb-muted);
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
+  }
+
+  .sidebar-button:hover {
+    background-color: var(--sb-hover);
+    color: var(--sb-text);
+  }
+
+  .sidebar :focus-visible,
+  .topbar :focus-visible {
+    outline: 2px solid var(--sb-focus);
+    outline-offset: 2px;
+  }
+
+  /* Top bar: a soft blur that fades out below the bar instead of ending at a
+     hard edge. The frosted layer lives on ::before (behind the bar's contents,
+     extending past its bottom) and is masked from solid to transparent, so
+     the controls themselves stay crisp. */
+  .topbar {
+    --tb-bg: rgba(255, 255, 255, 0.3);
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .topbar::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 -28px;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(to bottom, var(--tb-bg) 0%, var(--tb-bg) 50%, transparent 100%);
+    -webkit-backdrop-filter: blur(32px) saturate(120%);
+    backdrop-filter: blur(32px) saturate(120%);
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .topbar {
+      --tb-bg: rgba(11, 18, 32, 0.32);
+    }
+  }
+
+  :root[data-theme="dark"] .topbar {
+    --tb-bg: rgba(11, 18, 32, 0.32);
+  }
+
+  /* HeyHR wordmark: the SVG switches colors on prefers-color-scheme, which for
+     an <img> follows the element's color-scheme. Setting it here makes the
+     logo follow the app's theme (OS preference or the manual toggle). */
+  .brand-wordmark {
+    display: block;
+    flex: none;
+    width: auto;
+    height: 34px;
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .brand-wordmark {
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme="dark"] .brand-wordmark {
+    color-scheme: dark;
+  }
+
+  /* Workspace name shown as a quiet subtitle under the wordmark. */
+  .brand-caption {
+    color: var(--sb-muted);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    line-height: 16px;
+  }
+
+  /* Workspace pill, office switcher and search box. */
+  .topbar-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--sb-border);
+    border-radius: 10px;
+    background: var(--sb-field);
+    padding: 6px 10px;
+    color: var(--sb-text);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  button.topbar-field:hover {
+    background-color: var(--sb-hover);
+  }
+
+  .topbar-field svg {
+    flex: none;
+    color: var(--sb-muted);
+    stroke-width: 1.8;
+  }
+
+  .topbar-field input::placeholder {
+    color: var(--sb-muted);
+  }
+
+  /* The search input suppresses its own outline, so the box shows it instead. */
+  .topbar-field:has(input:focus-visible) {
+    outline: 2px solid var(--sb-focus);
+    outline-offset: 2px;
+  }
+
+  .topbar-icon-button {
+    color: var(--sb-muted);
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
+  }
+
+  .topbar-icon-button:hover {
+    background-color: var(--sb-hover);
+    color: var(--sb-text);
+  }
+
+  .topbar-icon-button svg {
+    stroke-width: 1.8;
+  }
+
+  .topbar-dot {
+    border: 1.5px solid var(--sb-dot-ring);
+    background: var(--sb-mark);
+  }
+
+  .topbar-avatar {
+    background: var(--sb-avatar-bg);
+    color: var(--sb-lime);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  .topbar-name {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .topbar-secondary {
+    color: var(--sb-muted);
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar-item,
+    .sidebar-icon,
+    .sidebar-expand,
+    .sidebar-button,
+    .topbar-field,
+    .topbar-icon-button {
+      transition: none;
+    }
+  }
+}
+
+/* With the desktop sidebar on screen (sm and up), it runs the full page height
+   and carries the brand, so the top bar starts beside it and drops its copy.
+   Unlayered on purpose, so it overrides the utilities on those elements. */
+@media (width >= 40rem) {
+  body:has(.sidebar-desktop) .topbar {
+    margin-left: 15rem;
+  }
+
+  body:has(.sidebar-desktop) .topbar-sidebar-dup {
+    display: none;
+  }
 }
 
 /* Hide the scrollbar but keep scrolling as a fallback on very short windows. */
@@ -333,4 +737,423 @@ body {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* ------------------------------------------------------------------------
+   Overview dashboards (Employee, Partner, HR). Everything is scoped to .dash
+   so the shared components used here (Card, StatTile, Chip, tables...) pick
+   up the dashboard palette and card style only on these three pages.
+   Unlayered on purpose: these must win over the utilities on those components.
+   ------------------------------------------------------------------------ */
+.dash {
+  --color-bg: #f4f5f9;
+  --color-surface: #ffffff;
+  --color-surface-2: #eef0f5;
+  --color-border: #dfe2ea;
+  --color-ink: #15182a;
+  --color-ink-2: #5a6075;
+  --color-ink-3: #5a6075;
+
+  --color-brand: #021850;
+  --color-brand-ink: #021850;
+  --color-brand-tint: color-mix(in srgb, #021850 8%, transparent);
+  --color-gold: #9a6412;
+  --color-gold-tint: color-mix(in srgb, #9a6412 12%, transparent);
+
+  --color-good: #177a52;
+  --color-good-tint: color-mix(in srgb, #177a52 12%, transparent);
+  --color-warning: #9a6412;
+  --color-warning-tint: color-mix(in srgb, #9a6412 12%, transparent);
+  --color-critical: #c83720;
+  --color-critical-tint: color-mix(in srgb, #c83720 11%, transparent);
+
+  /* Chart series: navy, info blue, warning amber, then lime. */
+  --color-cat-1: #021850;
+  --color-cat-2: #2f63d6;
+  --color-cat-3: #9a6412;
+  --color-cat-4: #c8e622;
+
+  --dash-accent: #c8e622;
+  --dash-bar-idle: #eef0f5;
+  --dash-divider: color-mix(in srgb, #dfe2ea 70%, transparent);
+  --dash-on-primary: #ffffff;
+  --dash-focus: #2f63d6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .dash {
+    --color-bg: #161d33;
+    --color-surface: #1b2340;
+    --color-surface-2: rgba(255, 255, 255, 0.06);
+    --color-border: rgba(255, 255, 255, 0.08);
+    --color-ink: #e9ecf5;
+    --color-ink-2: #8b93ab;
+    --color-ink-3: #8b93ab;
+    --color-brand: #c8e622;
+    --color-brand-ink: #c8e622;
+    --color-brand-tint: #1f2f66;
+    --color-gold: #e0a43a;
+    --color-gold-tint: color-mix(in srgb, #e0a43a 16%, transparent);
+    --color-good: #3fbf86;
+    --color-good-tint: color-mix(in srgb, #3fbf86 16%, transparent);
+    --color-warning: #e0a43a;
+    --color-warning-tint: color-mix(in srgb, #e0a43a 16%, transparent);
+    --color-critical: #f06a52;
+    --color-critical-tint: color-mix(in srgb, #f06a52 16%, transparent);
+    --color-cat-1: #c8e622;
+    --color-cat-2: #5c8df0;
+    --color-cat-3: #e0a43a;
+    --color-cat-4: #8b93ab;
+    --dash-bar-idle: rgba(255, 255, 255, 0.06);
+    --dash-divider: rgba(255, 255, 255, 0.06);
+    --dash-on-primary: #021850;
+  }
+}
+
+:root[data-theme="dark"] .dash {
+  --color-bg: #161d33;
+  --color-surface: #1b2340;
+  --color-surface-2: rgba(255, 255, 255, 0.06);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-ink: #e9ecf5;
+  --color-ink-2: #8b93ab;
+  --color-ink-3: #8b93ab;
+  --color-brand: #c8e622;
+  --color-brand-ink: #c8e622;
+  --color-brand-tint: #1f2f66;
+  --color-gold: #e0a43a;
+  --color-gold-tint: color-mix(in srgb, #e0a43a 16%, transparent);
+  --color-good: #3fbf86;
+  --color-good-tint: color-mix(in srgb, #3fbf86 16%, transparent);
+  --color-warning: #e0a43a;
+  --color-warning-tint: color-mix(in srgb, #e0a43a 16%, transparent);
+  --color-critical: #f06a52;
+  --color-critical-tint: color-mix(in srgb, #f06a52 16%, transparent);
+  --color-cat-1: #c8e622;
+  --color-cat-2: #5c8df0;
+  --color-cat-3: #e0a43a;
+  --color-cat-4: #8b93ab;
+  --dash-bar-idle: rgba(255, 255, 255, 0.06);
+  --dash-divider: rgba(255, 255, 255, 0.06);
+  --dash-on-primary: #021850;
+}
+
+.dash {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--color-ink);
+}
+
+.dash :focus-visible {
+  outline: 2px solid var(--dash-focus);
+  outline-offset: 2px;
+}
+
+/* Cards: 16px radius, hairline border, no shadow; 20px padding; no header rule. */
+.dash [data-slot="card"],
+.dash [data-slot="stat"] {
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: none;
+}
+
+.dash [data-slot="card-header"] {
+  border-bottom: 0;
+  padding: 18px 20px 6px;
+}
+
+.dash [data-slot="card-header"] h2 {
+  font-size: 15px;
+}
+
+.dash [data-slot="card-body"] {
+  padding: 20px;
+}
+
+.dash [data-slot="card-header"] + [data-slot="card-body"] {
+  padding-top: 10px;
+}
+
+/* Tables inside dashboard cards: aligned to the card padding, faint dividers. */
+.dash [data-slot="card"] th,
+.dash [data-slot="card"] td {
+  border-color: var(--dash-divider);
+}
+
+.dash [data-slot="card"] th:first-child,
+.dash [data-slot="card"] td:first-child {
+  padding-left: 20px;
+}
+
+.dash [data-slot="card"] th:last-child,
+.dash [data-slot="card"] td:last-child {
+  padding-right: 20px;
+}
+
+.dash [data-slot="card"] tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.dash [data-slot="card"] tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.dash [data-slot="card"] tbody tr:hover {
+  background: var(--color-surface-2);
+}
+
+/* KPI tiles */
+.dash [data-slot="stat"] {
+  gap: 4px;
+  padding: 18px 20px;
+}
+
+.dash [data-slot="stat-label"] {
+  color: var(--color-ink-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.dash [data-slot="stat-value"] {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.dash [data-slot="stat-delta"] {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dash-kpi-stack {
+  display: grid;
+  height: 100%;
+  gap: 16px;
+  grid-auto-rows: 1fr;
+}
+
+.dash-hero-value {
+  font-size: 38px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+/* Buttons: 10px radius; solid navy primary (lime with navy text in dark mode). */
+.dash [data-variant] {
+  border-radius: 10px;
+}
+
+.dash [data-variant="primary"] {
+  background: var(--color-brand);
+  color: var(--dash-on-primary);
+}
+
+.dash [data-variant="primary"]:hover {
+  background: color-mix(in srgb, var(--color-brand) 88%, var(--color-ink));
+}
+
+/* Quick-action tiles */
+/* Phones: one row that scrolls sideways. Wider screens: tiles wrap to fit the column. */
+.dash-tile-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+}
+
+@media (min-width: 768px) {
+  .dash-tile-row {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+
+.dash-tile {
+  display: flex;
+  min-width: 96px;
+  flex: 1 0 96px;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 14px 8px 12px;
+  text-align: center;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.dash-tile:hover:not(:disabled) {
+  background: var(--color-surface-2);
+}
+
+.dash-tile:disabled {
+  opacity: 0.5;
+}
+
+.dash-tile-icon {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--color-brand);
+  color: var(--dash-on-primary);
+}
+
+.dash-tile-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.dash-tile-label {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+/* List rows */
+.dash-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 10px;
+  margin: 0 -8px;
+  padding: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.dash-row:hover {
+  background: var(--color-surface-2);
+}
+
+.dash-row-leading {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--color-surface-2);
+  color: var(--color-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dash-row-leading svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* Thick progress meter with a lime fill */
+.dash-meter {
+  height: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+}
+
+.dash-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--dash-accent);
+  transition: width 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-tile,
+  .dash-row,
+  .dash-meter > span,
+  .dash [data-slot="card"] tbody tr {
+    transition: none;
+  }
+}
+
+/* Bento grids. Mobile (< 768px): one column, in the order of areas listed per
+   page. Tablet (768-1279px): two columns. Desktop (>= 1280px): four columns. */
+.bento {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.bento-manager {
+  grid-template-areas: "hero" "kpis" "review" "approvals" "leave";
+}
+
+.bento-admin {
+  grid-template-areas: "hero" "kpis" "actions" "payroll" "cost" "onboarding" "feed";
+}
+
+.bento-employee {
+  grid-template-areas: "hero" "kpis" "actions" "leave" "tip" "benefits" "feed";
+}
+
+@media (min-width: 768px) {
+  .bento {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bento-manager {
+    grid-template-areas:
+      "hero hero"
+      "kpis leave"
+      "review review"
+      "approvals approvals";
+  }
+
+  .bento-admin {
+    grid-template-areas:
+      "hero hero"
+      "kpis actions"
+      "kpis feed"
+      "payroll cost"
+      "onboarding onboarding";
+  }
+
+  .bento-employee {
+    grid-template-areas:
+      "hero hero"
+      "kpis actions"
+      "kpis feed"
+      "leave tip"
+      "benefits benefits";
+  }
+}
+
+@media (min-width: 1280px) {
+  .bento {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .bento-manager {
+    grid-template-areas:
+      "hero hero kpis leave"
+      "review approvals approvals leave";
+  }
+
+  .bento-admin {
+    grid-template-areas:
+      "hero hero kpis actions"
+      "hero hero kpis feed"
+      "payroll payroll cost feed"
+      "onboarding onboarding onboarding feed";
+  }
+
+  .bento-employee {
+    grid-template-areas:
+      "hero hero kpis actions"
+      "hero hero kpis feed"
+      "leave leave tip feed"
+      "benefits benefits benefits feed";
+  }
 }

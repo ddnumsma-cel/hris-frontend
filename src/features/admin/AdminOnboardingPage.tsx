@@ -16,7 +16,7 @@ export function AdminOnboardingPage() {
         <div className="flex divide-x divide-dashed divide-border">
           {onboardingQuery.data?.map((stage) => (
             <div key={stage.stage} className="flex-1 px-2 py-3.5 text-center">
-              <div className="font-num font-display text-2xl font-extrabold">{stage.count}</div>
+              <div className="font-num font-display text-2xl font-semibold">{stage.count}</div>
               <div className="mt-0.5 text-xs text-ink-2">{stage.stage}</div>
             </div>
           ))}

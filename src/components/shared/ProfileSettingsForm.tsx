@@ -77,11 +77,11 @@ export function ProfileSettingsForm({
         <CardHeader title="Personal information" meta={personalMeta} />
         <CardBody className="flex flex-col gap-3.5">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-gold text-base font-bold text-[#2B1C05]">
+            <div className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-gold text-base font-semibold text-[#2B1C05]">
               {initials || "?"}
             </div>
             <div className="min-w-0">
-              <div className="truncate text-sm font-bold">{form.name || "Your name"}</div>
+              <div className="truncate text-sm font-semibold">{form.name || "Your name"}</div>
               <div className="truncate text-xs text-ink-2">{form.title || "Your title"}</div>
             </div>
           </div>

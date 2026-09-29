@@ -114,7 +114,7 @@ export function EditPersonnelProfileDialog({
             <button
               type="button"
               onClick={addDependent}
-              className="flex items-center gap-1 text-xs font-bold text-brand-ink"
+              className="flex items-center gap-1 text-xs font-semibold text-brand-ink"
             >
               <PlusIcon className="h-3.5 w-3.5" />
               Add

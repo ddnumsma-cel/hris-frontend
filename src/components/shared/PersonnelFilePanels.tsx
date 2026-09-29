@@ -50,7 +50,7 @@ export function getDocumentCompletion(documents: PersonnelDocument[]): DocumentC
 }
 
 const tableHeadClass =
-  "border-b border-border bg-surface-2/50 px-3.5 py-2 text-[0.68rem] font-bold uppercase tracking-wider text-ink-3";
+  "border-b border-border bg-surface-2/50 px-3.5 py-2 text-xs font-medium tracking-[0.01em] text-ink-3";
 
 /** Completion summary plus the verify/edit/remove list of an employee's 201 documents. */
 export function PersonnelDocumentsPanel({ employeeId }: { employeeId: string }) {
@@ -91,7 +91,7 @@ export function PersonnelDocumentsPanel({ employeeId }: { employeeId: string }) 
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <div className="text-xs font-semibold text-ink-2">Documents verified</div>
-            <div className="font-num mt-0.5 text-xl font-bold">
+            <div className="font-num mt-0.5 text-xl font-semibold">
               {completion.verified}
               <span className="text-sm font-semibold text-ink-3"> / {completion.applicable}</span>
             </div>

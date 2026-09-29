@@ -8,6 +8,17 @@ import { StatTile } from "@/components/ui/StatTile";
 import { Button } from "@/components/ui/Button";
 import { MiniAvatar } from "@/components/ui/MiniAvatar";
 import { Skeleton, SkeletonRows } from "@/components/ui/Skeleton";
+import {
+  BentoArea,
+  BentoHero,
+  EmptyNote,
+  KpiStack,
+  ListRow,
+  ListRowSkeletons,
+  ProgressMeter,
+  QuickActionRow,
+  QuickActionTile,
+} from "@/components/ui/Bento";
 import { useToast } from "@/components/ui/ToastContext";
 import {
   BellIcon,
@@ -96,6 +107,7 @@ export function AdminOverview() {
   });
 
   const stats = statsQuery.data;
+  const payrollSteps = runStepsQuery.data ? getEffectivePayrollSteps(runStepsQuery.data) : undefined;
 
   const effectiveCompliance = (complianceQuery.data ?? []).map((item) => ({
     item,
@@ -186,19 +198,13 @@ export function AdminOverview() {
   }
 
   return (
-    <>
+    <div className="dash">
       <ContentHead
         title="People Operations — MSMA Group"
         subtitle={`All offices · Cebu HQ, Manila, Davao · ${formatToday()}`}
         actions={
           <>
             <ClockInOutControl personName={currentAdmin.name.split(" ")[0]} />
-            <Button variant="ghost" icon={<DownloadIcon className="h-3.75 w-3.75" />} onClick={handleExportReport}>
-              Export report
-            </Button>
-            <Button variant="ghost" icon={<BellIcon className="h-3.75 w-3.75" />} onClick={() => setAnnouncementOpen(true)}>
-              Post announcement
-            </Button>
             <Button icon={<UserPlusIcon className="h-3.75 w-3.75" />} onClick={() => setAddEmployeeOpen(true)}>
               Add employee
             </Button>
@@ -206,121 +212,175 @@ export function AdminOverview() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(190px,1fr))] sm:gap-3.5">
-        <StatTile
-          label="Total headcount"
-          value={stats?.totalHeadcount ?? <Skeleton className="h-7 w-14" />}
-          delta={stats ? `+${stats.newHiresThisMonth} this month` : undefined}
-          tone="good"
-        />
-        <StatTile
-          label="Attrition rate, YTD"
-          value={stats ? `${stats.attritionRateYtd}%` : <Skeleton className="h-7 w-14" />}
-          delta="24 separations / 2026"
-        />
-        <StatTile
-          label="Open positions"
-          value={
-            stats ? (
-              stats.openPositions.audit + stats.openPositions.tax + stats.openPositions.legal
-            ) : (
-              <Skeleton className="h-7 w-10" />
-            )
-          }
-          delta={
-            stats
-              ? `${stats.openPositions.audit} Audit · ${stats.openPositions.tax} Tax · ${stats.openPositions.legal} Legal`
-              : undefined
-          }
-        />
-        <StatTile
-          label="October payroll"
-          value={stats ? formatPHPCompact(stats.payrollRunTotal) : <Skeleton className="h-7 w-20" />}
-          delta={stats ? `Cutoff ${stats.payrollCutoffLabel}` : undefined}
-          tone="warn"
-        />
-      </div>
+      <div className="bento bento-admin">
+        {/* Hero: total headcount, split by office. */}
+        <BentoArea area="hero">
+          <BentoHero
+            title="Headcount by office"
+            value={stats?.totalHeadcount ?? <Skeleton className="h-10 w-24" />}
+            label={
+              stats ? (
+                <span className="text-good">+{stats.newHiresThisMonth} this month</span>
+              ) : undefined
+            }
+          >
+            <div className="flex h-full flex-col justify-end">
+              {headcountQuery.data ? (
+                <HeadcountChart data={headcountQuery.data} />
+              ) : (
+                <Skeleton className="h-36 w-full" />
+              )}
+            </div>
+          </BentoHero>
+        </BentoArea>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.3fr_1fr]">
-        <Card>
-          <CardHeader title="October 2026 payroll run" action={<Chip variant="warn">In progress</Chip>} />
-          <CardBody className="flex flex-col gap-2.5">
-            {runStepsQuery.data &&
-              getEffectivePayrollSteps(runStepsQuery.data).map((step) => (
-              <div
-                key={step.label}
-                className={`flex items-center gap-2.5 text-sm ${step.status === "pending" ? "text-ink-3" : ""}`}
-              >
-                <span
-                  className={`flex h-5 w-5 flex-none items-center justify-center rounded-full text-xs font-bold ${
-                    step.status === "done"
-                      ? "bg-good-tint text-good"
-                      : step.status === "current"
-                        ? "bg-brand-tint text-brand-ink"
-                        : "bg-surface-2 text-ink-3"
-                  }`}
-                >
-                  {step.status === "done" ? <CheckIcon className="h-3 w-3" /> : null}
-                </span>
-                {step.label}
+        <BentoArea area="kpis">
+          <KpiStack>
+            <StatTile
+              label="Attrition rate, YTD"
+              value={stats ? `${stats.attritionRateYtd}%` : <Skeleton className="h-7 w-14" />}
+              delta="24 separations / 2026"
+            />
+            <StatTile
+              label="Open positions"
+              value={
+                stats ? (
+                  stats.openPositions.audit + stats.openPositions.tax + stats.openPositions.legal
+                ) : (
+                  <Skeleton className="h-7 w-10" />
+                )
+              }
+              delta={
+                stats
+                  ? `${stats.openPositions.audit} Audit · ${stats.openPositions.tax} Tax · ${stats.openPositions.legal} Legal`
+                  : undefined
+              }
+            />
+            <StatTile
+              label="October payroll"
+              value={stats ? formatPHPCompact(stats.payrollRunTotal) : <Skeleton className="h-7 w-20" />}
+              delta={stats ? `Cutoff ${stats.payrollCutoffLabel}` : undefined}
+              tone="warn"
+            />
+          </KpiStack>
+        </BentoArea>
+
+        {/* Right column: quick actions, then the compliance calendar as a list. */}
+        <BentoArea area="actions">
+          <Card>
+            <CardHeader title="Quick actions" />
+            <CardBody>
+              <QuickActionRow>
+                <QuickActionTile
+                  icon={<BellIcon />}
+                  label="Post announcement"
+                  onClick={() => setAnnouncementOpen(true)}
+                />
+                <QuickActionTile icon={<DownloadIcon />} label="Export report" onClick={handleExportReport} />
+                <QuickActionTile
+                  icon={<UsersIcon />}
+                  label="Open full directory"
+                  onClick={() => navigate("/admin/directory")}
+                />
+              </QuickActionRow>
+            </CardBody>
+          </Card>
+        </BentoArea>
+
+        <BentoArea area="feed">
+          <Card className="h-full">
+            <CardHeader title="Compliance calendar" meta="September–October 2026" />
+            <CardBody className="flex flex-col gap-1">
+              {complianceQuery.isLoading && <ListRowSkeletons count={4} />}
+              {complianceQuery.data?.length === 0 && <EmptyNote>No filings on the calendar.</EmptyNote>}
+              {effectiveCompliance.map(({ item, status, note }) => (
+                <ListRow
+                  key={item.id}
+                  leading={<ShieldIcon />}
+                  title={item.filing}
+                  subtitle={`${item.agency} · Due ${item.due}`}
+                  footer={
+                    <Chip variant={complianceVariant[status]}>
+                      {status}
+                      {note ? ` · ${note}` : ""}
+                    </Chip>
+                  }
+                />
+              ))}
+            </CardBody>
+          </Card>
+        </BentoArea>
+
+        {/* Progress: payroll run steps. */}
+        <BentoArea area="payroll">
+          <Card className="h-full">
+            <CardHeader title="October 2026 payroll run" action={<Chip variant="warn">In progress</Chip>} />
+            <CardBody className="flex flex-col gap-4">
+              {payrollSteps ? (
+                <ProgressMeter
+                  percent={(payrollSteps.filter((s) => s.status === "done").length / payrollSteps.length) * 100}
+                  start={`${payrollSteps.filter((s) => s.status === "done").length} done`}
+                  end={`${payrollSteps.length} steps`}
+                />
+              ) : (
+                <Skeleton className="h-3.5 w-full" />
+              )}
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {payrollSteps?.map((step) => (
+                  <div
+                    key={step.label}
+                    className={`flex items-center gap-2.5 text-sm ${step.status === "pending" ? "text-ink-3" : ""}`}
+                  >
+                    <span
+                      className={`flex h-5 w-5 flex-none items-center justify-center rounded-full text-xs font-semibold ${
+                        step.status === "done"
+                          ? "bg-good-tint text-good"
+                          : step.status === "current"
+                            ? "bg-brand-tint text-brand-ink"
+                            : "bg-surface-2 text-ink-3"
+                      }`}
+                    >
+                      {step.status === "done" ? <CheckIcon className="h-3 w-3" /> : null}
+                    </span>
+                    {step.label}
+                  </div>
+                ))}
               </div>
-            ))}
-          </CardBody>
-        </Card>
+            </CardBody>
+          </Card>
+        </BentoArea>
 
-        <Card>
-          <CardHeader title="Headcount by office" meta={stats ? `${stats.totalHeadcount} total` : undefined} />
-          <CardBody>{headcountQuery.data && <HeadcountChart data={headcountQuery.data} />}</CardBody>
-        </Card>
+        {/* Breakdown: segmented bar with a percentage legend. */}
+        <BentoArea area="cost">
+          <Card className="h-full">
+            <CardHeader
+              title="Payroll cost breakdown"
+              meta={stats ? `Oct cutoff · ${formatPHPCompact(stats.payrollRunTotal)}` : undefined}
+            />
+            <CardBody>
+              {costQuery.data ? <PayrollCostChart data={costQuery.data} /> : <Skeleton className="h-9 w-full" />}
+            </CardBody>
+          </Card>
+        </BentoArea>
+
+        <BentoArea area="onboarding">
+          <Card className="h-full">
+            <CardHeader title="Onboarding pipeline" meta="September batch" />
+            <div className="flex divide-x divide-dashed divide-border px-2 pb-4">
+              {onboardingQuery.data?.map((stage) => (
+                <div key={stage.stage} className="flex-1 px-2 py-3 text-center">
+                  <div className="font-num font-display text-[28px] font-semibold tracking-[-0.02em]">
+                    {stage.count}
+                  </div>
+                  <div className="mt-0.5 text-xs text-ink-2">{stage.stage}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </BentoArea>
       </div>
 
       <AttentionPanel items={attentionItems} />
-
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.3fr_1fr]">
-        <Card>
-          <CardHeader title="Compliance calendar" meta="September–October 2026" />
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[0.82rem]">
-              <thead>
-                <tr>
-                  {["Filing", "Agency", "Due", "Status"].map((h) => (
-                    <th
-                      key={h}
-                      className="border-b border-border px-4 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wider text-ink-3"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {complianceQuery.isLoading && <SkeletonRows columns={4} />}
-                {effectiveCompliance.map(({ item, status, note }) => (
-                  <tr key={item.id}>
-                    <td className="border-b border-border px-4 py-2.5">{item.filing}</td>
-                    <td className="border-b border-border px-4 py-2.5">{item.agency}</td>
-                    <td className="border-b border-border px-4 py-2.5">{item.due}</td>
-                    <td className="border-b border-border px-4 py-2.5">
-                      <Chip variant={complianceVariant[status]}>
-                        {status}
-                        {note ? ` · ${note}` : ""}
-                      </Chip>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-
-        <Card>
-          <CardHeader
-            title="Payroll cost breakdown"
-            meta={stats ? `Oct cutoff · ${formatPHPCompact(stats.payrollRunTotal)}` : undefined}
-          />
-          <CardBody>{costQuery.data && <PayrollCostChart data={costQuery.data} />}</CardBody>
-        </Card>
-      </div>
 
       <Card>
         <CardHeader
@@ -342,7 +402,7 @@ export function AdminOverview() {
                 {["Employee", "Department", "Office", "Status", "201 file"].map((h) => (
                   <th
                     key={h}
-                    className="border-b border-border px-4 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wider text-ink-3"
+                    className="border-b border-border px-4 py-2.5 text-left text-xs font-medium tracking-[0.01em] text-ink-3"
                   >
                     {h}
                   </th>
@@ -385,18 +445,6 @@ export function AdminOverview() {
 
       <RecruitmentPipeline />
 
-      <Card>
-        <CardHeader title="Onboarding pipeline" meta="September batch" />
-        <div className="flex divide-x divide-dashed divide-border">
-          {onboardingQuery.data?.map((stage) => (
-            <div key={stage.stage} className="flex-1 px-2 py-3.5 text-center">
-              <div className="font-num font-display text-2xl font-extrabold">{stage.count}</div>
-              <div className="mt-0.5 text-xs text-ink-2">{stage.stage}</div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
       <AddEmployeeDialog
         open={addEmployeeOpen}
         onClose={() => setAddEmployeeOpen(false)}
@@ -425,6 +473,6 @@ export function AdminOverview() {
         onClose={() => setAnnouncementOpen(false)}
         onSubmitted={() => toast.show("Announcement posted — visible to all employees now.")}
       />
-    </>
+    </div>
   );
 }

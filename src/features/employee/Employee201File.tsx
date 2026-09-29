@@ -145,12 +145,12 @@ export function Employee201File() {
             {photoQuery.data ? (
               <img src={photoQuery.data} alt="" className="h-12 w-12 flex-none rounded-full object-cover" />
             ) : (
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 text-base font-bold text-ink-2">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 text-base font-semibold text-ink-2">
                 {employee?.initials ?? <Skeleton className="h-4 w-6 rounded-full" />}
               </span>
             )}
             <div>
-              <div className="font-display text-base font-bold">
+              <div className="font-display text-base font-semibold">
                 {employee?.name ?? <Skeleton className="h-4.5 w-32" />}
               </div>
               <div className="text-xs text-ink-2">{employee?.position ?? ""}</div>
@@ -214,7 +214,7 @@ export function Employee201File() {
                 <div className="flex flex-none items-center gap-2.5">
                   <Chip variant={checklistVariant[doc.status]}>{doc.status}</Chip>
                   {(doc.status === "Missing" || doc.status === "Submitted") && (
-                    <label className="flex cursor-pointer items-center gap-1 text-xs font-bold text-brand-ink">
+                    <label className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-brand-ink">
                       <UploadIcon className="h-3.5 w-3.5" />
                       {doc.status === "Missing" ? "Upload" : "Replace"}
                       <input
@@ -231,7 +231,7 @@ export function Employee201File() {
                       type="button"
                       onClick={() => removeMutation.mutate(doc.id)}
                       disabled={removeMutation.isPending}
-                      className="text-xs font-bold text-critical disabled:opacity-50"
+                      className="text-xs font-semibold text-critical disabled:opacity-50"
                     >
                       Remove
                     </button>

@@ -3,12 +3,21 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
 import { StatTile } from "@/components/ui/StatTile";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { LeaveBar } from "@/components/ui/LeaveBar";
+import {
+  BentoArea,
+  BentoHero,
+  EmptyNote,
+  KpiStack,
+  ListRow,
+  ListRowSkeletons,
+  QuickActionRow,
+  QuickActionTile,
+} from "@/components/ui/Bento";
 import {
   fetchAnnouncements,
   fetchCurrentEmployee,
@@ -25,6 +34,7 @@ import {
 import { getCpdStatus, isTrainingOverdue } from "@/lib/automation";
 import { formatElapsed, formatPHP, formatToday } from "@/lib/format";
 import {
+  BellIcon,
   BuildingIcon,
   CalendarIcon,
   CameraIcon,
@@ -214,7 +224,7 @@ export function EmployeeOverview() {
   }
 
   return (
-    <>
+    <div className="dash">
       <ContentHead
         title={employee ? `Magandang umaga, ${employee.name.split(" ")[0]}` : "Magandang umaga"}
         subtitle={`${formatToday()} · ${employee?.department ?? "…"}, ${employee?.office ?? ""} · ID ${employee?.id ?? ""}`}
@@ -225,7 +235,7 @@ export function EmployeeOverview() {
                 <button
                   type="button"
                   onClick={() => setWorkLocation("Onsite")}
-                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-bold ${
+                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold ${
                     workLocation === "Onsite" ? "bg-brand-tint text-brand-ink" : "text-ink-2"
                   }`}
                 >
@@ -235,7 +245,7 @@ export function EmployeeOverview() {
                 <button
                   type="button"
                   onClick={() => setWorkLocation("Remote")}
-                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-bold ${
+                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold ${
                     workLocation === "Remote" ? "bg-brand-tint text-brand-ink" : "text-ink-2"
                   }`}
                 >
@@ -245,7 +255,7 @@ export function EmployeeOverview() {
               </div>
             )}
             {clockedIn && (
-              <span className="flex items-center gap-1.5 rounded-lg border border-good/30 bg-good-tint px-2.5 py-1.5 text-xs font-bold text-good">
+              <span className="flex items-center gap-1.5 rounded-lg border border-good/30 bg-good-tint px-2.5 py-1.5 text-xs font-semibold text-good">
                 <ClockIcon className="h-3.5 w-3.5" />
                 Clocked in at {clockedIn.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })} ·{" "}
                 {formatElapsed(now.getTime() - clockedIn.getTime())}
@@ -280,171 +290,168 @@ export function EmployeeOverview() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(190px,1fr))] sm:gap-3.5">
-        <StatTile
-          label="Net pay · this cutoff"
-          value={latestPayslip ? formatPHP(latestPayslip.net) : <Skeleton className="h-7 w-24" />}
-          delta="Sept 16–30, releases Oct 5"
-          tone="good"
-          icon={<ClockIcon className="h-3 w-3" />}
-        />
-        <StatTile
-          label="13th month pay accrued"
-          value={
-            thirteenthMonthQuery.data ? formatPHP(thirteenthMonthQuery.data.accrued) : <Skeleton className="h-7 w-24" />
-          }
-          delta={thirteenthMonthQuery.data ? `as of ${thirteenthMonthQuery.data.asOfLabel}` : undefined}
-        />
-        <StatTile
-          label="On-time rate this month"
-          value={dtrQuery.data ? `${dtrQuery.data.onTimeRatePercent}%` : <Skeleton className="h-7 w-14" />}
-          delta={dtrQuery.data ? `${dtrQuery.data.lateCount} late, ${dtrQuery.data.absentCount} absences` : undefined}
-          tone="good"
-          icon={<CheckIcon className="h-3 w-3" />}
-        />
-        <StatTile
-          label="Vacation leave available"
-          value={
-            balancesQuery.data
-              ? (() => {
-                  const vl = balancesQuery.data.find((b) => b.type === "Vacation")!;
-                  return (
-                    <>
-                      {vl.entitlement - vl.used}{" "}
-                      <span className="text-sm font-semibold text-ink-3">/ {vl.entitlement} days</span>
-                    </>
-                  );
-                })()
-              : (
-                <Skeleton className="h-7 w-20" />
-              )
-          }
-          delta={
-            balancesQuery.data
-              ? `${balancesQuery.data.find((b) => b.type === "Vacation")!.used} days used YTD`
-              : undefined
-          }
-        />
-      </div>
-
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-2.5">
-        <button
-          type="button"
-          onClick={() => setLeaveDialogOpen(true)}
-          className="flex flex-col items-start gap-2 rounded-[11px] border border-border bg-surface p-3.5 text-left text-sm font-bold hover:border-brand"
-        >
-          <CalendarIcon className="h-4.5 w-4.5 text-brand-ink" />
-          File a Leave
-        </button>
-        <button
-          type="button"
-          onClick={() => setCertDialogOpen(true)}
-          className="flex flex-col items-start gap-2 rounded-[11px] border border-border bg-surface p-3.5 text-left text-sm font-bold hover:border-brand"
-        >
-          <FileIcon className="h-4.5 w-4.5 text-brand-ink" />
-          Request COE
-        </button>
-        <button
-          type="button"
-          onClick={handleDownloadPayslip}
-          disabled={!latestPayslip}
-          className="flex flex-col items-start gap-2 rounded-[11px] border border-border bg-surface p-3.5 text-left text-sm font-bold hover:border-brand disabled:opacity-50"
-        >
-          <DownloadIcon className="h-4.5 w-4.5 text-brand-ink" />
-          Print Payslip
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate("/employee/201-file")}
-          className="flex flex-col items-start gap-2 rounded-[11px] border border-border bg-surface p-3.5 text-left text-sm font-bold hover:border-brand"
-        >
-          <FolderIcon className="h-4.5 w-4.5 text-brand-ink" />
-          View 201 File
-        </button>
-      </div>
-
-      <AttentionPanel items={attentionItems} />
-
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.3fr_1fr]">
-        <Card>
-          <CardHeader
-            title="Recent payslips"
+      <div className="bento bento-employee">
+        {/* Hero: this cutoff's net pay, with recent payslips as amount rows. */}
+        <BentoArea area="hero">
+          <BentoHero
+            title="Net pay · this cutoff"
+            value={latestPayslip ? formatPHP(latestPayslip.net) : <Skeleton className="h-10 w-44" />}
+            label={<span className="text-good">Sept 16–30, releases Oct 5</span>}
             action={
               <button
                 type="button"
                 onClick={() => navigate("/employee/payslips")}
-                className="flex items-center gap-1 text-xs font-semibold text-brand-ink"
+                className="rounded-[10px] border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2"
               >
                 View all
               </button>
             }
-          />
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[0.82rem]">
-              <thead>
-                <tr>
-                  {["Cutoff", "Gross", "Deductions", "Net pay", "Status"].map((h) => (
-                    <th
-                      key={h}
-                      className="border-b border-border px-4 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wider text-ink-3"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {payslipsQuery.data?.map((p) => (
-                  <tr key={p.id}>
-                    <td className="border-b border-border px-4 py-2.5">{p.cutoffLabel}</td>
-                    <td className="font-num border-b border-border px-4 py-2.5">{formatPHP(p.gross)}</td>
-                    <td className="font-num border-b border-border px-4 py-2.5">{formatPHP(p.deductions)}</td>
-                    <td className="font-num border-b border-border px-4 py-2.5">{formatPHP(p.net)}</td>
-                    <td className="border-b border-border px-4 py-2.5">
-                      <Chip variant={p.status === "Paid" ? "good" : "warn"}>{p.status}</Chip>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="px-4 pb-3.5 pt-2.5 text-xs text-ink-3">
-            Deductions include SSS, PhilHealth, Pag-IBIG and withholding tax. Download BIR Form 2316 anytime from
-            Payslips.
-          </p>
-        </Card>
+          >
+            <div className="mb-1 text-[15px] font-semibold tracking-[-0.01em]">Recent payslips</div>
+            <div className="flex flex-col gap-0.5">
+              {payslipsQuery.isLoading && <ListRowSkeletons />}
+              {payslipsQuery.data?.length === 0 && <EmptyNote>No payslips yet.</EmptyNote>}
+              {payslipsQuery.data?.map((p) => (
+                <ListRow
+                  key={p.id}
+                  leading={<WalletIcon />}
+                  title={p.cutoffLabel}
+                  subtitle={`Gross ${formatPHP(p.gross)} · Deductions ${formatPHP(p.deductions)}`}
+                  value={formatPHP(p.net)}
+                  positive
+                  status={p.status}
+                />
+              ))}
+            </div>
+          </BentoHero>
+        </BentoArea>
 
-        <Card>
-          <CardHeader title="Leave balances" meta="2026 entitlement" />
-          <CardBody className="flex flex-col gap-3.5">
-            {balancesQuery.data?.map((b) => (
-              <LeaveBar key={b.type} label={b.type} used={b.used} entitlement={b.entitlement} />
-            ))}
-          </CardBody>
-        </Card>
-      </div>
+        <BentoArea area="kpis">
+          <KpiStack>
+            <StatTile
+              label="13th month pay accrued"
+              value={
+                thirteenthMonthQuery.data ? (
+                  formatPHP(thirteenthMonthQuery.data.accrued)
+                ) : (
+                  <Skeleton className="h-7 w-24" />
+                )
+              }
+              delta={thirteenthMonthQuery.data ? `as of ${thirteenthMonthQuery.data.asOfLabel}` : undefined}
+            />
+            <StatTile
+              label="On-time rate this month"
+              value={dtrQuery.data ? `${dtrQuery.data.onTimeRatePercent}%` : <Skeleton className="h-7 w-14" />}
+              delta={
+                dtrQuery.data ? `${dtrQuery.data.lateCount} late, ${dtrQuery.data.absentCount} absences` : undefined
+              }
+              tone="good"
+              icon={<CheckIcon className="h-3 w-3" />}
+            />
+            <StatTile
+              label="Vacation leave available"
+              value={
+                balancesQuery.data
+                  ? (() => {
+                      const vl = balancesQuery.data.find((b) => b.type === "Vacation")!;
+                      return (
+                        <>
+                          {vl.entitlement - vl.used}{" "}
+                          <span className="text-sm font-semibold text-ink-3">/ {vl.entitlement} days</span>
+                        </>
+                      );
+                    })()
+                  : (
+                    <Skeleton className="h-7 w-20" />
+                  )
+              }
+              delta={
+                balancesQuery.data
+                  ? `${balancesQuery.data.find((b) => b.type === "Vacation")!.used} days used YTD`
+                  : undefined
+              }
+            />
+          </KpiStack>
+        </BentoArea>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_1.2fr]">
-        <BenefitsCard />
+        {/* Right column: quick actions, then announcements. */}
+        <BentoArea area="actions">
+          <Card>
+            <CardHeader title="Quick actions" />
+            <CardBody>
+              <QuickActionRow>
+                <QuickActionTile icon={<CalendarIcon />} label="File a Leave" onClick={() => setLeaveDialogOpen(true)} />
+                <QuickActionTile icon={<FileIcon />} label="Request COE" onClick={() => setCertDialogOpen(true)} />
+                <QuickActionTile
+                  icon={<DownloadIcon />}
+                  label="Print Payslip"
+                  onClick={handleDownloadPayslip}
+                  disabled={!latestPayslip}
+                />
+                <QuickActionTile
+                  icon={<FolderIcon />}
+                  label="View 201 File"
+                  onClick={() => navigate("/employee/201-file")}
+                />
+              </QuickActionRow>
+            </CardBody>
+          </Card>
+        </BentoArea>
 
-        <Card>
-          <CardHeader title="Announcements" meta="Cebu HQ" />
-          <div className="flex flex-col">
-            {announcementsQuery.data?.map((a, i, arr) => (
-              <div
-                key={a.id}
-                className={`flex gap-2.5 px-4 py-3 ${i < arr.length - 1 ? "border-b border-border" : ""}`}
+        <BentoArea area="feed">
+          <Card className="h-full">
+            <CardHeader title="Announcements" meta="Cebu HQ" />
+            <CardBody className="flex flex-col gap-1">
+              {announcementsQuery.isLoading && <ListRowSkeletons />}
+              {announcementsQuery.data?.length === 0 && <EmptyNote>No announcements right now.</EmptyNote>}
+              {announcementsQuery.data?.map((a) => (
+                <ListRow key={a.id} leading={<BellIcon />} title={a.title} subtitle={a.postedOn} />
+              ))}
+            </CardBody>
+          </Card>
+        </BentoArea>
+
+        {/* Progress: leave used against each entitlement. */}
+        <BentoArea area="leave">
+          <Card className="h-full">
+            <CardHeader title="Leave balances" meta="2026 entitlement" />
+            <CardBody className="flex flex-col gap-3.5">
+              {balancesQuery.isLoading && <Skeleton className="h-16 w-full" />}
+              {balancesQuery.data?.map((b) => (
+                <LeaveBar key={b.type} label={b.type} used={b.used} entitlement={b.entitlement} />
+              ))}
+            </CardBody>
+          </Card>
+        </BentoArea>
+
+        {/* Tip: the payslip deductions note. */}
+        <BentoArea area="tip">
+          <Card className="h-full">
+            <CardBody className="flex h-full flex-col gap-3">
+              <span className="dash-row-leading" style={{ background: "var(--dash-accent)", color: "#021850" }}>
+                <WalletIcon />
+              </span>
+              <p className="text-[13px] text-ink-2">
+                Deductions include SSS, PhilHealth, Pag-IBIG and withholding tax. Download BIR Form 2316 anytime from
+                Payslips.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/employee/payslips")}
+                className="mt-auto self-start text-[13px] font-medium text-brand-ink hover:underline"
               >
-                <span className="mt-1.5 h-1.75 w-1.75 flex-none rounded-full bg-gold" />
-                <div>
-                  <div className="text-[0.83rem] font-semibold">{a.title}</div>
-                  <div className="text-xs text-ink-3">{a.postedOn}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
+                Read more ›
+              </button>
+            </CardBody>
+          </Card>
+        </BentoArea>
+
+        <BentoArea area="benefits">
+          <BenefitsCard />
+        </BentoArea>
       </div>
+
+      <AttentionPanel items={attentionItems} />
 
       <LeaveRequestDialog
         open={leaveDialogOpen}
@@ -462,6 +469,6 @@ export function EmployeeOverview() {
       />
 
       <FaceScanDialog open={faceScanOpen} mode="verify" onClose={() => setFaceScanOpen(false)} onSuccess={handleFaceScanSuccess} />
-    </>
+    </div>
   );
 }

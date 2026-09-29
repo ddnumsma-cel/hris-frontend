@@ -30,7 +30,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <AlertTriangleIcon className="h-6 w-6" />
         </span>
         <div>
-          <h1 className="font-display text-lg font-bold">Something went wrong</h1>
+          <h1 className="font-display text-lg font-semibold">Something went wrong</h1>
           <p className="mt-1 max-w-sm text-sm text-ink-2">
             This page hit an unexpected error. Reloading usually fixes it — your data is safe.
           </p>

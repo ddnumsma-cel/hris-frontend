@@ -27,7 +27,7 @@ export function ContentHead({
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-4">
       <div>
-        <h1 className="font-display text-[1.3rem] font-bold">{title}</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-[-0.02em]">{title}</h1>
         <p className="mt-0.5 text-[0.85rem] text-ink-2">{subtitle}</p>
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}

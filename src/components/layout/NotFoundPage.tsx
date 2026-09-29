@@ -14,7 +14,7 @@ export function NotFoundPage() {
         <FileQuestionIcon className="h-6 w-6" />
       </span>
       <div>
-        <h1 className="font-display text-lg font-bold">Page not found</h1>
+        <h1 className="font-display text-lg font-semibold">Page not found</h1>
         <p className="mt-1 max-w-sm text-sm text-ink-2">
           The page you're looking for doesn't exist or may have moved.
         </p>

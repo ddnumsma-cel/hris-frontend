@@ -183,7 +183,7 @@ export function AdminDirectory() {
                   <div className="flex items-center gap-2.5">
                     <MiniAvatar initials={emp.initials} />
                     <div>
-                      <div className="text-sm font-bold">{emp.name}</div>
+                      <div className="text-sm font-semibold">{emp.name}</div>
                       <div className="text-xs text-ink-2">{emp.id}</div>
                     </div>
                   </div>
@@ -223,7 +223,7 @@ export function AdminDirectory() {
                     {["Employee", "Department", "Cluster", "Office", "Status", ""].map((h) => (
                       <th
                         key={h}
-                        className="border-b border-border bg-surface px-4 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wider text-ink-3"
+                        className="border-b border-border bg-surface px-4 py-2.5 text-left text-xs font-medium tracking-[0.01em] text-ink-3"
                       >
                         {h}
                       </th>

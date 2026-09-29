@@ -55,12 +55,12 @@ export function LoginPage() {
         <div className="mx-auto flex w-full max-w-md flex-col gap-8">
           <div className="flex items-center gap-2.5">
             <img src="/brand/msma-mark.png" alt="MSMA" className="h-9 w-auto" />
-            <div className="font-display text-lg font-extrabold">MSMA</div>
+            <div className="font-display text-lg font-semibold">MSMA</div>
             <p className="ml-1 text-sm text-white/70 lg:hidden">People operations for MSMA Group</p>
           </div>
 
           <div className="hidden lg:block">
-            <h1 className="font-display text-3xl font-extrabold leading-tight sm:text-4xl">
+            <h1 className="font-display text-3xl font-bold leading-tight tracking-[-0.02em] sm:text-4xl">
               People operations for MSMA Group
             </h1>
             <p className="mt-3 text-[0.95rem] text-white/70">
@@ -89,7 +89,7 @@ export function LoginPage() {
       <div className="flex items-center justify-center bg-bg px-4 py-6 lg:py-10">
         <div className="login-card panel-enter w-full max-w-md rounded-2xl border border-border p-6 text-ink shadow-lg sm:p-7">
           <div className="mb-6">
-            <div className="font-display text-lg font-extrabold">Sign in</div>
+            <div className="font-display text-lg font-semibold">Sign in</div>
             <div className="text-xs text-ink-2">Sign in with your MSMA account</div>
           </div>
 

@@ -36,7 +36,7 @@ export function BenefitsCard() {
                 type="button"
                 disabled={mutation.isPending}
                 onClick={() => mutation.mutate(b.id)}
-                className="text-xs font-bold text-brand-ink disabled:opacity-50"
+                className="text-xs font-semibold text-brand-ink disabled:opacity-50"
               >
                 Confirm enrollment
               </button>

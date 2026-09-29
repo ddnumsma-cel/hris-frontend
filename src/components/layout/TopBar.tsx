@@ -7,12 +7,7 @@ import { useOfficeFilter, type OfficeFilter } from "@/features/admin/OfficeFilte
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { fetchAnnouncements, fetchMyPhoto } from "@/lib/api";
 import { BellIcon, BuildingIcon, CheckIcon, ChevronDownIcon, LogOutIcon, SearchIcon } from "../icons";
-
-const roleLabels = {
-  employee: "Employee",
-  manager: "Partner",
-  admin: "HR",
-} as const;
+import { BrandName, WorkspaceLabel } from "./Brand";
 
 const offices: OfficeFilter[] = ["All offices", "Cebu HQ", "Manila", "Davao"];
 
@@ -58,11 +53,9 @@ export function TopBar() {
   if (!user) return null;
 
   return (
-    <header ref={headerRef} className="sticky top-0 z-40 flex flex-wrap items-center gap-3.5 border-b border-white/10 bg-brand-dark px-4.5 py-2.5 text-[#F2FAF9]">
-      <div className="flex items-center gap-2.5 whitespace-nowrap font-display text-base font-extrabold tracking-tight">
-        <img src="/brand/msma-mark.png" alt="MSMA" className="h-7.5 w-auto" />
-        MSMA
-      </div>
+    <header ref={headerRef} className="topbar sticky top-0 z-40 flex flex-wrap items-center gap-3.5 px-4.5 py-2.5">
+      {/* Shown here only while no desktop sidebar is on screen; otherwise the sidebar carries them. */}
+      <BrandName className="topbar-sidebar-dup" />
 
       {user.role === "admin" && (
         <div className="relative">
@@ -74,7 +67,7 @@ export function TopBar() {
               setOfficeMenuOpen((v) => !v);
               setNotifOpen(false);
             }}
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-sm text-[#EAF6F5]"
+            className="topbar-field"
           >
             <BuildingIcon className="h-3.5 w-3.5" />
             {office}
@@ -99,7 +92,7 @@ export function TopBar() {
                     }}
                     className={clsx(
                       "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-surface-2",
-                      o === office && "font-bold text-brand-ink",
+                      o === office && "font-semibold text-brand-ink",
                     )}
                   >
                     {o}
@@ -112,14 +105,12 @@ export function TopBar() {
         </div>
       )}
 
-      <span className="mx-auto rounded-lg bg-white/10 px-3.5 py-1.5 text-[0.82rem] font-semibold text-[#EAF6F5]">
-        {roleLabels[user.role]} workspace
-      </span>
+      <WorkspaceLabel role={user.role} className="topbar-sidebar-dup mx-auto" />
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-2">
         {user.role === "admin" && (
-          <div className="hidden min-w-37.5 items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 sm:flex">
-            <SearchIcon className="h-3.5 w-3.5 text-[#CFE6E4]" />
+          <div className="topbar-field hidden min-w-37.5 sm:flex">
+            <SearchIcon className="h-3.5 w-3.5" />
             <input
               type="text"
               value={searchValue}
@@ -127,12 +118,12 @@ export function TopBar() {
               onKeyDown={handleSearchKeyDown}
               placeholder="Search employee directory"
               aria-label="Search employee directory"
-              className="w-full bg-transparent text-sm text-[#F2FAF9] placeholder:text-[#9FC0BD] focus:outline-none"
+              className="w-full bg-transparent font-normal focus:outline-none"
             />
           </div>
         )}
 
-        <ThemeToggle className="hover:bg-white/10" />
+        <ThemeToggle className="topbar-icon-button [&_svg]:h-[17px] [&_svg]:w-[17px]" />
 
         <div className="relative">
           <button
@@ -144,11 +135,11 @@ export function TopBar() {
               setNotifOpen((v) => !v);
               setOfficeMenuOpen(false);
             }}
-            className="relative flex"
+            className="topbar-icon-button relative flex h-8 w-8 items-center justify-center rounded-lg"
           >
-            <BellIcon className="h-4.5 w-4.5" />
+            <BellIcon className="h-[17px] w-[17px]" />
             {notifications.length > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-[1.5px] border-brand-dark bg-gold" />
+              <span className="topbar-dot absolute right-1.5 top-1.5 h-2 w-2 rounded-full" />
             )}
           </button>
           {notifOpen && (
@@ -160,7 +151,7 @@ export function TopBar() {
                 onClick={() => setNotifOpen(false)}
               />
               <div className="panel-enter absolute right-0 top-full z-50 mt-1.5 w-72 rounded-lg border border-border bg-surface text-ink shadow-lg">
-                <div className="border-b border-border px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider text-ink-3">
+                <div className="border-b border-border px-3.5 py-2.5 text-xs font-medium tracking-[0.01em] text-ink-3">
                   Notifications
                 </div>
                 <div className="flex max-h-72 flex-col overflow-y-auto">
@@ -183,13 +174,13 @@ export function TopBar() {
           {photoQuery.data ? (
             <img src={photoQuery.data} alt="" className="h-7.5 w-7.5 flex-none rounded-full object-cover" />
           ) : (
-            <div className="flex h-7.5 w-7.5 items-center justify-center rounded-full bg-gold text-xs font-bold text-[#2B1C05]">
+            <div className="topbar-avatar flex h-7.5 w-7.5 items-center justify-center rounded-full">
               {user.initials}
             </div>
           )}
           <div className="hidden leading-tight sm:block">
-            <div className="text-sm font-bold">{user.name}</div>
-            <div className="text-xs text-[#AFCBC8]">{user.title}</div>
+            <div className="topbar-name">{user.name}</div>
+            <div className="topbar-secondary">{user.title}</div>
           </div>
         </div>
 
@@ -197,9 +188,9 @@ export function TopBar() {
           type="button"
           aria-label="Log out"
           onClick={handleLogout}
-          className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-white/10"
+          className="topbar-icon-button flex h-8 w-8 items-center justify-center rounded-lg"
         >
-          <LogOutIcon className="h-4 w-4" />
+          <LogOutIcon className="h-[17px] w-[17px]" />
         </button>
       </div>
     </header>

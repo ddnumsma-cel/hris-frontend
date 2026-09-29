@@ -14,7 +14,7 @@ export function Chip({ variant, children }: { variant: ChipVariant; children: Re
   return (
     <span
       className={clsx(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold",
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
         variantClasses[variant],
       )}
     >

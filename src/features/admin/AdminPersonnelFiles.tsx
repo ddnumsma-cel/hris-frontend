@@ -138,7 +138,7 @@ export function AdminPersonnelFiles() {
             <button
               type="button"
               onClick={() => select(null)}
-              className="mb-3 flex items-center gap-1 text-xs font-bold text-ink-2 hover:text-ink"
+              className="mb-3 flex items-center gap-1 text-xs font-semibold text-ink-2 hover:text-ink"
             >
               <ArrowRightIcon className="h-3.5 w-3.5 rotate-180" />
               Back to directory
@@ -146,7 +146,7 @@ export function AdminPersonnelFiles() {
             <div className="flex items-center gap-3.5">
               <Avatar employee={selected} photoUrl={photoById.get(selected.id)} size="lg" />
               <div className="min-w-0 flex-1">
-                <div className="truncate font-display text-base font-bold">{selected.name}</div>
+                <div className="truncate font-display text-base font-semibold">{selected.name}</div>
                 <div className="truncate text-xs text-ink-2">
                   {selected.position}
                   <span className="text-ink-3"> · </span>
@@ -167,7 +167,7 @@ export function AdminPersonnelFiles() {
                   aria-selected={tab === t}
                   onClick={() => setTab(t)}
                   className={clsx(
-                    "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-bold transition-colors",
+                    "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-semibold transition-colors",
                     tab === t ? "border-brand text-brand-ink" : "border-transparent text-ink-2 hover:text-ink",
                   )}
                 >
@@ -269,7 +269,7 @@ export function AdminPersonnelFiles() {
                   <div className="flex items-start gap-3">
                     <Avatar employee={emp} photoUrl={photoById.get(emp.id)} size="md" />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-bold group-hover:text-brand-ink">{emp.name}</div>
+                      <div className="truncate text-sm font-semibold group-hover:text-brand-ink">{emp.name}</div>
                       <div className="truncate text-xs text-ink-2">{emp.position}</div>
                       <div className="font-num mt-0.5 text-[0.7rem] text-ink-3">{emp.id}</div>
                     </div>
@@ -343,7 +343,7 @@ function Avatar({ employee, photoUrl, size }: { employee: Employee; photoUrl?: s
   if (photoUrl) return <img src={photoUrl} alt="" className={clsx(box, "flex-none rounded-full object-cover")} />;
   return (
     <span
-      className={clsx(box, "flex flex-none items-center justify-center rounded-full bg-brand-tint font-bold text-brand-ink")}
+      className={clsx(box, "flex flex-none items-center justify-center rounded-full bg-brand-tint font-semibold text-brand-ink")}
     >
       {employee.initials}
     </span>

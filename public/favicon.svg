@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-labelledby="t">
+  <title id="t">HeyHR</title>
+  <!-- Combines heyhr-icon-light.svg (default) and heyhr-icon-dark.svg (browser dark mode). -->
+  <style>
+    .bubble { fill: #021B50; }
+    .letters { fill: #FFFFFF; }
+    .smile { stroke: #C8E622; }
+    @media (prefers-color-scheme: dark) {
+      .bubble { fill: #C8E622; }
+      .letters { fill: #021B50; }
+      .smile { stroke: #021B50; }
+    }
+  </style>
+  <!-- Chat bubble -->
+  <path class="bubble" d="M26 138L14 194L80 176Z"/>
+  <rect class="bubble" x="10" y="6" width="180" height="176" rx="50"/>
+  <!-- "hr" letters (outlined, no font needed) -->
+  <path class="letters" d="M86.95 114V86.38Q86.95 83 84.95 81.06Q82.95 79.12 79.88 79.12Q77.79 79.12 76.16 80Q74.53 80.88 73.61 82.51Q72.7 84.15 72.7 86.38L65.92 83.22Q65.92 77.35 68.36 73.06Q70.8 68.78 75.12 66.44Q79.44 64.1 85.13 64.1Q90.97 64.1 95.32 66.46Q99.67 68.82 102.04 72.92Q104.4 77.03 104.4 82.4V114ZM55.25 114V41.1H72.7V114ZM109.55 114V65.1H127V114ZM127 87.38 119.22 80.82Q122.08 72.55 126.87 68.32Q131.67 64.1 139.43 64.1Q142.88 64.1 145.44 65.02Q148 65.95 149.75 67.8L139.7 81.35Q138.85 80.4 137.43 79.84Q136.01 79.28 134.15 79.28Q130.75 79.28 128.88 81.33Q127 83.39 127 87.38Z"/>
+  <!-- Smile -->
+  <path class="smile" d="M64 136Q100 162 136 136" fill="none" stroke-width="11" stroke-linecap="round"/>
+</svg>

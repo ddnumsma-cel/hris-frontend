@@ -9,7 +9,7 @@ export function ClockInOutControl({ personName }: { personName?: string }) {
   return (
     <>
       {clockedIn && (
-        <span className="flex items-center gap-1.5 rounded-lg border border-good/30 bg-good-tint px-2.5 py-1.5 text-xs font-bold text-good">
+        <span className="flex items-center gap-1.5 rounded-lg border border-good/30 bg-good-tint px-2.5 py-1.5 text-xs font-semibold text-good">
           <ClockIcon className="h-3.5 w-3.5" />
           Clocked in at {clockedIn.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })} ·{" "}
           {formatElapsed(now.getTime() - clockedIn.getTime())}

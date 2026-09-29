@@ -30,7 +30,7 @@ export function TeamRoster() {
                 {["Employee", "Tenure", "Contact", "Status", ""].map((h) => (
                   <th
                     key={h}
-                    className="border-b border-border px-4 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wider text-ink-3"
+                    className="border-b border-border px-4 py-2.5 text-left text-xs font-medium tracking-[0.01em] text-ink-3"
                   >
                     {h}
                   </th>
@@ -58,7 +58,7 @@ export function TeamRoster() {
                     <button
                       type="button"
                       onClick={() => setProfileMember(m)}
-                      className="text-xs font-bold text-brand-ink"
+                      className="text-xs font-semibold text-brand-ink"
                     >
                       Open 201
                     </button>
