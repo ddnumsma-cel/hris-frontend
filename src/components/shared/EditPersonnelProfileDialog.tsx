@@ -26,7 +26,7 @@ export function EditPersonnelProfileDialog({
   onSubmitted,
 }: {
   employeeId: string;
-  profile: PersonnelProfile | undefined;
+  profile: PersonnelProfile | null | undefined;
   onClose: () => void;
   onSubmitted: () => void;
 }) {

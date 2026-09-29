@@ -185,7 +185,7 @@ export function fetchMyTrainingRecords() {
 }
 
 export function fetchMyProfessionalLicense() {
-  return delay(professionalLicenses.find((l) => l.employeeId === currentEmployee.id));
+  return delay(professionalLicenses.find((l) => l.employeeId === currentEmployee.id) ?? null);
 }
 
 export function fetchProfessionalLicenses() {
@@ -201,7 +201,7 @@ export async function updateCpdUnits(id: string, cpdUnitsEarned: number) {
 // --- 201 File: HR/manager-side (full detail) ---
 
 export function fetchPersonnelProfile(employeeId: string) {
-  return delay(personnelProfiles.find((p) => p.employeeId === employeeId));
+  return delay(personnelProfiles.find((p) => p.employeeId === employeeId) ?? null);
 }
 
 export function fetchAllPersonnelProfiles() {
@@ -209,7 +209,7 @@ export function fetchAllPersonnelProfiles() {
 }
 
 export function fetchMyPhoto() {
-  return delay(personnelProfiles.find((p) => p.employeeId === currentEmployee.id)?.photoDataUrl);
+  return delay(personnelProfiles.find((p) => p.employeeId === currentEmployee.id)?.photoDataUrl ?? null);
 }
 
 export async function updateMyPhoto(photoDataUrl: string) {
