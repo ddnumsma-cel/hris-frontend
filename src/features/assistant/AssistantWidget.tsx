@@ -64,7 +64,7 @@ export function AssistantWidget() {
           <div className="flex items-center gap-2 border-b border-border bg-brand-dark px-4 py-3 text-white">
             <SparkleIcon className="h-4 w-4 text-[#8fc93f]" />
             <div>
-              <div className="text-sm font-bold">MSMA Assistant</div>
+              <div className="text-sm font-semibold">MSMA Assistant</div>
               <div className="text-[0.68rem] text-white/60">Reads your real data · no external AI, no cost</div>
             </div>
           </div>

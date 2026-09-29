@@ -92,7 +92,7 @@ export function RegisterDialog({ open, onClose }: { open: boolean; onClose: () =
             <CheckIcon className="h-6 w-6" />
           </span>
           <div>
-            <div className="font-display text-base font-bold">You're registered, {registered.name}</div>
+            <div className="font-display text-base font-semibold">You're registered, {registered.name}</div>
             <div className="mt-1 text-sm text-ink-2">
               Reference ID <span className="font-num font-semibold">{registered.id}</span>. HR will review your
               details and set up your system access.
@@ -118,7 +118,7 @@ export function RegisterDialog({ open, onClose }: { open: boolean; onClose: () =
                       onClick={() => chooseGoogleAccount(acc)}
                       className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-surface"
                     >
-                      <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
+                      <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">
                         {acc.name[0]}
                       </span>
                       <span className="min-w-0">
@@ -142,7 +142,7 @@ export function RegisterDialog({ open, onClose }: { open: boolean; onClose: () =
             <div className="flex items-center justify-between gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-2">
               <div className="min-w-0">
                 <div className="text-xs font-semibold text-ink-2">Connected via Google</div>
-                <div className="truncate text-sm font-bold">{googleAccount.email}</div>
+                <div className="truncate text-sm font-semibold">{googleAccount.email}</div>
               </div>
               <button
                 type="button"
@@ -195,7 +195,7 @@ export function RegisterDialog({ open, onClose }: { open: boolean; onClose: () =
                 >
                   <input type="radio" value={cluster} className="mt-1" {...register("cluster")} />
                   <span>
-                    <span className="block text-sm font-bold">{cluster}</span>
+                    <span className="block text-sm font-semibold">{cluster}</span>
                     <span className="block text-xs text-ink-2">{clusterDescriptions[cluster]}</span>
                   </span>
                 </label>

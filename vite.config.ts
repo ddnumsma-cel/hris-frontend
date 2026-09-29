@@ -23,7 +23,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon-64.png', 'brand/msma-mark.png'],
+      includeAssets: ['favicon.svg', 'favicon-64.png', 'brand/msma-mark.png'],
       manifest: {
         name: 'MSMA',
         short_name: 'MSMA',

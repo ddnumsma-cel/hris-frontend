@@ -215,7 +215,7 @@ export function AdminPersonnelFiles() {
             <div className="flex items-center gap-3.5">
               <Avatar employee={selected} photoUrl={photoById.get(selected.id)} />
               <div className="min-w-0 flex-1">
-                <div className="truncate font-display text-base font-bold">{selected.name}</div>
+                <div className="truncate font-display text-base font-semibold">{selected.name}</div>
                 <div className="truncate text-xs text-ink-2">
                   {selected.position}
                   <span className="text-ink-3"> · </span>
@@ -236,7 +236,7 @@ export function AdminPersonnelFiles() {
                   aria-selected={tab === t}
                   onClick={() => setTab(t)}
                   className={clsx(
-                    "-mb-px flex flex-none items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-bold transition-colors",
+                    "-mb-px flex flex-none items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-semibold transition-colors",
                     tab === t ? "border-brand text-brand-ink" : "border-transparent text-ink-2 hover:text-ink",
                   )}
                 >
@@ -377,7 +377,7 @@ function Avatar({ employee, photoUrl }: { employee: Employee; photoUrl?: string 
   if (photoUrl) return <img src={photoUrl} alt="" className={clsx(box, "flex-none rounded-full object-cover")} />;
   return (
     <span
-      className={clsx(box, "flex flex-none items-center justify-center rounded-full bg-brand-tint font-bold text-brand-ink")}
+      className={clsx(box, "flex flex-none items-center justify-center rounded-full bg-brand-tint font-semibold text-brand-ink")}
     >
       {employee.initials}
     </span>
@@ -404,7 +404,7 @@ function DirectoryCard({
       <div className="flex items-start gap-3">
         <Avatar employee={employee} photoUrl={photoUrl} />
         <div className="min-w-0 flex-1 pt-0.5">
-          <h2 className="truncate text-[0.95rem] font-bold">{employee.name}</h2>
+          <h2 className="truncate text-[0.95rem] font-semibold">{employee.name}</h2>
           <div className="truncate text-xs text-ink-2">{employee.position}</div>
         </div>
         <CardMenu employeeName={employee.name} onPreview={onPreview} onCopyId={onCopyId} />
@@ -413,7 +413,7 @@ function DirectoryCard({
       <dl className="mt-3.5 flex flex-col gap-1.5 border-t border-border pt-3.5 text-xs text-ink-2">
         <div className="flex min-w-0 gap-1">
           <dt>Department:</dt>
-          <dd className="truncate font-bold text-ink">{employee.department}</dd>
+          <dd className="truncate font-semibold text-ink">{employee.department}</dd>
         </div>
         <ContactLine icon={<MapPinIcon className="h-3.5 w-3.5" />} label="Office">
           {employee.office} <span className="text-ink-3">· {employee.cluster}</span>
@@ -451,7 +451,7 @@ function DirectoryCard({
               type="button"
               onClick={onPreview}
               aria-label={`Preview ${employee.name}'s record`}
-              className="rounded-lg border border-brand px-3 py-1 text-xs font-bold text-brand-ink transition-colors hover:bg-brand-tint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cat-1)]"
+              className="rounded-lg border border-brand px-3 py-1 text-xs font-semibold text-brand-ink transition-colors hover:bg-brand-tint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cat-1)]"
             >
               Preview
             </button>
@@ -591,7 +591,7 @@ function ViewToggle({ view, onChange }: { view: DirectoryView; onChange: (view: 
           aria-checked={view === o.value}
           onClick={() => onChange(o.value)}
           className={clsx(
-            "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors",
+            "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
             view === o.value ? "bg-brand-tint text-brand-ink" : "text-ink-2 hover:text-ink",
           )}
         >
@@ -604,7 +604,7 @@ function ViewToggle({ view, onChange }: { view: DirectoryView; onChange: (view: 
 }
 
 const thClass =
-  "whitespace-nowrap border-b border-border bg-surface px-3 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wider text-ink-3";
+  "whitespace-nowrap border-b border-border bg-surface px-3 py-2.5 text-left text-xs font-medium tracking-[0.01em] text-ink-3";
 const tdClass = "border-b border-border px-3 py-2.5 align-middle";
 
 function DirectoryTable({
@@ -699,7 +699,7 @@ function DirectoryTable({
                     type="button"
                     onClick={() => onPreview(emp.id)}
                     aria-label={`Preview ${emp.name}'s record`}
-                    className="rounded-lg border border-brand px-3 py-1 text-xs font-bold text-brand-ink transition-colors hover:bg-brand-tint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cat-1)]"
+                    className="rounded-lg border border-brand px-3 py-1 text-xs font-semibold text-brand-ink transition-colors hover:bg-brand-tint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cat-1)]"
                   >
                     Preview
                   </button>

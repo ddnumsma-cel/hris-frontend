@@ -56,7 +56,7 @@ export function Dialog({
         )}
       >
         <div className="flex flex-none items-center justify-between border-b border-border px-4.5 py-3.5">
-          <h2 className="font-display text-base font-bold">{title}</h2>
+          <h2 className="font-display text-base font-semibold tracking-[-0.01em]">{title}</h2>
           <button
             type="button"
             onClick={onClose}

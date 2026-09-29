@@ -19,10 +19,10 @@ function OrgNode({
   return (
     <div className="flex flex-col items-center">
       <div className="flex w-56 flex-col items-center gap-1.5 rounded-xl border border-border bg-surface px-4 py-3 text-center shadow-sm">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-tint text-sm font-bold text-brand-ink">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-tint text-sm font-semibold text-brand-ink">
           {initials}
         </span>
-        <div className="text-sm font-bold">{name}</div>
+        <div className="text-sm font-semibold">{name}</div>
         <div className="text-xs text-ink-2">{title}</div>
       </div>
       {children && (

@@ -46,7 +46,7 @@ export function EmployeeTrainings() {
                     type="button"
                     disabled={mutation.isPending}
                     onClick={() => mutation.mutate(t.id)}
-                    className="text-xs font-bold text-brand-ink disabled:opacity-50"
+                    className="text-xs font-semibold text-brand-ink disabled:opacity-50"
                   >
                     Mark completed
                   </button>

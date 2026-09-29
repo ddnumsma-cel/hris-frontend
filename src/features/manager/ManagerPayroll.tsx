@@ -245,7 +245,7 @@ export function ManagerPayroll() {
               <div className="flex items-center gap-2.5">
                 <MiniAvatar initials={r.employee.initials} />
                 <div>
-                  <div className="text-sm font-bold">{r.employee.name}</div>
+                  <div className="text-sm font-semibold">{r.employee.name}</div>
                   <div className="text-xs text-ink-2">{r.employee.position}</div>
                 </div>
               </div>
@@ -262,7 +262,7 @@ export function ManagerPayroll() {
               </div>
               <div>
                 <dt className="text-ink-3">Net</dt>
-                <dd className="font-num mt-0.5 font-bold">{formatPHP(r.pay.net)}</dd>
+                <dd className="font-num mt-0.5 font-semibold">{formatPHP(r.pay.net)}</dd>
               </div>
             </dl>
             <div className="mt-3 border-t border-border pt-2.5">
@@ -282,7 +282,7 @@ export function ManagerPayroll() {
                   {["Employee", "Basic", "Overtime", "Allowances", "Gross", "Deductions", "Net pay", "Status", ""].map((h, i) => (
                     <th
                       key={h || "actions"}
-                      className={`border-b border-border px-4 py-2.5 text-[0.7rem] font-bold uppercase tracking-wider text-ink-3 ${
+                      className={`border-b border-border px-4 py-2.5 text-xs font-medium tracking-[0.01em] text-ink-3 ${
                         i >= 1 && i <= 6 ? "text-right" : "text-left"
                       }`}
                     >
@@ -311,7 +311,7 @@ export function ManagerPayroll() {
                     <td className="font-num border-b border-border px-4 py-2.5 text-right text-critical">
                       {formatPHP(r.pay.totalDeductions)}
                     </td>
-                    <td className="font-num border-b border-border px-4 py-2.5 text-right font-bold">{formatPHP(r.pay.net)}</td>
+                    <td className="font-num border-b border-border px-4 py-2.5 text-right font-semibold">{formatPHP(r.pay.net)}</td>
                     <td className="border-b border-border px-4 py-2.5">
                       <Chip variant={statusVariant[r.entry.status]}>{r.entry.status}</Chip>
                     </td>
@@ -323,7 +323,7 @@ export function ManagerPayroll() {
               </tbody>
               {filtered.length > 0 && (
                 <tfoot>
-                  <tr className="font-bold">
+                  <tr className="font-semibold">
                     <td className="px-4 py-2.5">Total ({filtered.length})</td>
                     <td colSpan={3} />
                     <td className="font-num px-4 py-2.5 text-right">{formatPHP(filtered.reduce((s, r) => s + r.pay.gross, 0))}</td>

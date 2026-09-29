@@ -91,12 +91,12 @@ export function PersonnelFileDialog({
               {profile?.photoDataUrl ? (
                 <img src={profile.photoDataUrl} alt="" className="h-12 w-12 flex-none rounded-full object-cover" />
               ) : (
-                <span className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-surface-2 text-sm font-bold text-ink-2">
+                <span className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-surface-2 text-sm font-semibold text-ink-2">
                   {subject.initials}
                 </span>
               )}
               <div className="min-w-0 flex-1">
-                <div className="truncate font-display text-base font-bold">{subject.name}</div>
+                <div className="truncate font-display text-base font-semibold">{subject.name}</div>
                 <div className="truncate text-xs text-ink-2">{subject.position}<span className="text-ink-3"> · </span>
               <span className="font-num">{subject.id}</span>
                   </div>
@@ -114,7 +114,7 @@ export function PersonnelFileDialog({
                       aria-selected={tab === t}
                       onClick={() => setTab(t)}
                       className={clsx(
-                        "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-bold transition-colors",
+                        "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-semibold transition-colors",
                         tab === t ? "border-brand text-brand-ink" : "border-transparent text-ink-2 hover:text-ink",
                       )}
                     >
@@ -131,7 +131,7 @@ export function PersonnelFileDialog({
                   <Link
                     to={documentsHref(subject.id)}
                     onClick={onClose}
-                    className="mb-1.5 flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-bold text-ink-2 transition-colors hover:border-brand hover:text-ink"
+                    className="mb-1.5 flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-ink-2 transition-colors hover:border-brand hover:text-ink"
                   >
                     <UsersIcon className="h-3.5 w-3.5" />
                     View employee

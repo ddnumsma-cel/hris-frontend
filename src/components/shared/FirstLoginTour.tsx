@@ -128,7 +128,7 @@ export function FirstLoginTour() {
         className="panel-enter fixed z-96 rounded-2xl border border-border bg-surface p-4 shadow-lg"
         style={{ top, left, width: cardWidth }}
       >
-        <div className="text-sm font-bold">{step.title}</div>
+        <div className="text-sm font-semibold">{step.title}</div>
         <p className="mt-1.5 text-xs text-ink-2">{step.body}</p>
         <div className="mt-3 flex items-center justify-between">
           <button type="button" onClick={finish} className="text-xs font-semibold text-ink-3">

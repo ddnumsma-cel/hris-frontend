@@ -63,7 +63,7 @@ function Section({
   return (
     <section className="overflow-hidden rounded-lg border border-border">
       <div className="flex min-h-9 items-center justify-between gap-2 border-b border-border bg-surface-2/50 px-3.5 py-1.5">
-        <h3 className="text-[0.68rem] font-bold uppercase tracking-wider text-ink-3">{title}</h3>
+        <h3 className="text-xs font-medium tracking-[0.01em] text-ink-3">{title}</h3>
         {action ?? (meta && <span className="text-xs text-ink-3">{meta}</span>)}
       </div>
       <div className={flush ? undefined : "p-3.5"}>{children}</div>
@@ -154,7 +154,7 @@ export function GovernmentNumbersPanel({ employeeId }: { employeeId: string }) {
               <button
                 type="button"
                 onClick={toggle}
-                className="flex items-center gap-1 text-xs font-bold text-brand-ink hover:underline"
+                className="flex items-center gap-1 text-xs font-semibold text-brand-ink hover:underline"
               >
                 <LockIcon className="h-3.5 w-3.5" />
                 {revealed ? "Hide numbers" : "Show numbers"}
@@ -295,7 +295,7 @@ export function InServicePanel({ employeeId }: { employeeId: string }) {
                     meta={a.ratingLabel ? `${a.ratingLabel} · ${a.reviewer}` : a.reviewer}
                     trailing={
                       a.status === "Completed" && a.rating !== undefined ? (
-                        <span className="font-num text-sm font-bold">
+                        <span className="font-num text-sm font-semibold">
                           {a.rating.toFixed(1)}
                           <span className="text-xs font-semibold text-ink-3"> / 5</span>
                         </span>

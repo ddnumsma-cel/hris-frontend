@@ -59,7 +59,7 @@ function EditPayrollForm({ row, onClose, onSaved }: { row: PayrollRegisterRow; o
       className="flex flex-col gap-3.5"
     >
       <div className="text-sm">
-        <div className="font-bold">{row.employee.name}</div>
+        <div className="font-semibold">{row.employee.name}</div>
         <div className="text-xs text-ink-2">
           {row.employee.position} · {row.employee.id}
         </div>
@@ -102,7 +102,7 @@ function EditPayrollForm({ row, onClose, onSaved }: { row: PayrollRegisterRow; o
             </span>
           </div>
         ))}
-        <div className="mt-1.5 flex justify-between border-t border-border pt-1.5 font-bold">
+        <div className="mt-1.5 flex justify-between border-t border-border pt-1.5 font-semibold">
           <span>Net pay</span>
           <span className="font-num">{formatPHP(preview.net)}</span>
         </div>

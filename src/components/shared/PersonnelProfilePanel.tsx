@@ -102,7 +102,7 @@ function Section({ title, action, children }: { title: string; action?: ReactNod
   return (
     <section className="overflow-hidden rounded-lg border border-border">
       <div className="flex min-h-9 items-center justify-between border-b border-border bg-surface-2/50 px-3.5 py-1">
-        <h3 className="text-[0.68rem] font-bold uppercase tracking-wider text-ink-3">{title}</h3>
+        <h3 className="text-xs font-medium tracking-[0.01em] text-ink-3">{title}</h3>
         {action}
       </div>
       <div className="p-3.5">{children}</div>

@@ -29,7 +29,7 @@ export function AdminPayrollRuns() {
                 className={`flex items-center gap-2.5 text-sm ${step.status === "pending" ? "text-ink-3" : ""}`}
               >
                 <span
-                  className={`flex h-5 w-5 flex-none items-center justify-center rounded-full text-xs font-bold ${
+                  className={`flex h-5 w-5 flex-none items-center justify-center rounded-full text-xs font-semibold ${
                     step.status === "done"
                       ? "bg-good-tint text-good"
                       : step.status === "current"

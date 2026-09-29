@@ -86,7 +86,7 @@ export function AdminCases() {
                     <div className="flex items-center gap-2.5">
                       <MiniAvatar initials={c.employeeInitials} />
                       <div>
-                        <div className="text-sm font-bold">{c.employeeName}</div>
+                        <div className="text-sm font-semibold">{c.employeeName}</div>
                         <div className="text-xs text-ink-2">{c.type}</div>
                       </div>
                     </div>
@@ -102,7 +102,7 @@ export function AdminCases() {
                         type="button"
                         disabled={mutation.isPending}
                         onClick={() => mutation.mutate({ id: c.id, status: next })}
-                        className="font-bold text-brand-ink disabled:opacity-50"
+                        className="font-semibold text-brand-ink disabled:opacity-50"
                       >
                         Mark {next.toLowerCase()}
                       </button>
@@ -110,12 +110,12 @@ export function AdminCases() {
                     <button
                       type="button"
                       onClick={() => setEditingCase(c)}
-                      className="flex items-center gap-1 font-bold text-ink-2"
+                      className="flex items-center gap-1 font-semibold text-ink-2"
                     >
                       <EditIcon className="h-3.5 w-3.5" />
                       Edit
                     </button>
-                    <button type="button" onClick={() => setDeletingCase(c)} className="font-bold text-critical">
+                    <button type="button" onClick={() => setDeletingCase(c)} className="font-semibold text-critical">
                       Remove
                     </button>
                   </div>
@@ -133,7 +133,7 @@ export function AdminCases() {
                     {["Employee", "Type", "Filed by", "Filed on", "Status", "Summary", ""].map((h) => (
                       <th
                         key={h}
-                        className="border-b border-border px-4 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wider text-ink-3"
+                        className="border-b border-border px-4 py-2.5 text-left text-xs font-medium tracking-[0.01em] text-ink-3"
                       >
                         {h}
                       </th>
@@ -166,7 +166,7 @@ export function AdminCases() {
                                 type="button"
                                 disabled={mutation.isPending}
                                 onClick={() => mutation.mutate({ id: c.id, status: next })}
-                                className="text-xs font-bold text-brand-ink disabled:opacity-50"
+                                className="text-xs font-semibold text-brand-ink disabled:opacity-50"
                               >
                                 Mark {next.toLowerCase()}
                               </button>
@@ -174,7 +174,7 @@ export function AdminCases() {
                             <button
                               type="button"
                               onClick={() => setEditingCase(c)}
-                              className="flex items-center gap-1 text-xs font-bold text-ink-2 hover:text-ink"
+                              className="flex items-center gap-1 text-xs font-semibold text-ink-2 hover:text-ink"
                             >
                               <EditIcon className="h-3.5 w-3.5" />
                               Edit
@@ -182,7 +182,7 @@ export function AdminCases() {
                             <button
                               type="button"
                               onClick={() => setDeletingCase(c)}
-                              className="text-xs font-bold text-critical"
+                              className="text-xs font-semibold text-critical"
                             >
                               Remove
                             </button>

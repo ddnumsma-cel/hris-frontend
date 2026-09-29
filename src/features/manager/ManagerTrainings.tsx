@@ -102,7 +102,7 @@ export function ManagerTrainings() {
                     <div className="flex items-center gap-2.5">
                       <MiniAvatar initials={r.employeeInitials} />
                       <div>
-                        <div className="text-sm font-bold">{r.employeeName}</div>
+                        <div className="text-sm font-semibold">{r.employeeName}</div>
                         <div className="text-xs text-ink-2">{r.course}</div>
                       </div>
                     </div>
@@ -126,7 +126,7 @@ export function ManagerTrainings() {
                     {["Employee", "Course", "Due", "Status", ""].map((h) => (
                       <th
                         key={h}
-                        className="border-b border-border px-4 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wider text-ink-3"
+                        className="border-b border-border px-4 py-2.5 text-left text-xs font-medium tracking-[0.01em] text-ink-3"
                       >
                         {h}
                       </th>

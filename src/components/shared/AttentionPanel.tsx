@@ -52,7 +52,7 @@ export function AttentionPanel({ items }: { items: AttentionItem[] }) {
               <button
                 type="button"
                 onClick={item.action.onClick}
-                className="flex-none text-xs font-bold text-brand-ink"
+                className="flex-none text-xs font-semibold text-brand-ink"
               >
                 {item.action.label}
               </button>

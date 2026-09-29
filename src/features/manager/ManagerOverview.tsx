@@ -4,8 +4,16 @@ import { ContentHead } from "@/components/layout/RolePage";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { StatTile } from "@/components/ui/StatTile";
 import { Button } from "@/components/ui/Button";
-import { MiniAvatar } from "@/components/ui/MiniAvatar";
 import { Skeleton } from "@/components/ui/Skeleton";
+import {
+  BentoArea,
+  BentoHero,
+  EmptyNote,
+  KpiStack,
+  ListRow,
+  ListRowSkeletons,
+  ProgressMeter,
+} from "@/components/ui/Bento";
 import { AlertTriangleIcon, CheckSquareIcon, ClockIcon, GraduationCapIcon, IdCardIcon } from "@/components/icons";
 import { AttentionPanel, type AttentionItem } from "@/components/shared/AttentionPanel";
 import { ClockInOutControl } from "@/components/shared/ClockInOutControl";
@@ -105,7 +113,7 @@ export function ManagerOverview() {
   }
 
   return (
-    <>
+    <div className="dash">
       <ContentHead
         title="Audit & Assurance — Team Overview"
         subtitle={`${currentManager.name}, ${currentManager.title} · ${currentManager.office} · ${formatToday()}`}
@@ -122,104 +130,105 @@ export function ManagerOverview() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(190px,1fr))] sm:gap-3.5">
-        <StatTile
-          label="Team headcount"
-          value={managerTeamStats.teamHeadcount}
-          delta={`${managerTeamStats.onLeaveToday} on leave today`}
-        />
-        <StatTile
-          label="Pending approvals"
-          value={pendingCount}
-          delta={pendingCount > 0 ? `Oldest: ${oldestDays} day${oldestDays === 1 ? "" : "s"}` : "All caught up"}
-          tone={pendingCount > 0 ? "warn" : "good"}
-          icon={<ClockIcon className="h-3 w-3" />}
-        />
-        <StatTile
-          label="Attendance rate"
-          value={`${managerTeamStats.attendanceRate}%`}
-          delta="last 14 days"
-          tone="good"
-        />
-        <StatTile
-          label="Q3 reviews completed"
-          value={
-            <>
-              {reviewsCompleted} <span className="text-sm font-semibold text-ink-3">/ {reviewsTotal}</span>
-            </>
-          }
-          delta="due Oct 15, 2026"
-        />
-        <StatTile
-          label="Workforce patterns flagged"
-          value={workforceAlertsQuery.data?.length ?? <Skeleton className="h-7 w-8" />}
-          delta={
-            workforceAlertsQuery.data?.some((a) => a.severity === "crit") ? "Needs attention" : "Auto-detected this week"
-          }
-          tone={workforceAlertsQuery.data?.some((a) => a.severity === "crit") ? "crit" : "warn"}
-          icon={<AlertTriangleIcon className="h-3 w-3" />}
-        />
+      <div className="bento bento-manager">
+        {/* Hero: 14-day on-time attendance, latest day highlighted. */}
+        <BentoArea area="hero">
+          <BentoHero
+            title="Team attendance — last 14 days"
+            value={`${managerTeamStats.attendanceRate}%`}
+            label="Attendance rate · on-time rate per day"
+            legend={[
+              { color: "var(--dash-accent)", label: "Latest day" },
+              { color: "var(--dash-bar-idle)", label: "Earlier days" },
+            ]}
+          >
+            {attendanceQuery.data ? (
+              <AttendanceChart data={attendanceQuery.data} variant="bars" />
+            ) : (
+              <Skeleton className="h-56 w-full" />
+            )}
+          </BentoHero>
+        </BentoArea>
+
+        <BentoArea area="kpis">
+          <KpiStack>
+            <StatTile
+              label="Team headcount"
+              value={managerTeamStats.teamHeadcount}
+              delta={`${managerTeamStats.onLeaveToday} on leave today`}
+            />
+            <StatTile
+              label="Pending approvals"
+              value={pendingCount}
+              delta={pendingCount > 0 ? `Oldest: ${oldestDays} day${oldestDays === 1 ? "" : "s"}` : "All caught up"}
+              tone={pendingCount > 0 ? "warn" : "good"}
+              icon={<ClockIcon className="h-3 w-3" />}
+            />
+            <StatTile
+              label="Workforce patterns flagged"
+              value={workforceAlertsQuery.data?.length ?? <Skeleton className="h-7 w-8" />}
+              delta={
+                workforceAlertsQuery.data?.some((a) => a.severity === "crit")
+                  ? "Needs attention"
+                  : "Auto-detected this week"
+              }
+              tone={workforceAlertsQuery.data?.some((a) => a.severity === "crit") ? "crit" : "warn"}
+              icon={<AlertTriangleIcon className="h-3 w-3" />}
+            />
+          </KpiStack>
+        </BentoArea>
+
+        {/* Right column: who's out today. */}
+        <BentoArea area="leave">
+          <Card className="h-full">
+            <CardHeader title="On leave today" meta={formatToday().split(",")[0]} />
+            <CardBody className="flex flex-col gap-1">
+              {onLeaveQuery.isLoading && <ListRowSkeletons />}
+              {onLeaveQuery.data?.length === 0 && <EmptyNote>No one is on leave today.</EmptyNote>}
+              {onLeaveQuery.data?.map((person) => (
+                <ListRow key={person.name} leading={person.initials} title={person.name} subtitle={person.reason} />
+              ))}
+              <div className="mt-3 rounded-[10px] bg-surface-2 px-3.5 py-3">
+                <div className="mb-1 text-xs text-ink-2">This week</div>
+                <div className="text-[13px]">
+                  4 of {managerTeamStats.teamHeadcount} team members have leave scheduled
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+        </BentoArea>
+
+        {/* Progress: Q3 mid-year review completion. */}
+        <BentoArea area="review">
+          <Card className="h-full">
+            <CardHeader
+              title="Q3 2026 mid-year review"
+              action={<span className="font-num text-[15px] font-semibold">{reviewProgressPercent}%</span>}
+            />
+            <CardBody>
+              <ProgressMeter
+                percent={reviewProgressPercent}
+                start={`${reviewsCompleted} submitted`}
+                end={`${reviewsTotal} total`}
+              />
+              <p className="mt-3 text-xs text-ink-2">
+                {reviewsCompleted} of {reviewsTotal} self-assessments and manager reviews submitted. Deadline Oct 15,
+                2026.
+              </p>
+            </CardBody>
+          </Card>
+        </BentoArea>
+
+        <BentoArea area="approvals">
+          <ApprovalsQueue />
+        </BentoArea>
       </div>
 
       <AttentionPanel items={attentionItems} />
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.3fr_1fr]">
-        <ApprovalsQueue />
-
-        <Card>
-          <CardHeader title="On leave today" meta={formatToday().split(",")[0]} />
-          <CardBody className="flex flex-col gap-3">
-            {onLeaveQuery.data?.map((person) => (
-              <div key={person.name} className="flex items-center gap-2.5">
-                <MiniAvatar initials={person.initials} />
-                <div>
-                  <div className="text-[0.85rem] font-semibold">{person.name}</div>
-                  <div className="text-xs text-ink-2">{person.reason}</div>
-                </div>
-              </div>
-            ))}
-            <div className="border-t border-border pt-3">
-              <div className="mb-1.5 text-xs text-ink-2">This week</div>
-              <div className="text-[0.85rem]">
-                4 of {managerTeamStats.teamHeadcount} team members have leave scheduled
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.3fr_1fr]">
-        <Card>
-          <CardHeader title="Team attendance — last 14 days" meta="On-time rate" />
-          <CardBody>
-            {attendanceQuery.data && <AttendanceChart data={attendanceQuery.data} />}
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader title="Q3 2026 mid-year review" />
-          <CardBody>
-            <div className="mb-1.5 flex justify-between text-sm">
-              <span className="text-ink-2">Progress</span>
-              <span className="font-num font-bold">{reviewProgressPercent}%</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-surface-2">
-              <span
-                className="block h-full rounded-full bg-brand"
-                style={{ width: `${reviewProgressPercent}%` }}
-              />
-            </div>
-            <p className="mt-2.5 text-xs text-ink-3">
-              {reviewsCompleted} of {reviewsTotal} self-assessments and manager reviews submitted. Deadline Oct 15,
-              2026.
-            </p>
-          </CardBody>
-        </Card>
-      </div>
-
       <TeamRoster />
 
       <WorkforceAlerts />
-    </>
+    </div>
   );
 }

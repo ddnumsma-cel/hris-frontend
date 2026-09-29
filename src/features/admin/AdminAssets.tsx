@@ -99,7 +99,7 @@ export function AdminAssets() {
               <Card key={a.id} className="p-3.5">
                 <div className="flex items-start justify-between gap-2.5">
                   <div>
-                    <div className="text-sm font-bold">{a.type}</div>
+                    <div className="text-sm font-semibold">{a.type}</div>
                     <div className="font-num text-xs text-ink-2">{a.assetTag}</div>
                   </div>
                   <Chip variant={statusVariant[a.status]}>{a.status}</Chip>
@@ -137,7 +137,7 @@ export function AdminAssets() {
                     {["Asset", "Tag", "Assigned to", "Issued", "Status", ""].map((h) => (
                       <th
                         key={h}
-                        className="border-b border-border px-4 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wider text-ink-3"
+                        className="border-b border-border px-4 py-2.5 text-left text-xs font-medium tracking-[0.01em] text-ink-3"
                       >
                         {h}
                       </th>

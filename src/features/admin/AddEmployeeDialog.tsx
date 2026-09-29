@@ -260,7 +260,7 @@ export function AddEmployeeDialog({
               <div className="min-w-0 flex-1">
                 {scan.status === "idle" && (
                   <>
-                    <div className="text-sm font-bold">Upload an ID to auto-fill</div>
+                    <div className="text-sm font-semibold">Upload an ID to auto-fill</div>
                     <div className="text-xs text-ink-2">
                       PhilSys, UMID, driver's license, passport, PRC and more. Drop a photo here or browse.
                     </div>
@@ -268,7 +268,7 @@ export function AddEmployeeDialog({
                 )}
                 {scan.status === "scanning" && (
                   <>
-                    <div className="flex items-center gap-1.5 text-sm font-bold">
+                    <div className="flex items-center gap-1.5 text-sm font-semibold">
                       <LoaderIcon className="h-3.5 w-3.5 animate-spin" />
                       {scan.progress.stage}
                       {scan.progress.pass && scan.progress.pass > 1
@@ -286,7 +286,7 @@ export function AddEmployeeDialog({
                 )}
                 {scan.status === "done" && (
                   <>
-                    <div className="text-sm font-bold">
+                    <div className="text-sm font-semibold">
                       {scan.filled.length > 0
                         ? `Filled ${scan.filled.length} field${scan.filled.length === 1 ? "" : "s"} from ${
                             scan.idType && scan.idType !== "Other" ? scan.idType : "the ID"
@@ -302,7 +302,7 @@ export function AddEmployeeDialog({
                 )}
                 {scan.status === "error" && (
                   <>
-                    <div className="text-sm font-bold text-critical">Couldn't read the ID</div>
+                    <div className="text-sm font-semibold text-critical">Couldn't read the ID</div>
                     <div className="text-xs text-ink-2">{scan.message}</div>
                   </>
                 )}
@@ -531,7 +531,7 @@ function Label({ htmlFor, fromId, children }: { htmlFor: string; fromId: boolean
     <label htmlFor={htmlFor} className={labelClass}>
       {children}
       {fromId && (
-        <span className="rounded-full bg-brand-tint px-1.5 py-px text-[0.62rem] font-bold text-brand-ink">From ID</span>
+        <span className="rounded-full bg-brand-tint px-1.5 py-px text-[0.62rem] font-semibold text-brand-ink">From ID</span>
       )}
     </label>
   );
@@ -541,7 +541,7 @@ function FormSection({ title, meta, children }: { title: string; meta?: string; 
   return (
     <section>
       <div className="mb-2.5 flex items-baseline justify-between gap-2 border-b border-border pb-1.5">
-        <h3 className="text-[0.68rem] font-bold uppercase tracking-wider text-ink-3">{title}</h3>
+        <h3 className="text-xs font-medium tracking-[0.01em] text-ink-3">{title}</h3>
         {meta && <span className="text-[0.7rem] text-ink-3">{meta}</span>}
       </div>
       {children}

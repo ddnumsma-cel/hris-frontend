@@ -146,7 +146,7 @@ function ReportView({ reportId }: { reportId: string }) {
       />
 
       <div className="flex flex-wrap items-end gap-2.5">
-        <label className="flex flex-col gap-1 text-[0.7rem] font-bold uppercase tracking-wider text-ink-3">
+        <label className="flex flex-col gap-1 text-xs font-medium tracking-[0.01em] text-ink-3">
           From
           <input
             type="date"
@@ -156,7 +156,7 @@ function ReportView({ reportId }: { reportId: string }) {
             className={fieldClass}
           />
         </label>
-        <label className="flex flex-col gap-1 text-[0.7rem] font-bold uppercase tracking-wider text-ink-3">
+        <label className="flex flex-col gap-1 text-xs font-medium tracking-[0.01em] text-ink-3">
           To
           <input
             type="date"
@@ -166,7 +166,7 @@ function ReportView({ reportId }: { reportId: string }) {
             className={fieldClass}
           />
         </label>
-        <label className="flex flex-col gap-1 text-[0.7rem] font-bold uppercase tracking-wider text-ink-3">
+        <label className="flex flex-col gap-1 text-xs font-medium tracking-[0.01em] text-ink-3">
           Team member
           <select value={member} onChange={(e) => updateFilter(setMember)(e.target.value)} className={fieldClass}>
             <option>All team members</option>
@@ -176,7 +176,7 @@ function ReportView({ reportId }: { reportId: string }) {
           </select>
         </label>
         {definition.hasStatus && (
-          <label className="flex flex-col gap-1 text-[0.7rem] font-bold uppercase tracking-wider text-ink-3">
+          <label className="flex flex-col gap-1 text-xs font-medium tracking-[0.01em] text-ink-3">
             Status
             <select
               value={status}
@@ -194,7 +194,7 @@ function ReportView({ reportId }: { reportId: string }) {
           <button
             type="button"
             onClick={resetFilters}
-            className="px-1 py-2 text-sm font-bold text-brand-ink hover:underline"
+            className="px-1 py-2 text-sm font-semibold text-brand-ink hover:underline"
           >
             Reset filters
           </button>
@@ -232,7 +232,7 @@ function ReportView({ reportId }: { reportId: string }) {
                       <th
                         key={c.key}
                         className={clsx(
-                          "whitespace-nowrap border-b border-border bg-surface px-4 py-2.5 text-[0.7rem] font-bold uppercase tracking-wider text-ink-3",
+                          "whitespace-nowrap border-b border-border bg-surface px-4 py-2.5 text-xs font-medium tracking-[0.01em] text-ink-3",
                           c.kind === "number" ? "text-right" : "text-left",
                         )}
                       >
