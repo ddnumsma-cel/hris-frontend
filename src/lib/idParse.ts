@@ -161,7 +161,10 @@ interface Line {
  *   printed order). It's a guess, so the scanner only enables it after every
  *   OCR pass failed to find the labels.
  */
-export function parseIdText(raw: string, { positional = false } = {}): ScannedIdFields {
+export function parseIdText(
+  raw: string,
+  { positional = false, idType: expectedType }: { positional?: boolean; idType?: string } = {},
+): ScannedIdFields {
   const lines: Line[] = raw
     .replace(/\r/g, "")
     .split("\n")
@@ -174,7 +177,9 @@ export function parseIdText(raw: string, { positional = false } = {}): ScannedId
   const mrz = parsePassportMrz(lines.map((l) => l.raw));
   if (mrz) return mrz;
 
-  const idType = detectIdType(upper);
+  // HR says which ID this is, so read it with that card's number format
+  // instead of guessing the type from the printed text.
+  const idType = expectedType && expectedType !== "Other" ? expectedType : detectIdType(upper);
   const fields: ScannedIdFields = { idType };
 
   const combinedIdx = lines.findIndex((l) => l.label === "combinedName");
@@ -229,11 +234,32 @@ export function parseIdText(raw: string, { positional = false } = {}): ScannedId
   // No labelled date found: take the first full date on the card.
   fields.birthDate ??= lines.map((l) => normalizeDate(l.raw)).find(Boolean);
 
-  const sexMatch = upper.match(/\b(?:SEX|KASARIAN)\b[^A-Z\n]*(?:\n[^A-Z\n]*)?\b(M|F|MALE|FEMALE|LALAKI|BABAE)\b/);
-  if (sexMatch) fields.sex = normalizeSex(sexMatch[1]);
+  fields.sex = findSex(upper);
 
   fields.idNumber = findIdNumber(upper, idType);
   return clean(fields);
+}
+
+/**
+ * The value after or under a "SEX" label. Cards often print another label
+ * beside it ("SEX   DATE OF BIRTH" / "F   1995/03/15"), and sparse OCR puts
+ * each of those on its own line, so check the rest of the label's line, then
+ * the next few lines for one that starts with a sex value.
+ */
+function findSex(upper: string): IdSex | undefined {
+  const rows = upper.split("\n").map((r) => r.trim()).filter(Boolean);
+  const token = /^[^A-Z]*(MALE|FEMALE|LALAKI|BABAE|M|F)(?![A-Z])/;
+  for (let i = 0; i < rows.length; i++) {
+    const label = rows[i]!.match(/\b(?:SEX|KASARIAN)\b/);
+    if (!label) continue;
+    const sameLine = rows[i]!.slice(label.index! + label[0].length).match(token);
+    if (sameLine) return normalizeSex(sameLine[1]);
+    for (const row of rows.slice(i + 1, i + 4)) {
+      const below = row.match(token);
+      if (below) return normalizeSex(below[1]);
+    }
+  }
+  return undefined;
 }
 
 /** Merge a later OCR pass into earlier results — earlier values win. */
@@ -328,7 +354,8 @@ function strictNameLine(line: string): string | undefined {
   return titleCase(trimmed);
 }
 
-function detectIdType(upper: string): string {
+/** The ID type the printed text points to, or "Other" when it's unclear. */
+export function detectIdType(upper: string): string {
   if (/PHILSYS|PAMBANSANG|PAGKAKAKILANLAN|PHILIPPINE\s*IDENTIFICATION/.test(upper)) return "PhilSys National ID";
   if (/UNIFIED\s*MULTI|UMID|\bCRN\b/.test(upper)) return "UMID";
   if (/DRIVER|LAND\s*TRANSPORTATION|\bLTO\b/.test(upper)) return "Driver's License";
@@ -517,4 +544,137 @@ function lcs(a: string, b: string) {
     for (let j = 1; j <= b.length; j++)
       dp[i]![j] = a[i - 1] === b[j - 1] ? dp[i - 1]![j - 1]! + 1 : Math.max(dp[i - 1]![j]!, dp[i]![j - 1]!);
   return dp[a.length]![b.length]!;
+}
+
+// ---------------------------------------------------------------------------
+// Confidence
+//
+// A field is only auto-filled when every word it came from was read with high
+// confidence. Anything less is left blank for HR to type, instead of filling
+// in a plausible-looking but wrong value.
+
+/** Minimum Tesseract word confidence (0–100) for a value to be auto-filled. */
+export const MIN_WORD_CONFIDENCE = 85;
+/** Names are printed large and bold, so they're accepted at a lower bar. */
+export const MIN_NAME_CONFIDENCE = 70;
+
+export interface OcrWord {
+  text: string;
+  confidence: number;
+}
+
+/** OCR words grouped by printed line, as Tesseract returns them. */
+export type OcrLines = OcrWord[][];
+
+export type CheckedField = "lastName" | "firstName" | "middleName" | "birthDate" | "sex" | "idNumber" | "idExpiry";
+
+const lettersOnly = (s: string) => s.toUpperCase().replace(/[^A-ZÑ]/g, "");
+
+/**
+ * Best confidence of an OCR word that reads exactly as `token`, or 0 if none
+ * does. Exact only: a clipped read ("JUA") must not borrow the confidence of
+ * a full one ("JUAN").
+ */
+function bestMatch(words: OcrWord[], token: string, normalize: (s: string) => string) {
+  let best = 0;
+  for (const w of words) if (normalize(w.text) === token) best = Math.max(best, w.confidence);
+  return best;
+}
+
+function valueConfidence(field: CheckedField, value: string, lines: OcrLines): number {
+  const words = lines.flat();
+  switch (field) {
+    case "lastName":
+    case "firstName":
+    case "middleName": {
+      const tokens = value.split(/\s+/).map(lettersOnly).filter(Boolean);
+      return tokens.length ? Math.min(...tokens.map((t) => bestMatch(words, t, lettersOnly))) : 0;
+    }
+    case "idNumber": {
+      // The number may be one OCR word ("1234-5678-…") or one per group.
+      const whole = value.replace(/[^0-9A-Z]/gi, "").toUpperCase();
+      const digitsOf = (s: string) => toDigits(s).replace(/[^0-9A-Z]/g, "");
+      const asOne = bestMatch(words, whole, digitsOf);
+      if (asOne) return asOne;
+      const tokens = value.split(/[^0-9A-Z]+/i).filter(Boolean);
+      return tokens.length ? Math.min(...tokens.map((t) => bestMatch(words, t.toUpperCase(), digitsOf))) : 0;
+    }
+    case "birthDate":
+    case "idExpiry": {
+      // Dates are printed in many formats; judge by the line holding the year.
+      const year = value.slice(0, 4);
+      const line = lines.find((l) => l.some((w) => w.text.includes(year)));
+      const parts = line?.filter((w) => /\d/.test(w.text) || lettersOnly(w.text).length >= 3) ?? [];
+      return parts.length ? Math.min(...parts.map((w) => w.confidence)) : 0;
+    }
+    case "sex":
+      return Math.max(0, ...words.filter((w) => /^(M|F|MALE|FEMALE|LALAKI|BABAE)$/.test(lettersOnly(w.text))).map((w) => w.confidence));
+  }
+}
+
+const checkedFields = ["lastName", "firstName", "middleName", "birthDate", "sex", "idNumber", "idExpiry"] as const;
+
+function minConfidence(field: CheckedField) {
+  return field === "lastName" || field === "firstName" || field === "middleName" ? MIN_NAME_CONFIDENCE : MIN_WORD_CONFIDENCE;
+}
+
+/**
+ * Combines several OCR passes field by field. Each field takes the value the
+ * most passes read (confidence breaks ties), so one pass dropping a letter is
+ * outvoted. `agreed` holds the fields that at least two passes read the same.
+ */
+export function bestOfPasses(passes: { fields: ScannedIdFields; lines: OcrLines }[]) {
+  const fields: ScannedIdFields = {};
+  const agreed: ScannedIdFields = {};
+  const unsure = new Set<CheckedField>();
+  for (const field of checkedFields) {
+    const votes = new Map<string, { count: number; confidence: number }>();
+    for (const pass of passes) {
+      const value = pass.fields[field];
+      if (!value) continue;
+      const confidence = valueConfidence(field, value, pass.lines);
+      const v = votes.get(value) ?? { count: 0, confidence: 0 };
+      votes.set(value, { count: v.count + 1, confidence: Math.max(v.confidence, confidence) });
+    }
+    const best = [...votes.entries()].sort((a, b) => b[1].count - a[1].count || b[1].confidence - a[1].confidence)[0];
+    if (!best) continue;
+    const [value, { count, confidence }] = best;
+    if (confidence >= minConfidence(field)) {
+      (fields as Record<string, string>)[field] = value;
+      if (count >= 2) (agreed as Record<string, string>)[field] = value;
+    } else unsure.add(field);
+  }
+  // A suffix is split off the first name, so it stands or falls with it.
+  const withSuffix = passes.find((p) => p.fields.firstName === fields.firstName && p.fields.suffix);
+  if (fields.firstName && withSuffix) fields.suffix = withSuffix.fields.suffix;
+  return { fields, agreed, unsure: [...unsure] };
+}
+
+/**
+ * Splits OCR results into fields confident enough to fill and fields that
+ * were found but not read clearly (returned as `unsure`, left blank).
+ */
+export function keepConfidentFields(fields: ScannedIdFields, lines: OcrLines) {
+  const kept: ScannedIdFields = { ...fields };
+  const unsure: CheckedField[] = [];
+  for (const field of checkedFields) {
+    const value = fields[field];
+    if (!value) continue;
+    if (valueConfidence(field, value, lines) < minConfidence(field)) {
+      delete kept[field];
+      unsure.push(field);
+    }
+  }
+  // A suffix is split off the first name, so it stands or falls with it.
+  if (!kept.firstName) delete kept.suffix;
+  return { fields: kept, unsure };
+}
+
+/** A birth date that fits someone of working age (15–100) today. */
+export function isPlausibleBirthDate(iso: string, today = new Date()) {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return false;
+  let age = today.getFullYear() - y;
+  if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--;
+  return age >= 15 && age <= 100;
 }

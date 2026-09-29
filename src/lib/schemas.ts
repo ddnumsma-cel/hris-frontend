@@ -37,27 +37,14 @@ export const officeOptions = ["Cebu HQ", "Manila", "Davao"] as const;
 
 export const clusterOptions = ["RPM", "VCM", "ADS", "Admin & Support"] as const;
 
-// Department and cluster are picked together as one "Department · Cluster"
-// assignment; each cluster only offers the departments it actually staffs.
-export const departmentsByCluster: Record<(typeof clusterOptions)[number], string[]> = {
-  RPM: ["Audit & Assurance", "Tax Advisory", "Bookkeeping"],
-  VCM: ["Audit & Assurance", "Tax Advisory", "Bookkeeping"],
-  ADS: ["Audit & Assurance", "Tax Advisory", "Corporate Legal"],
-  "Admin & Support": ["Admin & Support", "Human Resources", "IT", "Front Desk", "Liaison"],
-};
-
-const ASSIGNMENT_SEPARATOR = "::";
-
-export function toAssignment(cluster: string, department: string) {
-  return `${cluster}${ASSIGNMENT_SEPARATOR}${department}`;
-}
-
-export function fromAssignment(assignment: string) {
-  const [cluster, department = ""] = assignment.split(ASSIGNMENT_SEPARATOR);
-  return { cluster: cluster as (typeof clusterOptions)[number], department };
-}
+// What "Add employee" offers: the firm's two departments, and the client
+// cluster the person is assigned to within it.
+export const hireDepartmentOptions = ["Accounting", "IT"] as const;
+export const hireClusterOptions = ["RPM", "VCM", "ADS"] as const;
 
 export const sexOptions = ["Male", "Female"] as const;
+export const bloodTypeOptions = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
+export const emergencyRelationshipOptions = ["Spouse", "Parent", "Sibling", "Child", "Relative", "Partner", "Friend"] as const;
 
 export const addEmployeeSchema = z.object({
   lastName: z.string().trim().min(1, "Last name is required"),
@@ -66,10 +53,17 @@ export const addEmployeeSchema = z.object({
   suffix: z.string().trim(),
   birthDate: z.string(),
   sex: z.union([z.enum(sexOptions), z.literal("")]),
+  bloodType: z.union([z.enum(bloodTypeOptions), z.literal("")]),
   email: z.union([z.string().trim().email("Enter a valid email"), z.literal("")]),
-  phone: z.string().trim(),
+  phone: z.string().trim().min(1, "Mobile number is required"),
+  address: z.string().trim(),
+  emergencyName: z.string().trim(),
+  emergencyRelationship: z.union([z.enum(emergencyRelationshipOptions), z.literal("")]),
+  emergencyPhone: z.string().trim(),
   position: z.string().trim().min(1, "Position is required"),
-  assignment: z.string().min(1, "Choose a department and cluster"),
+  dateHired: z.string().min(1, "Date hired is required"),
+  department: z.union([z.enum(hireDepartmentOptions), z.literal("")]).refine((v) => v.length > 0, "Choose a department"),
+  cluster: z.union([z.enum(hireClusterOptions), z.literal("")]),
   office: z.enum(officeOptions),
   idType: z.string(),
   idNumber: z.string().trim(),
@@ -77,6 +71,12 @@ export const addEmployeeSchema = z.object({
 });
 
 export type AddEmployeeFormValues = z.infer<typeof addEmployeeSchema>;
+
+/** Add-employee schema with the cluster required once a department is picked. */
+export const addEmployeeFormSchema = addEmployeeSchema.refine((v) => v.department.length === 0 || v.cluster.length > 0, {
+  message: "Choose a cluster",
+  path: ["cluster"],
+});
 
 export const clusterDescriptions: Record<(typeof clusterOptions)[number], string> = {
   RPM: "Accountants — RPM client group",

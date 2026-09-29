@@ -90,6 +90,7 @@ import type {
 } from "./types";
 import { getCredential, getCredentials, setCredential } from "./credentials";
 import { buildEmployeeFileRecords } from "./employmentRecords";
+import { assignHireDateIds, isHireDateId, type IdCandidate } from "./employeeIds";
 import { teamReports, type ReportId } from "./reportsData";
 
 /**
@@ -243,6 +244,8 @@ export interface UpdatePersonnelProfileInput {
   birthDate?: string;
   civilStatus?: CivilStatus;
   dependents?: Dependent[];
+  bloodType?: string;
+  address?: string;
 }
 
 export interface UpdatePersonnelDocumentInput {
@@ -571,8 +574,14 @@ export interface CreateEmployeeInput {
   department: string;
   office: Employee["office"];
   cluster: Employee["cluster"];
-  /** Scanned or typed ID details — becomes the new hire's "Valid Government ID" 201 document. */
-  governmentId?: { idType: string; idNumber?: string; idExpiry?: string; fileName?: string };
+  /** ISO date, e.g. "2026-09-29" — decides the employee ID. */
+  dateHired: string;
+  bloodType?: string;
+  address?: string;
+  emergencyContact?: { name: string; relationship?: string; phone?: string };
+  /** Scanned or typed ID details — becomes the new hire's "Valid Government ID" 201 document.
+   * `fileName` is the first image; `extraFileNames` holds any others (e.g. the back). */
+  governmentId?: { idType: string; idNumber?: string; idExpiry?: string; fileName?: string; extraFileNames?: string[] };
 }
 
 /** "Juan P. Dela Cruz Jr." — how names read across the directory. */
@@ -595,11 +604,64 @@ function initialsFor(name: string) {
     .join("");
 }
 
+/** "Maria Reyes (Mother) · +63 917 000 0000" — how emergency contacts are stored and shown. */
+function formatEmergencyContact(contact: CreateEmployeeInput["emergencyContact"]) {
+  const name = contact?.name.trim();
+  if (!name) return undefined;
+  const relationship = contact?.relationship ? ` (${contact.relationship})` : "";
+  const phone = contact?.phone?.trim() ? ` · ${contact.phone.trim()}` : "";
+  return `${name}${relationship}${phone}`;
+}
+
+/** Everyone already holding a hire-date ID, in the shape the ID assignment needs. */
+function hireDateIdHolders(): IdCandidate[] {
+  return employeeDirectory.flatMap((e) =>
+    isHireDateId(e.id) && e.dateHired && e.lastName && e.firstName
+      ? [{ id: e.id, dateHired: e.dateHired, lastName: e.lastName, firstName: e.firstName }]
+      : [],
+  );
+}
+
+/** The ID a new hire would get if saved now, and how many same-month hires it would renumber. */
+export function previewEmployeeId(input: Pick<CreateEmployeeInput, "dateHired" | "lastName" | "firstName">) {
+  const { newId, renamed } = assignHireDateIds(
+    { dateHired: input.dateHired, lastName: input.lastName.trim(), firstName: input.firstName.trim() },
+    hireDateIdHolders(),
+  );
+  return { id: newId, renumbers: renamed.size };
+}
+
+/** Moves every record keyed by an employee ID that changed. */
+function rekeyEmployees(renamed: Map<string, string>) {
+  if (renamed.size === 0) return;
+  const to = (id: string) => renamed.get(id) ?? id;
+  setEmployeeDirectory(
+    employeeDirectory.map((e) => ({ ...e, id: to(e.id), reportsToId: e.reportsToId && to(e.reportsToId) })),
+  );
+  setPersonnelProfiles(personnelProfiles.map((p) => ({ ...p, employeeId: to(p.employeeId) })));
+  setPersonnelDocuments(
+    personnelDocuments.map((d) =>
+      renamed.has(d.employeeId)
+        ? { ...d, employeeId: to(d.employeeId), id: d.id.replace(`doc-${d.employeeId}-`, `doc-${to(d.employeeId)}-`) }
+        : d,
+    ),
+  );
+  setAuditLogEntries(auditLogEntries.map((a) => ({ ...a, employeeId: to(a.employeeId) })));
+}
+
 export async function createEmployee(input: CreateEmployeeInput): Promise<Employee> {
   const name = formatEmployeeName(input);
+  const lastName = input.lastName.trim();
+  const firstName = input.firstName.trim();
+  const { newId, renamed } = assignHireDateIds({ dateHired: input.dateHired, lastName, firstName }, hireDateIdHolders());
+  rekeyEmployees(renamed);
+
   const employee: Employee = {
-    id: `MSMA-${Math.floor(10_000 + Math.random() * 89_999)}`,
+    id: newId,
     name,
+    dateHired: input.dateHired,
+    lastName,
+    firstName,
     initials: initialsFor(`${input.firstName} ${input.lastName}`),
     position: input.position,
     department: input.department,
@@ -608,12 +670,19 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Employ
     status: "Active",
     email: input.email || undefined,
     phone: input.phone || undefined,
+    emergencyContact: formatEmergencyContact(input.emergencyContact),
   };
 
   setEmployeeDirectory([employee, ...employeeDirectory]);
   setPersonnelProfiles([
     ...personnelProfiles,
-    { employeeId: employee.id, dependents: [], birthDate: input.birthDate || undefined },
+    {
+      employeeId: employee.id,
+      dependents: [],
+      birthDate: input.birthDate || undefined,
+      bloodType: input.bloodType || undefined,
+      address: input.address?.trim() || undefined,
+    },
   ]);
   setPersonnelDocuments([...personnelDocuments, ...buildNewHireDocuments(employee.id, input.governmentId)]);
   return delay(employee);

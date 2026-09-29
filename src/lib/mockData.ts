@@ -674,6 +674,7 @@ export interface NewHireGovernmentId {
   idNumber?: string;
   idExpiry?: string;
   fileName?: string;
+  extraFileNames?: string[];
 }
 
 /** A fresh 201 checklist for someone just added through the directory:

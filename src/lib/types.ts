@@ -16,6 +16,11 @@ export interface Employee {
   phone?: string;
   emergencyContact?: string;
   faceEnrolled?: boolean;
+  // Set for people added through "Add employee"; the hire date and name
+  // parts decide their YYYY-MM-NN employee ID (see lib/employeeIds.ts).
+  dateHired?: string;
+  lastName?: string;
+  firstName?: string;
 }
 
 export interface LeaveBalance {
@@ -271,6 +276,8 @@ export interface PersonnelDocument {
   type: PersonnelDocumentType;
   status: PersonnelDocumentStatus;
   fileName?: string;
+  /** Further images of the same document, e.g. the back of an ID card. */
+  extraFileNames?: string[];
   uploadedOn?: string;
   // Populated only for the document types where it applies.
   idType?: string;
@@ -303,6 +310,8 @@ export interface PersonnelProfile {
   birthDate?: string;
   civilStatus?: CivilStatus;
   dependents: Dependent[];
+  bloodType?: string;
+  address?: string;
 }
 
 // --- Audit log for restricted personnel data ---

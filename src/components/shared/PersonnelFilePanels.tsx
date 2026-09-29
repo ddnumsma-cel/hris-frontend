@@ -246,7 +246,8 @@ function DocumentRow({
       </>
     );
   } else if (doc.fileName) {
-    meta = `${doc.fileName} · ${doc.uploadedOn}`;
+    const more = doc.extraFileNames?.length ?? 0;
+    meta = `${doc.fileName}${more ? ` + ${more} more` : ""} · ${doc.uploadedOn}`;
   } else if (doc.status === "Missing") {
     meta = "Not yet submitted";
   } else if (notApplicable) {

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip, type ChipVariant } from "@/components/ui/Chip";
 import { MiniAvatar } from "@/components/ui/MiniAvatar";
+import { Pagination } from "@/components/ui/Pagination";
 import { Skeleton, SkeletonRows } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastContext";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -331,6 +332,7 @@ export function AdminPersonnelFiles() {
         </Card>
       ) : view === "table" ? (
         <DirectoryTable
+          key={`${office}|${clusterFilter}|${filter}|${search}`}
           employees={filtered}
           isLoading={directoryQuery.isLoading}
           photoById={photoById}
@@ -603,9 +605,13 @@ function ViewToggle({ view, onChange }: { view: DirectoryView; onChange: (view: 
   );
 }
 
+// Rows per page in the table layout; the Previous/Next bar sits under the table.
+const TABLE_PAGE_SIZE = 7;
+
 const thClass =
   "whitespace-nowrap border-b border-border bg-surface px-3 py-2.5 text-left text-xs font-medium tracking-[0.01em] text-ink-3";
-const tdClass = "border-b border-border px-3 py-2.5 align-middle";
+// Compact rows so a full page of 7 fits the window without the page or the table scrolling.
+const tdClass = "border-b border-border px-3 py-2 align-middle";
 
 function DirectoryTable({
   employees,
@@ -622,93 +628,114 @@ function DirectoryTable({
   hireDates?: Record<string, string>;
   onPreview: (id: string) => void;
 }) {
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(employees.length / TABLE_PAGE_SIZE));
+  // Clamped so removing people (or a smaller result set) never strands you past the last page.
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = employees.slice((currentPage - 1) * TABLE_PAGE_SIZE, currentPage * TABLE_PAGE_SIZE);
+
   return (
-    <Card className="overflow-hidden">
-      <table className="w-full table-fixed border-collapse text-[0.82rem]">
-        <colgroup>
-          {/* Employee takes whatever width is left. */}
-          <col />
-          <col className="w-[17%]" />
-          <col className="w-[21%]" />
-          <col className="w-[12%]" />
-          <col className="w-[7.5rem]" />
-          <col className="w-[7rem]" />
-          <col className="w-[6.5rem]" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th className={thClass}>Employee</th>
-            <th className={thClass}>Department</th>
-            <th className={thClass}>Contact</th>
-            <th className={thClass}>201 Files</th>
-            <th className={thClass}>Hired</th>
-            <th className={thClass}>Status</th>
-            <th className={thClass}>
-              <span className="sr-only">Actions</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {isLoading && <SkeletonRows columns={7} rows={6} />}
-          {employees.map((emp) => {
-            const c = completionById.get(emp.id)!;
-            return (
-              <tr key={emp.id} className="transition-colors hover:bg-surface-2/60">
-                <td className={tdClass}>
-                  <div className="flex items-center gap-2.5">
-                    <MiniAvatar initials={emp.initials} photoUrl={photoById.get(emp.id)} />
-                    <div className="min-w-0">
-                      <div className="truncate font-semibold">{emp.name}</div>
-                      <div className="truncate text-xs text-ink-2">
-                        {emp.position} · <span className="font-num">{emp.id}</span>
+    <div className="flex flex-col gap-3">
+      <Card className="overflow-hidden">
+        <table className="w-full table-fixed border-collapse text-[0.82rem]">
+          <colgroup>
+            {/* Employee takes whatever width is left. */}
+            <col />
+            <col className="w-[17%]" />
+            <col className="w-[21%]" />
+            <col className="w-[12%]" />
+            <col className="w-[7.5rem]" />
+            <col className="w-[7rem]" />
+            <col className="w-[6.5rem]" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th className={thClass}>Employee</th>
+              <th className={thClass}>Department</th>
+              <th className={thClass}>Contact</th>
+              <th className={thClass}>201 Files</th>
+              <th className={thClass}>Hired</th>
+              <th className={thClass}>Status</th>
+              <th className={thClass}>
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading && <SkeletonRows columns={7} rows={TABLE_PAGE_SIZE} />}
+            {pageRows.map((emp) => {
+              const c = completionById.get(emp.id)!;
+              return (
+                <tr key={emp.id} className="transition-colors hover:bg-surface-2/60">
+                  <td className={tdClass}>
+                    <div className="flex items-center gap-2.5">
+                      <MiniAvatar initials={emp.initials} photoUrl={photoById.get(emp.id)} />
+                      <div className="min-w-0">
+                        <div className="truncate font-semibold">{emp.name}</div>
+                        <div className="truncate text-xs text-ink-2">
+                          {emp.position} · <span className="font-num">{emp.id}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </td>
-                <td className={tdClass}>
-                  <div className="truncate">{emp.department}</div>
-                  <div className="truncate text-xs text-ink-2">
-                    {emp.office} <span className="text-ink-3">· {emp.cluster}</span>
-                  </div>
-                </td>
-                <td className={tdClass}>
-                  <div className="truncate" title={emp.email}>
-                    {emp.email ?? <span className="text-ink-3">—</span>}
-                  </div>
-                  <div className="truncate text-xs text-ink-2">{emp.phone}</div>
-                </td>
-                <td className={tdClass}>
-                  <div className="flex items-center gap-2">
-                    <div className="h-1 flex-1 overflow-hidden rounded-full bg-surface-2">
-                      <div className="h-full rounded-full bg-good" style={{ width: `${c.pct}%` }} />
+                  </td>
+                  <td className={tdClass}>
+                    <div className="truncate">{emp.department}</div>
+                    <div className="truncate text-xs text-ink-2">
+                      {emp.office} <span className="text-ink-3">· {emp.cluster}</span>
                     </div>
-                    <span className="font-num flex-none text-[0.7rem] text-ink-3">
-                      {c.verified}/{c.applicable}
-                    </span>
-                  </div>
-                  {c.missing > 0 && (
-                    <div className="mt-0.5 text-[0.7rem] font-semibold text-warning">{c.missing} missing</div>
-                  )}
-                </td>
-                <td className={clsx(tdClass, "whitespace-nowrap text-ink-2")}>{hireDates?.[emp.id] ?? "—"}</td>
-                <td className={clsx(tdClass, "whitespace-nowrap")}>
-                  <Chip variant={statusVariant[emp.status]}>{emp.status}</Chip>
-                </td>
-                <td className={clsx(tdClass, "text-right")}>
-                  <button
-                    type="button"
-                    onClick={() => onPreview(emp.id)}
-                    aria-label={`Preview ${emp.name}'s record`}
-                    className="rounded-lg border border-brand px-3 py-1 text-xs font-semibold text-brand-ink transition-colors hover:bg-brand-tint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cat-1)]"
-                  >
-                    Preview
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </Card>
+                  </td>
+                  <td className={tdClass}>
+                    <div className="truncate" title={emp.email}>
+                      {emp.email ?? <span className="text-ink-3">—</span>}
+                    </div>
+                    <div className="truncate text-xs text-ink-2">{emp.phone}</div>
+                  </td>
+                  <td className={tdClass}>
+                    <div className="flex items-center gap-2">
+                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-surface-2">
+                        <div className="h-full rounded-full bg-good" style={{ width: `${c.pct}%` }} />
+                      </div>
+                      <span className="font-num flex-none text-[0.7rem] text-ink-3">
+                        {c.verified}/{c.applicable}
+                      </span>
+                    </div>
+                    {c.missing > 0 && (
+                      <div className="mt-0.5 text-[0.7rem] font-semibold text-warning">{c.missing} missing</div>
+                    )}
+                  </td>
+                  <td className={clsx(tdClass, "whitespace-nowrap text-ink-2")}>{hireDates?.[emp.id] ?? "—"}</td>
+                  <td className={clsx(tdClass, "whitespace-nowrap")}>
+                    <Chip variant={statusVariant[emp.status]}>{emp.status}</Chip>
+                  </td>
+                  <td className={clsx(tdClass, "text-right")}>
+                    <button
+                      type="button"
+                      onClick={() => onPreview(emp.id)}
+                      aria-label={`Preview ${emp.name}'s record`}
+                      className="rounded-lg border border-brand px-3 py-1 text-xs font-semibold text-brand-ink transition-colors hover:bg-brand-tint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cat-1)]"
+                    >
+                      Preview
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Card>
+
+      {employees.length > TABLE_PAGE_SIZE && (
+        // Right padding keeps Next clear of the floating assistant button.
+        <div className="sm:pr-14">
+          <Pagination
+            page={currentPage}
+            pageCount={pageCount}
+            pageSize={TABLE_PAGE_SIZE}
+            total={employees.length}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
+    </div>
   );
 }

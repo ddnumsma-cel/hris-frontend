@@ -148,6 +148,10 @@ function addMonths(date: Date, months: number) {
 }
 
 function hireDateFor(employee: Employee) {
+  if (employee.dateHired) {
+    const [y, m, d] = employee.dateHired.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
   if (!seededIds.has(employee.id)) return new Date();
   // Lower employee numbers joined earlier: MSMA-00098 in 2016, MSMA-00845 in 2024.
   const n = Number(employee.id.replace(/\D/g, ""));
