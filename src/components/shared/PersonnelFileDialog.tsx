@@ -1,18 +1,16 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Dialog } from "@/components/ui/Dialog";
 import { Chip, type ChipVariant } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { EditIcon, UsersIcon } from "@/components/icons";
+import { UsersIcon } from "@/components/icons";
 import { fetchPersonnelDocuments,
   fetchPersonnelProfile,
   logPersonnelView } from "@/lib/api";
-import { getAge, OPTIONAL_RETIREMENT_AGE } from "@/lib/automation";
 import { formatToday } from "@/lib/format";
-import { EditPersonnelProfileDialog } from "./EditPersonnelProfileDialog";
+import { PersonnelProfilePanel } from "./PersonnelProfilePanel";
 import {
   getDocumentCompletion,
   PersonnelAuditLog,
@@ -34,7 +32,7 @@ export interface PersonnelFileSubject {
   emergencyContact?: string;
 }
 
-type Tab = "Profile" | "201 File" | "Activity log";
+type Tab = "Profile" | "201 Files" | "Activity log";
 
 const statusVariant: Record<string, ChipVariant> = {
   Active: "good",
@@ -49,17 +47,16 @@ export function PersonnelFileDialog({
   subject: PersonnelFileSubject | null;
   onClose: () => void;
   /**
-   * When the role has a dedicated 201 Files page, link there instead of
-   * showing the documents as a tab inside this dialog.
+   * HR's link to the employee's full record on the Employee Directory page.
+   * HR's dialog also drops the Activity log tab; the full record has it.
    */
   documentsHref?: (employeeId: string) => string;
 }) {
   const queryClient = useQueryClient();
   const actor = useAuditActor();
   const [tab, setTab] = useState<Tab>("Profile");
-  const [editingProfile, setEditingProfile] = useState(false);
   const employeeId = subject?.id;
-  const tabs: Tab[] = documentsHref ? ["Profile", "Activity log"] : ["Profile", "201 File", "Activity log"];
+  const tabs: Tab[] = documentsHref ? ["Profile", "201 Files"] : ["Profile", "201 Files", "Activity log"];
 
   const profileQuery = useQuery({
     queryKey: ["personnel", "profile", employeeId],
@@ -82,7 +79,6 @@ export function PersonnelFileDialog({
   }, [employeeId]);
 
   const profile = profileQuery.data;
-  const age = profile?.birthDate ? getAge(profile.birthDate) : null;
   const completion = getDocumentCompletion(documentsQuery.data ?? []);
 
   return (
@@ -123,7 +119,7 @@ export function PersonnelFileDialog({
                       )}
                     >
                       {t}
-                      {t === "201 File" && completion.applicable > 0 && (
+                      {t === "201 Files" && completion.applicable > 0 && (
                         <span className="font-num rounded-full bg-surface-2 px-1.5 py-0.5 text-[0.65rem] text-ink-2">
                           {completion.verified}/{completion.applicable}
                         </span>
@@ -154,108 +150,11 @@ export function PersonnelFileDialog({
                 </div>
         }
       >
-        {subject && tab === "Profile" && (
-                <div className="flex flex-col gap-4">
-                  <Section title="Employment">
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-3.5 sm:grid-cols-3">
-                <Field label="Employee ID" value={<span className="font-num">{subject.id}</span>} />
-                  <Field label="Position" value={subject.position} />
-                <Field label="Department" value={subject.department} />
-                <Field label="Office" value={subject.office} />
-                <Field label="Cluster" value={subject.cluster} />
-                <Field label="Status" value={subject.status} />
-              </dl>
-
-            </Section>
-
-            <Section title="Contact">
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-3.5 sm:grid-cols-3">
-              <Field label="Email" value={subject.email && <span className="break-all">{subject.email}</span>} />
-                <Field label="Phone" value={subject.phone} />
-                <Field label="Emergency contact" value={subject.emergencyContact} />
-              </dl>
-            </Section>
-
-            <Section
-              title="Personal info"
-              action={
-                <button
-                  type="button"
-                  onClick={() => setEditingProfile(true)}
-                  aria-label="Edit personal info"
-                  title="Edit"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-2 hover:bg-surface-2 hover:text-ink"
-                >
-                  <EditIcon className="h-3.5 w-3.5" />
-                </button>
-              }
-            >
-              {profileQuery.isLoading ? (
-                <Skeleton className="h-10 w-full" />
-              ) : (
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-3.5 sm:grid-cols-3">
-                  <Field
-                    label="Birth date"
-                    value={profile?.birthDate && (
-                        <>
-                          {profile.birthDate}
-                      {age !== null && (
-                        <span className="ml-1 text-xs text-ink-3">
-                          ({age} yrs{age >= OPTIONAL_RETIREMENT_AGE ? " · retirement-eligible" : ""})
-                        </span>
-                      )}
-                    </>
-                      )
-                    }
-                  />
-                  <Field label="Civil status" value={profile?.civilStatus} />
-                  <Field
-                    label="Dependents"
-                    value={profile?.dependents.length
-                        ? profile.dependents.map((d) => `${d.name} (${d.relationship})`).join(", ")
-                        : "None on file"}
-                  />
-                  </dl>
-              )}
-            </Section>
-                </div>
-              )}
-
-        {subject && tab === "201 File" && <PersonnelDocumentsPanel employeeId={subject.id} />}
+        {subject && tab === "Profile" && <PersonnelProfilePanel subject={subject} />}
+        {subject && tab === "201 Files" && <PersonnelDocumentsPanel employeeId={subject.id} />}
                 {subject && tab === "Activity log" && <PersonnelAuditLog employeeId={subject.id} />}
       </Dialog>
 
-      {employeeId && editingProfile && (
-        <EditPersonnelProfileDialog
-          key={employeeId}
-          employeeId={employeeId}
-          profile={profile}
-          onClose={() => setEditingProfile(false)}
-          onSubmitted={() => {}}
-        />
-      )}
-
       </>
-  );
-}
-
-function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="overflow-hidden rounded-lg border border-border">
-      <div className="flex min-h-9 items-center justify-between border-b border-border bg-surface-2/50 px-3.5 py-1">
-        <h3 className="text-[0.68rem] font-bold uppercase tracking-wider text-ink-3">{title}</h3>
-        {action}
-      </div>
-      <div className="p-3.5">{children}</div>
-    </section>
-  );
-}
-
-function Field({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-xs text-ink-2">{label}</dt>
-      <dd className="mt-0.5 text-sm">{value || <span className="text-ink-3">—</span>}</dd>
-    </div>
   );
 }

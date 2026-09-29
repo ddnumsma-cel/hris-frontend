@@ -165,7 +165,7 @@ export function AdminOverview() {
         title: `${employeeNameById.get(profile.employeeId) ?? profile.employeeId} is retirement-eligible`,
         detail: `${age} years old — optional retirement age under RA 7641`,
         tone: "info",
-        action: { label: "Review", onClick: () => navigate("/admin/201-files") },
+        action: { label: "Review", onClick: () => navigate(`/admin/directory?employee=${profile.employeeId}`) },
       });
     }
   }

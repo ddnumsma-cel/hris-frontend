@@ -78,19 +78,6 @@ export const addEmployeeSchema = z.object({
 
 export type AddEmployeeFormValues = z.infer<typeof addEmployeeSchema>;
 
-export const employeeStatusOptions = ["Active", "On leave"] as const;
-
-export const editEmployeeSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  position: z.string().min(1, "Position is required"),
-  department: z.string().min(1, "Department is required"),
-  office: z.enum(officeOptions),
-  cluster: z.enum(clusterOptions),
-  status: z.enum(employeeStatusOptions),
-});
-
-export type EditEmployeeFormValues = z.infer<typeof editEmployeeSchema>;
-
 export const clusterDescriptions: Record<(typeof clusterOptions)[number], string> = {
   RPM: "Accountants — RPM client group",
   VCM: "Accountants — VCM client group",
