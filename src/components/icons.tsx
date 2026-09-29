@@ -28,10 +28,13 @@ import {
   IdCard,
   Inbox,
   LayoutGrid,
+  List,
   Loader2,
   Lock,
   Mail,
   MapPin,
+  MoreVertical,
+  Phone,
   LogOut,
   Menu,
   Moon,
@@ -266,4 +269,16 @@ export function MailIcon(props: IconProps) {
 
 export function MapPinIcon(props: IconProps) {
   return <MapPin strokeWidth={strokeWidth} {...props} />;
+}
+
+export function MoreVerticalIcon(props: IconProps) {
+  return <MoreVertical strokeWidth={strokeWidth} {...props} />;
+}
+
+export function PhoneIcon(props: IconProps) {
+  return <Phone strokeWidth={strokeWidth} {...props} />;
+}
+
+export function ListIcon(props: IconProps) {
+  return <List strokeWidth={strokeWidth} {...props} />;
 }

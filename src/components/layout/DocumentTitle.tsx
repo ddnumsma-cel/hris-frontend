@@ -30,7 +30,6 @@ const titles: Record<string, string> = {
   "/manager/reports/offset-hours": "Offset Hours Report",
   "/admin": "Overview",
   "/admin/directory": "Employee Directory",
-  "/admin/201-files": "201 Files",
   "/admin/settings": "Settings",
   "/admin/org-chart": "Org Chart",
   "/admin/onboarding": "Onboarding",
