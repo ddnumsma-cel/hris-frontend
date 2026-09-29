@@ -9,7 +9,7 @@ function escapeHtml(value: string): string {
 const baseStyles = `
   * { box-sizing: border-box; }
   body {
-    font-family: "Lato", "Segoe UI", system-ui, sans-serif;
+    font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
     color: #12172a;
     margin: 0;
     padding: 40px 48px;
@@ -23,7 +23,7 @@ const baseStyles = `
     margin-bottom: 24px;
   }
   .doc-brand {
-    font-family: "Roboto", system-ui, sans-serif;
+    font-family: "Poppins", system-ui, sans-serif;
     font-weight: 800;
     font-size: 20px;
     color: #0e1835;
@@ -52,7 +52,7 @@ export function openPrintDocument(title: string, bodyHtml: string) {
   const win = window.open("", "_blank", "width=850,height=1100");
   if (!win) return;
   win.document.write(
-    `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${baseStyles}</style></head><body>${bodyHtml}</body></html>`,
+    `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&amp;display=swap"><style>${baseStyles}</style></head><body>${bodyHtml}</body></html>`,
   );
   win.document.close();
   win.focus();

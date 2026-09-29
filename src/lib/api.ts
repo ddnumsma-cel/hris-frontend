@@ -89,6 +89,7 @@ import type {
   TrainingStatus,
 } from "./types";
 import { getCredential, getCredentials, setCredential } from "./credentials";
+import { teamReports, type ReportId } from "./reportsData";
 
 /**
  * Every function here stands in for a real HTTP call. Swap the body for a
@@ -994,4 +995,10 @@ export async function releaseApprovedPayroll(): Promise<number> {
     setPayslips(payslips.map((p) => (p.id === payrollCutoff.payslipId ? { ...p, status: "Paid" } : p)));
   }
   return delay(approved.length);
+}
+
+// ---- Partner reports ----
+
+export function fetchTeamReport(id: ReportId) {
+  return delay(teamReports[id]);
 }

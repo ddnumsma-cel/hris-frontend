@@ -1,13 +1,15 @@
 import { useState, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import clsx from "clsx";
-import { MenuIcon, XIcon } from "@/components/icons";
+import { ChevronDownIcon, MenuIcon, XIcon } from "@/components/icons";
 
 export interface SideNavItem {
   label: string;
   to: string;
-  icon: ReactNode;
+  icon?: ReactNode;
   end?: boolean;
+  /** Sub-pages shown in a collapsible list under this item. */
+  children?: SideNavItem[];
 }
 
 export interface SideNavGroup {
@@ -15,9 +17,82 @@ export interface SideNavGroup {
   items: SideNavItem[];
 }
 
-function isItemActive(item: SideNavItem, pathname: string) {
+function isItemActive(item: SideNavItem, pathname: string): boolean {
+  if (item.children) return item.children.some((child) => isItemActive(child, pathname));
   if (item.end) return pathname === item.to;
   return pathname === item.to || pathname.startsWith(`${item.to}/`);
+}
+
+const itemClass = "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm font-medium";
+
+function NavItemLink({ item, onNavigate }: { item: SideNavItem; onNavigate?: () => void }) {
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        clsx(itemClass, isActive ? "bg-brand-tint font-bold text-brand-ink [&_svg]:text-brand-ink" : "text-ink-2")
+      }
+    >
+      <span className="flex-none text-ink-3 [&>svg]:h-4.5 [&>svg]:w-4.5">{item.icon}</span>
+      <span className="truncate">{item.label}</span>
+    </NavLink>
+  );
+}
+
+function NavItemWithChildren({ item, onNavigate }: { item: SideNavItem; onNavigate?: () => void }) {
+  const { pathname } = useLocation();
+  const childActive = isItemActive(item, pathname);
+  const [expanded, setExpanded] = useState(childActive);
+  // Always show the list while one of its pages is open, e.g. after following a link.
+  const open = expanded || childActive;
+  const listId = `subnav-${item.to.replace(/\W+/g, "-")}`;
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => setExpanded(!open)}
+        className={clsx(
+          itemClass,
+          "transition-colors hover:bg-surface-2/70",
+          childActive ? "font-bold text-brand-ink [&_svg]:text-brand-ink" : "text-ink-2",
+        )}
+      >
+        <span className="flex-none text-ink-3 [&>svg]:h-4.5 [&>svg]:w-4.5">{item.icon}</span>
+        <span className="truncate">{item.label}</span>
+        <ChevronDownIcon
+          className={clsx("ml-auto h-3.5 w-3.5 flex-none transition-transform duration-200", open && "rotate-180")}
+        />
+      </button>
+      {open && (
+        <ul id={listId} className="mt-0.5 mb-1 ml-[1.1rem] flex flex-col gap-px border-l border-border pl-2">
+          {item.children!.map((child) => (
+            <li key={child.to}>
+              <NavLink
+                to={child.to}
+                end={child.end}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  clsx(
+                    "relative flex w-full items-center rounded-md px-2.5 py-1 text-[0.8rem] transition-colors",
+                    isActive
+                      ? "bg-brand-tint font-bold text-brand-ink before:absolute before:top-1/2 before:-left-[calc(0.5rem+1px)] before:h-4 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:bg-brand"
+                      : "font-medium text-ink-2 hover:bg-surface-2/70 hover:text-ink",
+                  )
+                }
+              >
+                <span className="truncate">{child.label}</span>
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
 }
 
 function NavGroupList({ groups, onNavigate }: { groups: SideNavGroup[]; onNavigate?: () => void }) {
@@ -25,26 +100,17 @@ function NavGroupList({ groups, onNavigate }: { groups: SideNavGroup[]; onNaviga
     <>
       {groups.map((group) => (
         <div key={group.title}>
-          <div className="mb-1.5 px-2.5 text-[0.68rem] font-bold uppercase tracking-wider text-ink-3">
+          <div className="mb-1 px-2.5 text-[0.68rem] font-bold uppercase tracking-wider text-ink-3">
             {group.title}
           </div>
           <ul className="flex flex-col gap-px">
             {group.items.map((item) => (
               <li key={item.label}>
-                <NavLink
-                  to={item.to}
-                  end={item.end}
-                  onClick={onNavigate}
-                  className={({ isActive }) =>
-                    clsx(
-                      "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium",
-                      isActive ? "bg-brand-tint font-bold text-brand-ink [&_svg]:text-brand-ink" : "text-ink-2",
-                    )
-                  }
-                >
-                  <span className="text-ink-3 [&>svg]:h-4.5 [&>svg]:w-4.5">{item.icon}</span>
-                  {item.label}
-                </NavLink>
+                {item.children ? (
+                  <NavItemWithChildren item={item} onNavigate={onNavigate} />
+                ) : (
+                  <NavItemLink item={item} onNavigate={onNavigate} />
+                )}
               </li>
             ))}
           </ul>
@@ -58,7 +124,7 @@ export function SideNav({ groups }: { groups: SideNavGroup[] }) {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const allItems = groups.flatMap((g) => g.items);
+  const allItems = groups.flatMap((g) => g.items.flatMap((item) => item.children ?? [item]));
   const activeItem = allItems.find((item) => isItemActive(item, location.pathname));
 
   return (
@@ -103,7 +169,7 @@ export function SideNav({ groups }: { groups: SideNavGroup[] }) {
       {/* Desktop: sticky sidebar */}
       <aside
         data-tour="sidenav"
-        className="hidden sm:sticky sm:top-13.5 sm:flex sm:h-[calc(100dvh-3.375rem)] sm:w-55 sm:flex-none sm:flex-col sm:gap-4.5 sm:overflow-y-auto sm:border-r sm:border-border sm:px-3.5 sm:py-4.5 md:top-14.5 md:h-[calc(100dvh-3.625rem)]"
+        className="hidden sm:sticky sm:top-(--topbar-h) sm:flex sm:h-[calc(100dvh-var(--topbar-h))] sm:self-start sm:w-60 sm:flex-none sm:flex-col sm:gap-3 sm:overflow-y-auto sm:border-r sm:border-border sm:px-3.5 sm:py-3 no-scrollbar"
       >
         <NavGroupList groups={groups} />
       </aside>

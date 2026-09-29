@@ -6,7 +6,7 @@ import { Dialog } from "@/components/ui/Dialog";
 import { Chip, type ChipVariant } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { EditIcon, FolderIcon } from "@/components/icons";
+import { EditIcon, UsersIcon } from "@/components/icons";
 import { fetchPersonnelDocuments,
   fetchPersonnelProfile,
   logPersonnelView } from "@/lib/api";
@@ -137,13 +137,8 @@ export function PersonnelFileDialog({
                     onClick={onClose}
                     className="mb-1.5 flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-bold text-ink-2 transition-colors hover:border-brand hover:text-ink"
                   >
-                    <FolderIcon className="h-3.5 w-3.5" />
-                    Open 201 File
-                    {completion.applicable > 0 && (
-                      <span className="font-num text-ink-3">
-                        {completion.verified}/{completion.applicable}
-                      </span>
-                    )}
+                    <UsersIcon className="h-3.5 w-3.5" />
+                    View employee
                   </Link>
                 )}
               </div>

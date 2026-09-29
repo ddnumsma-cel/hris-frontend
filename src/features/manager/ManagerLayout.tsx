@@ -1,8 +1,10 @@
 import { Outlet } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
 import { SideNav } from "@/components/layout/SideNav";
+import { reportDefinitions } from "./reports/reportDefinitions";
 import {
   AlertTriangleIcon,
+  BarChartIcon,
   CalendarIcon,
   CheckSquareIcon,
   ClockIcon,
@@ -10,7 +12,6 @@ import {
   GraduationCapIcon,
   GridIcon,
   SettingsIcon,
-  UserCheckIcon,
   UsersIcon,
   WalletIcon,
 } from "@/components/icons";
@@ -27,8 +28,15 @@ export function ManagerLayout() {
                 { label: "Overview", to: "/manager", end: true, icon: <GridIcon /> },
                 { label: "Approvals", to: "/manager/approvals", icon: <CheckSquareIcon /> },
                 { label: "Team Calendar", to: "/manager/calendar", icon: <CalendarIcon /> },
-                { label: "Attendance", to: "/manager/attendance", icon: <ClockIcon /> },
-                { label: "Attendance Approvals", to: "/manager/attendance-approvals", icon: <UserCheckIcon /> },
+                {
+                  label: "Attendance",
+                  to: "/manager/attendance",
+                  icon: <ClockIcon />,
+                  children: [
+                    { label: "Team Attendance", to: "/manager/attendance", end: true },
+                    { label: "Attendance Approvals", to: "/manager/attendance-approvals" },
+                  ],
+                },
                 { label: "Workforce Intelligence", to: "/manager/workforce", icon: <AlertTriangleIcon /> },
               ],
             },
@@ -44,6 +52,12 @@ export function ManagerLayout() {
               title: "Company",
               items: [
                 { label: "Payroll", to: "/manager/payroll", icon: <WalletIcon /> },
+                {
+                  label: "Reports",
+                  to: "/manager/reports",
+                  icon: <BarChartIcon />,
+                  children: reportDefinitions.map((r) => ({ label: r.label, to: `/manager/reports/${r.id}` })),
+                },
                 { label: "Settings", to: "/manager/settings", icon: <SettingsIcon /> },
               ],
             },

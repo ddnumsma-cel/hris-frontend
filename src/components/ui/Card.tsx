@@ -1,11 +1,11 @@
-import type { HTMLAttributes, ReactNode } from "react";
+import type { HTMLAttributes, ReactNode, Ref } from "react";
 import clsx from "clsx";
 
 export function Card({
   children,
   className,
   ...rest
-}: { children: ReactNode; className?: string } & HTMLAttributes<HTMLDivElement>) {
+}: { children: ReactNode; className?: string; ref?: Ref<HTMLDivElement> } & HTMLAttributes<HTMLDivElement>) {
   return (
     <div className={clsx("rounded-xl border border-border bg-surface shadow-sm", className)} {...rest}>
       {children}

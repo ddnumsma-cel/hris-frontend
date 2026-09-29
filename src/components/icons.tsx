@@ -12,6 +12,8 @@ import {
   CircleCheck,
   CheckSquare,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Download,
   Fingerprint,
@@ -28,6 +30,8 @@ import {
   LayoutGrid,
   Loader2,
   Lock,
+  Mail,
+  MapPin,
   LogOut,
   Menu,
   Moon,
@@ -110,6 +114,14 @@ export function SearchIcon(props: IconProps) {
 
 export function ChevronDownIcon(props: IconProps) {
   return <ChevronDown strokeWidth={strokeWidth} {...props} />;
+}
+
+export function ChevronLeftIcon(props: IconProps) {
+  return <ChevronLeft strokeWidth={strokeWidth} {...props} />;
+}
+
+export function ChevronRightIcon(props: IconProps) {
+  return <ChevronRight strokeWidth={strokeWidth} {...props} />;
 }
 
 export function CheckIcon(props: IconProps) {
@@ -246,4 +258,12 @@ export function SettingsIcon(props: IconProps) {
 
 export function UserCheckIcon(props: IconProps) {
   return <UserCheck strokeWidth={strokeWidth} {...props} />;
+}
+
+export function MailIcon(props: IconProps) {
+  return <Mail strokeWidth={strokeWidth} {...props} />;
+}
+
+export function MapPinIcon(props: IconProps) {
+  return <MapPin strokeWidth={strokeWidth} {...props} />;
 }
