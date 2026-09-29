@@ -11,38 +11,33 @@ export interface AuthUser {
 
 const STORAGE_KEY = "msma-hris-role";
 
-const roleDirectory: Record<Role, AuthUser> = {
-  employee: {
-    role: "employee",
-    name: currentEmployee.name,
-    initials: currentEmployee.initials,
-    title: currentEmployee.position,
-  },
-  manager: {
-    role: "manager",
-    name: currentManager.name,
-    initials: currentManager.initials,
-    title: currentManager.title,
-  },
-  admin: {
-    role: "admin",
-    name: currentAdmin.name,
-    initials: currentAdmin.initials,
-    title: currentAdmin.title,
-  },
-};
+const roleKeys: Role[] = ["employee", "manager", "admin"];
+
+// Built on demand (not once at import) so profile edits — e.g. the Partner
+// updating their name in Settings — show up in the top bar.
+function userFor(role: Role): AuthUser {
+  switch (role) {
+    case "employee":
+      return { role, name: currentEmployee.name, initials: currentEmployee.initials, title: currentEmployee.position };
+    case "manager":
+      return { role, name: currentManager.name, initials: currentManager.initials, title: currentManager.title };
+    case "admin":
+      return { role, name: currentAdmin.name, initials: currentAdmin.initials, title: currentAdmin.title };
+  }
+}
 
 interface AuthContextValue {
   user: AuthUser | null;
   login: (role: Role) => void;
   logout: () => void;
+  refreshUser: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function readStoredUser(): AuthUser | null {
   const stored = localStorage.getItem(STORAGE_KEY);
-  return stored && stored in roleDirectory ? roleDirectory[stored as Role] : null;
+  return stored && roleKeys.includes(stored as Role) ? userFor(stored as Role) : null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -50,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function login(role: Role) {
     localStorage.setItem(STORAGE_KEY, role);
-    setUser(roleDirectory[role]);
+    setUser(userFor(role));
   }
 
   function logout() {
@@ -58,7 +53,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }
 
-  return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;
+  function refreshUser() {
+    setUser((current) => (current ? userFor(current.role) : null));
+  }
+
+  return <AuthContext.Provider value={{ user, login, logout, refreshUser }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

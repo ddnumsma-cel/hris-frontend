@@ -148,6 +148,28 @@ body {
   color-scheme: light dark;
 }
 
+/* Tailwind v4's preflight no longer gives buttons a pointer cursor; restore it
+   app-wide for every clickable control. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  select:not(:disabled),
+  summary,
+  label[for],
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="file"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
 .font-num {
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;

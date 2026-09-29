@@ -37,12 +37,43 @@ export const officeOptions = ["Cebu HQ", "Manila", "Davao"] as const;
 
 export const clusterOptions = ["RPM", "VCM", "ADS", "Admin & Support"] as const;
 
+// Department and cluster are picked together as one "Department · Cluster"
+// assignment; each cluster only offers the departments it actually staffs.
+export const departmentsByCluster: Record<(typeof clusterOptions)[number], string[]> = {
+  RPM: ["Audit & Assurance", "Tax Advisory", "Bookkeeping"],
+  VCM: ["Audit & Assurance", "Tax Advisory", "Bookkeeping"],
+  ADS: ["Audit & Assurance", "Tax Advisory", "Corporate Legal"],
+  "Admin & Support": ["Admin & Support", "Human Resources", "IT", "Front Desk", "Liaison"],
+};
+
+const ASSIGNMENT_SEPARATOR = "::";
+
+export function toAssignment(cluster: string, department: string) {
+  return `${cluster}${ASSIGNMENT_SEPARATOR}${department}`;
+}
+
+export function fromAssignment(assignment: string) {
+  const [cluster, department = ""] = assignment.split(ASSIGNMENT_SEPARATOR);
+  return { cluster: cluster as (typeof clusterOptions)[number], department };
+}
+
+export const sexOptions = ["Male", "Female"] as const;
+
 export const addEmployeeSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  position: z.string().min(1, "Position is required"),
-  department: z.string().min(1, "Department is required"),
+  lastName: z.string().trim().min(1, "Last name is required"),
+  firstName: z.string().trim().min(1, "First name is required"),
+  middleName: z.string().trim(),
+  suffix: z.string().trim(),
+  birthDate: z.string(),
+  sex: z.union([z.enum(sexOptions), z.literal("")]),
+  email: z.union([z.string().trim().email("Enter a valid email"), z.literal("")]),
+  phone: z.string().trim(),
+  position: z.string().trim().min(1, "Position is required"),
+  assignment: z.string().min(1, "Choose a department and cluster"),
   office: z.enum(officeOptions),
-  cluster: z.enum(clusterOptions),
+  idType: z.string(),
+  idNumber: z.string().trim(),
+  idExpiry: z.string(),
 });
 
 export type AddEmployeeFormValues = z.infer<typeof addEmployeeSchema>;

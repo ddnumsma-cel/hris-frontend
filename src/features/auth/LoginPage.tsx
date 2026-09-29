@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { CalendarIcon, FingerprintIcon, LockIcon, OrgChartIcon, PersonIcon, ShieldIcon } from "@/components/icons";
-import { demoCredentials, findCredential } from "@/lib/credentials";
+import { findCredential, getCredentials } from "@/lib/credentials";
 import { useAuth } from "./AuthContext";
 
 const RegisterDialog = lazy(() => import("./RegisterDialog").then((m) => ({ default: m.RegisterDialog })));
@@ -156,7 +156,7 @@ export function LoginPage() {
           <div className="mt-5 rounded-lg border border-dashed border-border bg-surface-2 px-3.5 py-3 text-xs">
             <div className="mb-1.5 font-semibold text-ink-2">Demo accounts — tap to fill</div>
             <div className="flex flex-col gap-1">
-              {demoCredentials.map((c) => (
+              {getCredentials().map((c) => (
                 <button
                   key={c.username}
                   type="button"

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
+import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
 import { Chip, type ChipVariant } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
@@ -11,7 +12,7 @@ import { useToast } from "@/components/ui/ToastContext";
 import { SearchIcon, SearchXIcon, UserPlusIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { EditIcon } from "@/components/icons";
+import { EditIcon, TrashIcon } from "@/components/icons";
 import { PersonnelFileDialog } from "@/components/shared/PersonnelFileDialog";
 import { deleteEmployee, fetchEmployeeDirectory } from "@/lib/api";
 import { formatToday } from "@/lib/format";
@@ -25,6 +26,39 @@ const employeeStatusVariant: Record<Employee["status"], ChipVariant> = {
   Active: "good",
   "On leave": "neutral",
 };
+
+const iconButtonClass = "flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface-2";
+
+function RowActions({ employee, onEdit, onRemove }: { employee: Employee; onEdit: () => void; onRemove: () => void }) {
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit();
+        }}
+        aria-label={`Edit ${employee.name}`}
+        title="Edit"
+        className={clsx(iconButtonClass, "text-ink-2 hover:text-ink")}
+      >
+        <EditIcon className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        aria-label={`Remove ${employee.name}`}
+        title="Remove"
+        className={clsx(iconButtonClass, "text-critical")}
+      >
+        <TrashIcon className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
 
 type ClusterFilter = "All clusters" | Cluster;
 
@@ -125,7 +159,9 @@ export function AdminDirectory() {
                 </Card>
               ))}
             {filtered.map((emp) => (
-              <Card key={emp.id} className="p-3.5">
+              <Card key={emp.id} className="cursor-pointer p-3.5 transition-colors hover:bg-surface-2/60"
+                onClick={() => setProfileEmployee(emp)}
+              >
                 <div className="flex items-start justify-between gap-2.5">
                   <div className="flex items-center gap-2.5">
                     <MiniAvatar initials={emp.initials} />
@@ -150,36 +186,27 @@ export function AdminDirectory() {
                     <dd className="mt-0.5 font-semibold text-ink">{emp.office}</dd>
                   </div>
                 </dl>
-                <div className="mt-3 flex items-center gap-4 border-t border-border pt-2.5 text-xs">
-                  <button type="button" onClick={() => setProfileEmployee(emp)} className="font-semibold text-brand-ink">
-                    Open 201
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingEmployee(emp)}
-                    className="flex items-center gap-1 font-semibold text-ink-2"
-                  >
-                    <EditIcon className="h-3.5 w-3.5" />
-                    Edit
-                  </button>
-                  <button type="button" onClick={() => setDeletingEmployee(emp)} className="font-semibold text-critical">
-                    Remove
-                  </button>
+                <div className="mt-3 flex items-center justify-end border-t border-border pt-2">
+                  <RowActions
+                    employee={emp}
+                    onEdit={() => setEditingEmployee(emp)}
+                    onRemove={() => setDeletingEmployee(emp)}
+                  />
                 </div>
               </Card>
             ))}
           </div>
 
           {/* Desktop: table (sm and up) */}
-          <Card className="hidden sm:block">
-            <div className="overflow-x-auto">
+          <Card className="hidden overflow-hidden sm:block">
+            <div className="max-h-[calc(100dvh-16.5rem)] min-h-[16rem] overflow-auto">
               <table className="w-full border-collapse text-[0.82rem]">
                 <thead>
                   <tr>
-                    {["Employee", "Department", "Cluster", "Office", "Status", "201 file"].map((h) => (
+                    {["Employee", "Department", "Cluster", "Office", "Status", ""].map((h) => (
                       <th
                         key={h}
-                        className="border-b border-border px-4 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wider text-ink-3"
+                        className="sticky top-0 z-10 border-b border-border bg-surface px-4 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wider text-ink-3"
                       >
                         {h}
                       </th>
@@ -189,7 +216,17 @@ export function AdminDirectory() {
                 <tbody>
                   {directoryQuery.isLoading && <SkeletonRows columns={6} />}
                   {filtered.map((emp) => (
-                    <tr key={emp.id}>
+                    <tr key={emp.id}
+                      tabIndex={0}
+                      onClick={() => setProfileEmployee(emp)}
+                      onKeyDown={(e) => {
+                        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                          e.preventDefault();
+                          setProfileEmployee(emp);
+                        }
+                      }}
+                      className="cursor-pointer transition-colors hover:bg-surface-2/60 focus-visible:bg-surface-2/60 focus-visible:outline-none"
+                    >
                       <td className="border-b border-border px-4 py-2.5">
                         <div className="flex items-center gap-2.5">
                           <MiniAvatar initials={emp.initials} />
@@ -206,29 +243,12 @@ export function AdminDirectory() {
                         <Chip variant={employeeStatusVariant[emp.status]}>{emp.status}</Chip>
                       </td>
                       <td className="border-b border-border px-4 py-2.5">
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setProfileEmployee(emp)}
-                            className="font-semibold text-brand-ink"
-                          >
-                            Open
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditingEmployee(emp)}
-                            className="flex items-center gap-1 font-semibold text-ink-2 hover:text-ink"
-                          >
-                            <EditIcon className="h-3.5 w-3.5" />
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeletingEmployee(emp)}
-                            className="font-semibold text-critical"
-                          >
-                            Remove
-                          </button>
+                        <div className="flex justify-end">
+                          <RowActions
+                            employee={emp}
+                            onEdit={() => setEditingEmployee(emp)}
+                            onRemove={() => setDeletingEmployee(emp)}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -257,9 +277,13 @@ export function AdminDirectory() {
             office: profileEmployee.office,
             cluster: profileEmployee.cluster,
             status: profileEmployee.status,
+            email: profileEmployee.email,
+            phone: profileEmployee.phone,
+            emergencyContact: profileEmployee.emergencyContact,
           }
         }
         onClose={() => setProfileEmployee(null)}
+        documentsHref={(id) => `/admin/201-files?employee=${id}`}
       />
 
       <EditEmployeeDialog

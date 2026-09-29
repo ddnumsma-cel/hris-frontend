@@ -108,7 +108,7 @@ export function ManagerOverview() {
     <>
       <ContentHead
         title="Audit & Assurance — Team Overview"
-        subtitle={`${currentManager.name}, ${currentManager.title} · Cebu HQ · ${formatToday()}`}
+        subtitle={`${currentManager.name}, ${currentManager.title} · ${currentManager.office} · ${formatToday()}`}
         actions={
           <>
             <ClockInOutControl personName={currentManager.name.split(" ")[0]} />
