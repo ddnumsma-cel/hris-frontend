@@ -32,6 +32,7 @@ const leaveStatusVariant: Record<LeaveRequest["status"], ChipVariant> = {
   Pending: "warn",
   Approved: "good",
   Declined: "crit",
+  Returned: "warn",
 };
 
 export function EmployeeLeaveDtr() {

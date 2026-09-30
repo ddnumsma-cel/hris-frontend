@@ -60,7 +60,7 @@ export function AssistantWidget() {
       </button>
 
       {open && (
-        <div className="panel-enter fixed bottom-21 right-5 z-90 flex h-[min(560px,70vh)] w-[min(380px,92vw)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-lg">
+        <div data-assistant-panel className="panel-enter fixed bottom-21 right-5 z-90 flex h-[min(560px,70vh)] w-[min(380px,92vw)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-lg">
           <div className="flex items-center gap-2 border-b border-border bg-brand-dark px-4 py-3 text-white">
             <SparkleIcon className="h-4 w-4 text-[#8fc93f]" />
             <div>

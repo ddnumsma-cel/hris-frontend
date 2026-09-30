@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import clsx from "clsx";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -40,7 +40,6 @@ import {
 import { formatToday } from "@/lib/format";
 import { clusterOptions } from "@/lib/schemas";
 import type { Cluster, Employee } from "@/lib/types";
-import { AddEmployeeDialog } from "./AddEmployeeDialog";
 import {
   EmploymentPanel,
   GovernmentNumbersPanel,
@@ -99,6 +98,7 @@ export function AdminPersonnelFiles() {
   const toast = useToast();
   const actor = useAuditActor();
   const { office } = useOfficeFilter();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedId = searchParams.get("employee");
   // The top-bar search lands here with ?q=.
@@ -106,7 +106,6 @@ export function AdminPersonnelFiles() {
   const [filter, setFilter] = useState<CompletionFilter>("All");
   const [clusterFilter, setClusterFilter] = useState<ClusterFilter>("All clusters");
   const [tab, setTab] = useState<Tab>("Profile");
-  const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
   const recordCardRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<DirectoryView>(loadDirectoryView);
 
@@ -274,7 +273,7 @@ export function AdminPersonnelFiles() {
         title="Employee Directory"
         subtitle={`${filtered.length} ${filtered.length === 1 ? "person" : "people"} · ${office} · ${formatToday()}`}
         actions={
-          <Button icon={<UserPlusIcon className="h-3.75 w-3.75" />} onClick={() => setAddEmployeeOpen(true)}>
+          <Button icon={<UserPlusIcon className="h-3.75 w-3.75" />} onClick={() => navigate("/admin/directory/new")}>
             Add employee
           </Button>
         }
@@ -365,11 +364,6 @@ export function AdminPersonnelFiles() {
         </ul>
       )}
 
-      <AddEmployeeDialog
-        open={addEmployeeOpen}
-        onClose={() => setAddEmployeeOpen(false)}
-        onSubmitted={() => toast.show("New employee added to the directory.")}
-      />
     </>
   );
 }
@@ -430,7 +424,7 @@ function DirectoryCard({
 
       <div className="mt-3.5 flex items-center gap-2 border-t border-border pt-3.5">
         <div className="h-1 flex-1 overflow-hidden rounded-full bg-surface-2">
-          <div className="h-full rounded-full bg-good" style={{ width: `${completion.pct}%` }} />
+          <div data-motion="fill" className="h-full rounded-full bg-good" style={{ width: `${completion.pct}%` }} />
         </div>
         <span className="font-num flex-none text-[0.7rem] text-ink-3">
           {completion.verified}/{completion.applicable} docs
@@ -693,7 +687,7 @@ function DirectoryTable({
                   <td className={tdClass}>
                     <div className="flex items-center gap-2">
                       <div className="h-1 flex-1 overflow-hidden rounded-full bg-surface-2">
-                        <div className="h-full rounded-full bg-good" style={{ width: `${c.pct}%` }} />
+                        <div data-motion="fill" className="h-full rounded-full bg-good" style={{ width: `${c.pct}%` }} />
                       </div>
                       <span className="font-num flex-none text-[0.7rem] text-ink-3">
                         {c.verified}/{c.applicable}

@@ -21,6 +21,12 @@ export interface Employee {
   dateHired?: string;
   lastName?: string;
   firstName?: string;
+  nickname?: string;
+  personalEmail?: string;
+  /** BRD §3.3 classification chosen when HR added them. */
+  employmentStatus?: "Probationary" | "Regular" | "Project-Based" | "Contractual" | "Part-Time";
+  /** Numbers HR typed in when adding them; shown as Pending in the 201 file until verified. */
+  governmentNumbers?: Partial<Record<"tin" | "sss" | "philHealth" | "pagIbig", string>>;
 }
 
 export interface LeaveBalance {
@@ -60,8 +66,38 @@ export interface LeaveRequest {
   employeeRole: string;
   type: LeaveType | "Overtime" | "Certificate of Employment";
   detail: string;
-  status: "Pending" | "Approved" | "Declined";
+  /** "Returned" sends it back to the employee to edit and resubmit. */
+  status: "Pending" | "Approved" | "Declined" | "Returned";
   requestedOn: string;
+  /** Leave goes Filed → Partner → HR; set once the Partner signs off. */
+  partnerApproved?: boolean;
+  /** ISO dates, for the leave calendar and overlap checks. */
+  startDate?: string;
+  endDate?: string;
+  /** Leave credits this request uses (overtime and COE requests have none). */
+  days?: number;
+  /** The employee's reason, shown in quotes. */
+  reason?: string;
+  /** Supporting document, e.g. "Medical certificate attached". */
+  attachmentNote?: string;
+  /** HR's note when returning the request. */
+  returnNote?: string;
+}
+
+export interface LeavePolicy {
+  code: string;
+  type: string;
+  days: number;
+  accrual: string;
+  cashConversion: string;
+}
+
+export interface LeaveOverviewStats {
+  onLeaveToday: number;
+  onLeaveOffices: number;
+  utilizationPercent: number;
+  utilizationLastYearPercent: number;
+  vlToConvertDays: number;
 }
 
 export interface AttendancePoint {
@@ -86,6 +122,11 @@ export interface ComplianceItem {
   due: string;
   status: "Filed" | "Due soon" | "Overdue";
   note?: string;
+  /** e.g. "September 2026". */
+  periodCovered?: string;
+  amount?: number;
+  /** PRN, eFPS or bank reference once filed. */
+  referenceNo?: string;
 }
 
 export interface OnboardingStage {
@@ -156,13 +197,46 @@ export interface TeamRosterMember {
 
 export type RequisitionStage = "Sourcing" | "Interviewing" | "Offer extended";
 
+export type RequisitionApproval = "Approved" | "Pending L1" | "Pending L2";
+
+export type EmploymentType = "Probationary → Regular" | "Project-based" | "Fixed-term" | "Part-time";
+
 export interface JobRequisition {
   id: string;
   title: string;
-  department: "Audit & Assurance" | "Tax Advisory" | "Corporate Legal" | "Bookkeeping";
+  department: string;
+  cluster?: Cluster;
+  office: Employee["office"];
   openings: number;
   applicants: number;
+  applicantsThisWeek: number;
   stage: RequisitionStage;
+  approval: RequisitionApproval;
+  employmentType?: EmploymentType;
+  /** ISO date. */
+  targetStart?: string;
+  salaryRange?: string;
+  justification?: string;
+}
+
+export type ApplicantStage = "Applied" | "Screening" | "Interview" | "Offered" | "Hired" | "Rejected";
+
+export interface Applicant {
+  id: string;
+  requisitionId: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  stage: ApplicantStage;
+  /** One-line status under the name, e.g. "Exam 86% · Sep 24". */
+  note: string;
+  /** ISO date an open offer lapses. */
+  offerExpires?: string;
+  /** ISO start date once hired. */
+  startDate?: string;
+  /** Set once HR creates the 201 file from this application. */
+  employeeId?: string;
 }
 
 export type DtrStatus = "On time" | "Late" | "Absent";
@@ -318,7 +392,7 @@ export interface PersonnelProfile {
 // Every view, edit, verify, or removal touching a 201 File's sensitive
 // fields is recorded here — who did it, to whose record, and when.
 
-export type AuditAction = "Viewed" | "Edited" | "Verified" | "Removed";
+export type AuditAction = "Created" | "Viewed" | "Edited" | "Verified" | "Removed";
 
 export interface AuditLogEntry {
   id: string;
@@ -382,4 +456,8 @@ export interface PayrollEntry {
   overtimeHours: number;
   otherDeductions: number;
   status: PayrollEntryStatus;
+  /** Overtime paid last cutoff, to flag unusual jumps before release. */
+  lastCutoffOvertimeHours?: number;
+  /** Overtime approved in advance; hours above this need review. Unset means all of it was pre-approved. */
+  preApprovedOvertimeHours?: number;
 }

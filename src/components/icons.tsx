@@ -48,6 +48,8 @@ import {
   ShieldCheck,
   Sun,
   Trash2,
+  RotateCw,
+  Undo2,
   Upload,
   User,
   UserMinus,
@@ -281,4 +283,12 @@ export function PhoneIcon(props: IconProps) {
 
 export function ListIcon(props: IconProps) {
   return <List strokeWidth={strokeWidth} {...props} />;
+}
+
+export function ReturnIcon(props: IconProps) {
+  return <Undo2 strokeWidth={strokeWidth} {...props} />;
+}
+
+export function RefreshIcon(props: IconProps) {
+  return <RotateCw strokeWidth={strokeWidth} {...props} />;
 }

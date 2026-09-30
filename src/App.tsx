@@ -26,10 +26,14 @@ const AdminOnboardingPage = lazy(() =>
 const AdminPayrollRuns = lazy(() =>
   import("@/features/admin/AdminPayrollRuns").then((m) => ({ default: m.AdminPayrollRuns })),
 );
-const AdminCompliancePage = lazy(() =>
-  import("@/features/admin/AdminCompliancePage").then((m) => ({ default: m.AdminCompliancePage })),
-);
 const AdminOrgChart = lazy(() => import("@/features/admin/AdminOrgChart").then((m) => ({ default: m.AdminOrgChart })));
+const AdminRecruitment = lazy(() =>
+  import("@/features/admin/AdminRecruitment").then((m) => ({ default: m.AdminRecruitment })),
+);
+const AdminLeave = lazy(() => import("@/features/admin/AdminLeave").then((m) => ({ default: m.AdminLeave })));
+const AddEmployeePage = lazy(() =>
+  import("@/features/admin/add-employee/AddEmployeePage").then((m) => ({ default: m.AddEmployeePage })),
+);
 const AdminOffboarding = lazy(() =>
   import("@/features/admin/AdminOffboarding").then((m) => ({ default: m.AdminOffboarding })),
 );
@@ -166,15 +170,19 @@ function App() {
             >
               <Route index element={<AdminOverview />} />
               <Route path="directory" element={<AdminPersonnelFiles />} />
+              <Route path="directory/new" element={<AddEmployeePage />} />
               <Route path="org-chart" element={<AdminOrgChart />} />
+              <Route path="recruitment" element={<AdminRecruitment />} />
               <Route path="onboarding" element={<AdminOnboardingPage />} />
               <Route path="offboarding" element={<AdminOffboarding />} />
               <Route path="assets" element={<AdminAssets />} />
+              <Route path="leave" element={<AdminLeave />} />
               <Route path="trainings" element={<AdminTrainings />} />
               <Route path="cases" element={<AdminCases />} />
               <Route path="certificates" element={<AdminCertificateRequests />} />
               <Route path="payroll-runs" element={<AdminPayrollRuns />} />
-              <Route path="compliance" element={<AdminCompliancePage />} />
+              {/* Filings moved to Payroll Runs → Remittances; licenses moved to Training & Development. */}
+              <Route path="compliance" element={<Navigate to="/admin/payroll-runs?tab=remittances" replace />} />
               <Route path="reports" element={<AdminReports />} />
             <Route path="settings" element={<AdminSettings />} />
             </Route>

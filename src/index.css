@@ -113,26 +113,27 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  [data-role="manager"]:not([data-theme="light"]) {
+  /* data-theme lives on <html>, data-role on the app wrapper — so match them as ancestor + descendant. */
+  :root:not([data-theme="light"]) [data-role="manager"] {
     --color-brand: #5b9bdb;
     --color-brand-ink: #8ec2ea;
     --color-brand-tint: #16283a;
   }
 
-  [data-role="admin"]:not([data-theme="light"]) {
+  :root:not([data-theme="light"]) [data-role="admin"] {
     --color-brand: #e0a83f;
     --color-brand-ink: #f0c877;
     --color-brand-tint: #3a2a10;
   }
 }
 
-[data-theme="dark"][data-role="manager"] {
+:root[data-theme="dark"] [data-role="manager"] {
   --color-brand: #5b9bdb;
   --color-brand-ink: #8ec2ea;
   --color-brand-tint: #16283a;
 }
 
-[data-theme="dark"][data-role="admin"] {
+:root[data-theme="dark"] [data-role="admin"] {
   --color-brand: #e0a83f;
   --color-brand-ink: #f0c877;
   --color-brand-tint: #3a2a10;
@@ -235,23 +236,7 @@ body {
   animation: toast-out 0.15s ease-in forwards;
 }
 
-@keyframes page-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.page-enter {
-  animation: page-in 0.2s ease-out;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .page-enter,
   .panel-enter,
   .overlay-enter,
   .toast-enter,
@@ -487,6 +472,23 @@ body {
     color: var(--sb-text);
   }
 
+  /* Closed, but the open page is inside it: highlight the parent like the current page. */
+  .sidebar-item[data-child-active="true"][aria-expanded="false"] {
+    background: var(--sb-active-bg);
+    box-shadow:
+      0 6px 16px -6px var(--sb-active-glow),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+  }
+
+  .sidebar-item[data-child-active="true"][aria-expanded="false"] .sidebar-icon {
+    color: var(--sb-lime);
+  }
+
+  .sidebar-item[data-child-active="true"][aria-expanded="false"] .sidebar-expand {
+    color: #ffffff;
+  }
+
   .sidebar-expand {
     flex: none;
     width: 14px;
@@ -504,9 +506,10 @@ body {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    margin: 2px 0 4px 16px;
+    /* Vertical spacing is padding, not margin, so a closed sub-menu collapses to 0px. */
+    margin: 0 0 0 16px;
     border-left: 1px solid var(--sb-border);
-    padding-left: 8px;
+    padding: 2px 0 4px 8px;
   }
 
   .sidebar-subitem {
@@ -1156,4 +1159,336 @@ body {
       "leave leave tip feed"
       "benefits benefits benefits feed";
   }
+}
+
+/* ------------------------------------------------------------------
+   Motion. Every animation here explains a change — a page opening, a
+   number updating, a request leaving the queue — and stays short
+   (150–400 ms, 700 ms for data fills). Reduced-motion users get none.
+   ------------------------------------------------------------------ */
+:root {
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+  --motion-slow: 400ms;
+  --motion-fill: 700ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --stagger-step: 45ms;
+}
+
+/* Page sections arrive top to bottom, so the eye follows the reading order.
+   Capped at the first 8 sections so long pages never make anyone wait. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Dialogs render inside the page too; they keep their own entrance (.overlay-enter). */
+.page-enter > :not(.overlay-enter),
+.page-enter .bento > *,
+.page-enter div:has(> [data-slot="stat"]) > * {
+  animation: rise-in var(--motion-slow) var(--ease-out) both;
+  /* Fallback for browsers without sibling-index(): the nth-child steps below. */
+  animation-delay: calc(var(--stagger-i, 0) * var(--stagger-step));
+  animation-delay: calc(min(sibling-index() - 1, 7) * var(--stagger-step));
+}
+
+.page-enter > :nth-child(2),
+.page-enter .bento > :nth-child(2),
+.page-enter div:has(> [data-slot="stat"]) > :nth-child(2) { --stagger-i: 1; }
+.page-enter > :nth-child(3),
+.page-enter .bento > :nth-child(3),
+.page-enter div:has(> [data-slot="stat"]) > :nth-child(3) { --stagger-i: 2; }
+.page-enter > :nth-child(4),
+.page-enter .bento > :nth-child(4),
+.page-enter div:has(> [data-slot="stat"]) > :nth-child(4) { --stagger-i: 3; }
+.page-enter > :nth-child(5),
+.page-enter .bento > :nth-child(5) { --stagger-i: 4; }
+.page-enter > :nth-child(6),
+.page-enter .bento > :nth-child(6) { --stagger-i: 5; }
+.page-enter > :nth-child(7),
+.page-enter .bento > :nth-child(7) { --stagger-i: 6; }
+.page-enter > :nth-child(n + 8),
+.page-enter .bento > :nth-child(n + 8) { --stagger-i: 7; }
+
+/* Bars fill from empty on first view, so "8.5 of 15 days" reads as an amount, not a stripe. */
+@keyframes fill-in {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+[data-motion="fill"],
+.dash-meter > span {
+  transform-origin: left center;
+  animation: fill-in var(--motion-fill) var(--ease-out) both;
+  animation-delay: 150ms;
+}
+
+/* Switching tabs: the new content fades in instead of snapping. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.tab-enter {
+  animation: fade-in var(--motion-base) var(--ease-out) both;
+}
+
+/* Items that appear after an action (a moved applicant card, a new request) land softly. */
+.item-enter {
+  transition:
+    opacity var(--motion-base) var(--ease-out),
+    transform var(--motion-base) var(--ease-out);
+}
+
+@starting-style {
+  .item-enter {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+/* A request that was just approved or rejected slides out of the queue. */
+.item-leave {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(16px);
+  transition:
+    opacity var(--motion-base) ease-in,
+    transform var(--motion-base) ease-in;
+}
+
+/* Being dragged: the card lifts, so it's clear what's moving. */
+.is-dragging {
+  opacity: 0.55;
+  transform: rotate(1.5deg) scale(0.98);
+}
+
+/* Success banners pop in, and their check mark draws itself. */
+@keyframes success-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.success-enter {
+  animation: success-in var(--motion-slow) var(--ease-out) both;
+}
+
+.success-enter svg path {
+  stroke-dasharray: 24;
+  animation: check-draw var(--motion-slow) var(--ease-out) 200ms both;
+}
+
+/* Sidebar sub-menus open and close to their natural height (grid-rows works in every current browser). */
+.sidebar-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows var(--motion-base) var(--ease-out),
+    opacity var(--motion-fast) ease;
+}
+
+.sidebar-collapse[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.sidebar-collapse > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter > :not(.overlay-enter),
+  .page-enter .bento > *,
+  .page-enter div:has(> [data-slot="stat"]) > *,
+  [data-motion="fill"],
+  .dash-meter > span,
+  .tab-enter,
+  .success-enter,
+  .success-enter svg path {
+    animation: none;
+  }
+
+  .item-enter,
+  .item-leave,
+  .sidebar-collapse {
+    transition: none;
+  }
+
+  .is-dragging {
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Add employee
+   ------------------------------------------------------------------ */
+
+/* Nothing floats over this form's buttons. */
+body[data-hide-assistant] [data-tour="assistant-button"],
+body[data-hide-assistant] [data-assistant-panel] {
+  display: none;
+}
+
+/* Main button: the darker gold carries white text at 5.5:1 (the brighter gold is only 3.7:1). */
+.add-employee [data-variant="primary"] {
+  background: var(--color-brand-ink);
+  color: #ffffff;
+}
+
+.add-employee [data-variant="primary"]:hover {
+  background: color-mix(in srgb, var(--color-brand-ink) 88%, var(--color-ink));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .add-employee [data-variant="primary"] {
+    background: var(--color-brand);
+    color: var(--color-brand-dark);
+  }
+}
+
+:root[data-theme="dark"] .add-employee [data-variant="primary"] {
+  background: var(--color-brand);
+  color: var(--color-brand-dark);
+}
+
+/* Employment status choices: selected = brand border + light tint, text stays ink. */
+.choice-card {
+  display: flex;
+  cursor: pointer;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  padding: 12px;
+  transition:
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease;
+}
+
+.choice-card:hover {
+  background: var(--color-surface-2);
+}
+
+.choice-card:has(:checked) {
+  border-color: var(--color-brand);
+  box-shadow: inset 0 0 0 1px var(--color-brand);
+  background: color-mix(in srgb, var(--color-brand-tint) 70%, var(--color-surface));
+}
+
+.choice-card:has(:focus-visible) {
+  outline: 2px solid var(--color-brand-ink);
+  outline-offset: 2px;
+}
+
+.choice-radio {
+  appearance: none;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 1.5px solid var(--color-ink-3);
+  border-radius: 999px;
+  background: var(--color-surface);
+}
+
+.choice-radio:checked {
+  border-color: var(--color-brand-ink);
+  background: var(--color-brand-ink);
+  box-shadow: inset 0 0 0 3.5px var(--color-surface);
+}
+
+.choice-radio:focus-visible {
+  outline: none;
+}
+
+/* Documents checklist: neutral rows; a ticked row gets only a hint of tint. */
+.doc-row {
+  display: flex;
+  cursor: pointer;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  padding: 10px 12px;
+  transition: background-color var(--motion-fast) ease;
+}
+
+.doc-row:hover {
+  background: var(--color-surface-2);
+}
+
+.doc-row:has(:checked) {
+  background: color-mix(in srgb, var(--color-brand-tint) 45%, var(--color-surface));
+}
+
+.doc-row:has(:focus-visible) {
+  outline: 2px solid var(--color-brand-ink);
+  outline-offset: 2px;
+}
+
+.doc-row:has(:disabled) {
+  cursor: default;
+}
+
+.doc-check {
+  appearance: none;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--color-ink-3);
+  border-radius: 5px;
+  background: var(--color-surface);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 12px;
+}
+
+.doc-check:checked {
+  border-color: var(--color-brand-ink);
+  background-color: var(--color-brand-ink);
+}
+
+.doc-check:focus-visible {
+  outline: none;
+}
+
+/* The tick itself: drawn in the surface colour so it reads on the fill in both themes. */
+.doc-check-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.doc-check-wrap > svg {
+  position: absolute;
+  inset: 3px;
+  width: 12px;
+  height: 12px;
+  color: var(--color-surface);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.doc-check-wrap > .doc-check:checked + svg {
+  opacity: 1;
 }

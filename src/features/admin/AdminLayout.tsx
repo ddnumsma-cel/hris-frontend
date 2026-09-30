@@ -3,15 +3,11 @@ import { RolePage } from "@/components/layout/RolePage";
 import { SideNav } from "@/components/layout/SideNav";
 import {
   BarChartIcon,
-  BriefcaseIcon,
-  FileIcon,
-  FlagIcon,
+  CalendarIcon,
   GraduationCapIcon,
   GridIcon,
-  OrgChartIcon,
+  SearchIcon,
   SettingsIcon,
-  ShieldIcon,
-  UserMinusIcon,
   UserPlusIcon,
   UsersIcon,
   WalletIcon,
@@ -24,35 +20,52 @@ export function AdminLayout() {
         <SideNav
           groups={[
             {
-              title: "Organization",
+              title: "Core HR",
               items: [
                 { label: "Overview", to: "/admin", end: true, icon: <GridIcon /> },
-                { label: "Employee Directory", to: "/admin/directory", icon: <UsersIcon /> },
-                { label: "Org Chart", to: "/admin/org-chart", icon: <OrgChartIcon /> },
-                { label: "Onboarding", to: "/admin/onboarding", icon: <UserPlusIcon /> },
-                { label: "Offboarding", to: "/admin/offboarding", icon: <UserMinusIcon /> },
-                { label: "Assets", to: "/admin/assets", icon: <BriefcaseIcon /> },
+                {
+                  label: "Employees",
+                  to: "/admin/employees",
+                  icon: <UsersIcon />,
+                  children: [
+                    { label: "Directory", to: "/admin/directory" },
+                    { label: "Org Chart", to: "/admin/org-chart" },
+                    { label: "Employee Relations", to: "/admin/cases" },
+                    { label: "Certificate Requests", to: "/admin/certificates" },
+                  ],
+                },
               ],
             },
             {
-              title: "People Programs",
+              title: "Recruitment & Onboarding",
               items: [
-                { label: "Training & Development", to: "/admin/trainings", icon: <GraduationCapIcon /> },
-                { label: "Employee Relations", to: "/admin/cases", icon: <FlagIcon /> },
-                { label: "Certificate Requests", to: "/admin/certificates", icon: <FileIcon /> },
+                { label: "Recruitment", to: "/admin/recruitment", icon: <SearchIcon /> },
+                {
+                  label: "On & Offboarding",
+                  to: "/admin/lifecycle",
+                  icon: <UserPlusIcon />,
+                  children: [
+                    { label: "Onboarding", to: "/admin/onboarding" },
+                    { label: "Offboarding", to: "/admin/offboarding" },
+                    { label: "Assets", to: "/admin/assets" },
+                  ],
+                },
               ],
             },
             {
-              title: "Payroll & Compliance",
+              title: "Workforce",
               items: [
+                { label: "Leave", to: "/admin/leave", icon: <CalendarIcon /> },
                 { label: "Payroll Runs", to: "/admin/payroll-runs", icon: <WalletIcon /> },
-                { label: "Compliance", to: "/admin/compliance", icon: <ShieldIcon /> },
-                { label: "Reports", to: "/admin/reports", icon: <BarChartIcon /> },
+                { label: "Training & Development", to: "/admin/trainings", icon: <GraduationCapIcon /> },
               ],
             },
             {
-              title: "Account",
-              items: [{ label: "Settings", to: "/admin/settings", icon: <SettingsIcon /> }],
+              title: "Reports & Administration",
+              items: [
+                { label: "Reports", to: "/admin/reports", icon: <BarChartIcon /> },
+                { label: "Settings", to: "/admin/settings", icon: <SettingsIcon /> },
+              ],
             },
           ]}
         />

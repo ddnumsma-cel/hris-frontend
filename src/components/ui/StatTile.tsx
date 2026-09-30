@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import clsx from "clsx";
+import { AnimatedNumber } from "./AnimatedNumber";
 
 type DeltaTone = "good" | "warn" | "crit" | "neutral";
 
@@ -26,7 +27,9 @@ export function StatTile({
   return (
     <div data-slot="stat" className="flex flex-col gap-1 rounded-xl border border-border bg-surface p-3 shadow-sm sm:gap-1.5 sm:p-4">
       <span data-slot="stat-label" className="text-[0.7rem] font-semibold text-ink-2 sm:text-xs">{label}</span>
-      <span data-slot="stat-value" className="font-display font-num text-lg font-semibold sm:text-2xl">{value}</span>
+      <span data-slot="stat-value" className="font-display font-num text-lg font-semibold sm:text-2xl">
+        {typeof value === "string" || typeof value === "number" ? <AnimatedNumber value={value} /> : value}
+      </span>
       {delta && (
         <span data-slot="stat-delta" className={clsx("flex items-center gap-1 text-[0.7rem] font-semibold sm:text-xs", toneClasses[tone])}>
           {icon}

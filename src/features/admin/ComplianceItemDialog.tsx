@@ -24,12 +24,25 @@ function ComplianceForm({
   const [filing, setFiling] = useState(existing?.filing ?? "");
   const [agency, setAgency] = useState<ComplianceItem["agency"]>(existing?.agency ?? "SSS");
   const [due, setDue] = useState(existing?.due ?? "");
+  const [periodCovered, setPeriodCovered] = useState(existing?.periodCovered ?? "");
+  const [amount, setAmount] = useState(existing?.amount !== undefined ? String(existing.amount) : "");
+  const [referenceNo, setReferenceNo] = useState(existing?.referenceNo ?? "");
+
+  const parsedAmount = amount.trim() === "" ? undefined : Number(amount.replace(/,/g, ""));
+  const amountInvalid = parsedAmount !== undefined && (!Number.isFinite(parsedAmount) || parsedAmount < 0);
 
   const mutation = useMutation({
-    mutationFn: () =>
-      existing
-        ? updateComplianceItem(existing.id, { filing: filing.trim(), agency, due: due.trim() })
-        : createComplianceItem({ filing: filing.trim(), agency, due: due.trim() }),
+    mutationFn: () => {
+      const input = {
+        filing: filing.trim(),
+        agency,
+        due: due.trim(),
+        periodCovered: periodCovered.trim() || undefined,
+        amount: parsedAmount,
+        referenceNo: referenceNo.trim() || undefined,
+      };
+      return existing ? updateComplianceItem(existing.id, input) : createComplianceItem(input);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "compliance-calendar"] });
       onClose();
@@ -39,7 +52,7 @@ function ComplianceForm({
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!filing.trim() || !due.trim()) return;
+    if (!filing.trim() || !due.trim() || amountInvalid) return;
     mutation.mutate();
   }
 
@@ -81,7 +94,55 @@ function ComplianceForm({
         <label htmlFor="comp-due" className={labelClass}>
           Due
         </label>
-        <input id="comp-due" required className={inputClass} placeholder="e.g. Oct 10" value={due} onChange={(e) => setDue(e.target.value)} />
+        <input id="comp-due" required className={inputClass} placeholder="e.g. Oct 30, 2026" value={due} onChange={(e) => setDue(e.target.value)} />
+      </div>
+
+      <div className="grid gap-3.5 sm:grid-cols-2">
+        <div>
+          <label htmlFor="comp-period" className={labelClass}>
+            Period covered
+          </label>
+          <input
+            id="comp-period"
+            className={inputClass}
+            placeholder="e.g. September 2026"
+            value={periodCovered}
+            onChange={(e) => setPeriodCovered(e.target.value)}
+          />
+        </div>
+        <div>
+          <label htmlFor="comp-amount" className={labelClass}>
+            Amount (₱)
+          </label>
+          <input
+            id="comp-amount"
+            inputMode="decimal"
+            className={inputClass}
+            placeholder="e.g. 18,375.00"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            aria-invalid={amountInvalid}
+            aria-describedby={amountInvalid ? "comp-amount-error" : undefined}
+          />
+          {amountInvalid && (
+            <p id="comp-amount-error" className="mt-1 text-xs text-critical">
+              Enter the amount in pesos, e.g. 18,375.00.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="comp-reference" className={labelClass}>
+          Reference no. <span className="font-normal text-ink-3">(optional)</span>
+        </label>
+        <input
+          id="comp-reference"
+          className={inputClass}
+          placeholder="e.g. PRN / eFPS ref"
+          value={referenceNo}
+          onChange={(e) => setReferenceNo(e.target.value)}
+        />
       </div>
 
       <div className="mt-1 flex justify-end gap-2">

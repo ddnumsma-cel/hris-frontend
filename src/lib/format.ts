@@ -7,6 +7,12 @@ export function formatToday() {
   });
 }
 
+/** Today in local time as "2026-09-30". */
+export function todayIso() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 const peso = new Intl.NumberFormat("en-PH", {
   style: "currency",
   currency: "PHP",

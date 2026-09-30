@@ -51,9 +51,14 @@ function NavItemLink({ item, onNavigate }: { item: SideNavItem; onNavigate?: () 
 function NavItemWithChildren({ item, onNavigate }: { item: SideNavItem; onNavigate?: () => void }) {
   const { pathname } = useLocation();
   const childActive = isItemActive(item, pathname);
-  const [expanded, setExpanded] = useState(childActive);
-  // Always show the list while one of its pages is open, e.g. after following a link.
-  const open = expanded || childActive;
+  const [open, setOpen] = useState(childActive);
+  // Open the list when the user lands on one of its pages (e.g. from a link elsewhere),
+  // but let them close it again while they stay on that page.
+  const [wasChildActive, setWasChildActive] = useState(childActive);
+  if (childActive !== wasChildActive) {
+    setWasChildActive(childActive);
+    if (childActive) setOpen(true);
+  }
   const listId = `subnav-${item.to.replace(/\W+/g, "-")}`;
 
   return (
@@ -63,14 +68,15 @@ function NavItemWithChildren({ item, onNavigate }: { item: SideNavItem; onNaviga
         aria-expanded={open}
         aria-controls={listId}
         data-child-active={childActive}
-        onClick={() => setExpanded(!open)}
+        onClick={() => setOpen(!open)}
         className="sidebar-item"
       >
         <span className="sidebar-icon">{item.icon}</span>
         <span className="truncate">{item.label}</span>
         <ChevronDownIcon className="sidebar-expand" />
       </button>
-      {open && (
+      {/* Always rendered so it can animate closed; inert keeps a closed list out of tab order and screen readers. */}
+      <div className="sidebar-collapse" data-open={open} inert={!open}>
         <ul id={listId} className="sidebar-sublist">
           {item.children!.map((child) => (
             <li key={child.to}>
@@ -90,7 +96,7 @@ function NavItemWithChildren({ item, onNavigate }: { item: SideNavItem; onNaviga
             </li>
           ))}
         </ul>
-      )}
+      </div>
     </>
   );
 }

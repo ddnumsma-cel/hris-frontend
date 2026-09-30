@@ -38,6 +38,21 @@ function semiMonthlyWithholdingTax(taxable: number) {
   return bracket ? bracket.base + (taxable - bracket.over) * bracket.rate : 0;
 }
 
+/** Overtime that jumped against last cutoff, or wasn't approved in advance; null when nothing needs review. */
+export function payrollVariance(
+  entry: Pick<PayrollEntry, "overtimeHours" | "lastCutoffOvertimeHours" | "preApprovedOvertimeHours">,
+): string | null {
+  const { overtimeHours, lastCutoffOvertimeHours, preApprovedOvertimeHours } = entry;
+  if (preApprovedOvertimeHours !== undefined && overtimeHours > preApprovedOvertimeHours) {
+    return `${(overtimeHours - preApprovedOvertimeHours).toFixed(1)} OT hours not pre-approved`;
+  }
+  if (lastCutoffOvertimeHours && overtimeHours >= lastCutoffOvertimeHours * 2 && overtimeHours - lastCutoffOvertimeHours >= 4) {
+    const change = Math.round(((overtimeHours - lastCutoffOvertimeHours) / lastCutoffOvertimeHours) * 100);
+    return `${overtimeHours.toFixed(1)} OT hours (+${change}% vs last cutoff)`;
+  }
+  return null;
+}
+
 export interface PayrollComputation {
   basicPay: number;
   overtimePay: number;
@@ -57,7 +72,6 @@ export function computePayroll(entry: Pick<PayrollEntry, "monthlyBasic" | "allow
   const basicPay = monthly / 2;
   const overtimePay = (monthly / WORKING_HOURS_PER_MONTH) * OVERTIME_MULTIPLIER * Math.max(0, entry.overtimeHours);
   const allowance = Math.max(0, entry.allowance);
-  const gross = basicPay + overtimePay + allowance;
 
   const sss = monthly > 0 ? (clamp(monthly, 5_000, 35_000) * 0.05) / 2 : 0;
   const philHealth = monthly > 0 ? (clamp(monthly, 10_000, 100_000) * 0.025) / 2 : 0;
@@ -66,19 +80,20 @@ export function computePayroll(entry: Pick<PayrollEntry, "monthlyBasic" | "allow
 
   const withholdingTax = semiMonthlyWithholdingTax(Math.max(0, basicPay + overtimePay - statutory));
   const otherDeductions = Math.max(0, entry.otherDeductions);
-  const totalDeductions = statutory + withholdingTax + otherDeductions;
 
-  return {
+  // Round each line first, then add the rounded lines, so every payslip and the register
+  // total reconcile to the centavo: gross = sum of earnings, net = gross − sum of deductions.
+  const lines = {
     basicPay: round2(basicPay),
     overtimePay: round2(overtimePay),
     allowance: round2(allowance),
-    gross: round2(gross),
     sss: round2(sss),
     philHealth: round2(philHealth),
     pagIbig: round2(pagIbig),
     withholdingTax: round2(withholdingTax),
     otherDeductions: round2(otherDeductions),
-    totalDeductions: round2(totalDeductions),
-    net: round2(gross - totalDeductions),
   };
+  const roundedGross = round2(lines.basicPay + lines.overtimePay + lines.allowance);
+  const roundedDeductions = round2(lines.sss + lines.philHealth + lines.pagIbig + lines.withholdingTax + lines.otherDeductions);
+  return { ...lines, gross: roundedGross, totalDeductions: roundedDeductions, net: round2(roundedGross - roundedDeductions) };
 }

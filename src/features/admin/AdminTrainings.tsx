@@ -16,6 +16,7 @@ import { deleteTrainingRecord, fetchAllTrainingRecords } from "@/lib/api";
 import { formatToday } from "@/lib/format";
 import { employeeDirectory } from "@/lib/mockData";
 import type { TrainingRecord, TrainingStatus } from "@/lib/types";
+import { ProfessionalLicensesCard } from "./ProfessionalLicensesCard";
 
 const statusVariant: Record<TrainingStatus, ChipVariant> = {
   "Not started": "neutral",
@@ -56,7 +57,7 @@ export function AdminTrainings() {
     <>
       <ContentHead
         title="Training & Development"
-        subtitle={formatToday()}
+        subtitle={`Programs, assignments and professional licenses · ${formatToday()}`}
         actions={
           <Button icon={<GraduationCapIcon className="h-3.75 w-3.75" />} onClick={() => setAssignOpen(true)}>
             Assign training
@@ -167,6 +168,8 @@ export function AdminTrainings() {
           </>
         )}
       </Card>
+
+      <ProfessionalLicensesCard />
 
       <AssignTrainingDialog
         open={assignOpen}

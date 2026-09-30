@@ -6,8 +6,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Chip, type ChipVariant } from "@/components/ui/Chip";
 import { StatTile } from "@/components/ui/StatTile";
 import { Button } from "@/components/ui/Button";
-import { MiniAvatar } from "@/components/ui/MiniAvatar";
-import { Skeleton, SkeletonRows } from "@/components/ui/Skeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   BentoArea,
   BentoHero,
@@ -32,7 +31,6 @@ import {
 } from "@/components/icons";
 import { AttentionPanel, type AttentionItem } from "@/components/shared/AttentionPanel";
 import { ClockInOutControl } from "@/components/shared/ClockInOutControl";
-import { PersonnelFileDialog } from "@/components/shared/PersonnelFileDialog";
 import {
   fetchAdminOverviewStats,
   fetchCertificateRequestsForReview,
@@ -42,27 +40,25 @@ import {
   fetchOnboardingPipeline,
   fetchAllPersonnelDocuments,
   fetchAllPersonnelProfiles,
-  fetchPayrollCostBreakdown,
-  fetchPayrollRunSteps,
+  fetchJobRequisitions,
+  fetchPayrollRegister,
+  fetchPayrollRun,
   fetchProfessionalLicenses,
 } from "@/lib/api";
 import {
   getAge,
   getCpdStatus,
   getEffectiveCompliance,
-  getEffectivePayrollSteps,
   getExpiringPersonnelFields,
   OPTIONAL_RETIREMENT_AGE,
 } from "@/lib/automation";
 import { downloadTextFile, toCsv } from "@/lib/download";
 import { formatPHPCompact, formatToday } from "@/lib/format";
+import { computePayroll, payrollVariance } from "@/lib/payroll";
 import { currentAdmin } from "@/lib/mockData";
-import type { Employee } from "@/lib/types";
-import { AddEmployeeDialog } from "./AddEmployeeDialog";
 import { HeadcountChart } from "./HeadcountChart";
 import { PayrollCostChart } from "./PayrollCostChart";
 import { PostAnnouncementDialog } from "./PostAnnouncementDialog";
-import { RecruitmentPipeline } from "./RecruitmentPipeline";
 
 const complianceVariant: Record<string, ChipVariant> = {
   Filed: "good",
@@ -70,22 +66,17 @@ const complianceVariant: Record<string, ChipVariant> = {
   Overdue: "crit",
 };
 
-const employeeStatusVariant: Record<string, ChipVariant> = {
-  Active: "good",
-  "On leave": "neutral",
-};
-
 export function AdminOverview() {
   const navigate = useNavigate();
   const toast = useToast();
-  const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
-  const [profileEmployee, setProfileEmployee] = useState<Employee | null>(null);
 
   const statsQuery = useQuery({ queryKey: ["admin", "overview-stats"], queryFn: fetchAdminOverviewStats });
-  const runStepsQuery = useQuery({ queryKey: ["admin", "payroll-run-steps"], queryFn: fetchPayrollRunSteps });
+  // Same queries as the Payroll Runs and Recruitment pages, so the figures here always match them.
+  const registerQuery = useQuery({ queryKey: ["manager", "payroll-register"], queryFn: fetchPayrollRegister });
+  const runQuery = useQuery({ queryKey: ["admin", "payroll-run"], queryFn: fetchPayrollRun });
+  const requisitionsQuery = useQuery({ queryKey: ["admin", "job-requisitions"], queryFn: fetchJobRequisitions });
   const headcountQuery = useQuery({ queryKey: ["admin", "headcount-by-office"], queryFn: fetchHeadcountByOffice });
-  const costQuery = useQuery({ queryKey: ["admin", "payroll-cost"], queryFn: fetchPayrollCostBreakdown });
   const complianceQuery = useQuery({ queryKey: ["admin", "compliance-calendar"], queryFn: fetchComplianceCalendar });
   const directoryQuery = useQuery({ queryKey: ["admin", "employee-directory"], queryFn: fetchEmployeeDirectory });
   const onboardingQuery = useQuery({ queryKey: ["admin", "onboarding-pipeline"], queryFn: fetchOnboardingPipeline });
@@ -107,7 +98,31 @@ export function AdminOverview() {
   });
 
   const stats = statsQuery.data;
-  const payrollSteps = runStepsQuery.data ? getEffectivePayrollSteps(runStepsQuery.data) : undefined;
+  const run = runQuery.data;
+  const released = Boolean(run?.releasedAt);
+  const payroll = (registerQuery.data ?? []).map((r) => ({ pay: computePayroll(r.entry), variance: payrollVariance(r.entry) }));
+  const payrollTotal = (pick: (p: (typeof payroll)[number]["pay"]) => number) => payroll.reduce((s, r) => s + pick(r.pay), 0);
+  const grossTotal = payrollTotal((p) => p.gross);
+  const varianceCount = payroll.filter((r) => r.variance).length;
+  const grossBreakdown =
+    grossTotal > 0
+      ? [
+          { label: "Basic pay" as const, percent: Math.round((payrollTotal((p) => p.basicPay) / grossTotal) * 100) },
+          { label: "Overtime" as const, percent: Math.round((payrollTotal((p) => p.overtimePay) / grossTotal) * 100) },
+          { label: "Allowances" as const, percent: Math.round((payrollTotal((p) => p.allowance) / grossTotal) * 100) },
+        ]
+      : undefined;
+  const payrollSteps = run && [
+    { label: `Timekeeping locked — ${run.cutoff.timekeepingLockedOn}`, status: "done" },
+    { label: `Payroll computed — ${payroll.length} employees`, status: "done" },
+    {
+      label: varianceCount > 0 && !released ? `Review & approve — ${varianceCount} variances` : "Review & approve",
+      status: released ? "done" : "current",
+    },
+    { label: `Payslips released — ${run.cutoff.payDate.replace(/, \d{4}$/, "")}`, status: released ? "done" : "pending" },
+  ];
+  const requisitions = requisitionsQuery.data ?? [];
+  const openings = requisitions.reduce((s, r) => s + r.openings, 0);
 
   const effectiveCompliance = (complianceQuery.data ?? []).map((item) => ({
     item,
@@ -123,7 +138,7 @@ export function AdminOverview() {
         title: `${item.filing} (${item.agency}) is ${status.toLowerCase()}`,
         detail: note,
         tone: status === "Overdue" ? "crit" : "warn",
-        action: { label: "Review", onClick: () => navigate("/admin/compliance") },
+        action: { label: "Review", onClick: () => navigate("/admin/payroll-runs?tab=remittances") },
       });
     }
   }
@@ -150,7 +165,7 @@ export function AdminOverview() {
         title: `${license.employeeName}'s CPD units are ${cpd.status === "Overdue" ? "past deadline" : "due soon"}`,
         detail: cpd.note,
         tone: cpd.status === "Overdue" ? "crit" : "warn",
-        action: { label: "Review", onClick: () => navigate("/admin/compliance") },
+        action: { label: "Review", onClick: () => navigate("/admin/payroll-runs?tab=remittances") },
       });
     }
   }
@@ -205,7 +220,7 @@ export function AdminOverview() {
         actions={
           <>
             <ClockInOutControl personName={currentAdmin.name.split(" ")[0]} />
-            <Button icon={<UserPlusIcon className="h-3.75 w-3.75" />} onClick={() => setAddEmployeeOpen(true)}>
+            <Button icon={<UserPlusIcon className="h-3.75 w-3.75" />} onClick={() => navigate("/admin/directory/new")}>
               Add employee
             </Button>
           </>
@@ -243,24 +258,14 @@ export function AdminOverview() {
             />
             <StatTile
               label="Open positions"
-              value={
-                stats ? (
-                  stats.openPositions.audit + stats.openPositions.tax + stats.openPositions.legal
-                ) : (
-                  <Skeleton className="h-7 w-10" />
-                )
-              }
-              delta={
-                stats
-                  ? `${stats.openPositions.audit} Audit · ${stats.openPositions.tax} Tax · ${stats.openPositions.legal} Legal`
-                  : undefined
-              }
+              value={requisitionsQuery.data ? openings : <Skeleton className="h-7 w-10" />}
+              delta={requisitionsQuery.data ? `Across ${requisitions.length} roles` : undefined}
             />
             <StatTile
-              label="October payroll"
-              value={stats ? formatPHPCompact(stats.payrollRunTotal) : <Skeleton className="h-7 w-20" />}
-              delta={stats ? `Cutoff ${stats.payrollCutoffLabel}` : undefined}
-              tone="warn"
+              label="Net payroll this cutoff"
+              value={registerQuery.data ? formatPHPCompact(payrollTotal((p) => p.net)) : <Skeleton className="h-7 w-20" />}
+              delta={run ? `${run.cutoff.shortLabel} · ${released ? "released" : "in review"}` : undefined}
+              tone={released ? "good" : "warn"}
             />
           </KpiStack>
         </BentoArea>
@@ -276,12 +281,7 @@ export function AdminOverview() {
                   label="Post announcement"
                   onClick={() => setAnnouncementOpen(true)}
                 />
-                <QuickActionTile icon={<DownloadIcon />} label="Export report" onClick={handleExportReport} />
-                <QuickActionTile
-                  icon={<UsersIcon />}
-                  label="Open full directory"
-                  onClick={() => navigate("/admin/directory")}
-                />
+                <QuickActionTile icon={<DownloadIcon />} label="Export directory" onClick={handleExportReport} />
               </QuickActionRow>
             </CardBody>
           </Card>
@@ -314,7 +314,18 @@ export function AdminOverview() {
         {/* Progress: payroll run steps. */}
         <BentoArea area="payroll">
           <Card className="h-full">
-            <CardHeader title="October 2026 payroll run" action={<Chip variant="warn">In progress</Chip>} />
+            <CardHeader
+              title={run ? `Payroll run · ${run.cutoff.label}` : "Payroll run"}
+              action={
+                <button
+                  type="button"
+                  onClick={() => navigate("/admin/payroll-runs")}
+                  className="text-xs font-semibold text-brand-ink hover:underline"
+                >
+                  {released ? "Released · view" : "Review payroll"}
+                </button>
+              }
+            />
             <CardBody className="flex flex-col gap-4">
               {payrollSteps ? (
                 <ProgressMeter
@@ -354,11 +365,11 @@ export function AdminOverview() {
         <BentoArea area="cost">
           <Card className="h-full">
             <CardHeader
-              title="Payroll cost breakdown"
-              meta={stats ? `Oct cutoff · ${formatPHPCompact(stats.payrollRunTotal)}` : undefined}
+              title="Gross pay breakdown"
+              meta={run && registerQuery.data ? `${run.cutoff.shortLabel} · ${formatPHPCompact(grossTotal)}` : undefined}
             />
             <CardBody>
-              {costQuery.data ? <PayrollCostChart data={costQuery.data} /> : <Skeleton className="h-9 w-full" />}
+              {grossBreakdown ? <PayrollCostChart data={grossBreakdown} /> : <Skeleton className="h-9 w-full" />}
             </CardBody>
           </Card>
         </BentoArea>
@@ -381,92 +392,6 @@ export function AdminOverview() {
       </div>
 
       <AttentionPanel items={attentionItems} />
-
-      <Card>
-        <CardHeader
-          title="Employee directory"
-          action={
-            <button
-              type="button"
-              onClick={() => navigate("/admin/directory")}
-              className="flex items-center gap-1 text-xs font-semibold text-brand-ink"
-            >
-              Open full directory
-            </button>
-          }
-        />
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[0.82rem]">
-            <thead>
-              <tr>
-                {["Employee", "Department", "Office", "Status", "201 file"].map((h) => (
-                  <th
-                    key={h}
-                    className="border-b border-border px-4 py-2.5 text-left text-xs font-medium tracking-[0.01em] text-ink-3"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {directoryQuery.isLoading && <SkeletonRows columns={5} />}
-              {directoryQuery.data?.map((emp) => (
-                <tr key={emp.id}>
-                  <td className="border-b border-border px-4 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <MiniAvatar initials={emp.initials} />
-                      <div>
-                        <div>{emp.name}</div>
-                        <div className="text-xs text-ink-2">{emp.id}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="border-b border-border px-4 py-2.5">{emp.department}</td>
-                  <td className="border-b border-border px-4 py-2.5">{emp.office}</td>
-                  <td className="border-b border-border px-4 py-2.5">
-                    <Chip variant={employeeStatusVariant[emp.status]}>{emp.status}</Chip>
-                  </td>
-                  <td className="border-b border-border px-4 py-2.5">
-                    <button
-                      type="button"
-                      onClick={() => setProfileEmployee(emp)}
-                      className="font-semibold text-brand-ink"
-                    >
-                      Open
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <RecruitmentPipeline />
-
-      <AddEmployeeDialog
-        open={addEmployeeOpen}
-        onClose={() => setAddEmployeeOpen(false)}
-        onSubmitted={() => toast.show("New employee added to the directory.")}
-      />
-
-      <PersonnelFileDialog
-        subject={
-          profileEmployee && {
-            id: profileEmployee.id,
-            name: profileEmployee.name,
-            initials: profileEmployee.initials,
-            position: profileEmployee.position,
-            department: profileEmployee.department,
-            office: profileEmployee.office,
-            cluster: profileEmployee.cluster,
-            status: profileEmployee.status,
-          }
-        }
-        onClose={() => setProfileEmployee(null)}
-        documentsHref={(id) => `/admin/directory?employee=${id}`}
-      />
 
       <PostAnnouncementDialog
         open={announcementOpen}

@@ -44,6 +44,7 @@ export function ManagerPerformance() {
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-surface-2">
             <span
+              data-motion="fill"
               className="block h-full rounded-full bg-brand transition-[width]"
               style={{ width: `${reviewProgressPercent}%` }}
             />

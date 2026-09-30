@@ -9,9 +9,13 @@ import type {
   Employee,
   EmployeeBenefit,
   EmployeeCase,
+  Applicant,
   JobRequisition,
   LeaveBalance,
+  LeaveOverviewStats,
+  LeavePolicy,
   LeaveRequest,
+  LeaveType,
   OffboardingCase,
   OfficeHeadcount,
   OnboardingStage,
@@ -101,16 +105,68 @@ export function setAnnouncements(next: Announcement[]) {
 }
 
 export let leaveRequests: LeaveRequest[] = [
-  { id: "lr-1", employeeName: "Bea Santos", employeeInitials: "BS", employeeRole: "Audit Associate", type: "Vacation", detail: "Oct 6–8 · 3 days", status: "Pending", requestedOn: "2026-09-21" },
-  { id: "lr-2", employeeName: "Miguel Reyes", employeeInitials: "MR", employeeRole: "Audit Associate", type: "Overtime", detail: "Sept 24 · 2.5 hrs", status: "Pending", requestedOn: "2026-09-24" },
-  { id: "lr-3", employeeName: "Carla Uy", employeeInitials: "CU", employeeRole: "Senior Associate", type: "Sick", detail: "Sept 22 · 1 day", status: "Pending", requestedOn: "2026-09-22" },
+  // Signed off by the Partner — waiting on HR.
+  { id: "lr-1", employeeName: "Bea Santos", employeeInitials: "BS", employeeRole: "Audit Associate", type: "Vacation", detail: "Oct 6–8 · 3 days", status: "Pending", requestedOn: "2026-09-25", partnerApproved: true, startDate: "2026-10-06", endDate: "2026-10-08", days: 3, reason: "Family trip to Bohol" },
+  { id: "lr-2", employeeName: "Miguel Reyes", employeeInitials: "MR", employeeRole: "Legal Associate", type: "Overtime", detail: "Sept 24 · 2.5 hrs", status: "Pending", requestedOn: "2026-09-24", partnerApproved: true, startDate: "2026-09-24", endDate: "2026-09-24", reason: "Board resolution filing deadline" },
+  { id: "lr-3", employeeName: "Carla Uy", employeeInitials: "CU", employeeRole: "Senior Associate", type: "Sick", detail: "Sept 22 · 1 day", status: "Pending", requestedOn: "2026-09-24", partnerApproved: true, startDate: "2026-09-22", endDate: "2026-09-22", days: 1, attachmentNote: "Medical certificate attached" },
+  // Still with the Partner.
   { id: "lr-4", employeeName: "Jon Ababa", employeeInitials: "JA", employeeRole: "Associate", type: "Certificate of Employment", detail: "Requested Sept 23", status: "Pending", requestedOn: "2026-09-23" },
-  { id: "lr-5", employeeName: "Dennis Lim", employeeInitials: "DL", employeeRole: "Associate", type: "Emergency", detail: "Sept 25 · 1 day", status: "Pending", requestedOn: "2026-09-25" },
+  { id: "lr-5", employeeName: "Dennis Lim", employeeInitials: "DL", employeeRole: "Associate", type: "Emergency", detail: "Sept 25 · 1 day", status: "Pending", requestedOn: "2026-09-25", startDate: "2026-09-25", endDate: "2026-09-25", days: 1 },
+  // Returned to the employee.
+  { id: "lr-6", employeeName: "Paolo Cruz", employeeInitials: "PC", employeeRole: "Tax Associate", type: "Vacation", detail: "Oct 19–23 · 5 days", status: "Returned", requestedOn: "2026-09-23", partnerApproved: true, startDate: "2026-10-19", endDate: "2026-10-23", days: 5, reason: "Visiting family in Iloilo", returnNote: "Please attach your travel itinerary." },
+  // Approved.
+  { id: "lr-7", employeeName: "Grace Tan", employeeInitials: "GT", employeeRole: "Audit Associate", type: "Vacation", detail: "Sept 29–Oct 2 · 4 days", status: "Approved", requestedOn: "2026-09-15", partnerApproved: true, startDate: "2026-09-29", endDate: "2026-10-02", days: 4, reason: "Sister's wedding in Dumaguete" },
+  { id: "lr-8", employeeName: "Dennis Lim", employeeInitials: "DL", employeeRole: "Associate", type: "Vacation", detail: "Oct 6 · 1 day", status: "Approved", requestedOn: "2026-09-18", partnerApproved: true, startDate: "2026-10-06", endDate: "2026-10-06", days: 1, reason: "Personal errand" },
+  { id: "lr-9", employeeName: "Ramon Bautista", employeeInitials: "RB", employeeRole: "Bookkeeper", type: "Vacation", detail: "Oct 7 · 1 day", status: "Approved", requestedOn: "2026-09-19", partnerApproved: true, startDate: "2026-10-07", endDate: "2026-10-07", days: 1, reason: "Child's school program" },
+  { id: "lr-10", employeeName: "Lourdes Vitug", employeeInitials: "LV", employeeRole: "Bookkeeper", type: "Vacation", detail: "Oct 15–16 · 2 days", status: "Approved", requestedOn: "2026-09-20", partnerApproved: true, startDate: "2026-10-15", endDate: "2026-10-16", days: 2, reason: "Out-of-town trip" },
+  { id: "lr-11", employeeName: "Jon Ababa", employeeInitials: "JA", employeeRole: "Associate", type: "Vacation", detail: "Sept 15–16 · 2 days", status: "Approved", requestedOn: "2026-09-08", partnerApproved: true, startDate: "2026-09-15", endDate: "2026-09-16", days: 2 },
+  { id: "lr-12", employeeName: "Joel Nierves", employeeInitials: "JN", employeeRole: "IT Support Associate", type: "Sick", detail: "Sept 14 · 1 day", status: "Approved", requestedOn: "2026-09-15", partnerApproved: true, startDate: "2026-09-14", endDate: "2026-09-14", days: 1, attachmentNote: "Medical certificate attached" },
+  { id: "lr-13", employeeName: "Rafael Ortiz", employeeInitials: "RO", employeeRole: "Team Lead", type: "Vacation", detail: "Sept 8–9 · 2 days", status: "Approved", requestedOn: "2026-09-01", partnerApproved: true, startDate: "2026-09-08", endDate: "2026-09-09", days: 2 },
+  { id: "lr-14", employeeName: "Carla Uy", employeeInitials: "CU", employeeRole: "Senior Associate", type: "Vacation", detail: "Sept 3 · 1 day", status: "Approved", requestedOn: "2026-08-28", partnerApproved: true, startDate: "2026-09-03", endDate: "2026-09-03", days: 1 },
+  { id: "lr-15", employeeName: "Michelle Aquino", employeeInitials: "MA", employeeRole: "Paralegal", type: "Sick", detail: "Sept 17 · 1 day", status: "Approved", requestedOn: "2026-09-18", partnerApproved: true, startDate: "2026-09-17", endDate: "2026-09-17", days: 1 },
+  { id: "lr-16", employeeName: "Ramon Bautista", employeeInitials: "RB", employeeRole: "Bookkeeper", type: "Sick", detail: "Sept 21 · 1 day", status: "Approved", requestedOn: "2026-09-22", partnerApproved: true, startDate: "2026-09-21", endDate: "2026-09-21", days: 1 },
+  { id: "lr-17", employeeName: "Paolo Cruz", employeeInitials: "PC", employeeRole: "Tax Associate", type: "Vacation", detail: "Sept 4 · 1 day", status: "Approved", requestedOn: "2026-08-29", partnerApproved: true, startDate: "2026-09-04", endDate: "2026-09-04", days: 1 },
+  { id: "lr-18", employeeName: "Miguel Reyes", employeeInitials: "MR", employeeRole: "Legal Associate", type: "Sick", detail: "Sept 10 · 1 day", status: "Approved", requestedOn: "2026-09-11", partnerApproved: true, startDate: "2026-09-10", endDate: "2026-09-10", days: 1 },
+  // Rejected.
+  { id: "lr-19", employeeName: "Michelle Aquino", employeeInitials: "MA", employeeRole: "Paralegal", type: "Vacation", detail: "Oct 1–2 · 2 days", status: "Declined", requestedOn: "2026-09-21", partnerApproved: true, startDate: "2026-10-01", endDate: "2026-10-02", days: 2, reason: "Long weekend" },
+  { id: "lr-20", employeeName: "Ferdz Salazar", employeeInitials: "FS", employeeRole: "Liaison Officer", type: "Vacation", detail: "Sept 28 · 1 day", status: "Declined", requestedOn: "2026-09-22", partnerApproved: true, startDate: "2026-09-28", endDate: "2026-09-28", days: 1 },
 ];
 
 export function setLeaveRequests(next: LeaveRequest[]) {
   leaveRequests = next;
 }
+
+/** Credits used before the requests on file (carried over from the old system). */
+export const priorLeaveUsage: Record<string, Partial<Record<LeaveType, number>>> = {
+  "Bea Santos": { Vacation: 6.5 },
+  "Carla Uy": { Sick: 7 },
+  "Jon Ababa": { Vacation: 2 },
+  "Dennis Lim": { Emergency: 1, Sick: 3 },
+};
+
+export const latesThisCutoff: Record<string, number> = {
+  "Dennis Lim": 2,
+  "Jon Ababa": 1,
+};
+
+export const leavePolicies: LeavePolicy[] = [
+  { code: "VL", type: "Vacation", days: 15, accrual: "1.25 / month", cashConversion: "Yes · Dec" },
+  { code: "SL", type: "Sick", days: 15, accrual: "1.25 / month", cashConversion: "No" },
+  { code: "SIL", type: "Service Incentive", days: 5, accrual: "After 1 year", cashConversion: "Yes" },
+  { code: "EL", type: "Emergency", days: 3, accrual: "Yearly", cashConversion: "No" },
+  { code: "ML", type: "Maternity", days: 105, accrual: "RA 11210", cashConversion: "No" },
+  { code: "PL", type: "Paternity", days: 7, accrual: "RA 8187", cashConversion: "No" },
+  { code: "SPL", type: "Solo Parent", days: 7, accrual: "RA 11861", cashConversion: "No" },
+  { code: "BL", type: "Bereavement", days: 3, accrual: "Company policy", cashConversion: "No" },
+];
+
+export const leaveOverviewStats: LeaveOverviewStats = {
+  onLeaveToday: 9,
+  onLeaveOffices: 3,
+  utilizationPercent: 41,
+  utilizationLastYearPercent: 38,
+  vlToConvertDays: 126,
+};
 
 export const onLeaveToday = [
   { name: "Dennis Lim", initials: "DL", reason: "Emergency Leave" },
@@ -164,11 +220,11 @@ export const payrollCostBreakdown: PayrollCostSegment[] = [
 ];
 
 export let complianceCalendar: ComplianceItem[] = [
-  { id: "c-1", filing: "Monthly contribution remittance", agency: "SSS", due: "Sept 30", status: "Filed" },
-  { id: "c-2", filing: "Monthly premium remittance", agency: "PhilHealth", due: "Sept 30", status: "Filed" },
-  { id: "c-3", filing: "Monthly contribution remittance", agency: "Pag-IBIG", due: "Sept 30", status: "Due soon", note: "Due in 5 days" },
-  { id: "c-4", filing: "Withholding tax remittance (1601-C)", agency: "BIR", due: "Oct 10", status: "Due soon", note: "Due in 15 days" },
-  { id: "c-5", filing: "Certificate of Compensation (2316)", agency: "BIR", due: "Sept 15", status: "Overdue", note: "3 employees" },
+  { id: "c-1", filing: "Monthly contribution remittance", agency: "SSS", due: "Sept 30", status: "Filed", periodCovered: "August 2026", amount: 18375, referenceNo: "PRN 0826-44192" },
+  { id: "c-2", filing: "Monthly premium remittance", agency: "PhilHealth", due: "Sept 30", status: "Filed", periodCovered: "August 2026", amount: 13550, referenceNo: "PHP-0826-7713" },
+  { id: "c-3", filing: "Monthly contribution remittance", agency: "Pag-IBIG", due: "Sept 30", status: "Due soon", note: "Due in 5 days", periodCovered: "August 2026", amount: 2800 },
+  { id: "c-4", filing: "Withholding tax remittance (1601-C)", agency: "BIR", due: "Oct 10", status: "Due soon", note: "Due in 15 days", periodCovered: "September 2026", amount: 42469.42 },
+  { id: "c-5", filing: "Certificate of Compensation (2316)", agency: "BIR", due: "Sept 15", status: "Overdue", note: "3 employees", periodCovered: "2025" },
 ];
 
 export function setComplianceCalendar(next: ComplianceItem[]) {
@@ -196,11 +252,15 @@ export function setEmployeeDirectory(next: Employee[]) {
   employeeDirectory = next;
 }
 
-export const onboardingPipeline: OnboardingStage[] = [
+export let onboardingPipeline: OnboardingStage[] = [
   { stage: "Offer accepted", count: 2 },
   { stage: "Documents submitted", count: 3 },
   { stage: "Day 1 setup", count: 1 },
 ];
+
+export function setOnboardingPipeline(next: OnboardingStage[]) {
+  onboardingPipeline = next;
+}
 
 export const workforceAlerts: WorkforceAlert[] = [
   {
@@ -262,12 +322,38 @@ export const teamRoster: TeamRosterMember[] = [
   { id: "MSMA-00398", name: "Grace Tan", initials: "GT", position: "Audit Associate", tenureLabel: "1 yr 4 mos", email: "grace.tan@msma.ph", status: "On leave" },
 ];
 
-export const jobRequisitions: JobRequisition[] = [
-  { id: "jr-1", title: "Audit Associate", department: "Audit & Assurance", openings: 3, applicants: 21, stage: "Interviewing" },
-  { id: "jr-2", title: "Tax Associate", department: "Tax Advisory", openings: 4, applicants: 14, stage: "Sourcing" },
-  { id: "jr-3", title: "Corporate Lawyer", department: "Corporate Legal", openings: 2, applicants: 6, stage: "Offer extended" },
-  { id: "jr-4", title: "Bookkeeper", department: "Bookkeeping", openings: 1, applicants: 9, stage: "Sourcing" },
+export let jobRequisitions: JobRequisition[] = [
+  { id: "jr-1", title: "Audit Associate", department: "Audit & Assurance", cluster: "VCM", office: "Cebu HQ", openings: 3, applicants: 21, applicantsThisWeek: 5, stage: "Interviewing", approval: "Approved" },
+  { id: "jr-2", title: "Tax Associate", department: "Tax Advisory", cluster: "RPM", office: "Cebu HQ", openings: 4, applicants: 14, applicantsThisWeek: 3, stage: "Sourcing", approval: "Approved" },
+  { id: "jr-3", title: "Corporate Lawyer", department: "Corporate Legal", cluster: "ADS", office: "Manila", openings: 2, applicants: 6, applicantsThisWeek: 1, stage: "Offer extended", approval: "Approved" },
+  { id: "jr-4", title: "Bookkeeper", department: "Bookkeeping", cluster: "RPM", office: "Davao", openings: 1, applicants: 9, applicantsThisWeek: 3, stage: "Sourcing", approval: "Pending L2" },
 ];
+
+export function setJobRequisitions(next: JobRequisition[]) {
+  jobRequisitions = next;
+}
+
+export let applicants: Applicant[] = [
+  { id: "ap-1", requisitionId: "jr-1", firstName: "Kristine Mae", lastName: "Abellana", email: "kristine.abellana@gmail.com", stage: "Applied", note: "JobStreet · Sep 28" },
+  { id: "ap-2", requisitionId: "jr-1", firstName: "John Paul", lastName: "Ybañez", email: "jp.ybanez@gmail.com", stage: "Applied", note: "Referral · Sep 27" },
+  { id: "ap-3", requisitionId: "jr-1", firstName: "Cyril", lastName: "Go", email: "cyril.go@yahoo.com", stage: "Applied", note: "LinkedIn · Sep 26" },
+  { id: "ap-4", requisitionId: "jr-1", firstName: "Angelica", lastName: "Sy", email: "angelica.sy@gmail.com", stage: "Screening", note: "Exam 86% · Sep 24" },
+  { id: "ap-5", requisitionId: "jr-1", firstName: "Mark", lastName: "Lao", email: "mark.lao@gmail.com", stage: "Screening", note: "Exam 79% · Sep 23" },
+  { id: "ap-6", requisitionId: "jr-1", firstName: "Rachelle", lastName: "Tumulak", email: "rachelle.tumulak@gmail.com", stage: "Interview", note: "Partner interview · Oct 1, 2:00 PM" },
+  { id: "ap-7", requisitionId: "jr-1", firstName: "Mark Anthony", lastName: "Cabahug", email: "ma.cabahug@gmail.com", stage: "Interview", note: "HR interview · Oct 2, 10:00 AM" },
+  { id: "ap-8", requisitionId: "jr-1", firstName: "Cyrus", lastName: "Villamor", email: "cyrus.villamor@gmail.com", stage: "Offered", note: "Offer sent Sep 26 · expires Oct 3", offerExpires: "2026-10-03" },
+  { id: "ap-9", requisitionId: "jr-1", firstName: "Joanna", lastName: "Villacura", email: "joanna.villacura@gmail.com", phone: "+63 917 552 0184", stage: "Hired", note: "Accepted · starts Oct 16", startDate: "2026-10-16" },
+  { id: "ap-10", requisitionId: "jr-1", firstName: "Kenneth", lastName: "Go", email: "kenneth.go@gmail.com", stage: "Rejected", note: "Did not meet CPA requirement" },
+  { id: "ap-11", requisitionId: "jr-2", firstName: "Patricia", lastName: "Lim", email: "patricia.lim@gmail.com", stage: "Applied", note: "JobStreet · Sep 29" },
+  { id: "ap-12", requisitionId: "jr-2", firstName: "Ramon", lastName: "Dizon", email: "ramon.dizon@gmail.com", stage: "Screening", note: "Exam scheduled · Oct 1" },
+  { id: "ap-13", requisitionId: "jr-3", firstName: "Liza", lastName: "Moreno", email: "liza.moreno@gmail.com", stage: "Applied", note: "Referral · Sep 25" },
+  { id: "ap-14", requisitionId: "jr-3", firstName: "Paolo", lastName: "Santiago", email: "paolo.santiago@gmail.com", stage: "Screening", note: "Bar passer 2025 · Sep 22" },
+  { id: "ap-15", requisitionId: "jr-4", firstName: "Jenny", lastName: "Alcantara", email: "jenny.alcantara@gmail.com", stage: "Applied", note: "Walk-in · Sep 28" },
+];
+
+export function setApplicants(next: Applicant[]) {
+  applicants = next;
+}
 
 export const managerTeamStats = {
   teamHeadcount: 6,
@@ -339,19 +425,29 @@ export function setAttendanceRequests(next: AttendanceRequest[]) {
 
 export const payrollCutoff = {
   label: "Sept 16–30, 2026",
+  shortLabel: "Sept 16–30",
   payDate: "Sept 30, 2026",
+  timekeepingLockedOn: "Sept 25",
+  payrollBank: "BDO",
   // Must match the employee-side payslip for the same cutoff so releasing
   // payroll here flips that payslip to Paid.
   payslipId: "PS-2609B",
 };
 
+/** Set once HR approves and releases the cutoff, e.g. "Sept 30, 4:12 PM". */
+export let payrollReleasedAt: string | null = null;
+
+export function setPayrollReleasedAt(next: string | null) {
+  payrollReleasedAt = next;
+}
+
 export let payrollEntries: PayrollEntry[] = [
   { employeeId: "MSMA-00482", monthlyBasic: 70000, allowance: 4000, overtimeHours: 6, otherDeductions: 200, status: "Draft" },
   { employeeId: "MSMA-00317", monthlyBasic: 95000, allowance: 5000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
   { employeeId: "MSMA-00560", monthlyBasic: 32000, allowance: 2000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00611", monthlyBasic: 45000, allowance: 3000, overtimeHours: 4, otherDeductions: 500, status: "Draft" },
+  { employeeId: "MSMA-00611", monthlyBasic: 45000, allowance: 3000, overtimeHours: 4, otherDeductions: 500, status: "Draft", preApprovedOvertimeHours: 0 },
   { employeeId: "MSMA-00098", monthlyBasic: 26000, allowance: 1500, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00203", monthlyBasic: 48000, allowance: 3000, overtimeHours: 8, otherDeductions: 0, status: "Draft" },
+  { employeeId: "MSMA-00203", monthlyBasic: 48000, allowance: 3000, overtimeHours: 8, otherDeductions: 0, status: "Draft", lastCutoffOvertimeHours: 2 },
   { employeeId: "MSMA-00276", monthlyBasic: 28000, allowance: 2000, overtimeHours: 2.5, otherDeductions: 0, status: "Draft" },
   { employeeId: "MSMA-00341", monthlyBasic: 28000, allowance: 2000, overtimeHours: 0, otherDeductions: 1000, status: "Draft" },
   { employeeId: "MSMA-00398", monthlyBasic: 32000, allowance: 2000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
@@ -616,7 +712,7 @@ export function setPersonnelProfiles(next: PersonnelProfile[]) {
   personnelProfiles = next;
 }
 
-const PERSONNEL_DOCUMENT_TYPES: PersonnelDocumentType[] = [
+export const PERSONNEL_DOCUMENT_TYPES: PersonnelDocumentType[] = [
   "Application Form / Resume",
   "Birth Certificate (PSA)",
   "Marriage Certificate (PSA)",
@@ -680,7 +776,12 @@ export interface NewHireGovernmentId {
 /** A fresh 201 checklist for someone just added through the directory:
  * everything Missing (situational documents Not applicable) except the
  * government ID, when HR scanned one while adding them. */
-export function buildNewHireDocuments(employeeId: string, governmentId?: NewHireGovernmentId): PersonnelDocument[] {
+export function buildNewHireDocuments(
+  employeeId: string,
+  governmentId?: NewHireGovernmentId,
+  /** Documents HR ticked as received while adding the employee. */
+  received: PersonnelDocumentType[] = [],
+): PersonnelDocument[] {
   const situational: PersonnelDocumentType[] = [
     "Marriage Certificate (PSA)",
     "Child's Birth Certificate",
@@ -697,6 +798,7 @@ export function buildNewHireDocuments(employeeId: string, governmentId?: NewHire
     if (type === "Valid Government ID" && governmentId) {
       return { ...doc, status: "Submitted", uploadedOn: today, ...governmentId };
     }
+    if (received.includes(type)) return { ...doc, status: "Submitted", uploadedOn: today };
     return doc;
   });
 }

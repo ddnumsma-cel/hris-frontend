@@ -5,7 +5,6 @@ import { reportDefinitions } from "./reports/reportDefinitions";
 import {
   AlertTriangleIcon,
   BarChartIcon,
-  CalendarIcon,
   CheckSquareIcon,
   ClockIcon,
   FlagIcon,
@@ -26,15 +25,22 @@ export function ManagerLayout() {
               title: "Team",
               items: [
                 { label: "Overview", to: "/manager", end: true, icon: <GridIcon /> },
-                { label: "Approvals", to: "/manager/approvals", icon: <CheckSquareIcon /> },
-                { label: "Team Calendar", to: "/manager/calendar", icon: <CalendarIcon /> },
+                {
+                  label: "Approvals",
+                  to: "/manager/approvals-group",
+                  icon: <CheckSquareIcon />,
+                  children: [
+                    { label: "Leave & Requests", to: "/manager/approvals" },
+                    { label: "Attendance Corrections", to: "/manager/attendance-approvals" },
+                  ],
+                },
                 {
                   label: "Attendance",
-                  to: "/manager/attendance",
+                  to: "/manager/attendance-group",
                   icon: <ClockIcon />,
                   children: [
                     { label: "Team Attendance", to: "/manager/attendance", end: true },
-                    { label: "Attendance Approvals", to: "/manager/attendance-approvals" },
+                    { label: "Team Calendar", to: "/manager/calendar" },
                   ],
                 },
                 { label: "Workforce Intelligence", to: "/manager/workforce", icon: <AlertTriangleIcon /> },

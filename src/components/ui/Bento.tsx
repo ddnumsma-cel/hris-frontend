@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { AnimatedNumber } from "./AnimatedNumber";
 
 /*
  * Layout pieces for the overview dashboards. They only arrange and style
@@ -39,7 +40,9 @@ export function BentoHero({
       <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5">
         <div className="min-w-0">
           <div className="text-[13px] font-medium text-ink-2">{title}</div>
-          <div className="dash-hero-value font-num mt-1">{value}</div>
+          <div className="dash-hero-value font-num mt-1">
+            {typeof value === "string" || typeof value === "number" ? <AnimatedNumber value={value} /> : value}
+          </div>
           {label && <div className="mt-1 text-[13px] text-ink-2">{label}</div>}
         </div>
         <div className="flex flex-col items-end gap-2">

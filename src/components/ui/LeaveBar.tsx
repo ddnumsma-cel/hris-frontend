@@ -19,7 +19,7 @@ export function LeaveBar({
         {label}
       </span>
       <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-2">
-        <span className="block h-full rounded-full bg-brand" style={{ width: `${percent}%` }} />
+        <span data-motion="fill" className="block h-full rounded-full bg-brand" style={{ width: `${percent}%` }} />
       </span>
       <span className="font-num w-20 flex-none text-right text-sm">
         {available}

@@ -17,16 +17,22 @@ import {
   employeeDtrSummary,
   employeeThirteenthMonth,
   headcountByOffice,
+  applicants,
   jobRequisitions,
+  latesThisCutoff,
+  leaveOverviewStats,
+  leavePolicies,
   leaveBalances,
   leaveRequests,
   myDtrLog,
   offboardingCases,
   onLeaveToday,
   onboardingPipeline,
+  priorLeaveUsage,
   payrollCostBreakdown,
   payrollCutoff,
   payrollEntries,
+  payrollReleasedAt,
   payrollRunSteps,
   payslips,
   performanceReviewStatuses,
@@ -43,10 +49,14 @@ import {
   setCurrentManager,
   setEmployeeBenefits,
   setEmployeeCases,
+  setApplicants,
   setEmployeeDirectory,
+  setJobRequisitions,
+  setOnboardingPipeline,
   setLeaveRequests,
   setOffboardingCases,
   setPayrollEntries,
+  setPayrollReleasedAt,
   setPayslips,
   setPerformanceReviewStatuses,
   setPersonnelDocuments,
@@ -60,6 +70,8 @@ import {
 } from "./mockData";
 import type {
   Announcement,
+  Applicant,
+  ApplicantStage,
   AttendanceRequest,
   AttendanceRequestStatus,
   AuditLogEntry,
@@ -74,6 +86,8 @@ import type {
   Employee,
   EmployeeBenefit,
   EmployeeCase,
+  EmploymentType,
+  JobRequisition,
   LeaveRequest,
   LeaveType,
   OffboardingCase,
@@ -82,6 +96,7 @@ import type {
   PartnerProfile,
   PayrollEntry,
   PersonnelDocument,
+  PersonnelDocumentType,
   PersonnelDocumentChecklistItem,
   PersonnelDocumentStatus,
   PersonnelProfile,
@@ -92,6 +107,7 @@ import { getCredential, getCredentials, setCredential } from "./credentials";
 import { buildEmployeeFileRecords } from "./employmentRecords";
 import { assignHireDateIds, isHireDateId, type IdCandidate } from "./employeeIds";
 import { teamReports, type ReportId } from "./reportsData";
+import { todayIso } from "./format";
 
 /**
  * Every function here stands in for a real HTTP call. Swap the body for a
@@ -126,8 +142,20 @@ export function fetchEmployeeDtrSummary() {
   return delay(employeeDtrSummary);
 }
 
+/** Months of basic pay earned so far this year, counting the current month. */
+function monthsEarnedThisYear() {
+  return Number(todayIso().slice(5, 7));
+}
+
+/** 13th-month pay accrued so far: basic salary earned this year ÷ 12 (BRD §5.9.5, to confirm). */
+export function thirteenthMonthAccrued(monthlyBasic: number) {
+  return Math.round(((monthlyBasic * monthsEarnedThisYear()) / 12) * 100) / 100;
+}
+
 export function fetchEmployeeThirteenthMonth() {
-  return delay(employeeThirteenthMonth);
+  // Read from the same payroll record HR sees, so both screens show one figure.
+  const entry = entryFor(currentEmployee.id);
+  return delay({ ...employeeThirteenthMonth, accrued: thirteenthMonthAccrued(entry.monthlyBasic) });
 }
 
 export function fetchEmployeeBenefits() {
@@ -437,13 +465,182 @@ function formatDate(iso: string) {
 // ---- Manager ----
 
 export function fetchApprovalsQueue() {
-  return delay(leaveRequests.filter((r) => r.status === "Pending"));
+  return delay(leaveRequests.filter((r) => r.status === "Pending" && !r.partnerApproved));
 }
 
+/** The Partner's decision. Approved leave and overtime move on to HR (Filed → Partner → HR);
+ * certificate requests stop here. */
 export async function updateApprovalStatus(id: string, status: "Approved" | "Declined") {
+  const next = leaveRequests.map((r) => {
+    if (r.id !== id) return r;
+    if (status === "Approved" && r.type !== "Certificate of Employment") return { ...r, partnerApproved: true };
+    return { ...r, status };
+  });
+  setLeaveRequests(next);
+  return delay(next.find((r) => r.id === id)!);
+}
+
+// ---- HR leave ----
+
+const LEAVE_TYPES: LeaveType[] = ["Vacation", "Sick", "Emergency", "Bereavement"];
+
+function isLeaveType(type: LeaveRequest["type"]): type is LeaveType {
+  return (LEAVE_TYPES as string[]).includes(type);
+}
+
+function leaveCredits(type: LeaveType) {
+  return leavePolicies.find((p) => p.type === type)?.days ?? 0;
+}
+
+function creditsUsed(employeeName: string, type: LeaveType, status: LeaveRequest["status"]) {
+  return leaveRequests
+    .filter((r) => r.employeeName === employeeName && r.type === type && r.status === status)
+    .reduce((sum, r) => sum + (r.days ?? 0), 0);
+}
+
+export interface LeaveBalanceSummary {
+  credits: number;
+  used: number;
+  pending: number;
+  available: number;
+}
+
+export function leaveBalanceFor(employeeName: string, type: LeaveType): LeaveBalanceSummary {
+  const credits = leaveCredits(type);
+  const used = (priorLeaveUsage[employeeName]?.[type] ?? 0) + creditsUsed(employeeName, type, "Approved");
+  const pending = creditsUsed(employeeName, type, "Pending");
+  return { credits, used, pending, available: credits - used - pending };
+}
+
+export function fetchLeaveBalanceFor(employeeName: string, type: LeaveType) {
+  return delay(leaveBalanceFor(employeeName, type));
+}
+
+export interface LeaveApplication extends LeaveRequest {
+  employeeId?: string;
+  department?: string;
+  office?: Employee["office"];
+  /** Credits left once this request is approved, e.g. { left: 5.5, of: 15 }; null for overtime. */
+  balanceAfter: { left: number; of: number } | null;
+  /** Teammates (same department) off on overlapping days, e.g. "Dennis Lim (Oct 6)". */
+  teamOffSameDays: string[];
+  latesThisCutoff: number;
+  /** Days since it was filed. */
+  waitingDays: number;
+}
+
+function overlapLabel(a: LeaveRequest, b: LeaveRequest) {
+  const start = a.startDate! > b.startDate! ? a.startDate! : b.startDate!;
+  const end = a.endDate! < b.endDate! ? a.endDate! : b.endDate!;
+  return start === end ? formatDate(start) : `${formatDate(start)}–${formatDate(end)}`;
+}
+
+/** Every leave and overtime filing, with what HR needs to decide on it. */
+export function fetchLeaveApplications() {
+  const today = todayIso();
+  const applications: LeaveApplication[] = leaveRequests
+    .filter((r) => r.type !== "Certificate of Employment")
+    .map((r) => {
+      const employee = employeeDirectory.find((e) => e.name === r.employeeName);
+      const teamOffSameDays = leaveRequests
+        .filter(
+          (o) =>
+            o.id !== r.id &&
+            o.employeeName !== r.employeeName &&
+            (o.status === "Approved" || o.status === "Pending") &&
+            isLeaveType(o.type) &&
+            r.startDate &&
+            o.startDate &&
+            o.startDate <= r.endDate! &&
+            o.endDate! >= r.startDate &&
+            employeeDirectory.find((e) => e.name === o.employeeName)?.department === employee?.department,
+        )
+        .map((o) => `${o.employeeName} (${overlapLabel(r, o)})`);
+      let balanceAfter: LeaveApplication["balanceAfter"] = null;
+      if (isLeaveType(r.type)) {
+        const balance = leaveBalanceFor(r.employeeName, r.type);
+        // Pending and approved requests already count against the balance; returned and rejected ones don't.
+        const counted = r.status === "Pending" || r.status === "Approved";
+        balanceAfter = { left: counted ? balance.available : balance.available - (r.days ?? 0), of: balance.credits };
+      }
+      return {
+        ...r,
+        employeeId: employee?.id,
+        department: employee?.department,
+        office: employee?.office,
+        balanceAfter,
+        teamOffSameDays,
+        latesThisCutoff: latesThisCutoff[r.employeeName] ?? 0,
+        waitingDays: Math.max(0, Math.round((Date.parse(today) - Date.parse(r.requestedOn)) / 86_400_000)),
+      };
+    });
+  return delay(applications);
+}
+
+export function fetchLeaveOverviewStats() {
+  return delay(leaveOverviewStats);
+}
+
+export function fetchLeavePolicies() {
+  return delay(leavePolicies);
+}
+
+export async function decideLeaveAsHr(id: string, status: "Approved" | "Declined") {
   const next = leaveRequests.map((r) => (r.id === id ? { ...r, status } : r));
   setLeaveRequests(next);
   return delay(next.find((r) => r.id === id)!);
+}
+
+/** Sends it back to the employee to edit and resubmit; it no longer counts against their balance. */
+export async function returnLeaveRequest(id: string, note: string) {
+  const next = leaveRequests.map((r) =>
+    r.id === id ? { ...r, status: "Returned" as const, returnNote: note.trim() || undefined } : r,
+  );
+  setLeaveRequests(next);
+  return delay(next.find((r) => r.id === id)!);
+}
+
+export interface FileLeaveForEmployeeInput {
+  employeeId: string;
+  type: LeaveType;
+  startDate: string;
+  endDate: string;
+  reason?: string;
+}
+
+/** Working days (Mon–Fri) from start to end, inclusive. */
+export function countLeaveDays(startDate: string, endDate: string) {
+  let days = 0;
+  for (let d = new Date(startDate + "T00:00:00"); d <= new Date(endDate + "T00:00:00"); d.setDate(d.getDate() + 1)) {
+    if (d.getDay() !== 0 && d.getDay() !== 6) days++;
+  }
+  return days;
+}
+
+/** HR files on the employee's behalf; it still goes to the Partner, then HR. */
+export async function fileLeaveForEmployee(input: FileLeaveForEmployeeInput): Promise<LeaveRequest> {
+  const employee = employeeDirectory.find((e) => e.id === input.employeeId)!;
+  const days = countLeaveDays(input.startDate, input.endDate);
+  const dates =
+    input.startDate === input.endDate
+      ? formatDate(input.startDate)
+      : `${formatDate(input.startDate)}–${formatDate(input.endDate)}`;
+  const request: LeaveRequest = {
+    id: `lr-${Date.now()}`,
+    employeeName: employee.name,
+    employeeInitials: employee.initials,
+    employeeRole: employee.position,
+    type: input.type,
+    detail: `${dates} · ${days} ${days === 1 ? "day" : "days"}`,
+    status: "Pending",
+    requestedOn: new Date().toISOString().slice(0, 10),
+    startDate: input.startDate,
+    endDate: input.endDate,
+    days,
+    reason: input.reason?.trim() || undefined,
+  };
+  setLeaveRequests([request, ...leaveRequests]);
+  return delay(request);
 }
 
 export function fetchOnLeaveToday() {
@@ -567,9 +764,23 @@ export interface CreateEmployeeInput {
   firstName: string;
   middleName?: string;
   suffix?: string;
+  nickname?: string;
   birthDate?: string;
+  civilStatus?: CivilStatus;
+  /** Work email. */
   email?: string;
+  personalEmail?: string;
   phone?: string;
+  employmentStatus?: Employee["employmentStatus"];
+  /** Directory ID of their supervisor; empty reports to HR. */
+  reportsToId?: string;
+  governmentNumbers?: Employee["governmentNumbers"];
+  /** 201 documents HR already has in hand. */
+  receivedDocuments?: PersonnelDocumentType[];
+  /** Set when the hire comes from Recruitment, to link the application and start onboarding. */
+  applicantId?: string;
+  /** Who added them, for the audit log. */
+  actor?: AuditActor;
   position: string;
   department: string;
   office: Employee["office"];
@@ -647,6 +858,7 @@ function rekeyEmployees(renamed: Map<string, string>) {
     ),
   );
   setAuditLogEntries(auditLogEntries.map((a) => ({ ...a, employeeId: to(a.employeeId) })));
+  setApplicants(applicants.map((a) => (a.employeeId ? { ...a, employeeId: to(a.employeeId) } : a)));
 }
 
 export async function createEmployee(input: CreateEmployeeInput): Promise<Employee> {
@@ -669,8 +881,13 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Employ
     cluster: input.cluster,
     status: "Active",
     email: input.email || undefined,
+    personalEmail: input.personalEmail || undefined,
     phone: input.phone || undefined,
+    nickname: input.nickname?.trim() || undefined,
     emergencyContact: formatEmergencyContact(input.emergencyContact),
+    employmentStatus: input.employmentStatus,
+    reportsToId: input.reportsToId || "admin",
+    governmentNumbers: input.governmentNumbers && Object.keys(input.governmentNumbers).length > 0 ? input.governmentNumbers : undefined,
   };
 
   setEmployeeDirectory([employee, ...employeeDirectory]);
@@ -680,12 +897,68 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Employ
       employeeId: employee.id,
       dependents: [],
       birthDate: input.birthDate || undefined,
+      civilStatus: input.civilStatus,
       bloodType: input.bloodType || undefined,
       address: input.address?.trim() || undefined,
     },
   ]);
-  setPersonnelDocuments([...personnelDocuments, ...buildNewHireDocuments(employee.id, input.governmentId)]);
+  setPersonnelDocuments([
+    ...personnelDocuments,
+    ...buildNewHireDocuments(employee.id, input.governmentId, input.receivedDocuments),
+  ]);
+  if (input.actor) logPersonnelAccess(employee.id, input.actor, "Created", "201 File", `Added as ${employee.position}`);
+  // Every new hire starts onboarding (BRD ONB-001); a Recruitment hire is also linked to the application.
+  setOnboardingPipeline(onboardingPipeline.map((s) => (s.stage === "Offer accepted" ? { ...s, count: s.count + 1 } : s)));
+  if (input.applicantId) {
+    setApplicants(applicants.map((a) => (a.id === input.applicantId ? { ...a, employeeId: employee.id } : a)));
+  }
   return delay(employee);
+}
+
+export interface PossibleDuplicate {
+  employee: Employee;
+  reason: string;
+}
+
+/**
+ * Existing employees who may be the same person: same first + last name and birth date,
+ * or a government number already on someone's 201 file. Catches rehires and double entry.
+ */
+export function findPossibleDuplicates(input: {
+  lastName: string;
+  firstName: string;
+  birthDate?: string;
+  governmentNumbers?: Employee["governmentNumbers"];
+}): Promise<PossibleDuplicate[]> {
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[^a-z]/g, "");
+  const digitsOf = (s?: string) => (s ?? "").replace(/\D/g, "");
+  const entered = Object.entries(input.governmentNumbers ?? {}).filter(([, v]) => digitsOf(v).length > 0);
+  const agencyKey: Record<string, keyof NonNullable<Employee["governmentNumbers"]>> = {
+    SSS: "sss",
+    PhilHealth: "philHealth",
+    "Pag-IBIG (HDMF)": "pagIbig",
+    "BIR (TIN)": "tin",
+  };
+  const labels: Record<string, string> = { tin: "TIN", sss: "SSS number", philHealth: "PhilHealth number", pagIbig: "Pag-IBIG MID" };
+
+  const matches: PossibleDuplicate[] = [];
+  for (const employee of employeeDirectory) {
+    const profile = personnelProfiles.find((p) => p.employeeId === employee.id);
+    const [first, ...rest] = employee.name.split(" ");
+    const sameName =
+      norm(employee.lastName ?? rest.join(" ")).endsWith(norm(input.lastName)) &&
+      norm(employee.firstName ?? first).startsWith(norm(input.firstName));
+    if (sameName && input.birthDate && profile?.birthDate === input.birthDate) {
+      matches.push({ employee, reason: "Same name and birth date" });
+      continue;
+    }
+    const onFile = buildEmployeeFileRecords(employee).government;
+    const clash = entered.find(([key, value]) =>
+      onFile.some((g) => agencyKey[g.agency] === key && digitsOf(g.number) === digitsOf(value)),
+    );
+    if (clash) matches.push({ employee, reason: `Same ${labels[clash[0]]}` });
+  }
+  return delay(matches);
 }
 
 export interface RegisterEmployeeInput {
@@ -718,6 +991,42 @@ export function fetchOnboardingPipeline() {
 
 export function fetchJobRequisitions() {
   return delay(jobRequisitions);
+}
+
+export interface CreateJobRequisitionInput {
+  title: string;
+  department: string;
+  cluster: Employee["cluster"];
+  office: Employee["office"];
+  openings: number;
+  employmentType: EmploymentType;
+  targetStart: string;
+  salaryRange?: string;
+  justification: string;
+}
+
+/** New requisitions start with the Partner (L1), then go to HR and the Project Sponsor (BRD §8.1). */
+export async function createJobRequisition(input: CreateJobRequisitionInput): Promise<JobRequisition> {
+  const requisition: JobRequisition = {
+    id: `jr-${Date.now()}`,
+    ...input,
+    applicants: 0,
+    applicantsThisWeek: 0,
+    stage: "Sourcing",
+    approval: "Pending L1",
+  };
+  setJobRequisitions([...jobRequisitions, requisition]);
+  return delay(requisition);
+}
+
+export function fetchApplicants() {
+  return delay(applicants);
+}
+
+export async function moveApplicant(id: string, stage: ApplicantStage): Promise<Applicant> {
+  const next = applicants.map((a) => (a.id === id ? { ...a, stage } : a));
+  setApplicants(next);
+  return delay(next.find((a) => a.id === id)!);
 }
 
 export function fetchOrgChart() {
@@ -877,6 +1186,9 @@ export interface ComplianceItemInput {
   filing: string;
   agency: ComplianceItem["agency"];
   due: string;
+  periodCovered?: string;
+  amount?: number;
+  referenceNo?: string;
 }
 
 export async function createComplianceItem(input: ComplianceItemInput): Promise<ComplianceItem> {
@@ -998,6 +1310,29 @@ function upsertPayrollEntries(updated: PayrollEntry[]) {
 
 export function fetchPayrollCutoff() {
   return delay(payrollCutoff);
+}
+
+export function fetchPayrollRun() {
+  return delay({ cutoff: payrollCutoff, releasedAt: payrollReleasedAt });
+}
+
+/** HR's final step: approves every remaining draft and releases the whole cutoff in one go. */
+export async function approveAndReleasePayroll(): Promise<number> {
+  upsertPayrollEntries(
+    employeeDirectory
+      .map((e) => entryFor(e.id))
+      .filter((entry) => entry.status === "Draft")
+      .map((entry) => ({ ...entry, status: "Approved" as const })),
+  );
+  const count = await releaseApprovedPayroll();
+  const now = new Date();
+  setPayrollReleasedAt(
+    `${now.toLocaleDateString("en-PH", { month: "short", day: "numeric" })}, ${now.toLocaleTimeString("en-PH", {
+      hour: "numeric",
+      minute: "2-digit",
+    })}`,
+  );
+  return count;
 }
 
 export function fetchPayrollRegister(): Promise<PayrollRegisterRow[]> {

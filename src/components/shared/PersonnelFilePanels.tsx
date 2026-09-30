@@ -106,7 +106,7 @@ export function PersonnelDocumentsPanel({ employeeId, readOnly = false }: { empl
           </div>
         </div>
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-2">
-          <div className="h-full rounded-full bg-good transition-[width]" style={{ width: `${completion.pct}%` }} />
+          <div data-motion="fill" className="h-full rounded-full bg-good transition-[width]" style={{ width: `${completion.pct}%` }} />
         </div>
       </div>
 
