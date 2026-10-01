@@ -16,6 +16,7 @@
     "clsx": "^2.1.1",
     "jsqr": "^1.4.0",
     "lucide-react": "^1.48.0",
+    "pdfjs-dist": "^5.7.284",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-hook-form": "^7.89.0",

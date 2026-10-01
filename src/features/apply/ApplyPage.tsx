@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -8,11 +8,12 @@ import { BrandName } from "@/components/layout/Brand";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { BriefcaseIcon, CheckCircleIcon, FileIcon, MapPinIcon, UploadIcon, XIcon } from "@/components/icons";
+import { AlertTriangleIcon, BriefcaseIcon, CheckCircleIcon, FileIcon, LoaderIcon, MapPinIcon, UploadIcon, XIcon } from "@/components/icons";
 import { fetchOpenRequisitions, submitApplication } from "@/lib/api";
 import { isValidPhMobile } from "@/lib/govIds";
 import { fetchCities, fetchProvinces } from "@/lib/psgc";
 import { isAccountingRole, PROFESSIONS } from "@/lib/recruitment";
+import { addressFirst, findCity, findProvince, parseResume, readResumeText } from "@/lib/resumeRead";
 import type { Applicant, ApplicantProfession, JobRequisition } from "@/lib/types";
 import { describe } from "@/features/employee/onboarding/fieldProps";
 import { FieldError, FieldGroup, FieldHint, inputClass, Label } from "@/features/employee/onboarding/fields";
@@ -207,6 +208,13 @@ function ApplicationForm({
   const [resumeError, setResumeError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [province, profession] = useWatch({ control, name: ["province", "profession"] });
+  const queryClient = useQueryClient();
+  // Reading the resume: what step it's on, then what it filled in (fields keep a "From resume" tag until edited).
+  const [reading, setReading] = useState<string | null>(null);
+  const [readResult, setReadResult] = useState<{ filled: number; failed?: boolean } | null>(null);
+  const [fromResume, setFromResume] = useState<Set<string>>(new Set());
+  const [dragOver, setDragOver] = useState(false);
+  const tag = (name: keyof Values) => (fromResume.has(name) ? "resume" : undefined);
 
   const provincesQuery = useQuery({ queryKey: ["psgc", "provinces"], queryFn: fetchProvinces, staleTime: Infinity });
   const provinceCode = provincesQuery.data?.find((p) => p.name === province)?.code;
@@ -234,9 +242,66 @@ function ApplicationForm({
 
   function pickResume(file: File | undefined) {
     if (!file) return;
+    if (!/^(application\/pdf|image\/)/.test(file.type) && !/\.pdf$/i.test(file.name)) return setResumeError("Use a PDF or a photo (JPG or PNG) of your resume.");
     if (file.size > 10 * 1024 * 1024) return setResumeError("That file is over 10 MB. Try a smaller PDF or photo.");
     setResume(file);
     setResumeError(null);
+    void fillFromResume(file);
+  }
+
+  /** Reads the resume on this device and fills in whatever the form is still missing. */
+  async function fillFromResume(file: File) {
+    setReadResult(null);
+    setReading("Opening your resume");
+    try {
+      const text = await readResumeText(file, (p) => setReading(p.progress ? `${p.stage} · ${Math.round(p.progress * 100)}%` : p.stage));
+      setReading("Finding your details");
+      const found = parseResume(text);
+      const current = form.getValues();
+      const filled = new Set<string>();
+      const fill = (name: keyof Values, value: string | undefined) => {
+        if (!value || String(current[name] ?? "").trim()) return;
+        setValue(name, value, { shouldDirty: true, shouldValidate: Boolean(formState.submitCount) });
+        filled.add(name);
+      };
+      fill("firstName", found.firstName);
+      fill("lastName", found.lastName);
+      fill("email", found.email);
+      fill("phone", found.phone);
+      fill("profession", found.profession);
+      fill("prcLicenseNumber", found.prcLicenseNumber);
+      fill("yearsExperience", found.yearsExperience === undefined ? undefined : String(found.yearsExperience));
+
+      // Place: Metro Manila cities first (so "Quezon City" isn't read as Quezon province), then provinces.
+      if (!current.province) {
+        const lines = addressFirst(text);
+        const provinces = await queryClient.fetchQuery({ queryKey: ["psgc", "provinces"], queryFn: fetchProvinces, staleTime: Infinity });
+        const ncr = provinces.find((p) => p.name === "Metro Manila");
+        const ncrCities = ncr ? await queryClient.fetchQuery({ queryKey: ["psgc", "cities", ncr.code], queryFn: () => fetchCities(ncr.code), staleTime: Infinity }) : [];
+        const provinceName = findCity(lines, ncrCities) ? "Metro Manila" : findProvince(lines, provinces);
+        if (provinceName) {
+          const code = provinces.find((p) => p.name === provinceName)!.code;
+          const cities = await queryClient.fetchQuery({ queryKey: ["psgc", "cities", code], queryFn: () => fetchCities(code), staleTime: Infinity });
+          const city = findCity(lines, cities);
+          setValue("province", provinceName, { shouldDirty: true });
+          filled.add("province");
+          if (city) {
+            // The city list renders its options a moment after the province is set; choose once they're there.
+            for (let i = 0; i < 40 && !document.querySelector(`#ap-city option[value="${CSS.escape(city)}"]`); i++) {
+              await new Promise((r) => setTimeout(r, 25));
+            }
+            setValue("city", city, { shouldDirty: true });
+            filled.add("city");
+          }
+        }
+      }
+      setFromResume(filled);
+      setReadResult({ filled: filled.size });
+    } catch {
+      setReadResult({ filled: 0, failed: true });
+    } finally {
+      setReading(null);
+    }
   }
 
   const accountingRoles = roles.filter(isAccountingRole);
@@ -245,9 +310,12 @@ function ApplicationForm({
   return (
     <form
       noValidate
-      onChange={() => {
+      onChange={(e) => {
         // An old "couldn't send" message shouldn't linger once they change something.
         if (mutation.isError) mutation.reset();
+        // Once they edit a field the resume filled, it's their answer, not ours.
+        const name = (e.target as unknown as HTMLInputElement).name;
+        if (fromResume.has(name)) setFromResume((s) => new Set([...s].filter((n) => n !== name)));
       }}
       onSubmit={handleSubmit(
         (v) => {
@@ -267,6 +335,92 @@ function ApplicationForm({
       )}
       className="flex flex-col gap-7 rounded-2xl border border-border bg-surface p-5 shadow-sm sm:p-7"
     >
+      <section aria-labelledby="ap-resume-title" className="flex flex-col gap-3">
+        <div>
+          <h2 id="ap-resume-title" className="text-[0.9rem] font-semibold">
+            Start with your resume<span className="ml-0.5 text-critical" aria-hidden="true">*</span>
+          </h2>
+          <p className="text-xs text-ink-2">We'll fill in the form from it, so you only check and add what's missing. It's read on this device.</p>
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/pdf,image/*"
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={(e) => {
+            pickResume(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
+        {resume ? (
+          <div className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+            {reading ? <LoaderIcon className="h-5 w-5 flex-none animate-spin text-brand-ink" /> : <FileIcon className="h-5 w-5 flex-none text-good" />}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">{resume.name}</span>
+              {reading && (
+                <span className="block text-xs text-ink-2" aria-live="polite">
+                  {reading}…
+                </span>
+              )}
+            </span>
+            <button type="button" disabled={Boolean(reading)} onClick={() => fileRef.current?.click()} className="rounded-full px-3 py-1.5 text-xs font-semibold text-brand-ink hover:bg-surface-2 disabled:opacity-50">
+              Replace
+            </button>
+            <button
+              type="button"
+              aria-label="Remove resume"
+              disabled={Boolean(reading)}
+              onClick={() => {
+                setResume(null);
+                setReadResult(null);
+              }}
+              className="rounded-full p-1.5 text-ink-2 hover:bg-surface-2 disabled:opacity-50"
+            >
+              <XIcon className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              pickResume(e.dataTransfer.files?.[0]);
+            }}
+            aria-describedby={resumeError ? "ap-resume-error" : undefined}
+            className={`flex min-h-32 flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors hover:border-brand hover:bg-brand-tint/40 ${dragOver ? "border-brand bg-brand-tint/60" : "border-border"}`}
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-tint text-brand-ink">
+              <UploadIcon className="h-5 w-5" />
+            </span>
+            <span className="mt-1 text-sm font-semibold">Upload your resume</span>
+            <span className="text-xs text-ink-3">Drop it here or tap to browse · PDF or a clear photo, up to 10 MB</span>
+          </button>
+        )}
+        <FieldError id="ap-resume-error" message={resumeError ?? undefined} />
+        {readResult && !reading && (
+          <p
+            role="status"
+            className={`item-enter flex items-start gap-2 rounded-xl px-3.5 py-2.5 text-sm ${readResult.filled ? "bg-brand-tint text-ink" : "bg-surface-2 text-ink-2"}`}
+          >
+            {readResult.filled ? <CheckCircleIcon className="mt-0.5 h-4 w-4 flex-none text-brand-ink" /> : <AlertTriangleIcon className="mt-0.5 h-4 w-4 flex-none text-warning" />}
+            {readResult.failed
+              ? "We couldn't read this file. Your resume is still attached; fill in the form below."
+              : readResult.filled
+                ? `We filled in ${readResult.filled} ${readResult.filled === 1 ? "field" : "fields"} from your resume. Check the ones tagged "From resume" before you submit.`
+                : "We couldn't find your details in this resume. It's still attached; fill in the form below."}
+          </p>
+        )}
+      </section>
+
       {!fixedRoleId && (
         <FieldGroup title="Role">
           <div>
@@ -302,35 +456,35 @@ function ApplicationForm({
       <FieldGroup title="About you">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <Label htmlFor="ap-first" required>
+            <Label htmlFor="ap-first" required from={tag("firstName")}>
               First name
             </Label>
             <input id="ap-first" className={inputClass} placeholder="Juan" autoComplete="given-name" {...describe("ap-first", errors.firstName?.message)} {...register("firstName")} />
             <FieldError id="ap-first-error" message={errors.firstName?.message} />
           </div>
           <div>
-            <Label htmlFor="ap-last" required>
+            <Label htmlFor="ap-last" required from={tag("lastName")}>
               Last name
             </Label>
             <input id="ap-last" className={inputClass} placeholder="Dela Cruz" autoComplete="family-name" {...describe("ap-last", errors.lastName?.message)} {...register("lastName")} />
             <FieldError id="ap-last-error" message={errors.lastName?.message} />
           </div>
           <div>
-            <Label htmlFor="ap-email" required>
+            <Label htmlFor="ap-email" required from={tag("email")}>
               Email
             </Label>
             <input id="ap-email" type="email" className={inputClass} placeholder="juan.delacruz@gmail.com" autoComplete="email" {...describe("ap-email", errors.email?.message)} {...register("email")} />
             <FieldError id="ap-email-error" message={errors.email?.message} />
           </div>
           <div>
-            <Label htmlFor="ap-phone" required>
+            <Label htmlFor="ap-phone" required from={tag("phone")}>
               Mobile number
             </Label>
             <input id="ap-phone" type="tel" inputMode="tel" className={inputClass} placeholder="0917 552 0184" autoComplete="tel" {...describe("ap-phone", errors.phone?.message)} {...register("phone")} />
             <FieldError id="ap-phone-error" message={errors.phone?.message} />
           </div>
           <div>
-            <Label htmlFor="ap-province" required>
+            <Label htmlFor="ap-province" required from={tag("province")}>
               Province
             </Label>
             <select
@@ -350,7 +504,7 @@ function ApplicationForm({
             <FieldError id="ap-province-error" message={errors.province?.message} />
           </div>
           <div>
-            <Label htmlFor="ap-city" required>
+            <Label htmlFor="ap-city" required from={tag("city")}>
               City / municipality
             </Label>
             <select id="ap-city" className={inputClass} disabled={!province || citiesQuery.isLoading} {...describe("ap-city", errors.city?.message)} {...register("city")}>
@@ -370,6 +524,7 @@ function ApplicationForm({
         <fieldset aria-describedby={errors.profession ? "ap-profession-error" : undefined} aria-invalid={errors.profession ? true : undefined}>
           <legend className="mb-2 text-[0.82rem] font-semibold text-ink-2">
             Which describes you best?<span className="ml-0.5 text-critical" aria-hidden="true">*</span>
+            {tag("profession") && <span className="ml-2 rounded-full bg-brand-tint px-2 py-px text-[0.68rem] font-semibold text-brand-ink">From resume · check this</span>}
           </legend>
           <div className="grid gap-2 sm:grid-cols-2">
             {PROFESSIONS.map((p) => (
@@ -386,7 +541,7 @@ function ApplicationForm({
         </fieldset>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <Label htmlFor="ap-years" required>
+            <Label htmlFor="ap-years" required from={tag("yearsExperience")}>
               Years of work experience
             </Label>
             <input id="ap-years" inputMode="numeric" className={inputClass} placeholder="2" {...describe("ap-years", errors.yearsExperience?.message)} {...register("yearsExperience")} />
@@ -394,7 +549,7 @@ function ApplicationForm({
           </div>
           {profession === "CPA" && (
             <div className="item-enter">
-              <Label htmlFor="ap-prc" required>
+              <Label htmlFor="ap-prc" required from={tag("prcLicenseNumber")}>
                 PRC license number
               </Label>
               <input id="ap-prc" inputMode="numeric" className={inputClass} placeholder="0123456" {...describe("ap-prc", errors.prcLicenseNumber?.message)} {...register("prcLicenseNumber")} />
@@ -402,45 +557,6 @@ function ApplicationForm({
             </div>
           )}
         </div>
-      </FieldGroup>
-
-      <FieldGroup title="Resume">
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/pdf,image/*"
-          className="sr-only"
-          tabIndex={-1}
-          aria-hidden="true"
-          onChange={(e) => {
-            pickResume(e.target.files?.[0]);
-            e.target.value = "";
-          }}
-        />
-        {resume ? (
-          <div className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
-            <FileIcon className="h-5 w-5 flex-none text-good" />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">{resume.name}</span>
-            <button type="button" onClick={() => fileRef.current?.click()} className="rounded-full px-3 py-1.5 text-xs font-semibold text-brand-ink hover:bg-surface-2">
-              Replace
-            </button>
-            <button type="button" aria-label="Remove resume" onClick={() => setResume(null)} className="rounded-full p-1.5 text-ink-2 hover:bg-surface-2">
-              <XIcon className="h-4 w-4" />
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            aria-describedby={resumeError ? "ap-resume-error" : undefined}
-            className="flex min-h-24 flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-border px-4 py-5 text-center transition-colors hover:border-brand hover:bg-brand-tint/40"
-          >
-            <UploadIcon className="h-5 w-5 text-ink-2" />
-            <span className="text-sm font-semibold">Upload your resume</span>
-            <span className="text-xs text-ink-3">PDF or a clear photo, up to 10 MB</span>
-          </button>
-        )}
-        <FieldError id="ap-resume-error" message={resumeError ?? undefined} />
         <div>
           <Label htmlFor="ap-message">Anything you'd like HR to know?</Label>
           <textarea id="ap-message" rows={3} className={`${inputClass} resize-y`} placeholder="Availability, preferred office, a link to your portfolio…" {...describe("ap-message", errors.message?.message, !errors.message)} {...register("message")} />
@@ -465,7 +581,7 @@ function ApplicationForm({
         </p>
       )}
 
-      <Button type="submit" className="min-h-11 justify-center" disabled={formState.isSubmitting || mutation.isPending}>
+      <Button type="submit" className="min-h-11 justify-center" disabled={formState.isSubmitting || mutation.isPending || Boolean(reading)}>
         {formState.isSubmitting || mutation.isPending ? "Sending…" : "Submit application"}
       </Button>
     </form>

@@ -10,12 +10,16 @@ export function Label({
   children,
   required,
   fromId,
+  from,
 }: {
   htmlFor: string;
   children: ReactNode;
   required?: boolean;
   fromId?: boolean;
+  /** Where an auto-filled value came from, e.g. "resume": shows "From resume · check this". */
+  from?: string;
 }) {
+  const source = from ?? (fromId ? "ID" : undefined);
   return (
     <label htmlFor={htmlFor} className="mb-1.5 flex flex-wrap items-center gap-1.5 text-[0.82rem] font-semibold text-ink-2">
       <span>
@@ -27,8 +31,8 @@ export function Label({
         )}
         {required && <span className="sr-only"> (required)</span>}
       </span>
-      {fromId && (
-        <span className="rounded-full bg-brand-tint px-2 py-px text-[0.68rem] font-semibold text-brand-ink">From ID · check this</span>
+      {source && (
+        <span className="rounded-full bg-brand-tint px-2 py-px text-[0.68rem] font-semibold text-brand-ink">From {source} · check this</span>
       )}
     </label>
   );
