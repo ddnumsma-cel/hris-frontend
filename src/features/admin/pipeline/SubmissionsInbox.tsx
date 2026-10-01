@@ -37,6 +37,11 @@ export function SubmissionsInbox({ onReview }: { onReview: (s: OnboardingSubmiss
     };
   }, [open]);
 
+  // Keyboard users land inside the panel: on the first form to review, or the Pipeline link.
+  useEffect(() => {
+    if (open && pos) panelRef.current?.querySelector<HTMLElement>("button, a")?.focus();
+  }, [open, pos]);
+
   useEffect(() => {
     if (!open) return;
     function onPointerDown(e: MouseEvent) {
@@ -90,6 +95,11 @@ export function SubmissionsInbox({ onReview }: { onReview: (s: OnboardingSubmiss
             role="dialog"
             aria-label="Onboarding forms to review"
             style={{ top: pos.top, right: pos.right }}
+            // Tabbing out of the panel closes it, like clicking elsewhere.
+            onBlur={(e) => {
+              const next = e.relatedTarget as Node | null;
+              if (next && !panelRef.current?.contains(next) && !buttonRef.current?.contains(next)) setOpen(false);
+            }}
             className="inbox-panel fixed z-50 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_16px_48px_-12px_rgb(15_23_42/0.28)]"
           >
             <div className="flex items-start justify-between gap-3 px-4.5 pt-4 pb-3">

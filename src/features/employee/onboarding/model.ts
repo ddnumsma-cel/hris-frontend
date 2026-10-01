@@ -158,6 +158,17 @@ export function activeUploads(v: AddEmployeeFormValues): UploadedDocument[] {
 
 const err = (message: string) => ({ type: "custom", message });
 
+/** Copies the error tree so it can be edited, keeping non-plain values (an error's `ref` is the input
+ * element itself, which structuredClone can't copy) as they are. */
+function copyErrors(node: object): Record<string, unknown> {
+  const out: Record<string, unknown> = Array.isArray(node) ? ([] as unknown as Record<string, unknown>) : {};
+  for (const [k, v] of Object.entries(node)) {
+    const plain = v !== null && typeof v === "object" && (Array.isArray(v) || Object.getPrototypeOf(v) === Object.prototype);
+    out[k] = plain && k !== "ref" ? copyErrors(v) : v;
+  }
+  return out;
+}
+
 /** Puts an error at a path in react-hook-form's error tree. */
 function setErrorAt(errors: Record<string, unknown>, path: ValuePath, error: unknown, overwrite = false) {
   const keys = path.split(".");
@@ -196,7 +207,7 @@ export function onboardingResolver(): Resolver<AddEmployeeFormValues, Onboarding
   const base = zodResolver(addEmployeeSchema) as unknown as Resolver<AddEmployeeFormValues, OnboardingFormConfig>;
   return async (values, context, options) => {
     const result = await base(values, context, options);
-    const errors = structuredClone(result.errors ?? {}) as Record<string, unknown>;
+    const errors = copyErrors(result.errors ?? {});
     if (context) {
       const included = includedFieldKeys(context);
       // Fields HR left out never block submitting (e.g. a stale emergency number in an old draft).
@@ -249,7 +260,13 @@ export function loadDraft(): Draft | null {
     const kept = Object.fromEntries(Object.entries(draft.values ?? {}).filter(([k]) => k in blank));
     // The page clamps it to the current form's steps.
     const step = Number.isInteger(draft.step) ? Math.max(0, draft.step) : 0;
-    return { ...draft, step, values: { ...blank, ...kept } as AddEmployeeFormValues };
+    // Extra answers must be a plain map of text, or zod would block submitting with no field to show it on.
+    const rawExtras = kept.extras;
+    const extras =
+      rawExtras && typeof rawExtras === "object" && !Array.isArray(rawExtras)
+        ? Object.fromEntries(Object.entries(rawExtras).filter(([, v]) => typeof v === "string"))
+        : {};
+    return { ...draft, step, values: { ...blank, ...kept, extras } as AddEmployeeFormValues };
   } catch {
     return null;
   }
@@ -277,7 +294,10 @@ export function clearDraft() {
 /** A draft is worth offering back only if someone actually typed something. */
 export function draftHasInput(values: AddEmployeeFormValues) {
   const blank = emptyValues();
-  return (Object.keys(blank) as FieldName[]).some((k) => JSON.stringify(values[k]) !== JSON.stringify(blank[k]));
+  // An extra field typed in and then cleared ({ nickname: "" }) is still empty.
+  const extras = Object.fromEntries(Object.entries(values.extras ?? {}).filter(([, v]) => String(v ?? "").trim()));
+  const compared = { ...values, extras };
+  return (Object.keys(blank) as FieldName[]).some((k) => JSON.stringify(compared[k]) !== JSON.stringify(blank[k]));
 }
 
 export function formatSavedAt(iso: string) {
@@ -341,6 +361,8 @@ function toInput(v: AddEmployeeFormValues, governmentId: OnboardingSubmissionInp
   );
   return {
     lastName: v.lastName.trim(),
+    // Nickname is also kept on the directory record.
+    nickname: v.extras?.nickname?.trim() || undefined,
     firstName: v.firstName.trim(),
     middleName: v.middleName.trim(),
     suffix: v.suffix,

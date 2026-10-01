@@ -66,7 +66,7 @@ function loadPeopleStore(): PeopleStore {
       personnelProfiles: list<PersonnelProfile>(parsed.personnelProfiles)?.map((p) => ({ ...p, dependents: Array.isArray(p.dependents) ? p.dependents : [] })),
       personnelDocuments: list<PersonnelDocument>(parsed.personnelDocuments),
       auditLogEntries: list<AuditLogEntry>(parsed.auditLogEntries),
-      onboardingSubmissions: list<OnboardingSubmission>(parsed.onboardingSubmissions)?.filter((s) => typeof s.id === "string" && s.input && typeof s.input === "object"),
+      onboardingSubmissions: list<OnboardingSubmission>(parsed.onboardingSubmissions)?.filter((s) => typeof s.id === "string" && s.input && typeof s.input.firstName === "string" && typeof s.input.lastName === "string"),
     };
   } catch {
     return {};

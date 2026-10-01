@@ -17,7 +17,8 @@ import {
 export function EmployeeLayout() {
   // Onboarding is a one-time task: once they've sent it to HR, it leaves the menu.
   const onboardingQuery = useQuery({ queryKey: ["employee", "onboarding-status"], queryFn: fetchMyOnboardingStatus });
-  const showOnboarding = onboardingQuery.data === "none";
+  // Hidden only once we know it was sent; while loading (or if the check fails) it stays reachable.
+  const showOnboarding = onboardingQuery.data !== "pending" && onboardingQuery.data !== "done";
   return (
     <RolePage
       sidenav={

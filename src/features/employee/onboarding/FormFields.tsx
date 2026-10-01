@@ -235,7 +235,7 @@ function SimpleField({ field }: { field: FormFieldConfig }) {
   const path = def.values[0] as FieldPath<AddEmployeeFormValues>;
   const id = `emp-${field.key}`;
   const message = errorAt(errors, path);
-  const common = { id, className: inputClass, ...describe(id, message, true), ...register(path) };
+  const common = { id, className: inputClass, ...describe(id, message, !message), ...register(path) };
   return (
     <div>
       <Label htmlFor={id} required={field.required}>
