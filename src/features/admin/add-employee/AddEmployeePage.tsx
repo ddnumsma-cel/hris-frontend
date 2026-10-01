@@ -320,29 +320,6 @@ export function AddEmployeePage() {
           )}
         </div>
 
-        {pendingDraft && (
-          <div className="item-enter flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3 shadow-sm">
-            <div className="flex items-start gap-2.5 text-sm">
-              <HistoryIcon className="mt-0.5 h-4 w-4 flex-none text-ink-2" />
-              <span>
-                <span className="font-semibold">You have an unfinished employee</span>
-                {pendingDraft.values.firstName || pendingDraft.values.lastName
-                  ? ` (${[pendingDraft.values.firstName, pendingDraft.values.lastName].filter(Boolean).join(" ")})`
-                  : ""}
-                , saved {formatSavedAt(pendingDraft.savedAt)}.
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={startOver}>
-                Start over
-              </Button>
-              <Button size="sm" onClick={resumeDraft}>
-                Resume draft
-              </Button>
-            </div>
-          </div>
-        )}
-
         <div className="lg:hidden">
           <StepBar statuses={statuses} current={step} />
         </div>
@@ -364,6 +341,30 @@ export function AddEmployeePage() {
             className="min-w-0 rounded-2xl border border-border bg-surface shadow-sm"
           >
             <div key={step} className="tab-enter p-5 sm:p-7">
+              {pendingDraft && (
+                <div role="alert" className="item-enter mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/40 bg-brand-tint px-4 py-3">
+                  <div className="flex items-start gap-2.5 text-sm">
+                    <HistoryIcon className="mt-0.5 h-4 w-4 flex-none text-ink-2" />
+                    <span>
+                      <span className="font-semibold">You have an unfinished employee</span>
+                      {pendingDraft.values.firstName || pendingDraft.values.lastName
+                        ? ` (${[pendingDraft.values.firstName, pendingDraft.values.lastName].filter(Boolean).join(" ")})`
+                        : ""}
+                      , saved {formatSavedAt(pendingDraft.savedAt)}. Pick one to continue.
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="button" size="sm" variant="ghost" onClick={startOver}>
+                      Start over
+                    </Button>
+                    <Button type="button" size="sm" onClick={resumeDraft}>
+                      Resume draft
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {/* Locked until the saved draft is resumed or discarded, so nothing typed here is lost. */}
+              <fieldset disabled={Boolean(pendingDraft)} className={pendingDraft ? "opacity-50" : undefined}>
               {step === 0 && <IdentityStep idScan={idScan} />}
               {step === 1 && <ContactStep />}
               {step === 2 && <EmploymentStep />}
@@ -377,6 +378,7 @@ export function AddEmployeePage() {
                   onEdit={goTo}
                 />
               )}
+              </fieldset>
 
               {mutation.isError && (
                 <p role="alert" className="mt-5 rounded-lg bg-critical-tint px-4 py-2.5 text-sm text-critical">

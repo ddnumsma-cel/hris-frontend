@@ -7,7 +7,7 @@ import {
   suffixOptions,
   type AddEmployeeFormValues,
 } from "@/lib/schemas";
-import { FieldError, FieldGroup, FieldHint, GroupBadge, inputClass, Label, NEEDED_FOR_PAYROLL, StepHeading } from "./fields";
+import { FieldError, FieldGroup, FieldHint, inputClass, Label, StepHeading } from "./fields";
 import { describe } from "./fieldProps";
 import { IdScanPanel } from "./IdScanPanel";
 import type { IdScan } from "./useIdScan";
@@ -62,7 +62,7 @@ export function IdentityStep({ idScan }: { idScan: IdScan }) {
               <FieldError id="emp-first-error" message={errors.firstName?.message} />
             </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-[2fr_1fr_1fr]">
+          <div className="grid gap-4 md:grid-cols-[2fr_1fr]">
             <div>
               <Label htmlFor="emp-middle" fromId={fromId("middleName")}>
                 Middle name
@@ -89,10 +89,6 @@ export function IdentityStep({ idScan }: { idScan: IdScan }) {
                   </option>
                 ))}
               </select>
-            </div>
-            <div>
-              <Label htmlFor="emp-nickname">Nickname</Label>
-              <input id="emp-nickname" className={inputClass} placeholder="Jun" {...field("nickname")} />
             </div>
           </div>
         </FieldGroup>
@@ -144,9 +140,7 @@ export function IdentityStep({ idScan }: { idScan: IdScan }) {
                   </option>
                 ))}
               </select>
-              <FieldHint id="emp-civil-hint">
-                <GroupBadge>{NEEDED_FOR_PAYROLL}</GroupBadge> <span className="ml-1">Also decides if a marriage certificate is needed</span>
-              </FieldHint>
+              <FieldHint id="emp-civil-hint">Decides if a marriage certificate is needed</FieldHint>
             </div>
             <div>
               <Label htmlFor="emp-blood">Blood type</Label>

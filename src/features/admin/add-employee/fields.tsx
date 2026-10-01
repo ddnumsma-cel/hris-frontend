@@ -34,14 +34,12 @@ export function Label({
   );
 }
 
-/** Neutral note on a field group, e.g. "Needed before first payroll". */
+/** Neutral note on a field group. */
 export function GroupBadge({ children }: { children: ReactNode }) {
   return (
     <span className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[0.7rem] font-semibold text-ink-2">{children}</span>
   );
 }
-
-export const NEEDED_FOR_PAYROLL = "Needed before first payroll";
 
 export function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;

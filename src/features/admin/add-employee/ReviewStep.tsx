@@ -139,7 +139,6 @@ export function ReviewStep({
       <div className="grid gap-4 lg:grid-cols-2">
         <SectionCard title="Identity" onEdit={() => onEdit(0)}>
           <Row label="Full name" value={fullName} />
-          <Row label="Nickname" value={v.nickname} />
           <Row label="Birth date" value={formatDate(v.birthDate)} />
           <Row label="Sex" value={v.sex} />
           <Row label="Civil status" value={v.civilStatus} />

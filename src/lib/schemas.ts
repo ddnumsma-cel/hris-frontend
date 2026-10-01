@@ -81,7 +81,6 @@ export const addEmployeeSchema = z
     firstName: z.string().trim().min(1, "Enter the first name"),
     middleName: z.string().trim(),
     suffix: z.union([z.enum(suffixOptions), z.literal("")]),
-    nickname: z.string().trim(),
     // Needed to register SSS and PhilHealth, and to check the minimum working age.
     birthDate: z
       .string()

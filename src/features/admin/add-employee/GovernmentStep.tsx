@@ -1,7 +1,7 @@
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { CheckIcon } from "@/components/icons";
 import type { AddEmployeeFormValues } from "@/lib/schemas";
-import { FieldGroup, NEEDED_FOR_PAYROLL, StepHeading } from "./fields";
+import { FieldGroup, StepHeading } from "./fields";
 import { GovIdInput } from "./GovIdInput";
 import type { IdScan } from "./useIdScan";
 import { coreDocuments, situationalDocuments } from "./model";
@@ -27,7 +27,6 @@ export function GovernmentStep({ idScan }: { idScan: IdScan }) {
       <div className="flex flex-col gap-7">
         <FieldGroup
           title="Government numbers"
-          badge={NEEDED_FOR_PAYROLL}
           description="Contributions and withholding tax can't be remitted without them."
         >
           <div className="grid gap-4 md:grid-cols-2">

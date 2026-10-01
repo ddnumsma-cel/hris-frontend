@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { formatPhMobile, isValidPhMobile } from "@/lib/govIds";
 import { emergencyRelationshipOptions, type AddEmployeeFormValues } from "@/lib/schemas";
-import { FieldError, FieldGroup, FieldHint, inputClass, Label, NEEDED_FOR_PAYROLL, StepHeading } from "./fields";
+import { FieldError, FieldGroup, FieldHint, inputClass, Label, StepHeading } from "./fields";
 import { describe } from "./fieldProps";
 
 export function ContactStep() {
@@ -76,7 +76,7 @@ export function ContactStep() {
           </div>
         </FieldGroup>
 
-        <FieldGroup title="Home address" badge={NEEDED_FOR_PAYROLL} description="Where they live now. Printed on BIR Form 2316.">
+        <FieldGroup title="Home address" description="Where they live now. Printed on BIR Form 2316.">
           <div>
             <Label htmlFor="emp-street">
               House no., street, subdivision
@@ -105,7 +105,7 @@ export function ContactStep() {
           </div>
         </FieldGroup>
 
-        <FieldGroup title="Emergency contact" badge={NEEDED_FOR_PAYROLL} description="Who HR calls if something happens at work.">
+        <FieldGroup title="Emergency contact" description="Who HR calls if something happens at work.">
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <Label htmlFor="emp-emergency-name">
