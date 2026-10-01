@@ -1747,3 +1747,27 @@ body[data-hide-assistant] [data-assistant-panel] {
     animation: none;
   }
 }
+
+/* Inbox panel drops in from its button; rows follow one after another. */
+@keyframes inbox-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+.inbox-panel {
+  transform-origin: top right;
+  animation: inbox-panel-in 200ms var(--ease-out) both;
+}
+
+.inbox-row {
+  animation: cz-rise 220ms var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inbox-panel,
+  .inbox-row {
+    animation: none;
+  }
+}

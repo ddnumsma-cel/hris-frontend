@@ -193,7 +193,13 @@ function Field({ field, idScan }: { field: FormFieldConfig; idScan?: IdScan }) {
     case "pwd":
       return <PwdField required={req} />;
     case "emergencyContact":
+      // Shares the Contact step with their own mobile, so it gets its own small heading.
       return (
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-2/40 p-4">
+          <div>
+            <p className="text-sm font-semibold">Emergency contact</p>
+            <p className="text-xs text-ink-2">Who HR should call if something happens at work.</p>
+          </div>
         <div className="grid gap-4 md:grid-cols-3">
           <div>
             <Label htmlFor="emp-emergency-name" required={req}>
@@ -213,6 +219,7 @@ function Field({ field, idScan }: { field: FormFieldConfig; idScan?: IdScan }) {
             <input id="emp-emergency-phone" type="tel" inputMode="tel" className={inputClass} placeholder="0917 000 0000" {...describe("emp-emergency-phone", errors.emergencyPhone?.message)} {...mobile("emergencyPhone")} />
             <FieldError id="emp-emergency-phone-error" message={errors.emergencyPhone?.message} />
           </div>
+        </div>
         </div>
       );
   }
