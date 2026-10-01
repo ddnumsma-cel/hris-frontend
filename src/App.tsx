@@ -109,7 +109,8 @@ const ManagerCases = lazy(() => import("@/features/manager/ManagerCases").then((
 function App() {
   const { user } = useAuth();
   // The public job application page is for visitors: no app chrome, assistant or tour, even when signed in.
-  const isPublic = useLocation().pathname.startsWith("/apply");
+  const { pathname } = useLocation();
+  const isPublic = pathname === "/apply" || pathname.startsWith("/apply/");
   const signedIn = Boolean(user) && !isPublic;
 
   return (

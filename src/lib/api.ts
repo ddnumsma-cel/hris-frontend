@@ -1516,7 +1516,7 @@ export async function submitApplication(input: ApplicationInput): Promise<Applic
   }
   const now = new Date();
   const applicant: Applicant = {
-    id: `ap-${now.getTime().toString(36)}`,
+    id: `ap-${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
     requisitionId: role.id,
     firstName: input.firstName.trim(),
     lastName: input.lastName.trim(),

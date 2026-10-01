@@ -798,5 +798,7 @@ if (typeof window !== "undefined") {
     if (next.employeeDirectory) employeeDirectory = next.employeeDirectory;
     if (next.personnelProfiles) personnelProfiles = next.personnelProfiles;
     if (next.personnelDocuments) personnelDocuments = next.personnelDocuments;
+    if (next.auditLogEntries) auditLogEntries = next.auditLogEntries;
+    if (next.currentEmployee) currentEmployee = next.currentEmployee;
   });
 }

@@ -29,13 +29,15 @@ const schema = z
     profession: z.string().min(1, "Choose the option closest to you"),
     yearsExperience: z
       .string()
+      .trim()
       .min(1, "Enter your years of experience (0 if none)")
       .refine((v) => /^\d{1,2}$/.test(v), "Use a whole number, e.g. 2"),
     prcLicenseNumber: z.string().trim(),
     message: z.string().trim().max(500, "Keep it under 500 characters"),
     consent: z.boolean().refine((v) => v, "Tick this so HR can use your details for this application"),
-  })
-  .refine((v) => v.profession !== "CPA" || v.prcLicenseNumber.length > 0, { path: ["prcLicenseNumber"], message: "Enter your PRC license number" });
+  });
+// The CPA → PRC license rule is checked on submit with the rest, not as a zod object refinement:
+// zod skips those while any other field has an error, so it would only show up on a second try.
 
 type Values = z.infer<typeof schema>;
 
@@ -135,6 +137,20 @@ export function ApplyPage() {
     );
   }
 
+  if (rolesQuery.isError) {
+    return (
+      <Shell>
+        <div className="rounded-2xl border border-border bg-surface p-7 text-center shadow-sm">
+          <h1 className="font-display text-xl font-semibold">We couldn't load the open roles</h1>
+          <p className="mt-1.5 text-sm text-ink-2">Check your connection and try again.</p>
+          <Button className="mt-5 justify-center" onClick={() => rolesQuery.refetch()}>
+            Try again
+          </Button>
+        </div>
+      </Shell>
+    );
+  }
+
   if (roles.length === 0) {
     return (
       <Shell>
@@ -229,12 +245,23 @@ function ApplicationForm({
   return (
     <form
       noValidate
+      onChange={() => {
+        // An old "couldn't send" message shouldn't linger once they change something.
+        if (mutation.isError) mutation.reset();
+      }}
       onSubmit={handleSubmit(
         (v) => {
-          if (!resume) return setResumeError("Upload your resume (PDF or photo)");
-          mutation.mutate(v);
+          const prcMissing = v.profession === "CPA" && !v.prcLicenseNumber.trim();
+          if (prcMissing) form.setError("prcLicenseNumber", { type: "custom", message: "Enter your PRC license number" }, { shouldFocus: true });
+          if (!resume) setResumeError("Upload your resume (PDF or photo)");
+          if (prcMissing || !resume) return;
+          // Returning the save keeps the form "submitting" (button disabled) until it finishes,
+          // so a quick second click or Enter can't send the same application twice.
+          return mutation.mutateAsync(v).catch(() => {});
         },
         () => {
+          const v = form.getValues();
+          if (v.profession === "CPA" && !v.prcLicenseNumber.trim()) form.setError("prcLicenseNumber", { type: "custom", message: "Enter your PRC license number" });
           if (!resume) setResumeError("Upload your resume (PDF or photo)");
         },
       )}
@@ -340,7 +367,7 @@ function ApplicationForm({
       </FieldGroup>
 
       <FieldGroup title="Background">
-        <fieldset>
+        <fieldset aria-describedby={errors.profession ? "ap-profession-error" : undefined} aria-invalid={errors.profession ? true : undefined}>
           <legend className="mb-2 text-[0.82rem] font-semibold text-ink-2">
             Which describes you best?<span className="ml-0.5 text-critical" aria-hidden="true">*</span>
           </legend>
@@ -416,7 +443,7 @@ function ApplicationForm({
         <FieldError id="ap-resume-error" message={resumeError ?? undefined} />
         <div>
           <Label htmlFor="ap-message">Anything you'd like HR to know?</Label>
-          <textarea id="ap-message" rows={3} className={`${inputClass} resize-y`} placeholder="Availability, preferred office, a link to your portfolio…" {...describe("ap-message", errors.message?.message, true)} {...register("message")} />
+          <textarea id="ap-message" rows={3} className={`${inputClass} resize-y`} placeholder="Availability, preferred office, a link to your portfolio…" {...describe("ap-message", errors.message?.message, !errors.message)} {...register("message")} />
           <FieldError id="ap-message-error" message={errors.message?.message} />
           {!errors.message && <FieldHint id="ap-message-hint">Optional</FieldHint>}
         </div>
@@ -424,7 +451,7 @@ function ApplicationForm({
 
       <div>
         <label className="flex cursor-pointer items-start gap-3 text-sm text-ink-2">
-          <input type="checkbox" className="mt-0.5 h-5 w-5 flex-none accent-[var(--color-brand)]" {...describe("ap-consent", errors.consent?.message)} {...register("consent")} />
+          <input id="ap-consent" type="checkbox" className="mt-0.5 h-5 w-5 flex-none accent-[var(--color-brand)]" {...describe("ap-consent", errors.consent?.message)} {...register("consent")} />
           <span>
             I agree that MSMA Group may collect and use my details to review this application, as allowed by the Data Privacy Act of 2012 (RA 10173).
           </span>
@@ -438,8 +465,8 @@ function ApplicationForm({
         </p>
       )}
 
-      <Button type="submit" className="min-h-11 justify-center" disabled={mutation.isPending}>
-        {mutation.isPending ? "Sending…" : "Submit application"}
+      <Button type="submit" className="min-h-11 justify-center" disabled={formState.isSubmitting || mutation.isPending}>
+        {formState.isSubmitting || mutation.isPending ? "Sending…" : "Submit application"}
       </Button>
     </form>
   );

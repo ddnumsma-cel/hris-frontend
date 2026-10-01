@@ -10,7 +10,6 @@ const shareTargets = [
   { name: "Facebook", href: (url: string) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}` },
   { name: "LinkedIn", href: (url: string) => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}` },
   { name: "X", href: (url: string, text: string) => `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}` },
-  { name: "Messenger", href: (url: string) => `fb-messenger://share/?link=${encodeURIComponent(url)}` },
 ];
 
 /**
@@ -33,8 +32,14 @@ function ShareBody({ roles, initialRoleId, onClose }: { roles: JobRequisition[];
   const canShare = typeof navigator !== "undefined" && "share" in navigator;
 
   function copy() {
+    // No clipboard API outside https (e.g. a LAN address): select the link so it can be copied by hand.
+    if (!navigator.clipboard) {
+      document.querySelector<HTMLInputElement>("#share-url")?.select();
+      toast.show("Couldn't copy here — the link is selected, press Ctrl+C.");
+      return;
+    }
     navigator.clipboard
-      ?.writeText(url)
+      .writeText(url)
       .then(() => {
         setCopied(true);
         toast.show("Link copied. Paste it in your post.");

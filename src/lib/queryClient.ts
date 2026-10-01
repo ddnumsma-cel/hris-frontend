@@ -14,6 +14,7 @@ export const queryClient = new QueryClient({
 // employee submitted Onboarding): mockData has already reloaded it, so refetch what's on screen.
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e) => {
-    if (e.key === PEOPLE_STORE_KEY) queryClient.invalidateQueries();
+    // The PSGC place lists never change; skip them.
+    if (e.key === PEOPLE_STORE_KEY) queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "psgc" });
   });
 }

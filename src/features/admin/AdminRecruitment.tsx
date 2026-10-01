@@ -197,9 +197,14 @@ export function AdminRecruitment() {
               <span className="font-num font-semibold text-ink">{accountantCount}</span> accountant{accountantCount === 1 ? "" : "s"} of{" "}
               <span className="font-num">{forRole.length}</span> · CPAs and accountancy graduates are listed first
             </p>
+            {selected.approval === "Approved" && selected.openings > 0 ? (
             <button type="button" onClick={() => setShareRole(selected.id)} className="ml-auto text-xs font-semibold text-brand-ink hover:underline">
               Share this role's link
             </button>
+            ) : (
+              // Only approved roles with openings take public applications.
+              <span className="ml-auto text-xs text-ink-3">Not open for applications yet</span>
+            )}
           </div>
           <div className="overflow-x-auto p-4">
             <div key={selected.id} className="tab-enter grid min-w-[56rem] grid-cols-6 gap-3">
