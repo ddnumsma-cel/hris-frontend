@@ -1544,21 +1544,6 @@ body[data-hide-assistant] [data-assistant-panel] {
   animation-delay: calc(120ms + var(--i, 0) * 40ms);
 }
 
-/* Preview lines grow in and out where the detail lands. */
-.cz-line {
-  display: grid;
-  grid-template-rows: 1fr;
-  opacity: 1;
-  transition:
-    grid-template-rows 200ms var(--ease-out),
-    opacity 200ms ease;
-}
-
-.cz-line[data-open="false"] {
-  grid-template-rows: 0fr;
-  opacity: 0;
-}
-
 /* A row that just moved glows briefly so the eye can follow it. */
 @keyframes cz-flash {
   from {
@@ -1636,9 +1621,118 @@ body[data-hide-assistant] [data-assistant-panel] {
     opacity: 0;
   }
 
-  .cz-line,
   .cz-switch,
   .cz-switch > span {
     transition: none;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Onboarding form builder and its pop-ups
+   ------------------------------------------------------------------ */
+
+/* The item being dragged stays in place, faded, so the gap reads as "this is moving". */
+.fb-dragging {
+  opacity: 0.4;
+  transform: scale(0.985);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+/* Where the dragged field or section will land. */
+@keyframes fb-line-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.6);
+  }
+}
+
+.fb-drop-line {
+  height: 3px;
+  margin: 2px 6px;
+  border-radius: 9999px;
+  background: var(--color-brand);
+  box-shadow: 0 0 0 3px var(--color-brand-tint);
+  animation: fb-line-in 140ms var(--ease-out) both;
+}
+
+.fb-new-section {
+  animation: cz-rise 180ms var(--ease-out) both;
+}
+
+/* Pop-up illustration: the card settles, its lines draw in, then the pen or check arrives. */
+@keyframes fp-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) rotate(-2deg);
+  }
+}
+
+@keyframes fp-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4) rotate(-20deg);
+  }
+}
+
+@keyframes fp-box {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+}
+
+.fp-card {
+  transform-origin: 57px 50px;
+  animation: fp-card-in 360ms var(--ease-out) 80ms both;
+}
+
+@keyframes fp-line-draw {
+  from {
+    stroke-dashoffset: 32;
+  }
+}
+
+.fp-line {
+  stroke-dasharray: 32;
+  animation: fp-line-draw 360ms var(--ease-out) both;
+  animation-delay: calc(260ms + var(--fp-i, 0) * 110ms);
+}
+
+.fp-box {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: fp-box 220ms var(--ease-out) both;
+  animation-delay: calc(240ms + var(--fp-i, 0) * 110ms);
+}
+
+.fp-pen,
+.fp-badge {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: fp-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1) 640ms both;
+}
+
+.fp-check {
+  stroke-dasharray: 24;
+  animation: check-draw 300ms var(--ease-out) 900ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fb-dragging {
+    transform: none;
+    transition: none;
+  }
+
+  .fb-drop-line,
+  .fb-new-section,
+  .fp-card,
+  .fp-line,
+  .fp-box,
+  .fp-pen,
+  .fp-badge,
+  .fp-check {
+    animation: none;
   }
 }

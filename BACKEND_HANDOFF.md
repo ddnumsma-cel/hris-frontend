@@ -55,7 +55,7 @@ Shared across roles: `fetchEmployeeCases`/case management and `fetchCertificateR
 - **Auth** — `credentials.ts` is a hardcoded array match. Needs a real login endpoint, session/JWT handling, and `AuthContext` updated to store a token instead of a mock user object.
 - **Face scan** — pure animation today (`FaceScanDialog.tsx`), no actual image capture or matching. Needs a real decision on what "biometric" means here (device Face ID passthrough vs. server-side face matching) before backend work starts.
 - **File uploads** — no upload flow exists anywhere yet (no document/photo attachments).
-- **Directory display settings** — which details the Employee Directory shows (Customize Directory) are saved in `localStorage` per HR user (`msma-directory-fields:<name>`, see `features/admin/directory/directoryFields.ts`). Move this to a per-user setting on the server so it follows HR across devices.
+- **Onboarding form (HR-built)** — the form HR builds in the Employee Directory (`fetchOnboardingForm` / `saveOnboardingForm`, shape `OnboardingFormConfig` in `lib/onboardingForm.ts`) is kept in `localStorage` (`msma-onboarding-form`) so both roles in one browser read it. Store it per company on the server; employees fetch it when they open Onboarding. Validate it server-side with the same rules as `normalizeConfig` (locked fields always present and required).
 - **Pagination** — tables currently render whole arrays client-side. Real data at scale (years of payslips, hundreds of employees) will need server-side paging/filtering, which isn't wired into the frontend yet.
 - **Error handling** — mock functions never fail, so there's almost no error-state UI. Real network calls will fail sometimes and most screens don't yet handle that gracefully.
 

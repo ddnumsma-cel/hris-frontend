@@ -18,10 +18,9 @@ import {
   MoreVerticalIcon,
   SearchIcon,
   SearchXIcon,
-  SettingsIcon,
+  EditIcon,
   UsersIcon,
 } from "@/components/icons";
-import { useAuth } from "@/features/auth/AuthContext";
 import {
   getDocumentCompletion,
   PersonnelDocumentsPanel,
@@ -34,21 +33,17 @@ import {
   fetchAllPersonnelProfiles,
   fetchEmployeeDirectory,
   fetchEmployeeHireDates,
+  fetchOnboardingForm,
   logPersonnelView,
+  ONBOARDING_FORM_QUERY_KEY,
 } from "@/lib/api";
 import { formatToday } from "@/lib/format";
 import { clusterOptions } from "@/lib/schemas";
 import type { Cluster, Employee, PersonnelProfile } from "@/lib/types";
-import { CustomizeDirectoryDialog } from "./directory/CustomizeDirectoryDialog";
 import { DirectoryDetails, DocumentProgress } from "./directory/DirectoryDetails";
-import {
-  fieldByKey,
-  hasSeenCustomize,
-  loadDirectoryFields,
-  markCustomizeSeen,
-  saveDirectoryFields,
-  type DirectoryRowData,
-} from "./directory/directoryFields";
+import { DEFAULT_DIRECTORY_FIELDS, fieldByKey, type DirectoryRowData } from "./directory/directoryFields";
+import { FormBuilderDialog } from "./onboardingForm/FormBuilderDialog";
+import { FormLiveDialog, FormSetupPrompt } from "./onboardingForm/FormPrompts";
 import {
   EmploymentPanel,
   GovernmentNumbersPanel,
@@ -116,23 +111,14 @@ export function AdminPersonnelFiles() {
   const [tab, setTab] = useState<Tab>("Profile");
   const recordCardRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<DirectoryView>(loadDirectoryView);
-  // What HR chose to show for each person, saved per HR user.
-  const { user } = useAuth();
-  const owner = user?.name ?? "admin";
-  const [fields, setFields] = useState<string[]>(() => loadDirectoryFields(owner));
-  // Opens by itself the first time HR visits the directory.
-  const [customizeOpen, setCustomizeOpen] = useState(() => !hasSeenCustomize(owner));
-  // Only counts as seen once it has actually shown (a deep link to a profile doesn't render it).
-  const customizeVisible = customizeOpen && !selectedId;
-  useEffect(() => {
-    if (customizeVisible) markCustomizeSeen(owner);
-  }, [customizeVisible, owner]);
+  const fields = DEFAULT_DIRECTORY_FIELDS;
 
-  function saveFields(next: string[]) {
-    setFields(next);
-    saveDirectoryFields(owner, next);
-    toast.show("Directory updated. Every card and the table now show these details.");
-  }
+  // The Onboarding form HR builds. Until there is one, a pop-up offers to start it on every visit.
+  const formQuery = useQuery({ queryKey: ONBOARDING_FORM_QUERY_KEY, queryFn: fetchOnboardingForm });
+  const [promptDismissed, setPromptDismissed] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [liveOpen, setLiveOpen] = useState(false);
+  const promptOpen = !formQuery.isLoading && !formQuery.data && !promptDismissed && !builderOpen && !selectedId;
 
   function changeView(next: DirectoryView) {
     setView(next);
@@ -314,8 +300,14 @@ export function AdminPersonnelFiles() {
         title="Employee Directory"
         subtitle={`${filtered.length} ${filtered.length === 1 ? "person" : "people"} · ${office} · ${formatToday()}`}
         actions={
-          <Button variant="ghost" icon={<SettingsIcon className="h-3.75 w-3.75" />} onClick={() => setCustomizeOpen(true)}>
-            Customize directory
+          // New hires fill in exactly this form, so it's always one click away.
+          <Button
+            variant={formQuery.data || formQuery.isLoading ? "ghost" : "primary"}
+            icon={<EditIcon className="h-3.75 w-3.75" />}
+            onClick={() => setBuilderOpen(true)}
+            disabled={formQuery.isLoading}
+          >
+            {formQuery.data || formQuery.isLoading ? "Edit form" : "Set up onboarding form"}
           </Button>
         }
       />
@@ -419,7 +411,29 @@ export function AdminPersonnelFiles() {
         </ul>
       )}
 
-      <CustomizeDirectoryDialog open={customizeVisible} initial={fields} onSave={saveFields} onClose={() => setCustomizeOpen(false)} />
+      <FormSetupPrompt
+        open={promptOpen}
+        onStart={() => {
+          setPromptDismissed(true);
+          setBuilderOpen(true);
+        }}
+        onLater={() => setPromptDismissed(true)}
+      />
+      <FormBuilderDialog
+        open={builderOpen}
+        initial={formQuery.data ?? null}
+        onClose={() => setBuilderOpen(false)}
+        onSaved={() => setLiveOpen(true)}
+      />
+      <FormLiveDialog
+        open={liveOpen}
+        sectionCount={formQuery.data?.sections.length ?? 0}
+        onEdit={() => {
+          setLiveOpen(false);
+          setBuilderOpen(true);
+        }}
+        onClose={() => setLiveOpen(false)}
+      />
     </>
   );
 }

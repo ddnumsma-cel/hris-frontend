@@ -18,45 +18,24 @@ export function DocumentProgress({ data, compact = false }: { data: DirectoryRow
   );
 }
 
-/** One person's chosen details as label / value lines, in HR's order. */
-export function DirectoryDetails({
-  keys,
-  data,
-  /** Preview mode: `keys` lists every field and only these open; the rest stay collapsed so they can grow in and out. */
-  open,
-  className,
-}: {
-  keys: string[];
-  data: DirectoryRowData;
-  open?: Set<string>;
-  className?: string;
-}) {
-  // The animated preview nests each line in two wrappers, which <dl> doesn't allow, so it renders plain divs.
-  const Wrapper = open ? "div" : "dl";
-  const Term = open ? "span" : "dt";
-  const Desc = open ? "span" : "dd";
+
+/** One person's details as label / value lines. */
+export function DirectoryDetails({ keys, data, className }: { keys: string[]; data: DirectoryRowData; className?: string }) {
   return (
-    <Wrapper className={clsx("flex flex-col text-xs", className)}>
+    <dl className={clsx("flex flex-col text-xs", className)}>
       {keys.map((key) => {
         const field = fieldByKey(key);
         if (!field) return null;
         const value = field.value(data);
-        const line = (
+        return (
           <div key={key} className="flex min-w-0 items-center gap-3 py-[3px]">
-            <Term className="w-[6.5rem] flex-none truncate text-ink-3">{field.short ?? field.label}</Term>
-            <Desc className="flex min-w-0 flex-1 items-center truncate font-medium text-ink">
+            <dt className="w-[6.5rem] flex-none truncate text-ink-3">{field.short ?? field.label}</dt>
+            <dd className="flex min-w-0 flex-1 items-center truncate font-medium text-ink">
               {key === "documents" ? <DocumentProgress data={data} compact /> : (value ?? <span className="font-normal text-ink-3">—</span>)}
-            </Desc>
+            </dd>
           </div>
-        );
-        return open ? (
-          <div key={key} data-flip-key={key} data-open={open.has(key)} aria-hidden={!open.has(key)} className="cz-line">
-            <div className="min-h-0 overflow-hidden">{line}</div>
-          </div>
-        ) : (
-          line
         );
       })}
-    </Wrapper>
+    </dl>
   );
 }
