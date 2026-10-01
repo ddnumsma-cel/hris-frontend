@@ -31,8 +31,8 @@ const AdminRecruitment = lazy(() =>
   import("@/features/admin/AdminRecruitment").then((m) => ({ default: m.AdminRecruitment })),
 );
 const AdminLeave = lazy(() => import("@/features/admin/AdminLeave").then((m) => ({ default: m.AdminLeave })));
-const AddEmployeePage = lazy(() =>
-  import("@/features/admin/add-employee/AddEmployeePage").then((m) => ({ default: m.AddEmployeePage })),
+const OnboardingPage = lazy(() =>
+  import("@/features/employee/onboarding/OnboardingPage").then((m) => ({ default: m.OnboardingPage })),
 );
 const AdminOffboarding = lazy(() =>
   import("@/features/admin/AdminOffboarding").then((m) => ({ default: m.AdminOffboarding })),
@@ -129,6 +129,7 @@ function App() {
               }
             >
               <Route index element={<EmployeeOverview />} />
+              <Route path="onboarding" element={<OnboardingPage />} />
               <Route path="leave-dtr" element={<EmployeeLeaveDtr />} />
               <Route path="payslips" element={<EmployeePayslips />} />
               <Route path="201-file" element={<Employee201File />} />
@@ -170,7 +171,6 @@ function App() {
             >
               <Route index element={<AdminOverview />} />
               <Route path="directory" element={<AdminPersonnelFiles />} />
-              <Route path="directory/new" element={<AddEmployeePage />} />
               <Route path="org-chart" element={<AdminOrgChart />} />
               <Route path="recruitment" element={<AdminRecruitment />} />
               <Route path="onboarding" element={<AdminOnboardingPage />} />

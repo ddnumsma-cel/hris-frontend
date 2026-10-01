@@ -74,7 +74,7 @@ export function IdentityStep({ idScan }: { idScan: IdScan }) {
                 {...describe("emp-middle", undefined, true)}
                 {...field("middleName")}
               />
-              <FieldHint id="emp-middle-hint">Mother's maiden surname, in full. Leave blank if they have none.</FieldHint>
+              <FieldHint id="emp-middle-hint">Mother's maiden surname, in full. Leave blank if you have none.</FieldHint>
             </div>
             <div>
               <Label htmlFor="emp-suffix" fromId={fromId("suffix")}>

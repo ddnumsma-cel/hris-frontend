@@ -5,7 +5,6 @@ import { ContentHead } from "@/components/layout/RolePage";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Chip, type ChipVariant } from "@/components/ui/Chip";
 import { StatTile } from "@/components/ui/StatTile";
-import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
   BentoArea,
@@ -26,7 +25,6 @@ import {
   FileQuestionIcon,
   IdCardIcon,
   ShieldIcon,
-  UserPlusIcon,
   UsersIcon,
 } from "@/components/icons";
 import { AttentionPanel, type AttentionItem } from "@/components/shared/AttentionPanel";
@@ -220,9 +218,6 @@ export function AdminOverview() {
         actions={
           <>
             <ClockInOutControl personName={currentAdmin.name.split(" ")[0]} />
-            <Button icon={<UserPlusIcon className="h-3.75 w-3.75" />} onClick={() => navigate("/admin/directory/new")}>
-              Add employee
-            </Button>
           </>
         }
       />

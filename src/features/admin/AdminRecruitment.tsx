@@ -1,5 +1,5 @@
 import { useState, type DragEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { ContentHead } from "@/components/layout/RolePage";
@@ -44,7 +44,6 @@ function formatShortDate(iso: string) {
 
 export function AdminRecruitment() {
   const toast = useToast();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { office } = useOfficeFilter();
   const [requisitionDialogOpen, setRequisitionDialogOpen] = useState(false);
@@ -217,9 +216,7 @@ export function AdminRecruitment() {
                               Open 201 file
                             </Link>
                           ) : (
-                            <Button size="sm" className="mt-2 w-full justify-center" onClick={() => navigate(`/admin/directory/new?applicant=${a.id}`)}>
-                              Create record
-                            </Button>
+                            <p className="mt-2 text-xs text-ink-2">Fills in their own details from Onboarding in the employee app</p>
                           ))}
                         {/* Dragging doesn't work on touch screens or from the keyboard, so each card also has a stage picker. */}
                         <span className="absolute top-2 right-1.5 flex h-5 w-5 items-center justify-center rounded text-ink-3 focus-within:ring-2 focus-within:ring-brand hover:bg-surface-2 hover:text-ink">

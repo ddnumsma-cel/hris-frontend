@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import clsx from "clsx";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -21,7 +21,6 @@ import {
   PhoneIcon,
   SearchIcon,
   SearchXIcon,
-  UserPlusIcon,
 } from "@/components/icons";
 import {
   getDocumentCompletion,
@@ -98,7 +97,6 @@ export function AdminPersonnelFiles() {
   const toast = useToast();
   const actor = useAuditActor();
   const { office } = useOfficeFilter();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedId = searchParams.get("employee");
   // The top-bar search lands here with ?q=.
@@ -272,12 +270,8 @@ export function AdminPersonnelFiles() {
       <ContentHead
         title="Employee Directory"
         subtitle={`${filtered.length} ${filtered.length === 1 ? "person" : "people"} · ${office} · ${formatToday()}`}
-        actions={
-          <Button icon={<UserPlusIcon className="h-3.75 w-3.75" />} onClick={() => navigate("/admin/directory/new")}>
-            Add employee
-          </Button>
-        }
       />
+      <p className="-mt-2 text-sm text-ink-2">New hires fill in their own details from Onboarding in the employee app; they appear here once they submit.</p>
 
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 sm:max-w-xs sm:flex-1">

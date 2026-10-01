@@ -7,6 +7,7 @@ import {
   FolderIcon,
   GraduationCapIcon,
   GridIcon,
+  UserPlusIcon,
   UsersIcon,
   WalletIcon,
 } from "@/components/icons";
@@ -17,6 +18,10 @@ export function EmployeeLayout() {
       sidenav={
         <SideNav
           groups={[
+            {
+              title: "Getting started",
+              items: [{ label: "Onboarding", to: "/employee/onboarding", icon: <UserPlusIcon /> }],
+            },
             {
               title: "My workspace",
               items: [

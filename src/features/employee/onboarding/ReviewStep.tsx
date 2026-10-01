@@ -68,7 +68,7 @@ export function ReviewStep({
 
   return (
     <>
-      <StepHeading title="Check and create" description="Everything below can still be changed later from their 201 file." legend={false} />
+      <StepHeading title="Check and submit" description="Everything below can still be changed later from your 201 file." legend={false} />
 
       {duplicates.length > 0 && (
         <div
@@ -171,12 +171,12 @@ export function ReviewStep({
       </div>
 
       <div className="mt-5 rounded-xl border border-border px-4 py-3.5">
-        <p className="text-sm font-semibold">When you create this employee</p>
+        <p className="text-sm font-semibold">When you submit</p>
         <ul className="mt-2 flex flex-col gap-1.5 text-sm text-ink-2">
           {[
-            `A 201 file opens for ${v.firstName || "them"}, with ${coreDocuments.length - receivedCount} documents marked as still needed`,
-            "They're added to the onboarding pipeline",
-            idPreview ? `They appear in the Employee Directory as ${idPreview.id}` : "They appear in the Employee Directory",
+            `Your 201 file opens, with ${coreDocuments.length - receivedCount} documents marked as still needed`,
+            idPreview ? `HR sees you in the Employee Directory as ${idPreview.id}` : "HR sees you in the Employee Directory",
+            "HR checks your documents and follows up on anything missing",
           ].map((line) => (
             <li key={line} className="flex items-start gap-2">
               <CheckCircleIcon className="mt-0.5 h-4 w-4 flex-none text-good" />

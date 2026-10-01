@@ -32,7 +32,7 @@ export function GovernmentStep({ idScan }: { idScan: IdScan }) {
           </div>
         </FieldGroup>
 
-        <FieldGroup title="Documents received today" description="Tick what they handed over. Scans can be uploaded later from the 201 file.">
+        <FieldGroup title="Documents you have" description="Tick what you can hand to HR. Scans can be uploaded later from your 201 file.">
           <Controller
             control={control}
             name="receivedDocuments"

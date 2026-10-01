@@ -1,21 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FormProvider, useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastContext";
-import { useAuditActor } from "@/components/shared/PersonnelFilePanels";
-import { CheckCircleIcon, ChevronLeftIcon, HistoryIcon } from "@/components/icons";
-import {
-  createEmployee,
-  fetchApplicants,
-  fetchJobRequisitions,
-  findPossibleDuplicates,
-  type PossibleDuplicate,
-} from "@/lib/api";
-import { addEmployeeSchema, hireClusterOptions, type AddEmployeeFormValues } from "@/lib/schemas";
+import { CheckCircleIcon, HistoryIcon } from "@/components/icons";
+import { createEmployee, findPossibleDuplicates, type PossibleDuplicate } from "@/lib/api";
+import { addEmployeeSchema, type AddEmployeeFormValues } from "@/lib/schemas";
 import type { Employee } from "@/lib/types";
 import { ContactStep } from "./ContactStep";
 import { EmploymentStep } from "./EmploymentStep";
@@ -45,13 +38,11 @@ function firstStepWithError(errors: FieldErrors<AddEmployeeFormValues>) {
   return index === -1 ? null : index;
 }
 
-export function AddEmployeePage() {
+/** The new hire fills in their own details; submitting adds them to HR's Employee Directory. */
+export function OnboardingPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const actor = useAuditActor();
-  const [searchParams] = useSearchParams();
-  const applicantId = searchParams.get("applicant") ?? undefined;
 
   const form = useForm<AddEmployeeFormValues>({
     resolver: zodResolver(addEmployeeSchema),
@@ -65,7 +56,7 @@ export function AddEmployeePage() {
   const [maxVisited, setMaxVisited] = useState(0);
   // A saved draft is only offered back, never applied without asking.
   const [pendingDraft, setPendingDraft] = useState<Draft | null>(() => {
-    const draft = applicantId ? null : loadDraft();
+    const draft = loadDraft();
     return draft && draftHasInput(draft.values) ? draft : null;
   });
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -89,45 +80,16 @@ export function AddEmployeePage() {
     window.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
   }
 
-  // ---- Prefill from a Recruitment hire ----
-  const applicantsQuery = useQuery({ queryKey: ["admin", "applicants"], queryFn: fetchApplicants, enabled: Boolean(applicantId) });
-  const requisitionsQuery = useQuery({
-    queryKey: ["admin", "job-requisitions"],
-    queryFn: fetchJobRequisitions,
-    enabled: Boolean(applicantId),
-  });
-  const applicant = applicantsQuery.data?.find((a) => a.id === applicantId);
-  const prefilledFor = useRef<string | null>(null);
-  useEffect(() => {
-    if (!applicant || !requisitionsQuery.data || prefilledFor.current === applicant.id) return;
-    const requisition = requisitionsQuery.data.find((r) => r.id === applicant.requisitionId);
-    const cluster = hireClusterOptions.find((c) => c === requisition?.cluster);
-    prefilledFor.current = applicant.id;
-    reset({
-      ...emptyValues(),
-      firstName: applicant.firstName,
-      lastName: applicant.lastName,
-      personalEmail: applicant.email ?? "",
-      phone: applicant.phone ?? "",
-      position: requisition?.title ?? "",
-      // Client clusters sit under Accounting; anything else HR picks.
-      department: cluster ? "Accounting" : "",
-      cluster: cluster ?? "",
-      office: requisition?.office ?? "Cebu HQ",
-      dateHired: applicant.startDate ?? emptyValues().dateHired,
-    });
-  }, [applicant, requisitionsQuery.data, reset]);
-
   // ---- Draft auto-save (paused while a saved draft is waiting for Resume / Start over) ----
   useEffect(() => {
     if (pendingDraft || created) return;
     if (!draftHasInput(values)) return;
     const t = window.setTimeout(() => {
-      const at = saveDraft({ values: getValues(), step, applicantId });
+      const at = saveDraft({ values: getValues(), step });
       if (at) setSavedAt(at);
     }, 600);
     return () => window.clearTimeout(t);
-  }, [values, step, pendingDraft, created, applicantId, getValues]);
+  }, [values, step, pendingDraft, created, getValues]);
 
   function resumeDraft() {
     if (!pendingDraft) return;
@@ -208,10 +170,10 @@ export function AddEmployeePage() {
     (v) => {
       if (duplicates.length > 0 && !duplicateAcknowledged) {
         scrollToTop();
-        toast.show("Check the possible duplicate before creating this employee.");
+        toast.show("Check the possible duplicate before you submit.");
         return;
       }
-      mutation.mutate(toCreateInput(v, { governmentId: idScan.governmentId, applicantId, actor }));
+      mutation.mutate(toCreateInput(v, { governmentId: idScan.governmentId }));
     },
     (errors) => {
       // Something on an earlier step is wrong: take them there and put the cursor on it.
@@ -228,24 +190,13 @@ export function AddEmployeePage() {
 
   function cancel() {
     if (hasInput && !mutation.isPending) setConfirmDiscard(true);
-    else navigate("/admin/directory");
+    else navigate("/employee");
   }
 
   function discard() {
     clearDraft();
     idScan.reset();
-    navigate("/admin/directory");
-  }
-
-  function addAnother() {
-    idScan.reset();
-    reset(emptyValues());
-    setCreated(null);
-    setStep(0);
-    setMaxVisited(0);
-    setSavedAt(null);
-    setDuplicates([]);
-    navigate("/admin/directory/new", { replace: true });
+    navigate("/employee");
   }
 
   if (created) {
@@ -255,22 +206,19 @@ export function AddEmployeePage() {
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-good-tint text-good">
             <CheckCircleIcon className="h-7 w-7" />
           </span>
-          <h1 className="font-display mt-4 text-2xl font-semibold tracking-[-0.02em]">{created.name} is in the directory</h1>
+          <h1 className="font-display mt-4 text-2xl font-semibold tracking-[-0.02em]">You're all set, {created.firstName ?? created.name}</h1>
           <p className="mt-1 text-sm text-ink-2">
-            Employee ID <span className="font-num font-semibold text-ink">{created.id}</span> · {created.position} · {created.office}
+            Your employee ID is <span className="font-num font-semibold text-ink">{created.id}</span> · {created.position} · {created.office}
           </p>
           <ul className="mx-auto mt-5 flex max-w-sm flex-col gap-1.5 text-left text-sm text-ink-2">
-            <li>• 201 file created with the details you entered</li>
-            <li>• Added to the onboarding pipeline</li>
-            {applicantId && <li>• Linked to their Recruitment application</li>}
+            <li>• HR now has your details in the Employee Directory</li>
+            <li>• Your 201 file is open; HR will check your documents</li>
+            <li>• Anything still missing is listed in your 201 file</li>
           </ul>
           <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
-            <Button onClick={() => navigate(`/admin/directory?employee=${created.id}`)}>Open 201 file</Button>
-            <Button variant="ghost" onClick={() => navigate("/admin/onboarding")}>
-              Start onboarding
-            </Button>
-            <Button variant="ghost" onClick={addAnother}>
-              Add another employee
+            <Button onClick={() => navigate("/employee/201-file")}>Open my 201 file</Button>
+            <Button variant="ghost" onClick={() => navigate("/employee")}>
+              Go to Overview
             </Button>
           </div>
         </div>
@@ -281,29 +229,26 @@ export function AddEmployeePage() {
   const isReview = step === REVIEW;
 
   function saveDraftNow() {
-    const at = saveDraft({ values: getValues(), step, applicantId });
+    const at = saveDraft({ values: getValues(), step });
     if (at) {
       setSavedAt(at);
-      toast.show("Draft saved. You can come back to it from Add employee.");
+      toast.show("Draft saved. Come back to Onboarding anytime to finish.");
     } else {
       toast.show("This browser won't let us save a draft. Finish in one go, or allow site storage.");
     }
   }
 
-  const primaryLabel = isReview ? (mutation.isPending ? "Creating…" : "Create employee") : "Next";
+  const primaryLabel = isReview ? (mutation.isPending ? "Submitting…" : "Submit to HR") : "Next";
 
   return (
     <FormProvider {...form}>
       <div className="add-employee mx-auto flex w-full max-w-[1200px] flex-col gap-5">
         <div>
-          <Link to="/admin/directory" className="inline-flex items-center gap-1 text-xs font-semibold text-ink-2 hover:text-ink">
-            <ChevronLeftIcon className="h-3.5 w-3.5" />
-            Employee Directory
-          </Link>
-          <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-            <h1 className="font-display text-2xl font-semibold tracking-[-0.02em]">
-              {applicant ? `Add ${applicant.firstName} ${applicant.lastName}` : "Add employee"}
-            </h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="font-display text-2xl font-semibold tracking-[-0.02em]">Onboarding</h1>
+              <p className="mt-0.5 text-sm text-ink-2">Fill in your details for HR. Your progress saves as you go, so you can finish later.</p>
+            </div>
             <div className="flex items-center gap-3">
               {savedAt && (
                 <span className="text-xs text-ink-2" aria-live="polite">
@@ -315,9 +260,6 @@ export function AddEmployeePage() {
               </Button>
             </div>
           </div>
-          {applicant && (
-            <p className="mt-0.5 text-sm text-ink-2">Details from their Recruitment application are filled in. Check them and add the rest.</p>
-          )}
         </div>
 
         <div className="lg:hidden">
@@ -346,7 +288,7 @@ export function AddEmployeePage() {
                   <div className="flex items-start gap-2.5 text-sm">
                     <HistoryIcon className="mt-0.5 h-4 w-4 flex-none text-ink-2" />
                     <span>
-                      <span className="font-semibold">You have an unfinished employee</span>
+                            <span className="font-semibold">You have an unfinished form</span>
                       {pendingDraft.values.firstName || pendingDraft.values.lastName
                         ? ` (${[pendingDraft.values.firstName, pendingDraft.values.lastName].filter(Boolean).join(" ")})`
                         : ""}
@@ -418,7 +360,7 @@ export function AddEmployeePage() {
 
       <ConfirmDialog
         open={confirmDiscard}
-        title="Discard new employee?"
+        title="Discard your onboarding form?"
         message="What you've entered will be deleted, including the saved draft."
         confirmLabel="Discard"
         cancelLabel="Keep editing"

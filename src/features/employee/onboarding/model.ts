@@ -56,7 +56,7 @@ export const steps: StepDef[] = [
     fields: ["tin", "sss", "philHealth", "pagIbig", "receivedDocuments"],
     required: [],
   },
-  { id: "review", title: "Review", summary: "Check and create", fields: [], required: [] },
+  { id: "review", title: "Review", summary: "Check and submit", fields: [], required: [] },
 ];
 
 /** Details payroll and the 201 file need soon, but that HR can add after creating the record. */
@@ -141,7 +141,6 @@ export interface Draft {
   values: AddEmployeeFormValues;
   step: number;
   savedAt: string;
-  applicantId?: string;
 }
 
 export function loadDraft(): Draft | null {
