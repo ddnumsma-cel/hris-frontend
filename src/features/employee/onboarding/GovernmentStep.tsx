@@ -134,7 +134,10 @@ export function GovernmentStep({ idScan }: { idScan: IdScan }) {
                 <>
                   <div className="flex items-center gap-3">
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
-                      <div className="h-full rounded-full bg-good transition-[width] duration-300" style={{ width: `${(done / all.length) * 100}%` }} />
+                      <div
+                        className="h-full origin-left rounded-full bg-good transition-transform duration-300 motion-reduce:transition-none"
+                        style={{ transform: `scaleX(${done / all.length})` }}
+                      />
                     </div>
                     <p className="font-num flex-none text-xs font-semibold text-ink-2" aria-live="polite">
                       {done} of {all.length} uploaded
