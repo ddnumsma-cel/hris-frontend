@@ -54,7 +54,9 @@ export function stepsFor(config: OnboardingFormConfig): StepDef[] {
     return {
       id: s.key,
       title: def.title,
-      summary: labels.length > 3 ? `${labels.slice(0, 3).join(", ")} and more` : labels.join(", "),
+      // One field usually shares the section's name ("Home address"), so its hint says more.
+      summary:
+        labels.length === 1 ? fieldDef(s.fields[0].key).hint : labels.length > 3 ? `${labels.slice(0, 3).join(", ")} and more` : labels.join(", "),
       fields: s.fields.flatMap((f) => fieldDef(f.key).values),
       required: s.fields.filter((f) => f.required).flatMap((f) => requiredValues[f.key]),
       section: s,
