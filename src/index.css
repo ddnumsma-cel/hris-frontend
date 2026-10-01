@@ -1729,3 +1729,21 @@ body[data-hide-assistant] [data-assistant-panel] {
     animation: none;
   }
 }
+
+/* The Directory inbox count pops in when a new Onboarding form arrives (keyed by the count). */
+@keyframes inbox-badge-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+.inbox-badge {
+  animation: inbox-badge-in 260ms var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inbox-badge {
+    animation: none;
+  }
+}

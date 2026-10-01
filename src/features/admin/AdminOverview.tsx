@@ -382,7 +382,7 @@ export function AdminOverview() {
             <Link to="/admin/pipeline" className="flex items-center justify-between gap-3 px-4.5 pb-4 hover:text-brand-ink">
               <div>
                 <div className="font-num font-display text-[28px] font-semibold tracking-[-0.02em]">{pipelineQuery.data ? pipelineQuery.data.length : <Skeleton className="h-8 w-8" />}</div>
-                <div className="mt-0.5 text-xs text-ink-2">New hires awaiting employment details</div>
+                <div className="mt-0.5 text-xs text-ink-2">Onboarding forms waiting for review</div>
               </div>
               <ArrowRightIcon className="h-4 w-4 flex-none text-ink-3" />
             </Link>

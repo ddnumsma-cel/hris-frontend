@@ -39,11 +39,13 @@ import {
 } from "@/lib/api";
 import { formatToday } from "@/lib/format";
 import { clusterOptions } from "@/lib/schemas";
-import type { Cluster, Employee, PersonnelProfile } from "@/lib/types";
+import type { Cluster, Employee, OnboardingSubmission, PersonnelProfile } from "@/lib/types";
 import { DirectoryDetails, DocumentProgress } from "./directory/DirectoryDetails";
 import { DEFAULT_DIRECTORY_FIELDS, fieldByKey, type DirectoryRowData } from "./directory/directoryFields";
 import { FormBuilderDialog } from "./onboardingForm/FormBuilderDialog";
 import { FormLiveDialog, FormSetupPrompt } from "./onboardingForm/FormPrompts";
+import { ReviewSubmissionDialog } from "./pipeline/ReviewSubmissionDialog";
+import { SubmissionsInbox } from "./pipeline/SubmissionsInbox";
 import {
   EmploymentPanel,
   GovernmentNumbersPanel,
@@ -118,6 +120,7 @@ export function AdminPersonnelFiles() {
   const [promptDismissed, setPromptDismissed] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [liveOpen, setLiveOpen] = useState(false);
+  const [reviewing, setReviewing] = useState<OnboardingSubmission | null>(null);
   // Only once we know there is no form (not while loading, not on a failed load).
   const promptOpen = formQuery.isSuccess && !formQuery.data && !promptDismissed && !builderOpen && !selectedId;
 
@@ -301,18 +304,22 @@ export function AdminPersonnelFiles() {
         title="Employee Directory"
         subtitle={`${filtered.length} ${filtered.length === 1 ? "person" : "people"} · ${office} · ${formatToday()}`}
         actions={
-          // New hires fill in exactly this form, so it's always one click away.
-          <Button
-            variant={formQuery.data || formQuery.isLoading ? "ghost" : "primary"}
-            icon={<EditIcon className="h-3.75 w-3.75" />}
-            onClick={() => setBuilderOpen(true)}
-            disabled={formQuery.isLoading}
-          >
-            {formQuery.data || formQuery.isLoading ? "Edit form" : "Set up onboarding form"}
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Onboarding forms waiting to be accepted; people join the directory only once accepted. */}
+            <SubmissionsInbox onReview={setReviewing} />
+            {/* New hires fill in exactly this form, so it's always one click away. */}
+            <Button
+              variant={formQuery.data || formQuery.isLoading ? "ghost" : "primary"}
+              icon={<EditIcon className="h-3.75 w-3.75" />}
+              onClick={() => setBuilderOpen(true)}
+              disabled={formQuery.isLoading}
+            >
+              {formQuery.data || formQuery.isLoading ? "Edit form" : "Set up onboarding form"}
+            </Button>
+          </div>
         }
       />
-      <p className="-mt-2 text-sm text-ink-2">New hires fill in their own details from Onboarding; they appear here once HR sets up their employment in Pipeline.</p>
+      <p className="-mt-2 text-sm text-ink-2">New hires fill in your Onboarding form. They appear here once you review and accept them from the inbox.</p>
 
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 sm:max-w-xs sm:flex-1">
@@ -361,7 +368,7 @@ export function AdminPersonnelFiles() {
           <EmptyState
             icon={<UsersIcon />}
             title="No employees yet"
-            description="New hires appear here once HR sets up their employment in Pipeline."
+            description="New hires appear here once you accept their Onboarding form from the inbox above."
           />
           <div className="-mt-4 flex justify-center pb-8">
             <Link to="/admin/pipeline" className="rounded-full border border-border px-4 py-2 text-sm font-semibold text-brand-ink hover:border-brand">
@@ -425,6 +432,14 @@ export function AdminPersonnelFiles() {
         initial={formQuery.data ?? null}
         onClose={() => setBuilderOpen(false)}
         onSaved={() => setLiveOpen(true)}
+      />
+      <ReviewSubmissionDialog
+        submission={reviewing}
+        onClose={() => setReviewing(null)}
+        onDone={(employee) => {
+          setReviewing(null);
+          toast.show(`Accepted ${employee.name}. They're now in the directory as ${employee.id}.`);
+        }}
       />
       <FormLiveDialog
         open={liveOpen}

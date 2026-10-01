@@ -11,6 +11,8 @@ import { employmentSchema, type EmploymentFormValues } from "@/lib/schemas";
 import type { Employee, OnboardingSubmission } from "@/lib/types";
 import { inputClass, Label } from "@/features/employee/onboarding/fields";
 import { EmploymentFields } from "./EmploymentFields";
+import { SubmissionDetails } from "./SubmissionDetails";
+import { formatSubmitted, submittedFileCount } from "./submissionFormat";
 
 const MUTATION_KEY = ["pipeline", "complete-onboarding"];
 
@@ -24,8 +26,11 @@ const defaults = (): EmploymentFormValues => ({
   reportsToId: "",
 });
 
-/** HR adds the job details a new hire couldn't know; saving creates their ID and 201 file. */
-export function SetUpEmploymentDialog({
+/**
+ * HR reviews what a new hire sent in Onboarding and adds the job details they couldn't know.
+ * Accepting creates their employee ID and 201 file and puts them in the Employee Directory.
+ */
+export function ReviewSubmissionDialog({
   submission,
   onClose,
   onDone,
@@ -40,8 +45,9 @@ export function SetUpEmploymentDialog({
     <Dialog
       open={Boolean(submission)}
       onClose={onClose}
-      title="Set up employment"
-      size="lg"
+      title="Review onboarding"
+      description="Check what they sent, add their job details, then accept."
+      size="xl"
       dismissOnBackdrop={false}
       footer={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -49,7 +55,7 @@ export function SetUpEmploymentDialog({
             Cancel
           </Button>
           <Button type="submit" form="set-up-employment" className="justify-center" disabled={saving}>
-            {saving ? "Adding…" : "Add to directory"}
+            {saving ? "Accepting…" : "Accept and add to directory"}
           </Button>
         </div>
       }
@@ -66,7 +72,7 @@ function SetUpForm({ submission, onDone }: { submission: OnboardingSubmission; o
   const form = useForm<EmploymentFormValues>({ resolver, defaultValues: defaults(), mode: "onTouched" });
   const directoryQuery = useQuery({ queryKey: ["admin", "employee-directory"], queryFn: fetchEmployeeDirectory });
   const { input } = submission;
-  const files = new Set([...(input.uploadedDocuments ?? []).map((u) => u.type), ...(input.governmentId ? ["Valid Government ID"] : [])]).size;
+  const files = submittedFileCount(submission);
 
   const mutation = useMutation({
     mutationKey: MUTATION_KEY,
@@ -96,7 +102,8 @@ function SetUpForm({ submission, onDone }: { submission: OnboardingSubmission; o
 
   return (
     <FormProvider {...form}>
-      <form id="set-up-employment" noValidate onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="flex flex-col gap-6">
+      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+      <div className="flex flex-col gap-4 md:border-r md:border-border md:pr-6">
         <div className="flex items-center gap-3 rounded-xl bg-surface-2 px-4 py-3">
           <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-brand-tint text-sm font-semibold text-brand-ink">
             {(input.firstName[0] ?? "") + (input.lastName[0] ?? "")}
@@ -106,11 +113,18 @@ function SetUpForm({ submission, onDone }: { submission: OnboardingSubmission; o
               {input.firstName} {input.lastName}
             </p>
             <p className="truncate text-xs text-ink-2">
-              Submitted Onboarding · {input.phone ?? "No mobile"} · {files} file{files === 1 ? "" : "s"} uploaded
+              Sent {formatSubmitted(submission.submittedAt)} · {files} file{files === 1 ? "" : "s"} uploaded
             </p>
           </div>
         </div>
+        <SubmissionDetails submission={submission} />
+      </div>
 
+      <form id="set-up-employment" noValidate onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="flex flex-col gap-6">
+        <div>
+          <h3 className="text-sm font-semibold">Job details</h3>
+          <p className="text-xs text-ink-2">They couldn't know these yet. The start date sets their employee ID.</p>
+        </div>
         <EmploymentFields lastName={input.lastName} firstName={input.firstName} />
 
         <div className="md:max-w-[calc(50%-0.5rem)]">
@@ -131,6 +145,7 @@ function SetUpForm({ submission, onDone }: { submission: OnboardingSubmission; o
           </p>
         )}
       </form>
+      </div>
     </FormProvider>
   );
 }
