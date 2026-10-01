@@ -135,6 +135,8 @@ export const addEmployeeSchema = z
     licenseExpiry: z.string(),
     previousEmployer: z.string().trim(),
     previousLastDay: z.string(),
+    /** Answers to the extra fields HR can add (nickname, education, bank…), by field. */
+    extras: z.record(z.string(), z.string()),
   });
 
 export type AddEmployeeFormValues = z.infer<typeof addEmployeeSchema>;

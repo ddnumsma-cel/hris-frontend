@@ -8,8 +8,8 @@ import { formatPhMobile, govIdFormats, maskGovId } from "@/lib/govIds";
 import type { AddEmployeeFormValues } from "@/lib/schemas";
 import { StepHeading } from "./fields";
 import type { IdScan } from "./useIdScan";
-import type { FormFieldKey } from "@/lib/onboardingForm";
-import { activeUploads, composeAddress, coreDocuments, situationalFor, stillNeededBeforePayroll, type StepDef } from "./model";
+import { fieldDef, type FormFieldKey } from "@/lib/onboardingForm";
+import { activeUploads, composeAddress, coreDocuments, otherDetails, situationalFor, stillNeededBeforePayroll, type StepDef } from "./model";
 
 /** How each field of HR's form reads back on the Review step. */
 function reviewRows(key: FormFieldKey, v: AddEmployeeFormValues): { label: string; value?: ReactNode }[] {
@@ -47,8 +47,11 @@ function reviewRows(key: FormFieldKey, v: AddEmployeeFormValues): { label: strin
             `${v.emergencyName}${v.emergencyRelationship ? ` (${v.emergencyRelationship})` : ""}${v.emergencyPhone ? ` · ${formatPhMobile(v.emergencyPhone)}` : ""}`,
         },
       ];
-    case "dependents":
-      return [{ label: "Dependents", value: v.dependents?.filter((d) => d.name.trim()).map((d) => d.name).join(", ") }];
+    default: {
+      // The extra fields (nickname, education, bank…) read back the way HR will see them.
+      const rows = otherDetails(v, { sections: [{ key: fieldDef(key).section, fields: [{ key, required: false }] }], updatedAt: "" });
+      return rows.length ? rows : [{ label: fieldDef(key).label, value: undefined }];
+    }
   }
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FormProvider, useForm, useWatch, type FieldErrors } from "react-hook-form";
+import { FormProvider, useForm, useWatch, type FieldErrors, type FieldPath } from "react-hook-form";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastContext";
@@ -34,6 +34,7 @@ import {
   stepsFor,
   toSubmissionInput,
   type StepDef,
+  valueAt,
   type Draft,
   type FieldName,
 } from "./model";
@@ -41,7 +42,7 @@ import { ReviewStep } from "./ReviewStep";
 import { StepBar, StepList, type StepStatus } from "./StepList";
 
 function firstStepWithError(errors: FieldErrors<AddEmployeeFormValues>, steps: StepDef[]) {
-  const index = steps.findIndex((s) => s.fields.some((f) => errors[f]));
+  const index = steps.findIndex((s) => s.fields.some((f) => valueAt(errors, f)));
   return index === -1 ? null : index;
 }
 
@@ -164,7 +165,7 @@ function OnboardingForm({ config }: { config: OnboardingFormConfig }) {
     () =>
       steps.map((s, i) => {
         const { filled, total } = stepProgress(s, values);
-        const hasErrors = s.fields.some((f) => formState.errors[f]);
+        const hasErrors = s.fields.some((f) => valueAt(formState.errors, f));
         const requiredDone = s.required.every((f) => isFilled(values[f as FieldName]));
         return { step: s, filled, total, hasErrors, complete: i < maxVisited && requiredDone && !hasErrors };
       }),
@@ -191,11 +192,11 @@ function OnboardingForm({ config }: { config: OnboardingFormConfig }) {
   }
 
   async function next() {
-    const ok = await trigger(steps[step].fields, { shouldFocus: true });
+    const ok = await trigger(steps[step].fields as FieldPath<AddEmployeeFormValues>[], { shouldFocus: true });
     if (!ok) {
       // Mark the step's fields as visited so each error clears as soon as it's fixed. Otherwise the
       // message only goes on blur, the layout jumps, and the next click on Next misses the button.
-      for (const f of steps[step].fields) form.setValue(f, getValues(f), { shouldTouch: true });
+      for (const f of steps[step].fields as FieldPath<AddEmployeeFormValues>[]) form.setValue(f, getValues(f), { shouldTouch: true });
       return;
     }
     if (step + 1 === REVIEW) await enterReview();
@@ -234,7 +235,7 @@ function OnboardingForm({ config }: { config: OnboardingFormConfig }) {
       const index = firstStepWithError(errors, steps);
       if (index === null) return;
       goTo(index);
-      const field = steps[index].fields.find((f) => errors[f]);
+      const field = steps[index].fields.find((f) => valueAt(errors, f)) as FieldPath<AddEmployeeFormValues> | undefined;
       if (field) window.setTimeout(() => setFocus(field), 50);
     },
     )();

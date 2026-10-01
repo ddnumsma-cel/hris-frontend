@@ -3,6 +3,7 @@ import {
   fieldDef,
   includedFieldKeys,
   FORM_FIELDS,
+  requiredValuesOf,
   sectionDef,
   type FormFieldKey,
   type FormSectionConfig,
@@ -17,34 +18,25 @@ import type { OnboardingSubmissionInput, PersonnelDocumentType, UploadedDocument
 
 export type FieldName = keyof AddEmployeeFormValues;
 
+/** A form value path, e.g. "lastName" or "extras.nickname". */
+export type ValuePath = string;
+
+/** Reads a value by path ("extras.nickname"). */
+export function valueAt(values: unknown, path: ValuePath): unknown {
+  return path.split(".").reduce<unknown>((o, k) => (o && typeof o === "object" ? (o as Record<string, unknown>)[k] : undefined), values);
+}
+
 export interface StepDef {
   /** A section key, "government" or "review". */
   id: string;
   title: string;
   /** Shown under the title in the step list. */
   summary: string;
-  fields: FieldName[];
-  required: FieldName[];
+  fields: ValuePath[];
+  required: ValuePath[];
   /** HR's section this step shows; absent for the fixed Gov't IDs and Review steps. */
   section?: FormSectionConfig;
 }
-
-/** What has to be filled in for a required field to count as answered. */
-const requiredValues: Record<FormFieldKey, FieldName[]> = {
-  legalName: ["lastName", "firstName"],
-  birthDate: ["birthDate"],
-  sex: ["sex"],
-  phone: ["phone"],
-  middleName: ["middleName"],
-  suffix: ["suffix"],
-  civilStatus: ["civilStatus"],
-  bloodType: ["bloodType"],
-  personalEmail: ["personalEmail"],
-  workEmail: ["email"],
-  address: ["street", "city", "province"],
-  emergencyContact: ["emergencyName", "emergencyPhone"],
-  dependents: ["dependents"],
-};
 
 /** One step per section of HR's form, then Gov't IDs & 201 files, then Review. */
 export function stepsFor(config: OnboardingFormConfig): StepDef[] {
@@ -58,7 +50,7 @@ export function stepsFor(config: OnboardingFormConfig): StepDef[] {
       summary:
         labels.length === 1 ? fieldDef(s.fields[0].key).hint : labels.length > 3 ? `${labels.slice(0, 3).join(", ")} and more` : labels.join(", "),
       fields: s.fields.flatMap((f) => fieldDef(f.key).values),
-      required: s.fields.filter((f) => f.required).flatMap((f) => requiredValues[f.key]),
+      required: s.fields.filter((f) => f.required).flatMap((f) => requiredValuesOf(f.key)),
       section: s,
     };
   });
@@ -86,6 +78,7 @@ export function stillNeededBeforePayroll(v: AddEmployeeFormValues, steps: StepDe
   check("civilStatus", "Civil status", !v.civilStatus);
   check("address", "Home address", ![v.street, v.barangay, v.city, v.province].some((x) => x.trim()));
   check("emergencyContact", "Emergency contact", !v.emergencyName.trim());
+  check("bankAccountNumber", "Bank account number", !String(v.extras?.bankAccountNumber ?? "").trim());
   const gov: [keyof AddEmployeeFormValues, string][] = [
     ["tin", "TIN"],
     ["sss", "SSS number"],
@@ -129,6 +122,7 @@ export function emptyValues(): AddEmployeeFormValues {
     licenseExpiry: "",
     previousEmployer: "",
     previousLastDay: "",
+    extras: {},
   };
 }
 
@@ -141,7 +135,7 @@ export function isFilled(value: unknown): boolean {
  * Steps with no required fields count everything. */
 export function stepProgress(step: StepDef, values: AddEmployeeFormValues) {
   const counted = step.required.length > 0 ? step.required : step.fields;
-  const filled = counted.filter((f) => isFilled(values[f])).length;
+  const filled = counted.filter((f) => isFilled(valueAt(values, f))).length;
   return { filled, total: counted.length };
 }
 
@@ -149,14 +143,9 @@ export function stepProgress(step: StepDef, values: AddEmployeeFormValues) {
 
 export const coreDocuments = PERSONNEL_DOCUMENT_TYPES.filter((t) => !SITUATIONAL_DOCUMENT_TYPES.includes(t));
 
-/** Situational documents that apply to what they've entered so far (married, a child). */
+/** Situational documents that apply to what they've entered so far (married). */
 export function situationalFor(v: AddEmployeeFormValues): PersonnelDocumentType[] {
-  return applicableDocuments({
-    lastName: "",
-    firstName: "",
-    civilStatus: v.civilStatus || undefined,
-    dependents: v.dependents.filter((d) => d.name.trim()).map((d) => ({ name: d.name, relationship: "Child" as const })),
-  });
+  return applicableDocuments({ lastName: "", firstName: "", civilStatus: v.civilStatus || undefined });
 }
 
 /** Uploads that still count: a situational document that no longer applies is dropped. */
@@ -169,14 +158,37 @@ export function activeUploads(v: AddEmployeeFormValues): UploadedDocument[] {
 
 const err = (message: string) => ({ type: "custom", message });
 
-const requiredMessage: Partial<Record<FormFieldKey, string>> = {
-  middleName: "Enter your middle name",
-  suffix: "Choose your suffix",
-  civilStatus: "Choose your civil status",
-  bloodType: "Choose your blood type",
-  personalEmail: "Enter your personal email",
-  workEmail: "Enter your work email",
-};
+/** Puts an error at a path in react-hook-form's error tree. */
+function setErrorAt(errors: Record<string, unknown>, path: ValuePath, error: unknown, overwrite = false) {
+  const keys = path.split(".");
+  let node = errors;
+  for (const k of keys.slice(0, -1)) node = (node[k] ??= {}) as Record<string, unknown>;
+  const last = keys[keys.length - 1];
+  if (overwrite || !node[last]) node[last] = error;
+}
+
+function deleteErrorAt(errors: Record<string, unknown>, path: ValuePath) {
+  const keys = path.split(".");
+  const parent = keys.slice(0, -1).reduce<Record<string, unknown> | undefined>((o, k) => o?.[k] as Record<string, unknown> | undefined, errors);
+  if (parent) delete parent[keys[keys.length - 1]];
+  if (keys.length > 1 && parent && Object.keys(parent).length === 0) delete errors[keys[0]];
+}
+
+/** The message when a required field is left blank. */
+function requiredMessage(path: ValuePath, key: FormFieldKey): string {
+  const special: Record<string, string> = {
+    street: "Enter your house no. and street",
+    city: "Choose your city or municipality",
+    province: "Choose your province",
+    "extras.provStreet": "Enter the house no. and street",
+    "extras.provCity": "Choose the city or municipality",
+    "extras.provProvince": "Choose the province",
+    emergencyName: "Enter who HR should call",
+    emergencyPhone: "Enter their mobile number",
+  };
+  const def = fieldDef(key);
+  return special[path] ?? (def.kind === "select" || ["suffix", "civilStatus", "bloodType"].includes(key) ? `Choose your ${def.label.toLowerCase()}` : `Enter your ${def.label.toLowerCase()}`);
+}
 
 /** zod skips object refinements while any other field has an error, so HR's rules run here instead —
  * they show up on the step the employee is on. The form passes HR's config as the resolver context. */
@@ -184,34 +196,29 @@ export function onboardingResolver(): Resolver<AddEmployeeFormValues, Onboarding
   const base = zodResolver(addEmployeeSchema) as unknown as Resolver<AddEmployeeFormValues, OnboardingFormConfig>;
   return async (values, context, options) => {
     const result = await base(values, context, options);
-    const errors = { ...result.errors } as Record<string, unknown>;
+    const errors = structuredClone(result.errors ?? {}) as Record<string, unknown>;
     if (context) {
       const included = includedFieldKeys(context);
       // Fields HR left out never block submitting (e.g. a stale emergency number in an old draft).
-      for (const f of FORM_FIELDS) if (!included.has(f.key)) for (const name of f.values) delete errors[name];
-      const required = new Set(context.sections.flatMap((s) => s.fields.filter((f) => f.required).map((f) => f.key)));
-      const blank = (name: FieldName) => !String(values[name] ?? "").trim();
-      for (const [key, message] of Object.entries(requiredMessage) as [FormFieldKey, string][]) {
-        const name = requiredValues[key][0];
-        if (required.has(key) && blank(name) && !errors[name]) errors[name] = err(message);
-      }
-      if (required.has("address")) {
-        if (blank("street")) errors.street ??= err("Enter your house no. and street");
-        if (blank("city")) errors.city ??= err("Enter your city or municipality");
-        if (blank("province")) errors.province ??= err("Enter your province");
-      }
-      if (required.has("emergencyContact")) {
-        if (blank("emergencyName")) errors.emergencyName ??= err("Enter who HR should call");
-        if (blank("emergencyPhone")) errors.emergencyPhone ??= err("Enter their mobile number");
+      for (const f of FORM_FIELDS) if (!included.has(f.key)) for (const path of f.values) deleteErrorAt(errors, path);
+      const blank = (path: ValuePath) => !String(valueAt(values, path) ?? "").trim();
+      for (const s of context.sections) {
+        for (const f of s.fields) {
+          if (!f.required) continue;
+          // A provincial address that's the same as home needs nothing else.
+          if (f.key === "provincialAddress" && valueAt(values, "extras.provSame") === "yes") continue;
+          for (const path of requiredValuesOf(f.key)) if (blank(path)) setErrorAt(errors, path, err(requiredMessage(path, f.key)));
+        }
       }
       if (included.has("civilStatus") && values.civilStatus === "Married" && !values.spouseName.trim()) {
-        errors.spouseName = err("Enter your spouse's full name");
+        setErrorAt(errors, "spouseName", err("Enter your spouse's full name"), true);
       }
-      if (included.has("dependents")) {
-        // A row with only a birth date is missing its name; fully empty rows are ignored.
-        const rows = values.dependents.map((d) => (!d.name.trim() && d.birthDate ? { name: err("Enter their full name") } : undefined));
-        if (rows.some(Boolean)) errors.dependents = rows;
-        else if (required.has("dependents") && !values.dependents.some((d) => d.name.trim())) errors.dependents = err("Add at least one child or dependent");
+      if (included.has("pwd") && valueAt(values, "extras.pwd") === "Yes" && blank("extras.pwdId")) {
+        setErrorAt(errors, "extras.pwdId", err("Enter your PWD ID number"));
+      }
+      const year = String(valueAt(values, "extras.yearGraduated") ?? "").trim();
+      if (included.has("yearGraduated") && year && !(/^\d{4}$/.test(year) && +year >= 1950 && +year <= new Date().getFullYear())) {
+        setErrorAt(errors, "extras.yearGraduated", err("Enter a four-digit year, e.g. 2020"), true);
       }
     }
     if (Object.keys(errors).length === 0) {
@@ -294,10 +301,38 @@ export function toSubmissionInput(
   config: OnboardingFormConfig,
 ): OnboardingSubmissionInput {
   const included = includedFieldKeys(config);
-  const blank = emptyValues();
-  const v = { ...values } as Record<string, unknown>;
-  for (const f of FORM_FIELDS) if (!included.has(f.key)) for (const name of f.values) v[name] = blank[name];
-  return toInput(v as AddEmployeeFormValues, governmentId);
+  const blank = emptyValues() as unknown as Record<string, unknown>;
+  const v = { ...values, extras: { ...values.extras }, dependents: [] } as unknown as Record<string, unknown> & { extras: Record<string, string> };
+  for (const f of FORM_FIELDS) {
+    if (included.has(f.key)) continue;
+    for (const path of f.values) {
+      if (path.startsWith("extras.")) delete v.extras[path.slice(7)];
+      else v[path] = blank[path];
+    }
+  }
+  return { ...toInput(v as unknown as AddEmployeeFormValues, governmentId), otherDetails: otherDetails(v as unknown as AddEmployeeFormValues, config) };
+}
+
+/** The extra fields HR added, as labelled answers HR reads when reviewing (Nickname: Jun, Bank: BDO…). */
+export function otherDetails(v: AddEmployeeFormValues, config: OnboardingFormConfig): { label: string; value: string }[] {
+  const e = v.extras ?? {};
+  const out: { label: string; value: string }[] = [];
+  for (const { key } of config.sections.flatMap((s) => s.fields)) {
+    const def = fieldDef(key);
+    if (def.kind) {
+      const value = String(e[def.values[0].slice(7)] ?? "").trim();
+      if (value) out.push({ label: def.label, value: def.unit ? `${value} ${def.unit}` : value });
+    } else if (key === "provincialAddress") {
+      const value =
+        e.provSame === "yes"
+          ? "Same as home address"
+          : composeAddress({ street: e.provStreet ?? "", barangay: e.provBarangay ?? "", city: e.provCity ?? "", province: e.provProvince ?? "" });
+      if (value) out.push({ label: def.label, value });
+    } else if (key === "pwd" && e.pwd) {
+      out.push({ label: def.label, value: e.pwd === "Yes" && e.pwdId?.trim() ? `Yes · ID ${e.pwdId.trim()}` : e.pwd });
+    }
+  }
+  return out;
 }
 
 function toInput(v: AddEmployeeFormValues, governmentId: OnboardingSubmissionInput["governmentId"]): OnboardingSubmissionInput {

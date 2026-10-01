@@ -405,6 +405,8 @@ export interface OnboardingSubmissionInput {
   governmentId?: { idType: string; idNumber?: string; idExpiry?: string; fileName?: string; extraFileNames?: string[] };
   /** 201 documents they attached; HR verifies them. */
   uploadedDocuments?: UploadedDocument[];
+  /** Answers to the extra fields HR added to the form (nickname, education, bank…). */
+  otherDetails?: { label: string; value: string }[];
 }
 
 export interface OnboardingSubmission {

@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
-import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
-import { IdCardIcon, PlusIcon, XIcon } from "@/components/icons";
+import clsx from "clsx";
+import { useFormContext, useWatch, type FieldPath } from "react-hook-form";
+import { IdCardIcon } from "@/components/icons";
 import { getAge } from "@/lib/automation";
 import { formatPhMobile, isValidPhMobile } from "@/lib/govIds";
-import { sectionDef, type FormFieldConfig, type FormFieldKey, type FormSectionConfig } from "@/lib/onboardingForm";
+import { fieldDef, sectionDef, type FormFieldConfig, type FormFieldKey, type FormSectionConfig } from "@/lib/onboardingForm";
 import {
   bloodTypeOptions,
   civilStatusOptions,
@@ -12,13 +13,14 @@ import {
   suffixOptions,
   type AddEmployeeFormValues,
 } from "@/lib/schemas";
-import { describe } from "./fieldProps";
+import { AddressFields } from "./AddressFields";
+import { describe, errorAt } from "./fieldProps";
 import { FieldError, FieldGroup, FieldHint, inputClass, Label } from "./fields";
 import { IdScanPanel } from "./IdScanPanel";
 import type { IdScan } from "./useIdScan";
 
 /** Fields that take the full width; the rest sit two to a row. */
-const WIDE = new Set<FormFieldKey>(["legalName", "address", "emergencyContact", "dependents"]);
+const WIDE = new Set<FormFieldKey>(["legalName", "address", "provincialAddress", "emergencyContact", "medicalConditions", "pwd"]);
 
 function Select({ id, options, empty = "Select…", ...rest }: { id: string; options: readonly string[]; empty?: string } & React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
@@ -54,6 +56,7 @@ function Field({ field, idScan }: { field: FormFieldConfig; idScan?: IdScan }) {
       },
     });
 
+  if (fieldDef(field.key).kind) return <SimpleField field={field} />;
   switch (field.key) {
     case "legalName":
       return (
@@ -184,37 +187,11 @@ function Field({ field, idScan }: { field: FormFieldConfig; idScan?: IdScan }) {
         </div>
       );
     case "address":
-      return (
-        <div className="flex flex-col gap-4">
-          <div>
-            <Label htmlFor="emp-street" required={req}>
-              House no., street, subdivision
-            </Label>
-            <input id="emp-street" className={inputClass} placeholder="123 Mango Ave., Villa Aurora" autoComplete="address-line1" {...describe("emp-street", errors.street?.message)} {...register("street")} />
-            <FieldError id="emp-street-error" message={errors.street?.message} />
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <Label htmlFor="emp-barangay">Barangay</Label>
-              <input id="emp-barangay" className={inputClass} placeholder="Lahug" {...register("barangay")} />
-            </div>
-            <div>
-              <Label htmlFor="emp-city" required={req}>
-                City / municipality
-              </Label>
-              <input id="emp-city" className={inputClass} placeholder="Cebu City" autoComplete="address-level2" {...describe("emp-city", errors.city?.message)} {...register("city")} />
-              <FieldError id="emp-city-error" message={errors.city?.message} />
-            </div>
-            <div>
-              <Label htmlFor="emp-province" required={req}>
-                Province
-              </Label>
-              <input id="emp-province" className={inputClass} placeholder="Cebu" autoComplete="address-level1" {...describe("emp-province", errors.province?.message)} {...register("province")} />
-              <FieldError id="emp-province-error" message={errors.province?.message} />
-            </div>
-          </div>
-        </div>
-      );
+      return <AddressFields names={{ street: "street", barangay: "barangay", city: "city", province: "province" }} idPrefix="emp-home" required={req} />;
+    case "provincialAddress":
+      return <ProvincialAddress required={req} />;
+    case "pwd":
+      return <PwdField required={req} />;
     case "emergencyContact":
       return (
         <div className="grid gap-4 md:grid-cols-3">
@@ -238,61 +215,112 @@ function Field({ field, idScan }: { field: FormFieldConfig; idScan?: IdScan }) {
           </div>
         </div>
       );
-    case "dependents":
-      return <DependentsField required={req} />;
   }
 }
 
-/** Its own component: only one useFieldArray may own the dependents list. */
-function DependentsField({ required: req }: { required: boolean }) {
+/** A simple one-input field (nickname, school, bank…) drawn from its catalog entry. */
+function SimpleField({ field }: { field: FormFieldConfig }) {
+  const {
+    register,
+    formState: { errors },
+  } = useFormContext<AddEmployeeFormValues>();
+  const def = fieldDef(field.key);
+  const path = def.values[0] as FieldPath<AddEmployeeFormValues>;
+  const id = `emp-${field.key}`;
+  const message = errorAt(errors, path);
+  const common = { id, className: inputClass, ...describe(id, message, true), ...register(path) };
+  return (
+    <div>
+      <Label htmlFor={id} required={field.required}>
+        {def.label}
+      </Label>
+      {def.kind === "select" ? (
+        <Select options={def.options ?? []} {...common} />
+      ) : def.kind === "textarea" ? (
+        <textarea rows={3} placeholder={def.placeholder} {...common} className={clsx(inputClass, "resize-y")} />
+      ) : (
+        <div className="relative">
+          <input
+            type={def.kind === "number" ? "number" : def.kind === "tel" ? "tel" : "text"}
+            inputMode={def.kind === "number" ? "numeric" : def.kind === "tel" ? "tel" : undefined}
+            placeholder={def.placeholder}
+            {...common}
+            className={clsx(inputClass, def.unit && "pr-10")}
+          />
+          {def.unit && <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-ink-3">{def.unit}</span>}
+        </div>
+      )}
+      <FieldError id={`${id}-error`} message={message} />
+      {!message && <FieldHint id={`${id}-hint`}>{def.hint}</FieldHint>}
+    </div>
+  );
+}
+
+function ProvincialAddress({ required }: { required: boolean }) {
+  const { setValue, control } = useFormContext<AddEmployeeFormValues>();
+  const same = useWatch({ control, name: "extras.provSame" }) === "yes";
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[0.82rem] font-semibold text-ink-2">
+          Provincial / permanent address
+          {required && !same && <span className="ml-0.5 text-critical" aria-hidden="true">*</span>}
+        </p>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-2">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-[var(--color-brand)]"
+            checked={same}
+            onChange={(e) => {
+              // Stored as text with the other extras.
+              const value = e.target.checked ? "yes" : "";
+              setValue("extras.provSame", value, { shouldDirty: true });
+            }}
+          />
+          Same as home address
+        </label>
+      </div>
+      {!same && (
+        <div className="item-enter">
+          <AddressFields
+            names={{ street: "extras.provStreet", barangay: "extras.provBarangay", city: "extras.provCity", province: "extras.provProvince" }}
+            idPrefix="emp-prov"
+            required={required}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PwdField({ required }: { required: boolean }) {
   const {
     register,
     control,
-    clearErrors,
     formState: { errors },
   } = useFormContext<AddEmployeeFormValues>();
-  const dependents = useFieldArray({ control, name: "dependents" });
+  const pwd = useWatch({ control, name: "extras.pwd" });
   return (
-        <div className="flex flex-col gap-3">
-          <p className="text-[0.82rem] font-semibold text-ink-2">
-            Children and dependents
-            {req && <span className="ml-0.5 text-critical" aria-hidden="true">*</span>}
-          </p>
-          {dependents.fields.length === 0 && <p className="text-xs text-ink-2">{req ? "Add at least one child or dependent." : "None added. Add each child or dependent you want covered."}</p>}
-          {dependents.fields.map((row, i) => (
-            <div key={row.id} className="item-enter grid items-start gap-3 md:grid-cols-[2fr_1fr_auto]">
-              <div>
-                <Label htmlFor={`emp-dep-${i}`}>Full name</Label>
-                <input id={`emp-dep-${i}`} className={inputClass} placeholder="Miguel Dela Cruz" {...describe(`emp-dep-${i}`, errors.dependents?.[i]?.name?.message)} {...register(`dependents.${i}.name`, { onChange: () => clearErrors("dependents") })} />
-                <FieldError id={`emp-dep-${i}-error`} message={errors.dependents?.[i]?.name?.message} />
-              </div>
-              <div>
-                <Label htmlFor={`emp-dep-birth-${i}`}>Birth date</Label>
-                <input id={`emp-dep-birth-${i}`} type="date" className={inputClass} {...register(`dependents.${i}.birthDate`)} />
-              </div>
-              <button
-                type="button"
-                onClick={() => dependents.remove(i)}
-                aria-label={`Remove dependent ${i + 1}`}
-                className="mt-7 flex h-10 w-10 items-center justify-center rounded-lg text-ink-2 hover:bg-surface-2 hover:text-ink"
-              >
-                <XIcon className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
-          <FieldError id="emp-dependents-error" message={(errors.dependents as { message?: string } | undefined)?.message} />
-          {dependents.fields.length < 8 && (
-            <button
-              type="button"
-              onClick={() => dependents.append({ name: "", birthDate: "" })}
-              className="flex items-center gap-1.5 self-start rounded-full px-2 py-1.5 text-sm font-semibold text-brand-ink hover:bg-surface-2"
-            >
-              <PlusIcon className="h-3.5 w-3.5" />
-              {dependents.fields.length === 0 ? "Add dependent" : "Add another"}
-            </button>
-          )}
+    <div className="grid gap-4 md:grid-cols-2">
+      <div>
+        <Label htmlFor="emp-pwd" required={required}>
+          Person with disability (PWD)
+        </Label>
+        <Select id="emp-pwd" options={["No", "Yes"]} className={inputClass} {...describe("emp-pwd", errorAt(errors, "extras.pwd"), true)} {...register("extras.pwd")} />
+        <FieldError id="emp-pwd-error" message={errorAt(errors, "extras.pwd")} />
+        <FieldHint id="emp-pwd-hint">So HR can arrange support at work and apply PWD benefits</FieldHint>
+      </div>
+      {pwd === "Yes" && (
+        <div className="item-enter">
+          <Label htmlFor="emp-pwd-id" required>
+            PWD ID number
+          </Label>
+          <input id="emp-pwd-id" className={inputClass} placeholder="07-2217-000-0000000" {...describe("emp-pwd-id", errorAt(errors, "extras.pwdId"))} {...register("extras.pwdId")} />
+          <FieldError id="emp-pwd-id-error" message={errorAt(errors, "extras.pwdId")} />
         </div>
-      );
+      )}
+    </div>
+  );
 }
 
 /** One section of HR's form: its title, then its fields in HR's order. */
