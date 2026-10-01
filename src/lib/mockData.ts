@@ -37,7 +37,56 @@ import type {
   WorkforceAlert,
 } from "./types";
 
-export let currentEmployee: Employee = {
+// --- Demo persistence ---
+// People added through Onboarding (and the signed-in employee's account) are kept in this browser so
+// the hire flow survives a reload. Everything else stays in memory, as before. A backend replaces this.
+
+const PEOPLE_STORE_KEY = "msma-demo-people-v1";
+
+interface PeopleStore {
+  currentEmployee?: Employee;
+  employeeDirectory?: Employee[];
+  personnelProfiles?: PersonnelProfile[];
+  personnelDocuments?: PersonnelDocument[];
+  auditLogEntries?: AuditLogEntry[];
+  onboardingSubmissions?: OnboardingSubmission[];
+}
+
+function loadPeopleStore(): PeopleStore {
+  try {
+    const raw = typeof localStorage === "undefined" ? null : localStorage.getItem(PEOPLE_STORE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+    if (!parsed || typeof parsed !== "object") return {};
+    // Anything that isn't the shape we expect is ignored rather than trusted.
+    const list = <T,>(v: unknown) => (Array.isArray(v) ? (v.filter((x) => x && typeof x === "object") as T[]) : undefined);
+    const me = parsed.currentEmployee as Employee | undefined;
+    return {
+      currentEmployee: me && typeof me.id === "string" && typeof me.name === "string" ? me : undefined,
+      employeeDirectory: list<Employee>(parsed.employeeDirectory)?.filter((e) => typeof e.id === "string" && typeof e.name === "string"),
+      personnelProfiles: list<PersonnelProfile>(parsed.personnelProfiles)?.map((p) => ({ ...p, dependents: Array.isArray(p.dependents) ? p.dependents : [] })),
+      personnelDocuments: list<PersonnelDocument>(parsed.personnelDocuments),
+      auditLogEntries: list<AuditLogEntry>(parsed.auditLogEntries),
+      onboardingSubmissions: list<OnboardingSubmission>(parsed.onboardingSubmissions)?.filter((s) => typeof s.id === "string" && s.input && typeof s.input === "object"),
+    };
+  } catch {
+    return {};
+  }
+}
+
+const stored = loadPeopleStore();
+
+function savePeopleStore() {
+  try {
+    localStorage.setItem(
+      PEOPLE_STORE_KEY,
+      JSON.stringify({ currentEmployee, employeeDirectory, personnelProfiles, personnelDocuments, auditLogEntries, onboardingSubmissions }),
+    );
+  } catch {
+    // Storage full or blocked — the data still lives until the page reloads.
+  }
+}
+
+export let currentEmployee: Employee = stored.currentEmployee ?? {
   id: "MSMA-00482",
   name: "Angela Dela Cruz",
   initials: "AD",
@@ -54,6 +103,7 @@ export let currentEmployee: Employee = {
 
 export function setCurrentEmployee(next: Employee) {
   currentEmployee = next;
+  savePeopleStore();
 }
 
 export const employeeDtrSummary = {
@@ -233,10 +283,11 @@ export function setComplianceCalendar(next: ComplianceItem[]) {
 }
 
 // Empty until new hires submit Onboarding and HR sets up their employment in Pipeline.
-export let employeeDirectory: Employee[] = [];
+export let employeeDirectory: Employee[] = stored.employeeDirectory ?? [];
 
 export function setEmployeeDirectory(next: Employee[]) {
   employeeDirectory = next;
+  savePeopleStore();
 }
 
 
@@ -623,10 +674,11 @@ export function setProfessionalLicenses(next: ProfessionalLicense[]) {
 // Full detail here is HR/manager-only; the employee-facing API layer
 // projects these down to a status-only checklist before returning them.
 
-export let personnelProfiles: PersonnelProfile[] = [];
+export let personnelProfiles: PersonnelProfile[] = stored.personnelProfiles ?? [];
 
 export function setPersonnelProfiles(next: PersonnelProfile[]) {
   personnelProfiles = next;
+  savePeopleStore();
 }
 
 export const PERSONNEL_DOCUMENT_TYPES: PersonnelDocumentType[] = [
@@ -688,22 +740,25 @@ export function buildNewHireDocuments(
   });
 }
 
-export let personnelDocuments: PersonnelDocument[] = [];
+export let personnelDocuments: PersonnelDocument[] = stored.personnelDocuments ?? [];
 
 export function setPersonnelDocuments(next: PersonnelDocument[]) {
   personnelDocuments = next;
+  savePeopleStore();
 }
 
-export let auditLogEntries: AuditLogEntry[] = [];
+export let auditLogEntries: AuditLogEntry[] = stored.auditLogEntries ?? [];
 
 export function setAuditLogEntries(next: AuditLogEntry[]) {
   auditLogEntries = next;
+  savePeopleStore();
 }
 
 // --- Onboarding submissions waiting for HR to add employment details (Pipeline) ---
 
-export let onboardingSubmissions: OnboardingSubmission[] = [];
+export let onboardingSubmissions: OnboardingSubmission[] = stored.onboardingSubmissions ?? [];
 
 export function setOnboardingSubmissions(next: OnboardingSubmission[]) {
   onboardingSubmissions = next;
+  savePeopleStore();
 }

@@ -892,6 +892,7 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Employ
       address: input.address?.trim() || undefined,
       dependents: (input.dependents ?? []).map((d, i) => ({ ...d, id: `dep-${employee.id}-${i + 1}` })),
       previousEmployer: input.previousEmployer,
+      otherDetails: input.otherDetails?.length ? input.otherDetails : undefined,
     },
   ]);
   setPersonnelDocuments([
@@ -1016,7 +1017,10 @@ export async function completeOnboarding(submissionId: string, employment: Emplo
   if (!submission) throw new Error("That submission was already set up or removed.");
   // Taken off the list before anything awaits, so a second click can't add the same person twice.
   setOnboardingSubmissions(onboardingSubmissions.filter((s) => s.id !== submissionId));
-  const employee = await createEmployee({ ...submission.input, ...employment, actor });
+  const created = await createEmployee({ ...submission.input, ...employment, actor });
+  // Pipeline's Hired list reads these.
+  const employee: Employee = { ...created, onboardingSubmittedAt: submission.submittedAt, acceptedAt: new Date().toISOString() };
+  setEmployeeDirectory(employeeDirectory.map((e) => (e.id === employee.id ? employee : e)));
   // The demo has one signed-in employee: once set up, their account is this record.
   if (submission.fromSignedInEmployee) setCurrentEmployee({ ...employee, faceEnrolled: currentEmployee.faceEnrolled });
   return employee;
@@ -1470,3 +1474,10 @@ export function saveOnboardingForm(config: OnboardingFormConfig): Promise<Onboar
 /** Query key shared by HR and employee screens; another tab saving the form refreshes it. */
 export const ONBOARDING_FORM_QUERY_KEY = ["onboarding-form"] as const;
 export const ONBOARDING_FORM_STORAGE_KEY = ONBOARDING_FORM_KEY;
+
+/** People hired through Onboarding, most recently accepted first (Pipeline's Hired list). */
+export function fetchHiredThroughOnboarding() {
+  return delay(
+    employeeDirectory.filter((e) => e.acceptedAt).sort((a, b) => (b.acceptedAt ?? "").localeCompare(a.acceptedAt ?? "")),
+  );
+}

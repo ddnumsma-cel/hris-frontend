@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormProvider, useForm, useWatch, type FieldErrors, type FieldPath } from "react-hook-form";
 import { Button } from "@/components/ui/Button";
@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/ToastContext";
 import { CheckCircleIcon, FileQuestionIcon, HistoryIcon } from "@/components/icons";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
+  fetchMyOnboardingStatus,
   fetchOnboardingForm,
   findPossibleDuplicates,
   ONBOARDING_FORM_QUERY_KEY,
@@ -50,6 +51,9 @@ function firstStepWithError(errors: FieldErrors<AddEmployeeFormValues>, steps: S
 export function OnboardingPage() {
   const queryClient = useQueryClient();
   const formQuery = useQuery({ queryKey: ONBOARDING_FORM_QUERY_KEY, queryFn: fetchOnboardingForm });
+  const statusQuery = useQuery({ queryKey: ["employee", "onboarding-status"], queryFn: fetchMyOnboardingStatus });
+  // Sent from this page just now: keep showing the "Sent to HR" screen until they leave.
+  const [submittedHere, setSubmittedHere] = useState(false);
 
   // HR saving the form in another tab shows up here straight away.
   useEffect(() => {
@@ -60,7 +64,10 @@ export function OnboardingPage() {
     return () => window.removeEventListener("storage", onStorage);
   }, [queryClient]);
 
-  if (formQuery.isLoading) {
+  // Already sent (or already hired): there's nothing left to fill in here.
+  if (statusQuery.data && statusQuery.data !== "none" && !submittedHere) return <Navigate to="/employee" replace />;
+
+  if (formQuery.isLoading || statusQuery.isLoading) {
     return (
       <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-5">
         <Skeleton className="h-8 w-48" />
@@ -83,10 +90,10 @@ export function OnboardingPage() {
     );
   }
 
-  return <OnboardingForm config={formQuery.data} />;
+  return <OnboardingForm config={formQuery.data} onSubmitted={() => setSubmittedHere(true)} />;
 }
 
-function OnboardingForm({ config }: { config: OnboardingFormConfig }) {
+function OnboardingForm({ config, onSubmitted }: { config: OnboardingFormConfig; onSubmitted: () => void }) {
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -212,6 +219,7 @@ function OnboardingForm({ config }: { config: OnboardingFormConfig }) {
   const mutation = useMutation({
     mutationFn: submitOnboarding,
     onSuccess: (submission) => {
+      onSubmitted();
       queryClient.invalidateQueries({ queryKey: ["admin"] });
       queryClient.invalidateQueries({ queryKey: ["employee"] });
       clearDraft();
@@ -262,7 +270,7 @@ function OnboardingForm({ config }: { config: OnboardingFormConfig }) {
             <CheckCircleIcon className="h-7 w-7" />
           </span>
           <h1 className="font-display mt-4 text-2xl font-semibold tracking-[-0.02em]">Sent to HR, {created.input.firstName}</h1>
-          <p className="mt-1 text-sm text-ink-2">HR will add your role and start date, then your 201 file opens.</p>
+          <p className="mt-1 text-sm text-ink-2">HR will review your details. Your 201 file opens once they accept you.</p>
           <ul className="mx-auto mt-5 flex max-w-sm flex-col gap-1.5 text-left text-sm text-ink-2">
             <li>
               • {created.input.uploadedDocuments?.length || created.input.governmentId ? "Your uploaded files are with HR for checking" : "HR will check your files once you upload them"}

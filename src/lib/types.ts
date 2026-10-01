@@ -27,6 +27,9 @@ export interface Employee {
   employmentStatus?: "Probationary" | "Regular" | "Project-Based" | "Contractual" | "Part-Time";
   /** Numbers HR typed in when adding them; shown as Pending in the 201 file until verified. */
   governmentNumbers?: Partial<Record<"tin" | "sss" | "philHealth" | "pagIbig", string>>;
+  /** Set for people hired through Onboarding: when they sent the form, and when HR accepted it. */
+  onboardingSubmittedAt?: string;
+  acceptedAt?: string;
 }
 
 export interface LeaveBalance {
@@ -428,6 +431,8 @@ export interface PersonnelProfile {
   address?: string;
   /** Declared during Onboarding, for the BIR 2316 from their last job. */
   previousEmployer?: { name: string; lastDay?: string };
+  /** Answers to the extra fields HR added to the Onboarding form. */
+  otherDetails?: { label: string; value: string }[];
 }
 
 // --- Audit log for restricted personnel data ---

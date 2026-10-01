@@ -208,8 +208,8 @@ export function Employee201File() {
           {checklistQuery.isLoading && <Skeleton className="h-24 w-full" />}
           {checklistQuery.data?.length === 0 && onboardingQuery.data === "pending" && (
             <p className="rounded-lg bg-surface-2 px-3.5 py-3 text-sm">
-              <span className="font-semibold">HR is finishing your setup.</span>{" "}
-              <span className="text-ink-2">Your 201 checklist opens once they add your role and start date.</span>
+              <span className="font-semibold">HR is reviewing your onboarding.</span>{" "}
+              <span className="text-ink-2">Your 201 checklist opens once they accept you.</span>
             </p>
           )}
           {checklistQuery.data?.length === 0 && onboardingQuery.data === "none" && (

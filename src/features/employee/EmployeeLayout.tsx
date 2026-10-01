@@ -1,4 +1,6 @@
 import { Outlet } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { fetchMyOnboardingStatus } from "@/lib/api";
 import { RolePage } from "@/components/layout/RolePage";
 import { SideNav } from "@/components/layout/SideNav";
 import {
@@ -13,15 +15,17 @@ import {
 } from "@/components/icons";
 
 export function EmployeeLayout() {
+  // Onboarding is a one-time task: once they've sent it to HR, it leaves the menu.
+  const onboardingQuery = useQuery({ queryKey: ["employee", "onboarding-status"], queryFn: fetchMyOnboardingStatus });
+  const showOnboarding = onboardingQuery.data === "none";
   return (
     <RolePage
       sidenav={
         <SideNav
           groups={[
-            {
-              title: "Getting started",
-              items: [{ label: "Onboarding", to: "/employee/onboarding", icon: <UserPlusIcon /> }],
-            },
+            ...(showOnboarding
+              ? [{ title: "Getting started", items: [{ label: "Onboarding", to: "/employee/onboarding", icon: <UserPlusIcon /> }] }]
+              : []),
             {
               title: "My workspace",
               items: [
