@@ -153,7 +153,7 @@ export const FORM_FIELDS: FormFieldDef[] = [
   // Payroll
   { key: "bankName", label: "Bank", hint: "Where salary is deposited", section: "payroll", kind: "select", options: banks, values: [x("bankName")] },
   { key: "bankAccountName", label: "Account name", hint: "Exactly as the bank has it", section: "payroll", kind: "text", placeholder: "Juan P. Dela Cruz", values: [x("bankAccountName")] },
-  { key: "bankAccountNumber", label: "Account number", hint: "Digits only", section: "payroll", kind: "text", placeholder: "0012 3456 7890", values: [x("bankAccountNumber")] },
+  { key: "bankAccountNumber", label: "Account number", hint: "Bank account number, digits only", section: "payroll", kind: "text", placeholder: "0012 3456 7890", values: [x("bankAccountNumber")] },
 ];
 
 const fieldMap = new Map(FORM_FIELDS.map((f) => [f.key, f]));

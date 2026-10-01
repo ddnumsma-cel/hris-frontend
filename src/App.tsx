@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { TopBar } from "@/components/layout/TopBar";
 import { ProtectedRoute, RootRedirect } from "@/components/layout/ProtectedRoute";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
@@ -20,6 +20,7 @@ const ManagerReportPage = lazy(() =>
 );
 const AdminLayout = lazy(() => import("@/features/admin/AdminLayout").then((m) => ({ default: m.AdminLayout })));
 const AdminOverview = lazy(() => import("@/features/admin/AdminOverview").then((m) => ({ default: m.AdminOverview })));
+const ApplyPage = lazy(() => import("@/features/apply/ApplyPage").then((m) => ({ default: m.ApplyPage })));
 const AdminPipelinePage = lazy(() =>
   import("@/features/admin/pipeline/AdminPipelinePage").then((m) => ({ default: m.AdminPipelinePage })),
 );
@@ -107,6 +108,9 @@ const ManagerCases = lazy(() => import("@/features/manager/ManagerCases").then((
 
 function App() {
   const { user } = useAuth();
+  // The public job application page is for visitors: no app chrome, assistant or tour, even when signed in.
+  const isPublic = useLocation().pathname.startsWith("/apply");
+  const signedIn = Boolean(user) && !isPublic;
 
   return (
     <OfficeFilterProvider>
@@ -114,10 +118,13 @@ function App() {
         <div className="app-background" aria-hidden="true" />
         <ScrollToTop />
         <DocumentTitle />
-        <TopBar />
+        {!isPublic && <TopBar />}
         <Suspense fallback={<PageLoadingFallback />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            {/* Public: the job link HR shares on social media. No login. */}
+            <Route path="/apply" element={<ApplyPage />} />
+            <Route path="/apply/:requisitionId" element={<ApplyPage />} />
             <Route path="/" element={<RootRedirect />} />
 
             <Route
@@ -192,12 +199,12 @@ function App() {
           </Routes>
         </Suspense>
 
-        {user && (
+        {signedIn && (
           <Suspense fallback={null}>
             <AssistantWidget />
           </Suspense>
         )}
-        {user && <FirstLoginTour />}
+        {signedIn && <FirstLoginTour />}
       </div>
     </OfficeFilterProvider>
   );

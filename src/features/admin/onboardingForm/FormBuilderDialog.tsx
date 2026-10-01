@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog } from "@/components/ui/Dialog";
-import { ChevronDownIcon, FileIcon, LockIcon, PlusIcon, XIcon } from "@/components/icons";
+import { ChevronDownIcon, FileIcon, LockIcon, PlusIcon, SearchIcon, XIcon } from "@/components/icons";
 import { ONBOARDING_FORM_QUERY_KEY, saveOnboardingForm } from "@/lib/api";
 import {
   FORM_FIELDS,
@@ -97,6 +97,7 @@ function Builder({ initial, onClose, onSaved }: { initial: OnboardingFormConfig 
   const queryClient = useQueryClient();
   const [config, setConfig] = useState<OnboardingFormConfig>(() => initial ?? starterConfig());
   const [mode, setMode] = useState<"edit" | "preview">("edit");
+  const [query, setQuery] = useState("");
   const [drag, setDrag] = useState<Drag | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
   const [glow, setGlow] = useState<{ key: string; n: number } | null>(null);
@@ -122,9 +123,16 @@ function Builder({ initial, onClose, onSaved }: { initial: OnboardingFormConfig 
   });
 
   const included = includedFieldKeys(config);
-  const library = FORM_SECTIONS.map((s) => ({ section: s, fields: FORM_FIELDS.filter((f) => f.section === s.key && !included.has(f.key)) })).filter(
+  const available = FORM_SECTIONS.map((s) => ({ section: s, fields: FORM_FIELDS.filter((f) => f.section === s.key && !included.has(f.key)) })).filter(
     (g) => g.fields.length > 0,
   );
+  // Search matches a field's name or hint; a section heading hides when none of its fields match.
+  const q = query.trim().toLowerCase();
+  const library = q
+    ? available
+        .map((g) => ({ ...g, fields: g.fields.filter((f) => `${f.label} ${f.hint}`.toLowerCase().includes(q)) }))
+        .filter((g) => g.fields.length > 0)
+    : available;
   const dirty = JSON.stringify(config.sections) !== JSON.stringify((initial ?? starterConfig()).sections);
   const flash = (key: string) => setGlow((g) => ({ key, n: (g?.n ?? 0) + 1 }));
 
@@ -347,14 +355,59 @@ function Builder({ initial, onClose, onSaved }: { initial: OnboardingFormConfig 
           <div className="grid h-full min-h-0 gap-5 md:grid-cols-[17rem_minmax(0,1fr)]">
             {/* Library */}
             <aside aria-label="Field library" className="flex min-h-0 flex-col gap-4 md:overflow-y-auto md:pr-1">
-              <div className="cz-stagger" style={stagger()}>
-                <h3 className="text-sm font-semibold">Field library</h3>
-                <p className="text-xs text-ink-2">Drag a field into your form, or press Add.</p>
+              {/* Stays put while the list scrolls, so search is always at hand. */}
+              <div className="cz-stagger sticky top-0 z-10 -mb-1 flex flex-col gap-2.5 bg-surface pb-2" style={stagger()}>
+                <div>
+                  <h3 className="text-sm font-semibold">Field library</h3>
+                  <p className="text-xs text-ink-2">Drag a field into your form, or press Add.</p>
+                </div>
+                <div className="relative">
+                  <SearchIcon className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-3" />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape" && query) {
+                        // Clears the search instead of closing the builder.
+                        e.stopPropagation();
+                        e.nativeEvent.stopImmediatePropagation();
+                        setQuery("");
+                      }
+                    }}
+                    placeholder="Search fields"
+                    aria-label="Search the field library"
+                    className="w-full rounded-lg border border-border bg-surface py-2 pr-9 pl-9 text-sm outline-none transition-colors placeholder:text-ink-3 focus:border-brand [&::-webkit-search-cancel-button]:hidden"
+                  />
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      aria-label="Clear search"
+                      className="absolute top-1/2 right-1.5 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-ink-3 hover:bg-surface-2 hover:text-ink"
+                    >
+                      <XIcon className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                {q && (
+                  <p className="text-xs text-ink-3" aria-live="polite">
+                    {library.reduce((n, g) => n + g.fields.length, 0)} of {available.reduce((n, g) => n + g.fields.length, 0)} fields
+                  </p>
+                )}
               </div>
-              {library.length === 0 && (
+              {available.length === 0 && (
                 <p className="cz-stagger rounded-xl border border-dashed border-border px-3 py-4 text-center text-xs text-ink-2" style={stagger()}>
                   Every field is in your form.
                 </p>
+              )}
+              {available.length > 0 && library.length === 0 && (
+                <div className="rounded-xl border border-dashed border-border px-3 py-5 text-center text-xs text-ink-2">
+                  <p>No fields match “{query.trim()}”.</p>
+                  <button type="button" onClick={() => setQuery("")} className="mt-1.5 font-semibold text-brand-ink hover:underline">
+                    Clear search
+                  </button>
+                </div>
               )}
               {library.map(({ section, fields }) => (
                 <section key={section.key} className="cz-stagger" style={stagger()} aria-label={section.title}>

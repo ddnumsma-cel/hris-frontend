@@ -219,6 +219,9 @@ export interface JobRequisition {
 
 export type ApplicantStage = "Applied" | "Screening" | "Interview" | "Offered" | "Hired" | "Rejected";
 
+/** What an applicant says they are; CPAs and accountancy graduates are reviewed first. */
+export type ApplicantProfession = "CPA" | "BS Accountancy graduate" | "Accounting student / undergrad" | "Other";
+
 export interface Applicant {
   id: string;
   requisitionId: string;
@@ -227,6 +230,17 @@ export interface Applicant {
   email?: string;
   phone?: string;
   stage: ApplicantStage;
+  profession?: ApplicantProfession;
+  /** ISO timestamp, for newest-first ordering. */
+  appliedAt?: string;
+  /** Where they came from, e.g. "Shared link", "JobStreet". */
+  source?: string;
+  city?: string;
+  province?: string;
+  yearsExperience?: number;
+  prcLicenseNumber?: string;
+  resumeFileName?: string;
+  message?: string;
   /** One-line status under the name, e.g. "Exam 86% · Sep 24". */
   note: string;
   /** ISO date an open offer lapses. */

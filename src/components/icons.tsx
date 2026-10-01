@@ -51,6 +51,7 @@ import {
   RotateCw,
   Undo2,
   Upload,
+  Share2,
   User,
   UserMinus,
   UserPlus,
@@ -291,4 +292,8 @@ export function ReturnIcon(props: IconProps) {
 
 export function RefreshIcon(props: IconProps) {
   return <RotateCw strokeWidth={strokeWidth} {...props} />;
+}
+
+export function ShareIcon(props: IconProps) {
+  return <Share2 strokeWidth={strokeWidth} {...props} />;
 }

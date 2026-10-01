@@ -10,12 +10,14 @@ import { StatTile } from "@/components/ui/StatTile";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/ToastContext";
-import { MoreVerticalIcon, PlusIcon, SearchIcon, UploadIcon } from "@/components/icons";
+import { MoreVerticalIcon, PlusIcon, SearchIcon, ShareIcon } from "@/components/icons";
 import { fetchApplicants, fetchJobRequisitions, moveApplicant } from "@/lib/api";
 import { formatToday } from "@/lib/format";
 import type { Applicant, ApplicantStage, JobRequisition, RequisitionApproval, RequisitionStage } from "@/lib/types";
 import { useOfficeFilter } from "./OfficeFilterContext";
 import { NewRequisitionDialog } from "./NewRequisitionDialog";
+import { ShareJobLinkDialog } from "./ShareJobLinkDialog";
+import { byAccountantPriority, isAccountant } from "@/lib/recruitment";
 
 const stageVariant: Record<RequisitionStage, ChipVariant> = {
   Sourcing: "neutral",
@@ -50,6 +52,10 @@ export function AdminRecruitment() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<ApplicantStage | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  // Which link the share dialog opens on: undefined = every open role.
+  const [shareRole, setShareRole] = useState<string | undefined | null>(null);
+  // The firm hires mostly accountants: they're listed first, and HR can show only them.
+  const [accountantsOnly, setAccountantsOnly] = useState(false);
 
   const requisitionsQuery = useQuery({ queryKey: ["admin", "job-requisitions"], queryFn: fetchJobRequisitions });
   const applicantsQuery = useQuery({ queryKey: ["admin", "applicants"], queryFn: fetchApplicants });
@@ -66,7 +72,9 @@ export function AdminRecruitment() {
   const requisitionIds = new Set(requisitions.map((r) => r.id));
   const allApplicants = (applicantsQuery.data ?? []).filter((a) => requisitionIds.has(a.requisitionId));
   const selected = requisitions.find((r) => r.id === selectedId) ?? requisitions[0];
-  const pipeline = allApplicants.filter((a) => a.requisitionId === selected?.id);
+  const forRole = allApplicants.filter((a) => a.requisitionId === selected?.id);
+  const accountantCount = forRole.filter(isAccountant).length;
+  const pipeline = forRole.filter((a) => !accountantsOnly || isAccountant(a)).sort(byAccountantPriority);
 
   const totalOpenings = requisitions.reduce((sum, r) => sum + r.openings, 0);
   const totalApplicants = requisitions.reduce((sum, r) => sum + r.applicants, 0);
@@ -100,12 +108,8 @@ export function AdminRecruitment() {
         subtitle={`Job requisitions and applicant tracking · ${office} · ${formatToday()}`}
         actions={
           <>
-            <Button
-              variant="ghost"
-              icon={<UploadIcon className="h-3.75 w-3.75" />}
-              onClick={() => toast.show("Job board posting isn't connected yet.")}
-            >
-              Post job opening
+            <Button variant="ghost" icon={<ShareIcon className="h-3.75 w-3.75" />} onClick={() => setShareRole(undefined)}>
+              Share job link
             </Button>
             <Button icon={<PlusIcon className="h-3.75 w-3.75" />} onClick={() => setRequisitionDialogOpen(true)}>
               New requisition
@@ -168,6 +172,35 @@ export function AdminRecruitment() {
             title={`Pipeline · ${selected.title}`}
             meta="Drag a card to move stages · Hired → creates the 201 file and onboarding checklist"
           />
+          <div className="flex flex-wrap items-center gap-3 px-4 pt-3">
+            <div role="radiogroup" aria-label="Which applicants to show" className="inline-flex rounded-full border border-border bg-surface-2 p-0.5">
+              {[
+                { value: false, label: "All applicants" },
+                { value: true, label: "Accountants only" },
+              ].map((o) => (
+                <button
+                  key={o.label}
+                  type="button"
+                  role="radio"
+                  aria-checked={accountantsOnly === o.value}
+                  onClick={() => setAccountantsOnly(o.value)}
+                  className={clsx(
+                    "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                    accountantsOnly === o.value ? "bg-surface text-ink shadow-sm" : "text-ink-2 hover:text-ink",
+                  )}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-ink-2">
+              <span className="font-num font-semibold text-ink">{accountantCount}</span> accountant{accountantCount === 1 ? "" : "s"} of{" "}
+              <span className="font-num">{forRole.length}</span> · CPAs and accountancy graduates are listed first
+            </p>
+            <button type="button" onClick={() => setShareRole(selected.id)} className="ml-auto text-xs font-semibold text-brand-ink hover:underline">
+              Share this role's link
+            </button>
+          </div>
           <div className="overflow-x-auto p-4">
             <div key={selected.id} className="tab-enter grid min-w-[56rem] grid-cols-6 gap-3">
               {pipelineStages.map((stage) => {
@@ -206,6 +239,14 @@ export function AdminRecruitment() {
                         )}
                       >
                         <p className="pr-5 text-[0.82rem] font-semibold">{applicantName(a)}</p>
+                        {a.profession && (
+                          <p className="mt-1 flex flex-wrap items-center gap-1">
+                            {isAccountant(a) && (
+                              <span className="rounded-full bg-brand-tint px-1.5 py-px text-[0.65rem] font-semibold text-brand-ink">Accountant</span>
+                            )}
+                            <span className="text-[0.7rem] text-ink-2">{a.profession === "Accounting student / undergrad" ? "Accounting student" : a.profession}</span>
+                          </p>
+                        )}
                         <p className="mt-0.5 text-xs text-ink-3">{a.note}</p>
                         {stage === "Hired" &&
                           (a.employeeId ? (
@@ -244,6 +285,7 @@ export function AdminRecruitment() {
         </Card>
       )}
 
+      <ShareJobLinkDialog open={shareRole !== null} roles={requisitionsQuery.data ?? []} initialRoleId={shareRole ?? undefined} onClose={() => setShareRole(null)} />
       <NewRequisitionDialog
         open={requisitionDialogOpen}
         onClose={() => setRequisitionDialogOpen(false)}

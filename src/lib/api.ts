@@ -74,6 +74,7 @@ import type {
   OnboardingSubmissionInput,
   Announcement,
   Applicant,
+  ApplicantProfession,
   ApplicantStage,
   AttendanceRequest,
   AttendanceRequestStatus,
@@ -112,6 +113,7 @@ import { assignHireDateIds, isHireDateId, type IdCandidate } from "./employeeIds
 import { teamReports, type ReportId } from "./reportsData";
 import { todayIso } from "./format";
 import { normalizeConfig, type OnboardingFormConfig } from "./onboardingForm";
+import { formatPhMobile } from "./govIds";
 
 /**
  * Every function here stands in for a real HTTP call. Swap the body for a
@@ -1480,4 +1482,59 @@ export function fetchHiredThroughOnboarding() {
   return delay(
     employeeDirectory.filter((e) => e.acceptedAt).sort((a, b) => (b.acceptedAt ?? "").localeCompare(a.acceptedAt ?? "")),
   );
+}
+
+// --- Public job applications (the shareable "Apply" link) ---
+
+/** Roles open to the public: approved and still hiring. */
+export function fetchOpenRequisitions() {
+  return delay(jobRequisitions.filter((r) => r.approval === "Approved" && r.openings > 0));
+}
+
+export interface ApplicationInput {
+  requisitionId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  province: string;
+  city: string;
+  profession: ApplicantProfession;
+  yearsExperience: number;
+  prcLicenseNumber?: string;
+  resumeFileName: string;
+  message?: string;
+}
+
+/** Someone applies through the shared link; they land in Recruitment's Applied column. */
+export async function submitApplication(input: ApplicationInput): Promise<Applicant> {
+  const role = jobRequisitions.find((r) => r.id === input.requisitionId);
+  if (!role || role.approval !== "Approved" || role.openings <= 0) throw new Error("This role is no longer open.");
+  const email = input.email.trim().toLowerCase();
+  if (applicants.some((a) => a.requisitionId === role.id && a.email?.toLowerCase() === email)) {
+    throw new Error(`You've already applied for ${role.title} with this email. HR will contact you there.`);
+  }
+  const now = new Date();
+  const applicant: Applicant = {
+    id: `ap-${now.getTime().toString(36)}`,
+    requisitionId: role.id,
+    firstName: input.firstName.trim(),
+    lastName: input.lastName.trim(),
+    email,
+    phone: formatPhMobile(input.phone),
+    stage: "Applied",
+    note: `Shared link · ${now.toLocaleDateString("en-PH", { month: "short", day: "numeric" })}`,
+    source: "Shared link",
+    appliedAt: now.toISOString(),
+    profession: input.profession,
+    province: input.province,
+    city: input.city,
+    yearsExperience: input.yearsExperience,
+    prcLicenseNumber: input.prcLicenseNumber?.trim() || undefined,
+    resumeFileName: input.resumeFileName,
+    message: input.message?.trim() || undefined,
+  };
+  setApplicants([applicant, ...applicants]);
+  setJobRequisitions(jobRequisitions.map((r) => (r.id === role.id ? { ...r, applicants: r.applicants + 1, applicantsThisWeek: r.applicantsThisWeek + 1 } : r)));
+  return delay(applicant);
 }

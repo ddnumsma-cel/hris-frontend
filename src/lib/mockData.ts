@@ -10,6 +10,7 @@ import type {
   EmployeeBenefit,
   EmployeeCase,
   Applicant,
+  ApplicantProfession,
   JobRequisition,
   LeaveBalance,
   LeaveOverviewStats,
@@ -41,7 +42,7 @@ import type {
 // People added through Onboarding (and the signed-in employee's account) are kept in this browser so
 // the hire flow survives a reload. Everything else stays in memory, as before. A backend replaces this.
 
-const PEOPLE_STORE_KEY = "msma-demo-people-v1";
+export const PEOPLE_STORE_KEY = "msma-demo-people-v1";
 
 interface PeopleStore {
   currentEmployee?: Employee;
@@ -50,6 +51,8 @@ interface PeopleStore {
   personnelDocuments?: PersonnelDocument[];
   auditLogEntries?: AuditLogEntry[];
   onboardingSubmissions?: OnboardingSubmission[];
+  applicants?: Applicant[];
+  jobRequisitions?: JobRequisition[];
 }
 
 function loadPeopleStore(): PeopleStore {
@@ -67,6 +70,8 @@ function loadPeopleStore(): PeopleStore {
       personnelDocuments: list<PersonnelDocument>(parsed.personnelDocuments),
       auditLogEntries: list<AuditLogEntry>(parsed.auditLogEntries),
       onboardingSubmissions: list<OnboardingSubmission>(parsed.onboardingSubmissions)?.filter((s) => typeof s.id === "string" && s.input && typeof s.input.firstName === "string" && typeof s.input.lastName === "string"),
+      applicants: list<Applicant>(parsed.applicants)?.filter((a) => typeof a.id === "string" && typeof a.firstName === "string" && typeof a.lastName === "string" && typeof a.requisitionId === "string"),
+      jobRequisitions: list<JobRequisition>(parsed.jobRequisitions)?.filter((r) => typeof r.id === "string" && typeof r.title === "string"),
     };
   } catch {
     return {};
@@ -79,7 +84,7 @@ function savePeopleStore() {
   try {
     localStorage.setItem(
       PEOPLE_STORE_KEY,
-      JSON.stringify({ currentEmployee, employeeDirectory, personnelProfiles, personnelDocuments, auditLogEntries, onboardingSubmissions }),
+      JSON.stringify({ currentEmployee, employeeDirectory, personnelProfiles, personnelDocuments, auditLogEntries, onboardingSubmissions, applicants, jobRequisitions }),
     );
   } catch {
     // Storage full or blocked — the data still lives until the page reloads.
@@ -351,7 +356,7 @@ export const teamRoster: TeamRosterMember[] = [
   { id: "MSMA-00398", name: "Grace Tan", initials: "GT", position: "Audit Associate", tenureLabel: "1 yr 4 mos", email: "grace.tan@msma.ph", status: "On leave" },
 ];
 
-export let jobRequisitions: JobRequisition[] = [
+export let jobRequisitions: JobRequisition[] = stored.jobRequisitions ?? [
   { id: "jr-1", title: "Audit Associate", department: "Audit & Assurance", cluster: "VCM", office: "Cebu HQ", openings: 3, applicants: 21, applicantsThisWeek: 5, stage: "Interviewing", approval: "Approved" },
   { id: "jr-2", title: "Tax Associate", department: "Tax Advisory", cluster: "RPM", office: "Cebu HQ", openings: 4, applicants: 14, applicantsThisWeek: 3, stage: "Sourcing", approval: "Approved" },
   { id: "jr-3", title: "Corporate Lawyer", department: "Corporate Legal", cluster: "ADS", office: "Manila", openings: 2, applicants: 6, applicantsThisWeek: 1, stage: "Offer extended", approval: "Approved" },
@@ -360,9 +365,28 @@ export let jobRequisitions: JobRequisition[] = [
 
 export function setJobRequisitions(next: JobRequisition[]) {
   jobRequisitions = next;
+  savePeopleStore();
 }
 
-export let applicants: Applicant[] = [
+const seedProfessions: Record<string, ApplicantProfession> = {
+  "ap-1": "BS Accountancy graduate",
+  "ap-2": "Accounting student / undergrad",
+  "ap-3": "CPA",
+  "ap-4": "CPA",
+  "ap-5": "BS Accountancy graduate",
+  "ap-6": "CPA",
+  "ap-7": "BS Accountancy graduate",
+  "ap-8": "CPA",
+  "ap-9": "CPA",
+  "ap-10": "BS Accountancy graduate",
+  "ap-11": "Other",
+  "ap-12": "CPA",
+  "ap-13": "Other",
+  "ap-14": "Other",
+  "ap-15": "BS Accountancy graduate",
+};
+
+export let applicants: Applicant[] = stored.applicants ?? ([
   { id: "ap-1", requisitionId: "jr-1", firstName: "Kristine Mae", lastName: "Abellana", email: "kristine.abellana@gmail.com", stage: "Applied", note: "JobStreet · Sep 28" },
   { id: "ap-2", requisitionId: "jr-1", firstName: "John Paul", lastName: "Ybañez", email: "jp.ybanez@gmail.com", stage: "Applied", note: "Referral · Sep 27" },
   { id: "ap-3", requisitionId: "jr-1", firstName: "Cyril", lastName: "Go", email: "cyril.go@yahoo.com", stage: "Applied", note: "LinkedIn · Sep 26" },
@@ -378,10 +402,11 @@ export let applicants: Applicant[] = [
   { id: "ap-13", requisitionId: "jr-3", firstName: "Liza", lastName: "Moreno", email: "liza.moreno@gmail.com", stage: "Applied", note: "Referral · Sep 25" },
   { id: "ap-14", requisitionId: "jr-3", firstName: "Paolo", lastName: "Santiago", email: "paolo.santiago@gmail.com", stage: "Screening", note: "Bar passer 2025 · Sep 22" },
   { id: "ap-15", requisitionId: "jr-4", firstName: "Jenny", lastName: "Alcantara", email: "jenny.alcantara@gmail.com", stage: "Applied", note: "Walk-in · Sep 28" },
-];
+] as Applicant[]).map((a) => ({ ...a, profession: seedProfessions[a.id] }));
 
 export function setApplicants(next: Applicant[]) {
   applicants = next;
+  savePeopleStore();
 }
 
 export const managerTeamStats = {
@@ -761,4 +786,17 @@ export let onboardingSubmissions: OnboardingSubmission[] = stored.onboardingSubm
 export function setOnboardingSubmissions(next: OnboardingSubmission[]) {
   onboardingSubmissions = next;
   savePeopleStore();
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key !== PEOPLE_STORE_KEY) return;
+    const next = loadPeopleStore();
+    if (next.applicants) applicants = next.applicants;
+    if (next.jobRequisitions) jobRequisitions = next.jobRequisitions;
+    if (next.onboardingSubmissions) onboardingSubmissions = next.onboardingSubmissions;
+    if (next.employeeDirectory) employeeDirectory = next.employeeDirectory;
+    if (next.personnelProfiles) personnelProfiles = next.personnelProfiles;
+    if (next.personnelDocuments) personnelDocuments = next.personnelDocuments;
+  });
 }

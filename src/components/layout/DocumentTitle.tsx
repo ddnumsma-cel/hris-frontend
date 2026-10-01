@@ -35,6 +35,7 @@ const titles: Record<string, string> = {
   "/admin/org-chart": "Org Chart",
   "/admin/recruitment": "Recruitment",
   "/admin/pipeline": "Pipeline",
+  "/apply": "Careers · Apply",
   "/admin/offboarding": "Offboarding",
   "/admin/assets": "Company Assets",
   "/admin/leave": "Leave",
@@ -49,7 +50,7 @@ export function DocumentTitle() {
   const location = useLocation();
 
   useEffect(() => {
-    const label = titles[location.pathname];
+    const label = titles[location.pathname] ?? (location.pathname.startsWith("/apply/") ? titles["/apply"] : undefined);
     document.title = label ? `${label} · MSMA` : "MSMA";
   }, [location.pathname]);
 
