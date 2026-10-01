@@ -8,7 +8,49 @@ import { formatPhMobile, govIdFormats, maskGovId } from "@/lib/govIds";
 import type { AddEmployeeFormValues } from "@/lib/schemas";
 import { StepHeading } from "./fields";
 import type { IdScan } from "./useIdScan";
-import { activeUploads, composeAddress, coreDocuments, situationalFor, stillNeededBeforePayroll } from "./model";
+import type { FormFieldKey } from "@/lib/onboardingForm";
+import { activeUploads, composeAddress, coreDocuments, situationalFor, stillNeededBeforePayroll, type StepDef } from "./model";
+
+/** How each field of HR's form reads back on the Review step. */
+function reviewRows(key: FormFieldKey, v: AddEmployeeFormValues): { label: string; value?: ReactNode }[] {
+  switch (key) {
+    case "legalName":
+      return [{ label: "Full name", value: [v.firstName, v.middleName, v.lastName, v.suffix].filter(Boolean).join(" ") }];
+    case "middleName":
+    case "suffix":
+      return [];
+    case "birthDate":
+      return [{ label: "Birth date", value: formatDate(v.birthDate) }];
+    case "sex":
+      return [{ label: "Sex", value: v.sex }];
+    case "civilStatus":
+      return [
+        { label: "Civil status", value: v.civilStatus },
+        ...(v.civilStatus === "Married" ? [{ label: "Spouse", value: v.spouseName }] : []),
+      ];
+    case "bloodType":
+      return [{ label: "Blood type", value: v.bloodType }];
+    case "phone":
+      return [{ label: "Mobile", value: v.phone && formatPhMobile(v.phone) }];
+    case "personalEmail":
+      return [{ label: "Personal email", value: v.personalEmail }];
+    case "workEmail":
+      return [{ label: "Work email", value: v.email }];
+    case "address":
+      return [{ label: "Address", value: composeAddress(v) }];
+    case "emergencyContact":
+      return [
+        {
+          label: "Emergency contact",
+          value:
+            v.emergencyName &&
+            `${v.emergencyName}${v.emergencyRelationship ? ` (${v.emergencyRelationship})` : ""}${v.emergencyPhone ? ` · ${formatPhMobile(v.emergencyPhone)}` : ""}`,
+        },
+      ];
+    case "dependents":
+      return [{ label: "Dependents", value: v.dependents?.filter((d) => d.name.trim()).map((d) => d.name).join(", ") }];
+  }
+}
 
 function formatDate(iso: string) {
   return iso ? new Date(iso + "T00:00:00").toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "";
@@ -50,7 +92,9 @@ export function ReviewStep({
   duplicateAcknowledged,
   onAcknowledgeDuplicate,
   onEdit,
+  steps,
 }: {
+  steps: StepDef[];
   idScan: IdScan;
   duplicates: PossibleDuplicate[];
   duplicateAcknowledged: boolean;
@@ -60,8 +104,8 @@ export function ReviewStep({
   const { control } = useFormContext<AddEmployeeFormValues>();
   const v = useWatch({ control }) as AddEmployeeFormValues;
   const situational = situationalFor(v);
-  const stillNeeded = stillNeededBeforePayroll(v);
-  const fullName = [v.firstName, v.middleName, v.lastName, v.suffix].filter(Boolean).join(" ");
+  const stillNeeded = stillNeededBeforePayroll(v, steps);
+  const govStep = steps.findIndex((s) => s.id === "government");
   const allDocuments = [...coreDocuments, ...situational];
   const uploads = activeUploads(v);
   const uploaded = allDocuments.filter((t) => uploads.some((u) => u.type === t) || (t === "Valid Government ID" && idScan.governmentId));
@@ -135,31 +179,16 @@ export function ReviewStep({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <SectionCard title="Identity" onEdit={() => onEdit(0)}>
-          <Row label="Full name" value={fullName} />
-          <Row label="Birth date" value={formatDate(v.birthDate)} />
-          <Row label="Sex" value={v.sex} />
-          <Row label="Civil status" value={v.civilStatus} />
-          <Row label="Blood type" value={v.bloodType} />
-          {v.civilStatus === "Married" && <Row label="Spouse" value={v.spouseName} />}
-          <Row label="Dependents" value={v.dependents?.filter((d) => d.name.trim()).map((d) => d.name).join(", ")} />
-        </SectionCard>
-        <SectionCard title="Contact" onEdit={() => onEdit(1)}>
-          <Row label="Mobile" value={v.phone && formatPhMobile(v.phone)} />
-          <Row label="Personal email" value={v.personalEmail} />
-          <Row label="Work email" value={v.email} />
-          <Row label="Address" value={composeAddress(v)} />
-          <Row
-            label="Emergency contact"
-            value={
-              v.emergencyName &&
-              `${v.emergencyName}${v.emergencyRelationship ? ` (${v.emergencyRelationship})` : ""}${v.emergencyPhone ? ` · ${formatPhMobile(v.emergencyPhone)}` : ""}`
-            }
-          />
-          <Row label="PRC license" value={v.licenseNumber && `${v.licenseNumber}${v.licenseExpiry ? ` · until ${formatDate(v.licenseExpiry)}` : ""}`} />
-          <Row label="Previous employer" value={v.previousEmployer} />
-        </SectionCard>
-        <SectionCard title="Gov't IDs & documents" onEdit={() => onEdit(2)}>
+        {steps.map((s, i) =>
+          s.section ? (
+            <SectionCard key={s.id} title={s.title} onEdit={() => onEdit(i)}>
+              {s.section.fields.flatMap((f) => reviewRows(f.key, v)).map((row) => (
+                <Row key={row.label} label={row.label} value={row.value} />
+              ))}
+            </SectionCard>
+          ) : null,
+        )}
+        <SectionCard title="Gov't IDs & 201 files" onEdit={() => onEdit(govStep)}>
           {govIdFormats.map((f) => (
             <Row key={f.key} label={f.label} value={v[f.key] && maskGovId(v[f.key])} />
           ))}

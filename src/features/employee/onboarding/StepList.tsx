@@ -24,7 +24,7 @@ export function StepList({
   onSelect: (index: number) => void;
 }) {
   return (
-    <nav aria-label="Add employee steps">
+    <nav aria-label="Onboarding steps">
       <ol className="flex flex-col gap-1">
         {statuses.map((s, i) => {
           const isCurrent = i === current;

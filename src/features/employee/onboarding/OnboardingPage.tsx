@@ -1,17 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormProvider, useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastContext";
-import { CheckCircleIcon, HistoryIcon } from "@/components/icons";
-import { findPossibleDuplicates, submitOnboarding, type PossibleDuplicate } from "@/lib/api";
+import { CheckCircleIcon, FileQuestionIcon, HistoryIcon } from "@/components/icons";
+import { Skeleton } from "@/components/ui/Skeleton";
+import {
+  fetchOnboardingForm,
+  findPossibleDuplicates,
+  ONBOARDING_FORM_QUERY_KEY,
+  ONBOARDING_FORM_STORAGE_KEY,
+  submitOnboarding,
+  type PossibleDuplicate,
+} from "@/lib/api";
+import type { OnboardingFormConfig } from "@/lib/onboardingForm";
 import type { AddEmployeeFormValues } from "@/lib/schemas";
 import type { OnboardingSubmission } from "@/lib/types";
-import { ContactStep } from "./ContactStep";
+import { FormSection } from "./FormFields";
 import { GovernmentStep } from "./GovernmentStep";
-import { IdentityStep } from "./IdentityStep";
 import { useIdScan } from "./useIdScan";
 import {
   clearDraft,
@@ -23,37 +31,81 @@ import {
   isFilled,
   onboardingResolver,
   stepProgress,
-  steps,
+  stepsFor,
   toSubmissionInput,
+  type StepDef,
   type Draft,
   type FieldName,
 } from "./model";
 import { ReviewStep } from "./ReviewStep";
 import { StepBar, StepList, type StepStatus } from "./StepList";
 
-const REVIEW = steps.length - 1;
-
-function firstStepWithError(errors: FieldErrors<AddEmployeeFormValues>) {
+function firstStepWithError(errors: FieldErrors<AddEmployeeFormValues>, steps: StepDef[]) {
   const index = steps.findIndex((s) => s.fields.some((f) => errors[f]));
   return index === -1 ? null : index;
 }
 
-/** The new hire fills in their own details and uploads their 201 files; HR adds the job details in Pipeline. */
+/** HR builds the form in the Employee Directory; until then there's nothing to fill in. */
 export function OnboardingPage() {
+  const queryClient = useQueryClient();
+  const formQuery = useQuery({ queryKey: ONBOARDING_FORM_QUERY_KEY, queryFn: fetchOnboardingForm });
+
+  // HR saving the form in another tab shows up here straight away.
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === ONBOARDING_FORM_STORAGE_KEY) queryClient.invalidateQueries({ queryKey: ONBOARDING_FORM_QUERY_KEY });
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [queryClient]);
+
+  if (formQuery.isLoading) {
+    return (
+      <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-5">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  if (!formQuery.data) {
+    return (
+      <div className="mx-auto w-full max-w-xl py-10">
+        <div className="rounded-2xl border border-border bg-surface p-8 text-center shadow-sm">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-surface-2 text-ink-2">
+            <FileQuestionIcon className="h-7 w-7" />
+          </span>
+          <h1 className="font-display mt-4 text-xl font-semibold tracking-[-0.02em]">HR is preparing your onboarding form</h1>
+          <p className="mx-auto mt-1.5 max-w-sm text-sm text-ink-2">You'll be able to fill in your details and upload your 201 files here once it's ready.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <OnboardingForm config={formQuery.data} />;
+}
+
+function OnboardingForm({ config }: { config: OnboardingFormConfig }) {
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [resolver] = useState(onboardingResolver);
+  // HR's sections become the steps; edits HR makes re-shape them live.
+  const steps = useMemo(() => stepsFor(config), [config]);
+  const REVIEW = steps.length - 1;
 
-  const form = useForm<AddEmployeeFormValues>({
+  const form = useForm<AddEmployeeFormValues, OnboardingFormConfig>({
     resolver,
+    context: config,
     defaultValues: emptyValues(),
     mode: "onTouched",
   });
   const { control, trigger, reset, handleSubmit, getValues, setFocus, formState } = form;
-  const idScan = useIdScan(form);
+  const idScan = useIdScan(form as unknown as Parameters<typeof useIdScan>[0]);
 
-  const [step, setStep] = useState(0);
+  const [rawStep, setStep] = useState(0);
+  // HR may remove a section while this page is open; never point past the steps that exist.
+  const step = Math.min(rawStep, REVIEW);
   const [maxVisited, setMaxVisited] = useState(0);
   // A saved draft is only offered back, never applied without asking.
   const [pendingDraft, setPendingDraft] = useState<Draft | null>(() => {
@@ -116,7 +168,7 @@ export function OnboardingPage() {
         const requiredDone = s.required.every((f) => isFilled(values[f as FieldName]));
         return { step: s, filled, total, hasErrors, complete: i < maxVisited && requiredDone && !hasErrors };
       }),
-    [values, formState.errors, maxVisited],
+    [steps, values, formState.errors, maxVisited],
   );
 
   function goTo(index: number) {
@@ -175,11 +227,11 @@ export function OnboardingPage() {
         toast.show("Check the possible duplicate before you submit.");
         return;
       }
-      mutation.mutate(toSubmissionInput(v, idScan.governmentId));
+      mutation.mutate(toSubmissionInput(v, idScan.governmentId, config));
     },
     (errors) => {
       // Something on an earlier step is wrong: take them there and put the cursor on it.
-      const index = firstStepWithError(errors);
+      const index = firstStepWithError(errors, steps);
       if (index === null) return;
       goTo(index);
       const field = steps[index].fields.find((f) => errors[f]);
@@ -305,11 +357,11 @@ export function OnboardingPage() {
               )}
               {/* Locked until the saved draft is resumed or discarded, so nothing typed here is lost. */}
               <fieldset disabled={Boolean(pendingDraft)} className={pendingDraft ? "opacity-50" : undefined}>
-              {step === 0 && <IdentityStep idScan={idScan} />}
-              {step === 1 && <ContactStep />}
-              {step === 2 && <GovernmentStep idScan={idScan} />}
+              {steps[step]?.section && <FormSection section={steps[step].section!} idScan={idScan} />}
+              {steps[step]?.id === "government" && <GovernmentStep idScan={idScan} />}
               {isReview && (
                 <ReviewStep
+                  steps={steps}
                   idScan={idScan}
                   duplicates={duplicates}
                   duplicateAcknowledged={duplicateAcknowledged}

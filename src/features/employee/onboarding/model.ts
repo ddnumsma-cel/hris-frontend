@@ -1,4 +1,13 @@
 import type { FieldErrors, Resolver } from "react-hook-form";
+import {
+  fieldDef,
+  includedFieldKeys,
+  FORM_FIELDS,
+  sectionDef,
+  type FormFieldKey,
+  type FormSectionConfig,
+  type OnboardingFormConfig,
+} from "@/lib/onboardingForm";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { applicableDocuments } from "@/lib/api";
 import { formatPhMobile } from "@/lib/govIds";
@@ -9,68 +18,80 @@ import type { OnboardingSubmissionInput, PersonnelDocumentType, UploadedDocument
 export type FieldName = keyof AddEmployeeFormValues;
 
 export interface StepDef {
-  id: "identity" | "contact" | "government" | "review";
+  /** A section key, "government" or "review". */
+  id: string;
   title: string;
   /** Shown under the title in the step list. */
   summary: string;
   fields: FieldName[];
   required: FieldName[];
+  /** HR's section this step shows; absent for the fixed Gov't IDs and Review steps. */
+  section?: FormSectionConfig;
 }
 
-export const steps: StepDef[] = [
-  {
-    id: "identity",
-    title: "Identity",
-    summary: "Name, birth date, civil status",
-    fields: ["lastName", "firstName", "middleName", "suffix", "birthDate", "sex", "civilStatus", "bloodType", "spouseName", "dependents"],
-    required: ["lastName", "firstName", "birthDate", "sex"],
-  },
-  {
-    id: "contact",
-    title: "Contact",
-    summary: "Mobile, address, emergency, work background",
-    fields: [
-      "phone",
-      "personalEmail",
-      "email",
-      "street",
-      "barangay",
-      "city",
-      "province",
-      "emergencyName",
-      "emergencyRelationship",
-      "emergencyPhone",
-      "licenseProfession",
-      "licenseNumber",
-      "licenseExpiry",
-      "previousEmployer",
-      "previousLastDay",
-    ],
-    required: ["phone"],
-  },
-  {
-    id: "government",
-    title: "Gov't IDs & documents",
-    summary: "TIN, SSS, PhilHealth, Pag-IBIG · upload your 201 files",
-    fields: ["tin", "sss", "philHealth", "pagIbig", "uploadedDocuments"],
-    required: [],
-  },
-  { id: "review", title: "Review", summary: "Check and submit", fields: [], required: [] },
-];
+/** What has to be filled in for a required field to count as answered. */
+const requiredValues: Record<FormFieldKey, FieldName[]> = {
+  legalName: ["lastName", "firstName"],
+  birthDate: ["birthDate"],
+  sex: ["sex"],
+  phone: ["phone"],
+  middleName: ["middleName"],
+  suffix: ["suffix"],
+  civilStatus: ["civilStatus"],
+  bloodType: ["bloodType"],
+  personalEmail: ["personalEmail"],
+  workEmail: ["email"],
+  address: ["street", "city", "province"],
+  emergencyContact: ["emergencyName", "emergencyPhone"],
+  dependents: ["dependents"],
+};
 
-/** Details payroll and the 201 file need soon, but that can be added later. */
-export function stillNeededBeforePayroll(v: AddEmployeeFormValues): { label: string; step: number }[] {
+/** One step per section of HR's form, then Gov't IDs & 201 files, then Review. */
+export function stepsFor(config: OnboardingFormConfig): StepDef[] {
+  const sectionSteps = config.sections.map((s) => {
+    const def = sectionDef(s.key);
+    const labels = s.fields.map((f) => fieldDef(f.key).label);
+    return {
+      id: s.key,
+      title: def.title,
+      summary: labels.length > 3 ? `${labels.slice(0, 3).join(", ")} and more` : labels.join(", "),
+      fields: s.fields.flatMap((f) => fieldDef(f.key).values),
+      required: s.fields.filter((f) => f.required).flatMap((f) => requiredValues[f.key]),
+      section: s,
+    };
+  });
+  return [
+    ...sectionSteps,
+    {
+      id: "government",
+      title: "Gov't IDs & 201 files",
+      summary: "TIN, SSS, PhilHealth, Pag-IBIG · upload your 201 files",
+      fields: ["tin", "sss", "philHealth", "pagIbig", "uploadedDocuments"],
+      required: [],
+    },
+    { id: "review", title: "Review", summary: "Check and submit", fields: [], required: [] },
+  ];
+}
+
+/** Details payroll and the 201 file need soon, but that can be added later. Only fields in HR's form are listed. */
+export function stillNeededBeforePayroll(v: AddEmployeeFormValues, steps: StepDef[]): { label: string; step: number }[] {
   const missing: { label: string; step: number }[] = [];
-  if (!v.civilStatus) missing.push({ label: "Civil status", step: 0 });
-  if (![v.street, v.barangay, v.city, v.province].some((x) => x.trim())) missing.push({ label: "Home address", step: 1 });
-  if (!v.emergencyName.trim()) missing.push({ label: "Emergency contact", step: 1 });
+  const stepOf = (key: FormFieldKey) => steps.findIndex((s) => s.section?.fields.some((f) => f.key === key));
+  const check = (key: FormFieldKey, label: string, empty: boolean) => {
+    const at = stepOf(key);
+    if (at !== -1 && empty) missing.push({ label, step: at });
+  };
+  check("civilStatus", "Civil status", !v.civilStatus);
+  check("address", "Home address", ![v.street, v.barangay, v.city, v.province].some((x) => x.trim()));
+  check("emergencyContact", "Emergency contact", !v.emergencyName.trim());
   const gov: [keyof AddEmployeeFormValues, string][] = [
     ["tin", "TIN"],
     ["sss", "SSS number"],
     ["philHealth", "PhilHealth number"],
     ["pagIbig", "Pag-IBIG MID"],
   ];
-  for (const [key, label] of gov) if (!String(v[key] ?? "").trim()) missing.push({ label, step: 2 });
+  const govStep = steps.findIndex((s) => s.id === "government");
+  for (const [key, label] of gov) if (!String(v[key] ?? "").trim()) missing.push({ label, step: govStep });
   return missing;
 }
 
@@ -148,18 +169,51 @@ export function activeUploads(v: AddEmployeeFormValues): UploadedDocument[] {
 
 const err = (message: string) => ({ type: "custom", message });
 
-/** zod skips object refinements while any other field has an error, so the conditional rules
- * run here instead — they show up on the step the employee is on. */
-export function onboardingResolver(): Resolver<AddEmployeeFormValues> {
-  const base = zodResolver(addEmployeeSchema) as unknown as Resolver<AddEmployeeFormValues>;
+const requiredMessage: Partial<Record<FormFieldKey, string>> = {
+  middleName: "Enter your middle name",
+  suffix: "Choose your suffix",
+  civilStatus: "Choose your civil status",
+  bloodType: "Choose your blood type",
+  personalEmail: "Enter your personal email",
+  workEmail: "Enter your work email",
+};
+
+/** zod skips object refinements while any other field has an error, so HR's rules run here instead —
+ * they show up on the step the employee is on. The form passes HR's config as the resolver context. */
+export function onboardingResolver(): Resolver<AddEmployeeFormValues, OnboardingFormConfig> {
+  const base = zodResolver(addEmployeeSchema) as unknown as Resolver<AddEmployeeFormValues, OnboardingFormConfig>;
   return async (values, context, options) => {
     const result = await base(values, context, options);
-    const extra: FieldErrors<AddEmployeeFormValues> = {};
-    if (values.civilStatus === "Married" && !values.spouseName.trim()) extra.spouseName = err("Enter your spouse's full name");
-    // A row with only a birth date is missing its name; fully empty rows are ignored.
-    const rows = values.dependents.map((d) => (!d.name.trim() && d.birthDate ? { name: err("Enter their full name") } : undefined));
-    if (rows.some(Boolean)) extra.dependents = rows as FieldErrors<AddEmployeeFormValues>["dependents"];
-    const errors = { ...result.errors, ...extra };
+    const errors = { ...result.errors } as Record<string, unknown>;
+    if (context) {
+      const included = includedFieldKeys(context);
+      // Fields HR left out never block submitting (e.g. a stale emergency number in an old draft).
+      for (const f of FORM_FIELDS) if (!included.has(f.key)) for (const name of f.values) delete errors[name];
+      const required = new Set(context.sections.flatMap((s) => s.fields.filter((f) => f.required).map((f) => f.key)));
+      const blank = (name: FieldName) => !String(values[name] ?? "").trim();
+      for (const [key, message] of Object.entries(requiredMessage) as [FormFieldKey, string][]) {
+        const name = requiredValues[key][0];
+        if (required.has(key) && blank(name) && !errors[name]) errors[name] = err(message);
+      }
+      if (required.has("address")) {
+        if (blank("street")) errors.street ??= err("Enter your house no. and street");
+        if (blank("city")) errors.city ??= err("Enter your city or municipality");
+        if (blank("province")) errors.province ??= err("Enter your province");
+      }
+      if (required.has("emergencyContact")) {
+        if (blank("emergencyName")) errors.emergencyName ??= err("Enter who HR should call");
+        if (blank("emergencyPhone")) errors.emergencyPhone ??= err("Enter their mobile number");
+      }
+      if (included.has("civilStatus") && values.civilStatus === "Married" && !values.spouseName.trim()) {
+        errors.spouseName = err("Enter your spouse's full name");
+      }
+      if (included.has("dependents")) {
+        // A row with only a birth date is missing its name; fully empty rows are ignored.
+        const rows = values.dependents.map((d) => (!d.name.trim() && d.birthDate ? { name: err("Enter their full name") } : undefined));
+        if (rows.some(Boolean)) errors.dependents = rows;
+        else if (required.has("dependents") && !values.dependents.some((d) => d.name.trim())) errors.dependents = err("Add at least one child or dependent");
+      }
+    }
     if (Object.keys(errors).length === 0) {
       return { values: (result.values && Object.keys(result.values).length ? result.values : values) as AddEmployeeFormValues, errors: {} };
     }
@@ -186,7 +240,8 @@ export function loadDraft(): Draft | null {
     // form no longer has (e.g. employment details from the old form) are dropped.
     const blank = emptyValues();
     const kept = Object.fromEntries(Object.entries(draft.values ?? {}).filter(([k]) => k in blank));
-    const step = Number.isInteger(draft.step) ? Math.max(0, Math.min(draft.step, steps.length - 2)) : 0;
+    // The page clamps it to the current form's steps.
+    const step = Number.isInteger(draft.step) ? Math.max(0, draft.step) : 0;
     return { ...draft, step, values: { ...blank, ...kept } as AddEmployeeFormValues };
   } catch {
     return null;
@@ -234,9 +289,18 @@ export function composeAddress(v: Pick<AddEmployeeFormValues, "street" | "barang
 }
 
 export function toSubmissionInput(
-  v: AddEmployeeFormValues,
+  values: AddEmployeeFormValues,
   governmentId: OnboardingSubmissionInput["governmentId"],
+  config: OnboardingFormConfig,
 ): OnboardingSubmissionInput {
+  const included = includedFieldKeys(config);
+  const blank = emptyValues();
+  const v = { ...values } as Record<string, unknown>;
+  for (const f of FORM_FIELDS) if (!included.has(f.key)) for (const name of f.values) v[name] = blank[name];
+  return toInput(v as AddEmployeeFormValues, governmentId);
+}
+
+function toInput(v: AddEmployeeFormValues, governmentId: OnboardingSubmissionInput["governmentId"]): OnboardingSubmissionInput {
   const governmentNumbers = Object.fromEntries(
     (["tin", "sss", "philHealth", "pagIbig"] as const).filter((k) => v[k].trim()).map((k) => [k, v[k].trim()]),
   );
