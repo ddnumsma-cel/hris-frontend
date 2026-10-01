@@ -1494,9 +1494,9 @@ body[data-hide-assistant] [data-assistant-panel] {
 }
 
 /* ------------------------------------------------------------------
-   Customize Directory pop-up
-   Only transform and opacity animate (plus the preview lines' height,
-   like .sidebar-collapse). Everything is instant with reduced motion.
+   Large pop-ups (panel entrance and exit, staggered sections, switches,
+   the glow on a moved row). Only transform and opacity animate; everything
+   is instant with reduced motion.
    ------------------------------------------------------------------ */
 
 @keyframes panel-in-lg {
@@ -1601,18 +1601,11 @@ body[data-hide-assistant] [data-assistant-panel] {
   outline-offset: 2px;
 }
 
-/* Save: the check draws itself before the pop-up closes. */
-.cz-saved svg path {
-  stroke-dasharray: 24;
-  animation: check-draw 300ms var(--ease-out) both;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .panel-enter-lg,
   .overlay-enter.overlay-leave,
   .panel-leave,
-  .cz-stagger,
-  .cz-saved svg path {
+  .cz-stagger {
     animation: none;
   }
 

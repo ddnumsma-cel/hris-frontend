@@ -97,7 +97,7 @@ export function Dialog({
           "w-full rounded-xl border border-border bg-surface shadow-lg outline-none",
           size === "xl" || size === "full" || prompt ? "panel-enter-lg" : "panel-enter",
           closing && "panel-leave",
-          prompt && "max-w-[25rem] rounded-2xl",
+          prompt && "max-h-[calc(100dvh-2rem)] max-w-[25rem] overflow-y-auto rounded-2xl",
           size === "full" && "h-[calc(100dvh-2rem)] max-w-[80rem]",
           large
             ? clsx("flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden", size === "xl" ? "max-w-5xl" : size === "lg" && "max-w-3xl")

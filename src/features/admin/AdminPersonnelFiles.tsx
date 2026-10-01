@@ -118,7 +118,8 @@ export function AdminPersonnelFiles() {
   const [promptDismissed, setPromptDismissed] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [liveOpen, setLiveOpen] = useState(false);
-  const promptOpen = !formQuery.isLoading && !formQuery.data && !promptDismissed && !builderOpen && !selectedId;
+  // Only once we know there is no form (not while loading, not on a failed load).
+  const promptOpen = formQuery.isSuccess && !formQuery.data && !promptDismissed && !builderOpen && !selectedId;
 
   function changeView(next: DirectoryView) {
     setView(next);

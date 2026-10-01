@@ -103,6 +103,7 @@ function Builder({ initial, onClose, onSaved }: { initial: OnboardingFormConfig 
   const [closing, setClosing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const finishing = useRef(false);
+  const dragEnded = useRef(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const refocus = useRef<string[] | null>(null);
   // Sections slide within the form; fields slide within their section (so a moving section doesn't double up).
@@ -195,6 +196,14 @@ function Builder({ initial, onClose, onSaved }: { initial: OnboardingFormConfig 
   }
 
   function removeSection(key: FormSectionKey) {
+    // Focus moves to the section that takes its place (or the one before), then the library.
+    const at = config.sections.findIndex((s) => s.key === key);
+    const neighbour = config.sections[at + 1] ?? config.sections[at - 1];
+    const firstField = config.sections[at]?.fields[0]?.key;
+    refocus.current = [
+      ...(neighbour ? [`sup-${neighbour.key}`, `sdown-${neighbour.key}`] : []),
+      ...(firstField ? [`add-${firstField}`] : []),
+    ];
     update((sections) => sections.filter((s) => s.key !== key));
   }
 
@@ -204,10 +213,15 @@ function Builder({ initial, onClose, onSaved }: { initial: OnboardingFormConfig 
     // Firefox only starts a drag with some data set.
     e.dataTransfer.setData("text/plain", d.key);
     // Let the browser take its drag snapshot before the source fades.
-    requestAnimationFrame(() => setDrag(d));
+    dragEnded.current = false;
+    requestAnimationFrame(() => {
+      // A very quick drag can end before this frame; don't leave it looking mid-drag.
+      if (!dragEnded.current) setDrag(d);
+    });
   }
 
   function endDrag() {
+    dragEnded.current = true;
     setDrag(null);
     setDrop(null);
   }

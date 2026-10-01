@@ -248,6 +248,7 @@ function DependentsField({ required: req }: { required: boolean }) {
   const {
     register,
     control,
+    clearErrors,
     formState: { errors },
   } = useFormContext<AddEmployeeFormValues>();
   const dependents = useFieldArray({ control, name: "dependents" });
@@ -262,7 +263,7 @@ function DependentsField({ required: req }: { required: boolean }) {
             <div key={row.id} className="item-enter grid items-start gap-3 md:grid-cols-[2fr_1fr_auto]">
               <div>
                 <Label htmlFor={`emp-dep-${i}`}>Full name</Label>
-                <input id={`emp-dep-${i}`} className={inputClass} placeholder="Miguel Dela Cruz" {...describe(`emp-dep-${i}`, errors.dependents?.[i]?.name?.message)} {...register(`dependents.${i}.name`)} />
+                <input id={`emp-dep-${i}`} className={inputClass} placeholder="Miguel Dela Cruz" {...describe(`emp-dep-${i}`, errors.dependents?.[i]?.name?.message)} {...register(`dependents.${i}.name`, { onChange: () => clearErrors("dependents") })} />
                 <FieldError id={`emp-dep-${i}-error`} message={errors.dependents?.[i]?.name?.message} />
               </div>
               <div>

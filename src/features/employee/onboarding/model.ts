@@ -149,15 +149,13 @@ export function stepProgress(step: StepDef, values: AddEmployeeFormValues) {
 
 export const coreDocuments = PERSONNEL_DOCUMENT_TYPES.filter((t) => !SITUATIONAL_DOCUMENT_TYPES.includes(t));
 
-/** Situational documents that apply to what they've entered so far (married, a child, a license, a previous job). */
+/** Situational documents that apply to what they've entered so far (married, a child). */
 export function situationalFor(v: AddEmployeeFormValues): PersonnelDocumentType[] {
   return applicableDocuments({
     lastName: "",
     firstName: "",
     civilStatus: v.civilStatus || undefined,
     dependents: v.dependents.filter((d) => d.name.trim()).map((d) => ({ name: d.name, relationship: "Child" as const })),
-    license: v.licenseNumber.trim() ? { number: v.licenseNumber } : undefined,
-    previousEmployer: v.previousEmployer.trim() ? { name: v.previousEmployer } : undefined,
   });
 }
 
@@ -307,9 +305,9 @@ function toInput(v: AddEmployeeFormValues, governmentId: OnboardingSubmissionInp
     (["tin", "sss", "philHealth", "pagIbig"] as const).filter((k) => v[k].trim()).map((k) => [k, v[k].trim()]),
   );
   return {
-    lastName: v.lastName,
-    firstName: v.firstName,
-    middleName: v.middleName,
+    lastName: v.lastName.trim(),
+    firstName: v.firstName.trim(),
+    middleName: v.middleName.trim(),
     suffix: v.suffix,
     birthDate: v.birthDate,
     civilStatus: v.civilStatus || undefined,
@@ -332,9 +330,6 @@ function toInput(v: AddEmployeeFormValues, governmentId: OnboardingSubmissionInp
       ...(v.civilStatus === "Married" && v.spouseName.trim() ? [{ name: v.spouseName.trim(), relationship: "Spouse" as const }] : []),
       ...v.dependents.filter((d) => d.name.trim()).map((d) => ({ name: d.name.trim(), relationship: "Child" as const, birthDate: d.birthDate || undefined })),
     ],
-    license: v.licenseNumber.trim()
-      ? { profession: v.licenseProfession || undefined, number: v.licenseNumber.trim(), expiry: v.licenseExpiry || undefined }
-      : undefined,
-    previousEmployer: v.previousEmployer.trim() ? { name: v.previousEmployer.trim(), lastDay: v.previousLastDay || undefined } : undefined,
+    // Work background (PRC license, previous employer) isn't asked any more; an old draft's values aren't sent.
   };
 }
