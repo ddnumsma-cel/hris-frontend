@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { fieldByKey, type DirectoryRowData } from "./directoryFields";
 
 /** A small verified-documents bar, used on cards and in the table. */
-export function DocumentProgress({ data }: { data: DirectoryRowData }) {
+export function DocumentProgress({ data, compact = false }: { data: DirectoryRowData; compact?: boolean }) {
   const c = data.completion;
   if (!c) return <span className="text-ink-3">—</span>;
   return (
@@ -13,7 +13,7 @@ export function DocumentProgress({ data }: { data: DirectoryRowData }) {
       <span className="font-num flex-none text-[0.7rem] text-ink-3">
         {c.verified}/{c.applicable}
       </span>
-      {c.missing > 0 && <span className="flex-none text-[0.7rem] font-semibold text-warning">{c.missing} missing</span>}
+      {c.missing > 0 && !compact && <span className="flex-none text-[0.7rem] font-semibold text-warning">{c.missing} missing</span>}
     </span>
   );
 }
@@ -39,9 +39,9 @@ export function DirectoryDetails({
         const value = field.value(data);
         const line = (
           <div className="flex min-w-0 items-center gap-3 py-[3px]">
-            <dt className="w-[6.5rem] flex-none truncate text-ink-3">{field.label}</dt>
+            <dt className="w-[6.5rem] flex-none truncate text-ink-3">{field.short ?? field.label}</dt>
             <dd className="flex min-w-0 flex-1 items-center truncate font-medium text-ink">
-              {key === "documents" ? <DocumentProgress data={data} /> : (value ?? <span className="font-normal text-ink-3">—</span>)}
+              {key === "documents" ? <DocumentProgress data={data} compact /> : (value ?? <span className="font-normal text-ink-3">—</span>)}
             </dd>
           </div>
         );

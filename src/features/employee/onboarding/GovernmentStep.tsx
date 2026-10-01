@@ -11,6 +11,7 @@ import { coreDocuments, situationalFor } from "./model";
 const docNotes: Partial<Record<PersonnelDocumentType, string>> = {
   "Application Form / Resume": "Your latest resume, PDF or photo",
   "Birth Certificate (PSA)": "PSA-issued copy",
+  "Valid Government ID": "UMID, passport, driver's license… or scan it on the Identity step",
   "Diploma / Transcript of Records": "Highest level completed",
   "NBI Clearance": "Issued within the last 6 months",
   "Police/Barangay Clearance": "From your city or barangay",

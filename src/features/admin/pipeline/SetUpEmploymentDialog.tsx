@@ -62,6 +62,7 @@ function SetUpForm({ submission, onDone }: { submission: OnboardingSubmission; o
   const form = useForm<EmploymentFormValues>({ resolver, defaultValues: defaults(), mode: "onTouched" });
   const directoryQuery = useQuery({ queryKey: ["admin", "employee-directory"], queryFn: fetchEmployeeDirectory });
   const { input } = submission;
+  const files = new Set([...(input.uploadedDocuments ?? []).map((u) => u.type), ...(input.governmentId ? ["Valid Government ID"] : [])]).size;
 
   const mutation = useMutation({
     mutationFn: (v: EmploymentFormValues) =>
@@ -100,7 +101,7 @@ function SetUpForm({ submission, onDone }: { submission: OnboardingSubmission; o
               {input.firstName} {input.lastName}
             </p>
             <p className="truncate text-xs text-ink-2">
-              Submitted Onboarding · {input.phone ?? "No mobile"} · {new Set([...(input.uploadedDocuments ?? []).map((u) => u.type), ...(input.governmentId ? ["Valid Government ID"] : [])]).size} files uploaded
+              Submitted Onboarding · {input.phone ?? "No mobile"} · {files} file{files === 1 ? "" : "s"} uploaded
             </p>
           </div>
         </div>

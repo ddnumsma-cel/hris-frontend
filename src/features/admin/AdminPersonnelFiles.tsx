@@ -647,8 +647,8 @@ function DirectoryTable({
             <tr>
               <th className={clsx(thClass, "min-w-[14rem]")}>Employee</th>
               {columns.map((f) => (
-                <th key={f.key} className={thClass}>
-                  {f.label}
+                <th key={f.key} className={thClass} title={f.label}>
+                  {f.short ?? f.label}
                 </th>
               ))}
               <th className={thClass}>Status</th>

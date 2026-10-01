@@ -21,6 +21,8 @@ export interface DirectoryRowData {
 export interface DirectoryFieldDef {
   key: string;
   label: string;
+  /** Fits a card line and a table header; defaults to label. */
+  short?: string;
   hint: string;
   group: DirectoryFieldGroup;
   /** Text shown for this person; undefined renders as "—". The 201 progress field draws a bar instead. */
@@ -42,19 +44,20 @@ export const DIRECTORY_FIELDS: DirectoryFieldDef[] = [
     group: "Work",
     value: (d) => [d.employee.office, d.employee.cluster].filter(Boolean).join(" · ") || undefined,
   },
-  { key: "employmentStatus", label: "Employment status", hint: "Probationary, regular, contractual…", group: "Work", value: (d) => d.employee.employmentStatus },
+  { key: "employmentStatus", label: "Employment status", short: "Employment", hint: "Probationary, regular, contractual…", group: "Work", value: (d) => d.employee.employmentStatus },
   { key: "dateHired", label: "Date hired", hint: "First day with the company", group: "Work", value: (d) => d.hiredOn ?? formatDate(d.employee.dateHired) },
   { key: "reportsTo", label: "Reports to", hint: "Their direct supervisor", group: "Work", value: (d) => d.managerName },
   { key: "email", label: "Work email", hint: "Company email address", group: "Contact", value: (d) => d.employee.email },
   { key: "phone", label: "Mobile", hint: "Primary mobile number", group: "Contact", value: (d) => d.employee.phone },
   { key: "personalEmail", label: "Personal email", hint: "Their own email address", group: "Contact", value: (d) => d.employee.personalEmail },
-  { key: "emergencyContact", label: "Emergency contact", hint: "Who to call if something happens", group: "Contact", value: (d) => d.employee.emergencyContact },
+  { key: "emergencyContact", label: "Emergency contact", short: "Emergency", hint: "Who to call if something happens", group: "Contact", value: (d) => d.employee.emergencyContact },
   { key: "birthDate", label: "Birth date", hint: "For birthdays and benefits", group: "Personal", value: (d) => formatDate(d.profile?.birthDate) },
   { key: "civilStatus", label: "Civil status", hint: "Single, married, widowed…", group: "Personal", value: (d) => d.profile?.civilStatus },
   { key: "bloodType", label: "Blood type", hint: "For emergencies at work", group: "Personal", value: (d) => d.profile?.bloodType },
   {
     key: "documents",
     label: "201 document progress",
+    short: "201 files",
     hint: "How many documents are verified",
     group: "Records",
     value: (d) => (d.completion ? `${d.completion.verified}/${d.completion.applicable} verified` : undefined),
@@ -62,6 +65,7 @@ export const DIRECTORY_FIELDS: DirectoryFieldDef[] = [
   {
     key: "governmentNumbers",
     label: "Government numbers",
+    short: "Gov't numbers",
     hint: "TIN, SSS, PhilHealth, Pag-IBIG on file",
     group: "Records",
     value: (d) => `${govCount(d.employee)} of 4 on file`,
