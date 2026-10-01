@@ -7,7 +7,7 @@ import {
   suffixOptions,
   type AddEmployeeFormValues,
 } from "@/lib/schemas";
-import { FieldError, FieldGroup, FieldHint, inputClass, Label, StepHeading } from "./fields";
+import { FieldError, FieldGroup, FieldHint, inputClass, Label } from "./fields";
 import { describe } from "./fieldProps";
 import { IdScanPanel } from "./IdScanPanel";
 import type { IdScan } from "./useIdScan";
@@ -27,7 +27,6 @@ export function IdentityStep({ idScan }: { idScan: IdScan }) {
 
   return (
     <>
-      <StepHeading title="Who is joining?" description="Their legal name and details as they appear on a government ID." />
       <div className="flex flex-col gap-7">
         <IdScanPanel idScan={idScan} />
 

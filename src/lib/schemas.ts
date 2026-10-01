@@ -41,6 +41,12 @@ export const clusterOptions = ["RPM", "VCM", "ADS", "Admin & Support"] as const;
 // What "Add employee" offers: the firm's two departments, and the client
 // cluster the person is assigned to within it.
 export const hireDepartmentOptions = ["Accounting", "IT"] as const;
+
+/** The positions HR can pick once a department is chosen. */
+export const positionsByDepartment: Record<(typeof hireDepartmentOptions)[number], string[]> = {
+  Accounting: ["Associate", "Audit Associate", "Senior Associate", "Team Lead", "Tax Associate", "Senior Tax Associate", "Bookkeeper", "Legal Associate", "Paralegal"],
+  IT: ["Developer", "Hardware Technician", "IT Support Associate", "Network Administrator", "Systems Administrator"],
+};
 export const hireClusterOptions = ["RPM", "VCM", "ADS"] as const;
 
 export const sexOptions = ["Male", "Female"] as const;

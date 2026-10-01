@@ -1,7 +1,7 @@
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { CheckIcon } from "@/components/icons";
 import type { AddEmployeeFormValues } from "@/lib/schemas";
-import { FieldGroup, StepHeading } from "./fields";
+import { FieldGroup } from "./fields";
 import { GovIdInput } from "./GovIdInput";
 import type { IdScan } from "./useIdScan";
 import { coreDocuments, situationalDocuments } from "./model";
@@ -19,11 +19,6 @@ export function GovernmentStep({ idScan }: { idScan: IdScan }) {
 
   return (
     <>
-      <StepHeading
-        title="Government numbers and 201 papers"
-        description="Add what they have today. Anything missing is listed in their 201 file."
-        legend={false}
-      />
       <div className="flex flex-col gap-7">
         <FieldGroup
           title="Government numbers"

@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { useFormContext, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/Button";
 import { AlertTriangleIcon, CheckCircleIcon, EditIcon } from "@/components/icons";
-import { fetchEmployeeDirectory, previewEmployeeId, type PossibleDuplicate } from "@/lib/api";
+import { previewEmployeeId, type PossibleDuplicate } from "@/lib/api";
 import { formatPhMobile, govIdFormats, maskGovId } from "@/lib/govIds";
 import type { AddEmployeeFormValues } from "@/lib/schemas";
 import { StepHeading } from "./fields";
@@ -60,8 +59,6 @@ export function ReviewStep({
 }) {
   const { control } = useFormContext<AddEmployeeFormValues>();
   const v = useWatch({ control }) as AddEmployeeFormValues;
-  const directoryQuery = useQuery({ queryKey: ["admin", "employee-directory"], queryFn: fetchEmployeeDirectory });
-  const manager = directoryQuery.data?.find((e) => e.id === v.reportsToId);
   const stillNeeded = stillNeededBeforePayroll(v);
   const idPreview = v.lastName && v.firstName && v.dateHired ? previewEmployeeId(v) : null;
   const fullName = [v.firstName, v.middleName, v.lastName, v.suffix].filter(Boolean).join(" ");
@@ -164,7 +161,6 @@ export function ReviewStep({
           <Row label="Status" value={v.employmentStatus} />
           <Row label="Date hired" value={formatDate(v.dateHired)} />
           <Row label="Employee ID" value={idPreview?.id} />
-          <Row label="Reports to" value={manager ? manager.name : "HR & People Operations"} />
         </SectionCard>
         <SectionCard title="Gov't IDs & documents" onEdit={() => onEdit(3)}>
           {govIdFormats.map((f) => (

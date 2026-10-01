@@ -46,7 +46,7 @@ export const steps: StepDef[] = [
     id: "employment",
     title: "Employment",
     summary: "Position, office, status, date hired",
-    fields: ["position", "department", "cluster", "office", "dateHired", "employmentStatus", "reportsToId"],
+    fields: ["position", "department", "cluster", "office", "dateHired", "employmentStatus"],
     required: ["position", "department", "cluster", "office", "dateHired", "employmentStatus"],
   },
   {
@@ -114,10 +114,12 @@ function isFilled(value: unknown) {
   return Array.isArray(value) ? value.length > 0 : typeof value === "string" ? value.trim().length > 0 : value != null;
 }
 
-/** How many of a step's fields have something in them (defaults like the office count). */
+/** Progress counts required fields only, so leaving an optional field (e.g. suffix) blank never holds a step short of full.
+ * Steps with no required fields count everything. */
 export function stepProgress(step: StepDef, values: AddEmployeeFormValues) {
-  const filled = step.fields.filter((f) => isFilled(values[f])).length;
-  return { filled, total: step.fields.length };
+  const counted = step.required.length > 0 ? step.required : step.fields;
+  const filled = counted.filter((f) => isFilled(values[f])).length;
+  return { filled, total: counted.length };
 }
 
 // ---- 201 documents HR can tick off on day one ----

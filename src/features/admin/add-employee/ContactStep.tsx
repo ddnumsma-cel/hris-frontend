@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { formatPhMobile, isValidPhMobile } from "@/lib/govIds";
 import { emergencyRelationshipOptions, type AddEmployeeFormValues } from "@/lib/schemas";
-import { FieldError, FieldGroup, FieldHint, inputClass, Label, StepHeading } from "./fields";
+import { FieldError, FieldGroup, FieldHint, inputClass, Label } from "./fields";
 import { describe } from "./fieldProps";
 
 export function ContactStep() {
@@ -22,7 +22,6 @@ export function ContactStep() {
 
   return (
     <>
-      <StepHeading title="How do we reach them?" description="Their mobile number, where they live, and who to call in an emergency." />
       <div className="flex flex-col gap-6">
         <FieldGroup title="Phone and email">
           <div className="grid gap-4 md:grid-cols-3">
@@ -37,11 +36,10 @@ export function ContactStep() {
                 className={inputClass}
                 placeholder="0917 552 0184"
                 autoComplete="tel"
-                {...describe("emp-phone", errors.phone?.message, true)}
+                {...describe("emp-phone", errors.phone?.message)}
                 {...mobile("phone")}
               />
               <FieldError id="emp-phone-error" message={errors.phone?.message} />
-              {!errors.phone && <FieldHint id="emp-phone-hint">For SMS alerts and the employee app invite</FieldHint>}
             </div>
             <div>
               <Label htmlFor="emp-personal-email">
@@ -76,7 +74,7 @@ export function ContactStep() {
           </div>
         </FieldGroup>
 
-        <FieldGroup title="Home address" description="Where they live now. Printed on BIR Form 2316.">
+        <FieldGroup title="Home address">
           <div>
             <Label htmlFor="emp-street">
               House no., street, subdivision
@@ -105,7 +103,7 @@ export function ContactStep() {
           </div>
         </FieldGroup>
 
-        <FieldGroup title="Emergency contact" description="Who HR calls if something happens at work.">
+        <FieldGroup title="Emergency contact">
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <Label htmlFor="emp-emergency-name">
