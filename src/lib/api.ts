@@ -111,6 +111,7 @@ import { buildEmployeeFileRecords } from "./employmentRecords";
 import { assignHireDateIds, isHireDateId, type IdCandidate } from "./employeeIds";
 import { teamReports, type ReportId } from "./reportsData";
 import { todayIso } from "./format";
+import { normalizeConfig, type OnboardingFormConfig } from "./onboardingForm";
 
 /**
  * Every function here stands in for a real HTTP call. Swap the body for a
@@ -1435,3 +1436,37 @@ export function fetchEmployeeHireDates() {
     >,
   );
 }
+
+// --- The Onboarding form HR builds ---
+// Kept in this browser (localStorage) so it survives a reload and both the HR and employee side
+// read the same copy. A backend would store it per company.
+
+const ONBOARDING_FORM_KEY = "msma-onboarding-form";
+
+function readOnboardingForm(): OnboardingFormConfig | null {
+  try {
+    const raw = localStorage.getItem(ONBOARDING_FORM_KEY);
+    return raw ? normalizeConfig(JSON.parse(raw) as { sections?: unknown; updatedAt?: unknown }) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The form new hires fill in, or null until HR has set one up. */
+export function fetchOnboardingForm(): Promise<OnboardingFormConfig | null> {
+  return delay(readOnboardingForm());
+}
+
+export function saveOnboardingForm(config: OnboardingFormConfig): Promise<OnboardingFormConfig> {
+  const saved = normalizeConfig({ ...config, updatedAt: new Date().toISOString() });
+  try {
+    localStorage.setItem(ONBOARDING_FORM_KEY, JSON.stringify(saved));
+  } catch {
+    throw new Error("This browser won't let us save the form. Allow site storage and try again.");
+  }
+  return delay(saved);
+}
+
+/** Query key shared by HR and employee screens; another tab saving the form refreshes it. */
+export const ONBOARDING_FORM_QUERY_KEY = ["onboarding-form"] as const;
+export const ONBOARDING_FORM_STORAGE_KEY = ONBOARDING_FORM_KEY;
