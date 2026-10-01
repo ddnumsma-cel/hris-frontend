@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import clsx from "clsx";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -15,13 +15,13 @@ import {
   ArrowRightIcon,
   GridIcon,
   ListIcon,
-  MailIcon,
-  MapPinIcon,
   MoreVerticalIcon,
-  PhoneIcon,
   SearchIcon,
   SearchXIcon,
+  SettingsIcon,
+  UsersIcon,
 } from "@/components/icons";
+import { useAuth } from "@/features/auth/AuthContext";
 import {
   getDocumentCompletion,
   PersonnelDocumentsPanel,
@@ -38,7 +38,17 @@ import {
 } from "@/lib/api";
 import { formatToday } from "@/lib/format";
 import { clusterOptions } from "@/lib/schemas";
-import type { Cluster, Employee } from "@/lib/types";
+import type { Cluster, Employee, PersonnelProfile } from "@/lib/types";
+import { CustomizeDirectoryDialog } from "./directory/CustomizeDirectoryDialog";
+import { DirectoryDetails, DocumentProgress } from "./directory/DirectoryDetails";
+import {
+  fieldByKey,
+  hasSeenCustomize,
+  loadDirectoryFields,
+  markCustomizeSeen,
+  saveDirectoryFields,
+  type DirectoryRowData,
+} from "./directory/directoryFields";
 import {
   EmploymentPanel,
   GovernmentNumbersPanel,
@@ -106,6 +116,21 @@ export function AdminPersonnelFiles() {
   const [tab, setTab] = useState<Tab>("Profile");
   const recordCardRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<DirectoryView>(loadDirectoryView);
+  // What HR chose to show for each person, saved per HR user.
+  const { user } = useAuth();
+  const owner = user?.name ?? "admin";
+  const [fields, setFields] = useState<string[]>(() => loadDirectoryFields(owner));
+  // Opens by itself the first time HR visits the directory.
+  const [customizeOpen, setCustomizeOpen] = useState(() => !hasSeenCustomize(owner));
+  useEffect(() => {
+    if (customizeOpen) markCustomizeSeen(owner);
+  }, [customizeOpen, owner]);
+
+  function saveFields(next: string[]) {
+    setFields(next);
+    saveDirectoryFields(owner, next);
+    toast.show("Directory updated. Every card and the table now show these details.");
+  }
 
   function changeView(next: DirectoryView) {
     setView(next);
@@ -123,6 +148,10 @@ export function AdminPersonnelFiles() {
 
   const photoById = useMemo(
     () => new Map((profilesQuery.data ?? []).map((p) => [p.employeeId, p.photoDataUrl])),
+    [profilesQuery.data],
+  );
+  const profileById = useMemo(
+    () => new Map<string, PersonnelProfile>((profilesQuery.data ?? []).map((p) => [p.employeeId, p])),
     [profilesQuery.data],
   );
 
@@ -147,6 +176,18 @@ export function AdminPersonnelFiles() {
           e.department.toLowerCase().includes(q)),
     );
   }, [directoryQuery.data, completionById, office, clusterFilter, filter, search]);
+
+  /** Everything the chosen details read for one person. */
+  function rowData(e: Employee): DirectoryRowData {
+    const manager = e.reportsToId && e.reportsToId !== "admin" ? directoryQuery.data?.find((m) => m.id === e.reportsToId) : undefined;
+    return {
+      employee: e,
+      profile: profileById.get(e.id),
+      hiredOn: hireDatesQuery.data?.[e.id],
+      completion: completionById.get(e.id),
+      managerName: manager?.name ?? "HR & People Operations",
+    };
+  }
 
   const selected = directoryQuery.data?.find((e) => e.id === selectedId) ?? null;
   const selectedCompletion = selected ? completionById.get(selected.id) : undefined;
@@ -270,8 +311,13 @@ export function AdminPersonnelFiles() {
       <ContentHead
         title="Employee Directory"
         subtitle={`${filtered.length} ${filtered.length === 1 ? "person" : "people"} · ${office} · ${formatToday()}`}
+        actions={
+          <Button variant="ghost" icon={<SettingsIcon className="h-3.75 w-3.75" />} onClick={() => setCustomizeOpen(true)}>
+            Customize directory
+          </Button>
+        }
       />
-      <p className="-mt-2 text-sm text-ink-2">New hires fill in their own details from Onboarding in the employee app; they appear here once they submit.</p>
+      <p className="-mt-2 text-sm text-ink-2">New hires fill in their own details from Onboarding; they appear here once HR sets up their employment in Pipeline.</p>
 
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 sm:max-w-xs sm:flex-1">
@@ -315,7 +361,20 @@ export function AdminPersonnelFiles() {
         <ViewToggle view={view} onChange={changeView} />
       </div>
 
-      {!directoryQuery.isLoading && filtered.length === 0 ? (
+      {!directoryQuery.isLoading && (directoryQuery.data ?? []).length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={<UsersIcon />}
+            title="No employees yet"
+            description="New hires appear here once HR sets up their employment in Pipeline."
+          />
+          <div className="-mt-4 flex justify-center pb-8">
+            <Link to="/admin/pipeline" className="rounded-full border border-border px-4 py-2 text-sm font-semibold text-brand-ink hover:border-brand">
+              Go to Pipeline
+            </Link>
+          </div>
+        </Card>
+      ) : !directoryQuery.isLoading && filtered.length === 0 ? (
         <Card>
           <EmptyState
             icon={<SearchXIcon />}
@@ -329,8 +388,8 @@ export function AdminPersonnelFiles() {
           employees={filtered}
           isLoading={directoryQuery.isLoading}
           photoById={photoById}
-          completionById={completionById}
-          hireDates={hireDatesQuery.data}
+          fields={fields}
+          rowData={rowData}
           onPreview={select}
         />
       ) : (
@@ -348,8 +407,8 @@ export function AdminPersonnelFiles() {
               <DirectoryCard
                 employee={emp}
                 photoUrl={photoById.get(emp.id)}
-                completion={completionById.get(emp.id)!}
-                hiredOn={hireDatesQuery.data?.[emp.id]}
+                fields={fields}
+                data={rowData(emp)}
                 onPreview={() => select(emp.id)}
                 onCopyId={() => copyEmployeeId(emp)}
               />
@@ -358,6 +417,7 @@ export function AdminPersonnelFiles() {
         </ul>
       )}
 
+      <CustomizeDirectoryDialog open={customizeOpen} initial={fields} onSave={saveFields} onClose={() => setCustomizeOpen(false)} />
     </>
   );
 }
@@ -377,15 +437,15 @@ function Avatar({ employee, photoUrl }: { employee: Employee; photoUrl?: string 
 function DirectoryCard({
   employee,
   photoUrl,
-  completion,
-  hiredOn,
+  fields,
+  data,
   onPreview,
   onCopyId,
 }: {
   employee: Employee;
   photoUrl?: string;
-  completion: DocumentCompletion;
-  hiredOn?: string;
+  fields: string[];
+  data: DirectoryRowData;
   onPreview: () => void;
   onCopyId: () => void;
 }) {
@@ -400,67 +460,23 @@ function DirectoryCard({
         <CardMenu employeeName={employee.name} onPreview={onPreview} onCopyId={onCopyId} />
       </div>
 
-      <dl className="mt-3.5 flex flex-col gap-1.5 border-t border-border pt-3.5 text-xs text-ink-2">
-        <div className="flex min-w-0 gap-1">
-          <dt>Department:</dt>
-          <dd className="truncate font-semibold text-ink">{employee.department}</dd>
-        </div>
-        <ContactLine icon={<MapPinIcon className="h-3.5 w-3.5" />} label="Office">
-          {employee.office} <span className="text-ink-3">· {employee.cluster}</span>
-        </ContactLine>
-        <ContactLine icon={<MailIcon className="h-3.5 w-3.5" />} label="Email">
-          {employee.email ?? <span className="text-ink-3">No email on file</span>}
-        </ContactLine>
-        <ContactLine icon={<PhoneIcon className="h-3.5 w-3.5" />} label="Phone">
-          {employee.phone ?? <span className="text-ink-3">No phone on file</span>}
-        </ContactLine>
-      </dl>
-
-      <div className="mt-3.5 flex items-center gap-2 border-t border-border pt-3.5">
-        <div className="h-1 flex-1 overflow-hidden rounded-full bg-surface-2">
-          <div data-motion="fill" className="h-full rounded-full bg-good" style={{ width: `${completion.pct}%` }} />
-        </div>
-        <span className="font-num flex-none text-[0.7rem] text-ink-3">
-          {completion.verified}/{completion.applicable} docs
-        </span>
-        {completion.missing > 0 && (
-          <span className="flex-none text-[0.7rem] font-semibold text-warning">{completion.missing} missing</span>
-        )}
-      </div>
+      {fields.length > 0 && <DirectoryDetails keys={fields} data={data} className="mt-3.5 border-t border-border pt-3" />}
 
       {/* Footer pinned to the card bottom so rows of cards line up. */}
       <div className="mt-auto pt-3.5">
-        <div className="flex items-end justify-between gap-2 border-t border-border pt-3.5">
-          <div className="min-w-0 text-xs">
-            <div className="text-ink-3">Hired:</div>
-            <div className="truncate text-ink-2">{hiredOn ?? "—"}</div>
-          </div>
-          <div className="flex flex-none items-center gap-2">
-            <Chip variant={statusVariant[employee.status]}>{employee.status}</Chip>
-            <button
-              type="button"
-              onClick={onPreview}
-              aria-label={`Preview ${employee.name}'s record`}
-              className="rounded-lg border border-brand px-3 py-1 text-xs font-semibold text-brand-ink transition-colors hover:bg-brand-tint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cat-1)]"
-            >
-              Preview
-            </button>
-          </div>
+        <div className="flex items-center justify-between gap-2 border-t border-border pt-3.5">
+          <Chip variant={statusVariant[employee.status]}>{employee.status}</Chip>
+          <button
+            type="button"
+            onClick={onPreview}
+            aria-label={`Preview ${employee.name}'s record`}
+            className="rounded-lg border border-brand px-3 py-1 text-xs font-semibold text-brand-ink transition-colors hover:bg-brand-tint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cat-1)]"
+          >
+            Preview
+          </button>
         </div>
       </div>
     </article>
-  );
-}
-
-function ContactLine({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
-  return (
-    <div className="flex min-w-0 items-center gap-2">
-      <dt className="flex-none text-ink-3">
-        {icon}
-        <span className="sr-only">{label}</span>
-      </dt>
-      <dd className="truncate">{children}</dd>
-    </div>
   );
 }
 
@@ -605,15 +621,15 @@ function DirectoryTable({
   employees,
   isLoading,
   photoById,
-  completionById,
-  hireDates,
+  fields,
+  rowData,
   onPreview,
 }: {
   employees: Employee[];
   isLoading: boolean;
   photoById: Map<string, string | undefined>;
-  completionById: Map<string, DocumentCompletion>;
-  hireDates?: Record<string, string>;
+  fields: string[];
+  rowData: (e: Employee) => DirectoryRowData;
   onPreview: (id: string) => void;
 }) {
   const [page, setPage] = useState(1);
@@ -621,28 +637,20 @@ function DirectoryTable({
   // Clamped so removing people (or a smaller result set) never strands you past the last page.
   const currentPage = Math.min(page, pageCount);
   const pageRows = employees.slice((currentPage - 1) * TABLE_PAGE_SIZE, currentPage * TABLE_PAGE_SIZE);
+  const columns = fields.map(fieldByKey).filter((f) => f !== undefined);
 
   return (
     <div className="flex flex-col gap-3">
-      <Card className="overflow-hidden">
-        <table className="w-full table-fixed border-collapse text-[0.82rem]">
-          <colgroup>
-            {/* Employee takes whatever width is left. */}
-            <col />
-            <col className="w-[17%]" />
-            <col className="w-[21%]" />
-            <col className="w-[12%]" />
-            <col className="w-[7.5rem]" />
-            <col className="w-[7rem]" />
-            <col className="w-[6.5rem]" />
-          </colgroup>
+      <Card className="overflow-x-auto">
+        <table className="w-full border-collapse text-[0.82rem]">
           <thead>
             <tr>
-              <th className={thClass}>Employee</th>
-              <th className={thClass}>Department</th>
-              <th className={thClass}>Contact</th>
-              <th className={thClass}>201 Files</th>
-              <th className={thClass}>Hired</th>
+              <th className={clsx(thClass, "min-w-[14rem]")}>Employee</th>
+              {columns.map((f) => (
+                <th key={f.key} className={thClass}>
+                  {f.label}
+                </th>
+              ))}
               <th className={thClass}>Status</th>
               <th className={thClass}>
                 <span className="sr-only">Actions</span>
@@ -650,9 +658,9 @@ function DirectoryTable({
             </tr>
           </thead>
           <tbody>
-            {isLoading && <SkeletonRows columns={7} rows={TABLE_PAGE_SIZE} />}
+            {isLoading && <SkeletonRows columns={columns.length + 3} rows={TABLE_PAGE_SIZE} />}
             {pageRows.map((emp) => {
-              const c = completionById.get(emp.id)!;
+              const data = rowData(emp);
               return (
                 <tr key={emp.id} className="transition-colors hover:bg-surface-2/60">
                   <td className={tdClass}>
@@ -666,32 +674,19 @@ function DirectoryTable({
                       </div>
                     </div>
                   </td>
-                  <td className={tdClass}>
-                    <div className="truncate">{emp.department}</div>
-                    <div className="truncate text-xs text-ink-2">
-                      {emp.office} <span className="text-ink-3">· {emp.cluster}</span>
-                    </div>
-                  </td>
-                  <td className={tdClass}>
-                    <div className="truncate" title={emp.email}>
-                      {emp.email ?? <span className="text-ink-3">—</span>}
-                    </div>
-                    <div className="truncate text-xs text-ink-2">{emp.phone}</div>
-                  </td>
-                  <td className={tdClass}>
-                    <div className="flex items-center gap-2">
-                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-surface-2">
-                        <div data-motion="fill" className="h-full rounded-full bg-good" style={{ width: `${c.pct}%` }} />
-                      </div>
-                      <span className="font-num flex-none text-[0.7rem] text-ink-3">
-                        {c.verified}/{c.applicable}
-                      </span>
-                    </div>
-                    {c.missing > 0 && (
-                      <div className="mt-0.5 text-[0.7rem] font-semibold text-warning">{c.missing} missing</div>
-                    )}
-                  </td>
-                  <td className={clsx(tdClass, "whitespace-nowrap text-ink-2")}>{hireDates?.[emp.id] ?? "—"}</td>
+                  {columns.map((f) => (
+                    <td key={f.key} className={clsx(tdClass, "max-w-[14rem]")}>
+                      {f.key === "documents" ? (
+                        <div className="flex min-w-[8rem]">
+                          <DocumentProgress data={data} />
+                        </div>
+                      ) : (
+                        <div className="truncate" title={f.value(data)}>
+                          {f.value(data) ?? <span className="text-ink-3">—</span>}
+                        </div>
+                      )}
+                    </td>
+                  ))}
                   <td className={clsx(tdClass, "whitespace-nowrap")}>
                     <Chip variant={statusVariant[emp.status]}>{emp.status}</Chip>
                   </td>

@@ -13,12 +13,18 @@ export function Dialog({
   header,
   footer,
   dismissOnBackdrop = true,
+  closing = false,
+  description,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
-  size?: "md" | "lg";
+  size?: "md" | "lg" | "xl";
+  /** Plays the exit animation; the caller unmounts (open=false) once it has finished. */
+  closing?: boolean;
+  /** One line under the title. */
+  description?: string;
   /** Pinned below the title bar; stays visible while the body scrolls. */
   header?: ReactNode;
   /** Pinned at the bottom; stays visible while the body scrolls. */
@@ -66,12 +72,13 @@ export function Dialog({
 
   if (!open) return null;
 
-  const large = size === "lg";
+  const large = size !== "md";
 
   return (
     <div
       className={clsx(
         "overlay-enter fixed inset-0 z-50 flex justify-center bg-black/40 p-4",
+        closing && "overlay-leave",
         large ? "items-center" : "items-start overflow-y-auto pt-20 sm:pt-28",
       )}
       onClick={dismissOnBackdrop ? onClose : undefined}
@@ -84,17 +91,22 @@ export function Dialog({
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
         className={clsx(
-          "panel-enter w-full rounded-xl border border-border bg-surface shadow-lg outline-none",
-          large ? "flex max-h-[calc(100dvh-2rem)] max-w-3xl flex-col overflow-hidden" : "max-w-md",
+          "w-full rounded-xl border border-border bg-surface shadow-lg outline-none",
+          size === "xl" ? "panel-enter-lg" : "panel-enter",
+          closing && "panel-leave",
+          large ? clsx("flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden", size === "xl" ? "max-w-5xl" : "max-w-3xl") : "max-w-md",
         )}
       >
-        <div className="flex flex-none items-center justify-between border-b border-border px-4.5 py-3.5">
-          <h2 className="font-display text-base font-semibold tracking-[-0.01em]">{title}</h2>
+        <div className="flex flex-none items-center justify-between gap-3 border-b border-border px-4.5 py-3.5">
+          <div className="min-w-0">
+            <h2 className="font-display text-base font-semibold tracking-[-0.01em]">{title}</h2>
+            {description && <p className="mt-0.5 text-xs text-ink-2">{description}</p>}
+          </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-2 hover:bg-surface-2"
+            className="flex h-7 w-7 flex-none items-center justify-center rounded-lg text-ink-2 hover:bg-surface-2"
           >
             <XIcon className="h-4 w-4" />
           </button>
