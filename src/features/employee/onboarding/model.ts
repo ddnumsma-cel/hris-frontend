@@ -59,12 +59,16 @@ export const steps: StepDef[] = [
   { id: "review", title: "Review", summary: "Check and submit", fields: [], required: [] },
 ];
 
-/** Details payroll and the 201 file need soon, but that HR can add after creating the record. */
-export function stillNeededBeforePayroll(v: AddEmployeeFormValues): { label: string; step: number }[] {
+/** Details payroll and the 201 file need soon, but that HR can add after creating the record.
+ * Sections the employee chose to leave for later aren't listed; HR follows up on those. */
+export function stillNeededBeforePayroll(
+  v: AddEmployeeFormValues,
+  shown: { address: boolean; emergency: boolean } = { address: true, emergency: true },
+): { label: string; step: number }[] {
   const missing: { label: string; step: number }[] = [];
   if (!v.civilStatus) missing.push({ label: "Civil status", step: 0 });
-  if (![v.street, v.barangay, v.city, v.province].some((x) => x.trim())) missing.push({ label: "Home address", step: 1 });
-  if (!v.emergencyName.trim()) missing.push({ label: "Emergency contact", step: 1 });
+  if (shown.address && ![v.street, v.barangay, v.city, v.province].some((x) => x.trim())) missing.push({ label: "Home address", step: 1 });
+  if (shown.emergency && !v.emergencyName.trim()) missing.push({ label: "Emergency contact", step: 1 });
   const gov: [keyof AddEmployeeFormValues, string][] = [
     ["tin", "TIN"],
     ["sss", "SSS number"],
@@ -107,11 +111,19 @@ export function emptyValues(): AddEmployeeFormValues {
     philHealth: "",
     pagIbig: "",
     receivedDocuments: [],
+    spouseName: "",
+    dependents: [],
+    licenseProfession: "",
+    licenseNumber: "",
+    licenseExpiry: "",
+    previousEmployer: "",
+    previousLastDay: "",
   };
 }
 
-function isFilled(value: unknown) {
-  return Array.isArray(value) ? value.length > 0 : typeof value === "string" ? value.trim().length > 0 : value != null;
+export function isFilled(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some((item) => (item && typeof item === "object" ? Object.values(item).some(isFilled) : isFilled(item)));
+  return typeof value === "string" ? value.trim().length > 0 : value != null;
 }
 
 /** Progress counts required fields only, so leaving an optional field (e.g. suffix) blank never holds a step short of full.
@@ -199,7 +211,7 @@ export function composeAddress(v: Pick<AddEmployeeFormValues, "street" | "barang
 
 export function toCreateInput(
   v: AddEmployeeFormValues,
-  extras: Pick<CreateEmployeeInput, "governmentId" | "applicantId" | "actor">,
+  extras: Pick<CreateEmployeeInput, "governmentId" | "applicantId" | "actor" | "applicableDocuments">,
 ): CreateEmployeeInput {
   const governmentNumbers = Object.fromEntries(
     (["tin", "sss", "philHealth", "pagIbig"] as const).filter((k) => v[k].trim()).map((k) => [k, v[k].trim()]),
@@ -232,6 +244,14 @@ export function toCreateInput(
     reportsToId: v.reportsToId || undefined,
     governmentNumbers,
     receivedDocuments: v.receivedDocuments as PersonnelDocumentType[],
+    dependents: [
+      ...(v.spouseName.trim() ? [{ name: v.spouseName.trim(), relationship: "Spouse" as const }] : []),
+      ...v.dependents.filter((d) => d.name.trim()).map((d) => ({ name: d.name.trim(), relationship: "Child" as const, birthDate: d.birthDate || undefined })),
+    ],
+    license: v.licenseNumber.trim()
+      ? { profession: v.licenseProfession || undefined, number: v.licenseNumber.trim(), expiry: v.licenseExpiry || undefined }
+      : undefined,
+    previousEmployer: v.previousEmployer.trim() ? { name: v.previousEmployer.trim(), lastDay: v.previousLastDay || undefined } : undefined,
     ...extras,
   };
 }

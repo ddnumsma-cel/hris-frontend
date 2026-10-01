@@ -386,6 +386,8 @@ export interface PersonnelProfile {
   dependents: Dependent[];
   bloodType?: string;
   address?: string;
+  /** Declared during Onboarding, for the BIR 2316 from their last job. */
+  previousEmployer?: { name: string; lastDay?: string };
 }
 
 // --- Audit log for restricted personnel data ---

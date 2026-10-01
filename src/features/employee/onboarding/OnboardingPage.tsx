@@ -2,13 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FormProvider, useForm, useWatch, type FieldErrors } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastContext";
 import { CheckCircleIcon, HistoryIcon } from "@/components/icons";
 import { createEmployee, findPossibleDuplicates, type PossibleDuplicate } from "@/lib/api";
-import { addEmployeeSchema, type AddEmployeeFormValues } from "@/lib/schemas";
+import type { AddEmployeeFormValues } from "@/lib/schemas";
 import type { Employee } from "@/lib/types";
 import { ContactStep } from "./ContactStep";
 import { EmploymentStep } from "./EmploymentStep";
@@ -22,18 +21,35 @@ import {
   formatSavedAt,
   loadDraft,
   saveDraft,
+  isFilled,
   stepProgress,
-  steps,
+  steps as baseSteps,
   toCreateInput,
   type Draft,
   type FieldName,
 } from "./model";
 import { ReviewStep } from "./ReviewStep";
+import { BuildingForm } from "./BuildingForm";
+import { ChoicesModal } from "./ChoicesModal";
+import {
+  buildLines,
+  ChoicesContext,
+  choicesResolver,
+  clearChoices,
+  documentsFor,
+  FULL_FORM,
+  hiddenFields,
+  loadChoices,
+  saveChoices,
+  stepsFor,
+  type OnboardingChoices,
+} from "./choices";
 import { StepBar, StepList, type StepStatus } from "./StepList";
 
-const REVIEW = steps.length - 1;
+// Choices change what's inside each step, never the number of steps.
+const REVIEW = baseSteps.length - 1;
 
-function firstStepWithError(errors: FieldErrors<AddEmployeeFormValues>) {
+function firstStepWithError(errors: FieldErrors<AddEmployeeFormValues>, steps: ReturnType<typeof stepsFor>) {
   const index = steps.findIndex((s) => s.fields.some((f) => errors[f]));
   return index === -1 ? null : index;
 }
@@ -44,8 +60,15 @@ export function OnboardingPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
 
-  const form = useForm<AddEmployeeFormValues>({
-    resolver: zodResolver(addEmployeeSchema),
+  // What the employee chose to provide. None yet = first visit, so the choice modal opens.
+  const [choices, setChoices] = useState<OnboardingChoices | null>(() => loadChoices());
+  const active = choices ?? FULL_FORM;
+  const steps = useMemo(() => stepsFor(active), [active]);
+  const [resolver] = useState(choicesResolver);
+
+  const form = useForm<AddEmployeeFormValues, OnboardingChoices>({
+    resolver,
+    context: active,
     defaultValues: emptyValues(),
     mode: "onTouched",
   });
@@ -64,7 +87,9 @@ export function OnboardingPage() {
   const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [created, setCreated] = useState<Employee | null>(null);
-  
+  const [modalOpen, setModalOpen] = useState(() => !loadChoices() && !pendingDraft);
+  const [buildingLines, setBuildingLines] = useState<string[] | null>(null);
+
   const values = useWatch({ control }) as AddEmployeeFormValues;
 
   useEffect(() => {
@@ -99,11 +124,39 @@ export function OnboardingPage() {
     setMaxVisited(at);
     setSavedAt(pendingDraft.savedAt);
     setPendingDraft(null);
+    // Drafts from before choices existed keep every section.
+    if (!choices) setChoices(FULL_FORM);
   }
 
   function startOver() {
     clearDraft();
+    clearChoices();
+    setChoices(null);
     setPendingDraft(null);
+    setModalOpen(true);
+  }
+
+  // ---- Choices ----
+  function applyChoices(c: OnboardingChoices) {
+    saveChoices(c);
+    setChoices(c);
+    setModalOpen(false);
+    const civil = form.getValues("civilStatus");
+    if (c.married && !civil) form.setValue("civilStatus", "Married");
+    if (!c.married && civil === "Married") form.setValue("civilStatus", "");
+    if (c.dependents && form.getValues("dependents").length === 0) form.setValue("dependents", [{ name: "", birthDate: "" }]);
+    // Errors on sections that are now hidden shouldn't linger.
+    form.clearErrors(hiddenFields(c));
+  }
+
+  function buildForm(c: OnboardingChoices) {
+    applyChoices(c);
+    setBuildingLines(buildLines(c, form.getValues("firstName").trim() || undefined));
+  }
+
+  function closeChoices() {
+    if (choices) setModalOpen(false);
+    else applyChoices(FULL_FORM);
   }
 
   // ---- Step navigation ----
@@ -112,13 +165,10 @@ export function OnboardingPage() {
       steps.map((s, i) => {
         const { filled, total } = stepProgress(s, values);
         const hasErrors = s.fields.some((f) => formState.errors[f]);
-        const requiredDone = s.required.every((f) => {
-          const v = values[f as FieldName];
-          return Array.isArray(v) ? v.length > 0 : String(v ?? "").trim().length > 0;
-        });
+        const requiredDone = s.required.every((f) => isFilled(values[f as FieldName]));
         return { step: s, filled, total, hasErrors, complete: i < maxVisited && requiredDone && !hasErrors };
       }),
-    [values, formState.errors, maxVisited],
+    [steps, values, formState.errors, maxVisited],
   );
 
   function goTo(index: number) {
@@ -142,7 +192,12 @@ export function OnboardingPage() {
 
   async function next() {
     const ok = await trigger(steps[step].fields, { shouldFocus: true });
-    if (!ok) return;
+    if (!ok) {
+      // Mark the step's fields as visited so each error clears as soon as it's fixed. Otherwise the
+      // message only goes on blur, the layout jumps, and the next click on Next misses the button.
+      for (const f of steps[step].fields) form.setValue(f, getValues(f), { shouldTouch: true });
+      return;
+    }
     if (step + 1 === REVIEW) await enterReview();
     else goTo(step + 1);
   }
@@ -160,6 +215,7 @@ export function OnboardingPage() {
       queryClient.invalidateQueries({ queryKey: ["personnel"] });
       queryClient.invalidateQueries({ queryKey: ["manager"] });
       clearDraft();
+      clearChoices();
       setCreated(employee);
       scrollToTop(false);
     },
@@ -173,11 +229,17 @@ export function OnboardingPage() {
         toast.show("Check the possible duplicate before you submit.");
         return;
       }
-      mutation.mutate(toCreateInput(v, { governmentId: idScan.governmentId }));
+      // Sections they chose to leave out aren't sent, even if something was typed there earlier.
+      const blank = emptyValues();
+      const clean = { ...v } as Record<string, unknown>;
+      for (const f of hiddenFields(active)) clean[f] = blank[f];
+      mutation.mutate(
+        toCreateInput(clean as AddEmployeeFormValues, { governmentId: idScan.governmentId, applicableDocuments: documentsFor(active).situational }),
+      );
     },
     (errors) => {
       // Something on an earlier step is wrong: take them there and put the cursor on it.
-      const index = firstStepWithError(errors);
+      const index = firstStepWithError(errors, steps);
       if (index === null) return;
       goTo(index);
       const field = steps[index].fields.find((f) => errors[f]);
@@ -195,6 +257,7 @@ export function OnboardingPage() {
 
   function discard() {
     clearDraft();
+    clearChoices();
     idScan.reset();
     navigate("/employee");
   }
@@ -242,6 +305,7 @@ export function OnboardingPage() {
 
   return (
     <FormProvider {...form}>
+      <ChoicesContext.Provider value={active}>
       <div className="add-employee mx-auto flex w-full max-w-[1200px] flex-col gap-5">
         <div>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -262,14 +326,42 @@ export function OnboardingPage() {
           </div>
         </div>
 
+        {buildingLines ? (
+          <BuildingForm
+            lines={buildingLines}
+            onDone={() => {
+              setBuildingLines(null);
+              scrollToTop(false);
+            }}
+          />
+        ) : (
+        <>
         <div className="lg:hidden">
           <StepBar statuses={statuses} current={step} />
+          {choices && (
+            <button type="button" onClick={() => setModalOpen(true)} disabled={Boolean(pendingDraft)} className="mt-2 text-xs font-semibold text-brand-ink hover:underline disabled:opacity-50">
+              Change what I'll provide
+            </button>
+          )}
         </div>
 
         <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
           {/* Stays at the top of the page and scrolls away with it. */}
           <aside className="hidden lg:block">
             <StepList statuses={statuses} current={step} maxVisited={maxVisited} onSelect={selectStep} />
+            {choices && (
+              <div className="mt-4 rounded-xl border border-border bg-surface px-3.5 py-3">
+                <p className="text-xs text-ink-2">Your form only asks for what applies to you.</p>
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(true)}
+                  disabled={Boolean(pendingDraft)}
+                  className="mt-1 text-xs font-semibold text-brand-ink hover:underline disabled:opacity-50"
+                >
+                  Change what I'll provide
+                </button>
+              </div>
+            )}
           </aside>
 
           <form
@@ -356,7 +448,11 @@ export function OnboardingPage() {
             </div>
           </form>
         </div>
+        </>
+        )}
       </div>
+
+      <ChoicesModal open={modalOpen} initial={choices} onBuild={buildForm} onFullForm={() => applyChoices(FULL_FORM)} onClose={closeChoices} />
 
       <ConfirmDialog
         open={confirmDiscard}
@@ -367,6 +463,7 @@ export function OnboardingPage() {
         onConfirm={discard}
         onClose={() => setConfirmDiscard(false)}
       />
+      </ChoicesContext.Provider>
     </FormProvider>
   );
 }

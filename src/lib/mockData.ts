@@ -779,13 +779,17 @@ export interface NewHireGovernmentId {
 export function buildNewHireDocuments(
   employeeId: string,
   governmentId?: NewHireGovernmentId,
-  /** Documents HR ticked as received while adding the employee. */
+  /** Documents ticked as received during onboarding. */
   received: PersonnelDocumentType[] = [],
+  /** Situational documents that apply to this person (from their Onboarding choices). */
+  applicable?: PersonnelDocumentType[],
+  license?: { number: string; expiry?: string },
 ): PersonnelDocument[] {
   const situational: PersonnelDocumentType[] = [
     "Marriage Certificate (PSA)",
     "Child's Birth Certificate",
     "Professional License",
+    ...(applicable ? (["Certificate of Employment (Previous)"] as PersonnelDocumentType[]) : []),
   ];
   const today = new Date().toISOString().slice(0, 10);
   return PERSONNEL_DOCUMENT_TYPES.map((type, i) => {
@@ -793,8 +797,9 @@ export function buildNewHireDocuments(
       id: `doc-${employeeId}-${i + 1}`,
       employeeId,
       type,
-      status: situational.includes(type) ? "Not applicable" : "Missing",
+      status: situational.includes(type) && !applicable?.includes(type) ? "Not applicable" : "Missing",
     };
+    if (type === "Professional License" && license) Object.assign(doc, { licenseNumber: license.number, licenseExpiry: license.expiry });
     if (type === "Valid Government ID" && governmentId) {
       return { ...doc, status: "Submitted", uploadedOn: today, ...governmentId };
     }

@@ -781,6 +781,11 @@ export interface CreateEmployeeInput {
   applicantId?: string;
   /** Who added them, for the audit log. */
   actor?: AuditActor;
+  /** Situational 201 documents that apply (from Onboarding choices); others are "Not applicable". */
+  applicableDocuments?: PersonnelDocumentType[];
+  dependents?: Omit<Dependent, "id">[];
+  license?: { profession?: string; number: string; expiry?: string };
+  previousEmployer?: { name: string; lastDay?: string };
   position: string;
   department: string;
   office: Employee["office"];
@@ -895,16 +900,17 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Employ
     ...personnelProfiles,
     {
       employeeId: employee.id,
-      dependents: [],
       birthDate: input.birthDate || undefined,
       civilStatus: input.civilStatus,
       bloodType: input.bloodType || undefined,
       address: input.address?.trim() || undefined,
+      dependents: (input.dependents ?? []).map((d, i) => ({ ...d, id: `dep-${employee.id}-${i + 1}` })),
+      previousEmployer: input.previousEmployer,
     },
   ]);
   setPersonnelDocuments([
     ...personnelDocuments,
-    ...buildNewHireDocuments(employee.id, input.governmentId, input.receivedDocuments),
+    ...buildNewHireDocuments(employee.id, input.governmentId, input.receivedDocuments, input.applicableDocuments, input.license),
   ]);
   if (input.actor) logPersonnelAccess(employee.id, input.actor, "Created", "201 File", `Added as ${employee.position}`);
   // Every new hire starts onboarding (BRD ONB-001); a Recruitment hire is also linked to the application.

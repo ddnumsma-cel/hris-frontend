@@ -4,17 +4,19 @@ import type { AddEmployeeFormValues } from "@/lib/schemas";
 import { FieldGroup } from "./fields";
 import { GovIdInput } from "./GovIdInput";
 import type { IdScan } from "./useIdScan";
-import { coreDocuments, situationalDocuments } from "./model";
+import { documentsFor, useChoices } from "./choices";
 
 export function GovernmentStep({ idScan }: { idScan: IdScan }) {
   const { control } = useFormContext<AddEmployeeFormValues>();
   const civilStatus = useWatch({ control, name: "civilStatus" });
   const idOnFile = Boolean(idScan.governmentId);
+  const { core: coreDocuments, situational: situationalDocuments } = documentsFor(useChoices());
 
   const whyNeeded: Partial<Record<string, string>> = {
-    "Marriage Certificate (PSA)": civilStatus === "Married" ? "Needed — marked as married" : "If married",
-    "Child's Birth Certificate": "For each child claimed as a dependent",
-    "Professional License": "For CPAs, lawyers and other licensed roles",
+    "Marriage Certificate (PSA)": civilStatus === "Married" ? "Needed — you're married" : "You said you're married",
+    "Child's Birth Certificate": "One for each child you declared",
+    "Professional License": "Your PRC ID or certificate",
+    "Certificate of Employment (Previous)": "From your last employer, with your BIR Form 2316",
   };
 
   return (
@@ -70,8 +72,12 @@ export function GovernmentStep({ idScan }: { idScan: IdScan }) {
                     {received} of {coreDocuments.length} documents received
                   </p>
                   <ul className="grid gap-2 md:grid-cols-2">{coreDocuments.map((t) => row(t))}</ul>
-                  <p className="mt-2 text-xs font-semibold text-ink-2">If applicable</p>
-                  <ul className="grid gap-2 md:grid-cols-2">{situationalDocuments.map((t) => row(t, whyNeeded[t]))}</ul>
+                  {situationalDocuments.length > 0 && (
+                    <>
+                      <p className="mt-2 text-xs font-semibold text-ink-2">Because of your answers</p>
+                      <ul className="grid gap-2 md:grid-cols-2">{situationalDocuments.map((t) => row(t, whyNeeded[t]))}</ul>
+                    </>
+                  )}
                 </>
               );
             }}

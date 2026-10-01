@@ -134,6 +134,15 @@ export const addEmployeeSchema = z
     philHealth: govId("philHealth"),
     pagIbig: govId("pagIbig"),
     receivedDocuments: z.array(z.string()),
+
+    // Only asked when the employee says it applies (Onboarding choices); checked in the form's resolver.
+    spouseName: z.string().trim(),
+    dependents: z.array(z.object({ name: z.string().trim(), birthDate: z.string() })),
+    licenseProfession: z.string().trim(),
+    licenseNumber: z.string().trim(),
+    licenseExpiry: z.string(),
+    previousEmployer: z.string().trim(),
+    previousLastDay: z.string(),
   })
   // Client clusters only apply to Accounting; IT staff sit under Admin & Support.
   .refine((v) => v.department !== "Accounting" || (hireClusterOptions as readonly string[]).includes(v.cluster), {

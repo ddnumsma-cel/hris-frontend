@@ -3,6 +3,7 @@ import { formatPhMobile, isValidPhMobile } from "@/lib/govIds";
 import { emergencyRelationshipOptions, type AddEmployeeFormValues } from "@/lib/schemas";
 import { FieldError, FieldGroup, FieldHint, inputClass, Label } from "./fields";
 import { describe } from "./fieldProps";
+import { useChoices } from "./choices";
 
 export function ContactStep() {
   const {
@@ -10,6 +11,7 @@ export function ContactStep() {
     setValue,
     formState: { errors },
   } = useFormContext<AddEmployeeFormValues>();
+  const choices = useChoices();
 
   // Any accepted way of typing a mobile number is tidied to +63 9XX XXX XXXX on leaving the field.
   const mobile = (name: "phone" | "emergencyPhone") =>
@@ -74,6 +76,7 @@ export function ContactStep() {
           </div>
         </FieldGroup>
 
+        {choices.address && (
         <FieldGroup title="Home address">
           <div>
             <Label htmlFor="emp-street">
@@ -102,7 +105,9 @@ export function ContactStep() {
             </div>
           </div>
         </FieldGroup>
+        )}
 
+        {choices.emergency && (
         <FieldGroup title="Emergency contact">
           <div className="grid gap-4 md:grid-cols-3">
             <div>
@@ -141,6 +146,7 @@ export function ContactStep() {
             </div>
           </div>
         </FieldGroup>
+        )}
       </div>
     </>
   );

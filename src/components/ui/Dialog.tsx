@@ -1,6 +1,9 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import clsx from "clsx";
 import { XIcon } from "../icons";
+
+const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE_FIRST = ":is(input, select, textarea, button, a[href])";
 
 export function Dialog({
   open,
@@ -24,14 +27,42 @@ export function Dialog({
   dismissOnBackdrop?: boolean;
   children: ReactNode;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!open) return;
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
+      // Keep Tab inside the dialog while it's open.
+      if (e.key === "Tab" && panelRef.current) {
+        const items = [...panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => !el.hasAttribute("disabled"));
+        if (items.length === 0) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
+
+  // Move focus into the dialog when it opens, and back to where it was when it closes.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    if (panel && !panel.contains(document.activeElement)) {
+      const target = panel.querySelector<HTMLElement>("[autofocus], [data-autofocus]") ?? panel.querySelector<HTMLElement>(`[data-dialog-body] ${FOCUSABLE_FIRST}`);
+      (target ?? panel).focus();
+    }
+    return () => previous?.focus?.();
+  }, [open]);
 
   if (!open) return null;
 
@@ -46,12 +77,14 @@ export function Dialog({
       onClick={dismissOnBackdrop ? onClose : undefined}
     >
       <div
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
         className={clsx(
-          "panel-enter w-full rounded-xl border border-border bg-surface shadow-lg",
+          "panel-enter w-full rounded-xl border border-border bg-surface shadow-lg outline-none",
           large ? "flex max-h-[calc(100dvh-2rem)] max-w-3xl flex-col overflow-hidden" : "max-w-md",
         )}
       >
@@ -67,7 +100,9 @@ export function Dialog({
           </button>
         </div>
         {header && <div className="flex-none border-b border-border px-4.5 pt-4">{header}</div>}
-        <div className={clsx("p-4.5", large && "min-h-0 flex-1 overflow-y-auto")}>{children}</div>
+        <div data-dialog-body className={clsx("p-4.5", large && "min-h-0 flex-1 overflow-y-auto")}>
+          {children}
+        </div>
         {footer && <div className="flex-none border-t border-border px-4.5 py-3">{footer}</div>}
       </div>
     </div>

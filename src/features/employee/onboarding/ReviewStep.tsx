@@ -8,7 +8,8 @@ import { formatPhMobile, govIdFormats, maskGovId } from "@/lib/govIds";
 import type { AddEmployeeFormValues } from "@/lib/schemas";
 import { StepHeading } from "./fields";
 import type { IdScan } from "./useIdScan";
-import { composeAddress, coreDocuments, stillNeededBeforePayroll } from "./model";
+import { composeAddress, stillNeededBeforePayroll } from "./model";
+import { documentsFor, useChoices } from "./choices";
 
 function formatDate(iso: string) {
   return iso ? new Date(iso + "T00:00:00").toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "";
@@ -59,10 +60,12 @@ export function ReviewStep({
 }) {
   const { control } = useFormContext<AddEmployeeFormValues>();
   const v = useWatch({ control }) as AddEmployeeFormValues;
-  const stillNeeded = stillNeededBeforePayroll(v);
+  const choices = useChoices();
+  const { core: coreDocuments, situational } = documentsFor(choices);
+  const stillNeeded = stillNeededBeforePayroll(v, choices);
   const idPreview = v.lastName && v.firstName && v.dateHired ? previewEmployeeId(v) : null;
   const fullName = [v.firstName, v.middleName, v.lastName, v.suffix].filter(Boolean).join(" ");
-  const receivedCount = coreDocuments.filter(
+  const receivedCount = [...coreDocuments, ...situational].filter(
     (t) => v.receivedDocuments?.includes(t) || (t === "Valid Government ID" && idScan.governmentId),
   ).length;
 
@@ -139,25 +142,29 @@ export function ReviewStep({
           <Row label="Birth date" value={formatDate(v.birthDate)} />
           <Row label="Sex" value={v.sex} />
           <Row label="Civil status" value={v.civilStatus} />
-          <Row label="Blood type" value={v.bloodType} />
+          {choices.bloodType && <Row label="Blood type" value={v.bloodType} />}
+          {choices.married && <Row label="Spouse" value={v.spouseName} />}
+          {choices.dependents && <Row label="Dependents" value={v.dependents?.filter((d) => d.name.trim()).map((d) => d.name).join(", ")} />}
         </SectionCard>
         <SectionCard title="Contact" onEdit={() => onEdit(1)}>
           <Row label="Mobile" value={v.phone && formatPhMobile(v.phone)} />
           <Row label="Personal email" value={v.personalEmail} />
           <Row label="Work email" value={v.email} />
-          <Row label="Address" value={composeAddress(v)} />
-          <Row
+          {choices.address && <Row label="Address" value={composeAddress(v)} />}
+          {choices.emergency && <Row
             label="Emergency contact"
             value={
               v.emergencyName &&
               `${v.emergencyName}${v.emergencyRelationship ? ` (${v.emergencyRelationship})` : ""}${v.emergencyPhone ? ` · ${formatPhMobile(v.emergencyPhone)}` : ""}`
             }
-          />
+          />}
         </SectionCard>
         <SectionCard title="Employment" onEdit={() => onEdit(2)}>
           <Row label="Position" value={v.position} />
           <Row label="Department" value={v.department && `${v.department}${v.cluster && v.department === "Accounting" ? ` · ${v.cluster}` : ""}`} />
           <Row label="Office" value={v.office} />
+          {choices.licensed && <Row label="PRC license" value={v.licenseNumber && `${v.licenseNumber}${v.licenseExpiry ? ` · until ${formatDate(v.licenseExpiry)}` : ""}`} />}
+          {choices.previousEmployer && <Row label="Previous employer" value={v.previousEmployer} />}
           <Row label="Status" value={v.employmentStatus} />
           <Row label="Date hired" value={formatDate(v.dateHired)} />
           <Row label="Employee ID" value={idPreview?.id} />
@@ -166,7 +173,7 @@ export function ReviewStep({
           {govIdFormats.map((f) => (
             <Row key={f.key} label={f.label} value={v[f.key] && maskGovId(v[f.key])} />
           ))}
-          <Row label="201 documents" value={`${receivedCount} of ${coreDocuments.length} received`} />
+          <Row label="201 documents" value={`${receivedCount} of ${coreDocuments.length + situational.length} received`} />
         </SectionCard>
       </div>
 
@@ -174,7 +181,7 @@ export function ReviewStep({
         <p className="text-sm font-semibold">When you submit</p>
         <ul className="mt-2 flex flex-col gap-1.5 text-sm text-ink-2">
           {[
-            `Your 201 file opens, with ${coreDocuments.length - receivedCount} documents marked as still needed`,
+            `Your 201 file opens, with ${coreDocuments.length + situational.length - receivedCount} documents marked as still needed`,
             idPreview ? `HR sees you in the Employee Directory as ${idPreview.id}` : "HR sees you in the Employee Directory",
             "HR checks your documents and follows up on anything missing",
           ].map((line) => (

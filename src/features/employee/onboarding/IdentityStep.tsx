@@ -1,4 +1,6 @@
-import { useFormContext, useWatch } from "react-hook-form";
+import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
+import { PlusIcon, XIcon } from "@/components/icons";
+import { useChoices } from "./choices";
 import { getAge } from "@/lib/automation";
 import {
   bloodTypeOptions,
@@ -18,6 +20,8 @@ export function IdentityStep({ idScan }: { idScan: IdScan }) {
     control,
     formState: { errors },
   } = useFormContext<AddEmployeeFormValues>();
+  const choices = useChoices();
+  const dependents = useFieldArray({ control, name: "dependents" });
   const birthDate = useWatch({ control, name: "birthDate" });
   const age = birthDate ? getAge(birthDate) : null;
 
@@ -141,19 +145,87 @@ export function IdentityStep({ idScan }: { idScan: IdScan }) {
               </select>
               <FieldHint id="emp-civil-hint">Decides if a marriage certificate is needed</FieldHint>
             </div>
-            <div>
-              <Label htmlFor="emp-blood">Blood type</Label>
-              <select id="emp-blood" className={inputClass} {...field("bloodType")}>
-                <option value="">Select…</option>
-                {bloodTypeOptions.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {choices.bloodType && (
+              <div>
+                <Label htmlFor="emp-blood">Blood type</Label>
+                <select id="emp-blood" className={inputClass} {...field("bloodType")}>
+                  <option value="">Select…</option>
+                  {bloodTypeOptions.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </FieldGroup>
+
+        {(choices.married || choices.dependents) && (
+          <FieldGroup title="Family" description="For your HMO coverage and tax records.">
+            {choices.married && (
+              <div className="md:max-w-[calc(50%-0.5rem)]">
+                <Label htmlFor="emp-spouse" required>
+                  Spouse's full name
+                </Label>
+                <input
+                  id="emp-spouse"
+                  className={inputClass}
+                  placeholder="Maria Santos Dela Cruz"
+                  {...describe("emp-spouse", errors.spouseName?.message)}
+                  {...register("spouseName")}
+                />
+                <FieldError id="emp-spouse-error" message={errors.spouseName?.message} />
+              </div>
+            )}
+            {choices.dependents && (
+              <div className="flex flex-col gap-3">
+                <p className="text-[0.82rem] font-semibold text-ink-2">
+                  Children and dependents<span className="ml-0.5 text-critical" aria-hidden="true">*</span>
+                </p>
+                {dependents.fields.map((row, i) => (
+                  <div key={row.id} className="grid items-start gap-3 md:grid-cols-[2fr_1fr_auto]">
+                    <div>
+                      <Label htmlFor={`emp-dep-${i}`}>Full name</Label>
+                      <input
+                        id={`emp-dep-${i}`}
+                        className={inputClass}
+                        placeholder="Miguel Dela Cruz"
+                        {...describe(`emp-dep-${i}`, errors.dependents?.[i]?.name?.message)}
+                        {...register(`dependents.${i}.name`)}
+                      />
+                      <FieldError id={`emp-dep-${i}-error`} message={errors.dependents?.[i]?.name?.message} />
+                    </div>
+                    <div>
+                      <Label htmlFor={`emp-dep-birth-${i}`}>Birth date</Label>
+                      <input id={`emp-dep-birth-${i}`} type="date" className={inputClass} {...register(`dependents.${i}.birthDate`)} />
+                    </div>
+                    {dependents.fields.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => dependents.remove(i)}
+                        aria-label={`Remove dependent ${i + 1}`}
+                        className="mt-7 flex h-10 w-10 items-center justify-center rounded-lg text-ink-2 hover:bg-surface-2 hover:text-ink"
+                      >
+                        <XIcon className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {dependents.fields.length < 8 && (
+                  <button
+                    type="button"
+                    onClick={() => dependents.append({ name: "", birthDate: "" })}
+                    className="flex items-center gap-1.5 self-start rounded-full px-2 py-1.5 text-sm font-semibold text-brand-ink hover:bg-surface-2"
+                  >
+                    <PlusIcon className="h-3.5 w-3.5" />
+                    Add another
+                  </button>
+                )}
+              </div>
+            )}
+          </FieldGroup>
+        )}
       </div>
     </>
   );
