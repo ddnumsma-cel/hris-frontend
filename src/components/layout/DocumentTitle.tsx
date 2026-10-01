@@ -34,7 +34,7 @@ const titles: Record<string, string> = {
   "/admin/settings": "Settings",
   "/admin/org-chart": "Org Chart",
   "/admin/recruitment": "Recruitment",
-  "/admin/onboarding": "Onboarding",
+  "/admin/pipeline": "Pipeline",
   "/admin/offboarding": "Offboarding",
   "/admin/assets": "Company Assets",
   "/admin/leave": "Leave",

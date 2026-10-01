@@ -18,7 +18,6 @@ import type {
   LeaveType,
   OffboardingCase,
   OfficeHeadcount,
-  OnboardingStage,
   Payslip,
   PayrollCostSegment,
   PayrollRunStep,
@@ -30,9 +29,11 @@ import type {
   PersonnelDocument,
   PersonnelDocumentType,
   PersonnelProfile,
+  OnboardingSubmission,
   ProfessionalLicense,
   TeamRosterMember,
   TrainingRecord,
+  UploadedDocument,
   WorkforceAlert,
 } from "./types";
 
@@ -231,36 +232,13 @@ export function setComplianceCalendar(next: ComplianceItem[]) {
   complianceCalendar = next;
 }
 
-export let employeeDirectory: Employee[] = [
-  { id: "MSMA-00482", name: "Angela Dela Cruz", initials: "AD", position: "Senior Tax Associate", department: "Tax Advisory", office: "Cebu HQ", cluster: "RPM", status: "Active", email: "angela.delacruz@msma.ph", phone: "+63 917 123 4567", reportsToId: "admin" },
-  { id: "MSMA-00317", name: "Rafael Ortiz", initials: "RO", position: "Team Lead", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "rafael.ortiz@msma.ph", phone: "+63 917 555 0142", reportsToId: "admin" },
-  { id: "MSMA-00560", name: "Bea Santos", initials: "BS", position: "Audit Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "On leave", email: "bea.santos@msma.ph", phone: "+63 921 660 3720", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00611", name: "Miguel Reyes", initials: "MR", position: "Legal Associate", department: "Corporate Legal", office: "Manila", cluster: "ADS", status: "Active", email: "miguel.reyes@msma.ph", phone: "+63 921 711 5607", reportsToId: "admin" },
-  { id: "MSMA-00098", name: "Lourdes Vitug", initials: "LV", position: "Bookkeeper", department: "Bookkeeping", office: "Davao", cluster: "RPM", status: "Active", email: "lourdes.vitug@msma.ph", phone: "+63 921 198 4626", reportsToId: "admin" },
-  { id: "MSMA-00203", name: "Carla Uy", initials: "CU", position: "Senior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "carla.uy@msma.ph", phone: "+63 921 303 8511", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00276", name: "Jon Ababa", initials: "JA", position: "Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "jon.ababa@msma.ph", phone: "+63 917 376 2212", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00341", name: "Dennis Lim", initials: "DL", position: "Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "RPM", status: "On leave", email: "dennis.lim@msma.ph", phone: "+63 921 441 4617", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00398", name: "Grace Tan", initials: "GT", position: "Audit Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "On leave", email: "grace.tan@msma.ph", phone: "+63 921 498 6726", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00623", name: "Paolo Cruz", initials: "PC", position: "Tax Associate", department: "Tax Advisory", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "paolo.cruz@msma.ph", phone: "+63 921 723 6051", reportsToId: "MSMA-00482" },
-  { id: "MSMA-00701", name: "Ramon Bautista", initials: "RB", position: "Bookkeeper", department: "Bookkeeping", office: "Davao", cluster: "RPM", status: "Active", email: "ramon.bautista@msma.ph", phone: "+63 921 801 8937", reportsToId: "admin" },
-  { id: "MSMA-00733", name: "Michelle Aquino", initials: "MA", position: "Paralegal", department: "Corporate Legal", office: "Manila", cluster: "ADS", status: "Active", email: "michelle.aquino@msma.ph", phone: "+63 919 833 1121", reportsToId: "admin" },
-  { id: "MSMA-00812", name: "Joel Nierves", initials: "JN", position: "IT Support Associate", department: "Admin & Support", office: "Cebu HQ", cluster: "Admin & Support", status: "Active", email: "joel.nierves@msma.ph", phone: "+63 921 912 4044", reportsToId: "admin" },
-  { id: "MSMA-00845", name: "Ferdz Salazar", initials: "FS", position: "Liaison Officer", department: "Admin & Support", office: "Cebu HQ", cluster: "Admin & Support", status: "Active", email: "ferdz.salazar@msma.ph", phone: "+63 921 945 5265", reportsToId: "admin" },
-];
+// Empty until new hires submit Onboarding and HR sets up their employment in Pipeline.
+export let employeeDirectory: Employee[] = [];
 
 export function setEmployeeDirectory(next: Employee[]) {
   employeeDirectory = next;
 }
 
-export let onboardingPipeline: OnboardingStage[] = [
-  { stage: "Offer accepted", count: 2 },
-  { stage: "Documents submitted", count: 3 },
-  { stage: "Day 1 setup", count: 1 },
-];
-
-export function setOnboardingPipeline(next: OnboardingStage[]) {
-  onboardingPipeline = next;
-}
 
 export const workforceAlerts: WorkforceAlert[] = [
   {
@@ -645,68 +623,7 @@ export function setProfessionalLicenses(next: ProfessionalLicense[]) {
 // Full detail here is HR/manager-only; the employee-facing API layer
 // projects these down to a status-only checklist before returning them.
 
-export let personnelProfiles: PersonnelProfile[] = [
-  { employeeId: "MSMA-00482", birthDate: "1997-03-14", civilStatus: "Single", dependents: [] },
-  {
-    employeeId: "MSMA-00317",
-    birthDate: "1988-06-02",
-    civilStatus: "Married",
-    dependents: [
-      { id: "dep-1", name: "Liza Ortiz", relationship: "Spouse" },
-      { id: "dep-2", name: "Miko Ortiz", relationship: "Child", birthDate: "2015-09-10" },
-    ],
-  },
-  { employeeId: "MSMA-00560", birthDate: "2000-01-22", civilStatus: "Single", dependents: [] },
-  {
-    employeeId: "MSMA-00611",
-    birthDate: "1995-11-05",
-    civilStatus: "Married",
-    dependents: [{ id: "dep-3", name: "Anna Reyes", relationship: "Spouse" }],
-  },
-  {
-    employeeId: "MSMA-00098",
-    birthDate: "1974-04-18",
-    civilStatus: "Widowed",
-    dependents: [{ id: "dep-4", name: "Karl Vitug", relationship: "Child", birthDate: "2008-02-20" }],
-  },
-  {
-    employeeId: "MSMA-00203",
-    birthDate: "1993-02-27",
-    civilStatus: "Married",
-    dependents: [{ id: "dep-5", name: "Sofia Uy", relationship: "Child", birthDate: "2020-04-11" }],
-  },
-  { employeeId: "MSMA-00276", birthDate: "2002-08-30", civilStatus: "Single", dependents: [] },
-  { employeeId: "MSMA-00341", birthDate: "1999-05-12", civilStatus: "Single", dependents: [] },
-  {
-    employeeId: "MSMA-00398",
-    birthDate: "1997-07-19",
-    civilStatus: "Married",
-    dependents: [{ id: "dep-6", name: "Leo Tan", relationship: "Child", birthDate: "2022-01-30" }],
-  },
-  { employeeId: "MSMA-00623", birthDate: "1998-10-03", civilStatus: "Single", dependents: [] },
-  {
-    employeeId: "MSMA-00701",
-    birthDate: "1981-01-09",
-    civilStatus: "Married",
-    dependents: [
-      { id: "dep-7", name: "Ana Bautista", relationship: "Spouse" },
-      { id: "dep-8", name: "Rico Bautista", relationship: "Child", birthDate: "2010-06-18" },
-    ],
-  },
-  { employeeId: "MSMA-00733", birthDate: "1996-03-25", civilStatus: "Single", dependents: [] },
-  {
-    employeeId: "MSMA-00812",
-    birthDate: "1992-12-14",
-    civilStatus: "Married",
-    dependents: [{ id: "dep-9", name: "Mia Nierves", relationship: "Spouse" }],
-  },
-  {
-    employeeId: "MSMA-00845",
-    birthDate: "1966-02-08",
-    civilStatus: "Married",
-    dependents: [{ id: "dep-10", name: "Elena Salazar", relationship: "Spouse" }],
-  },
-];
+export let personnelProfiles: PersonnelProfile[] = [];
 
 export function setPersonnelProfiles(next: PersonnelProfile[]) {
   personnelProfiles = next;
@@ -726,45 +643,6 @@ export const PERSONNEL_DOCUMENT_TYPES: PersonnelDocumentType[] = [
   "Pre-Employment Medical Result",
 ];
 
-const LICENSED_EMPLOYEE_IDS = new Set(professionalLicenses.map((l) => l.employeeId));
-
-function buildPersonnelDocuments(
-  employeeId: string,
-  overrides: Partial<Record<PersonnelDocumentType, Partial<PersonnelDocument>>> = {},
-): PersonnelDocument[] {
-  const profile = personnelProfiles.find((p) => p.employeeId === employeeId);
-  const married = profile?.civilStatus === "Married";
-  const hasChild = profile?.dependents.some((d) => d.relationship === "Child") ?? false;
-  const licensed = LICENSED_EMPLOYEE_IDS.has(employeeId);
-
-  return PERSONNEL_DOCUMENT_TYPES.map((type, i) => {
-    let status: PersonnelDocument["status"] = "Submitted";
-    if (type === "Marriage Certificate (PSA)" && !married) status = "Not applicable";
-    if (type === "Child's Birth Certificate" && !hasChild) status = "Not applicable";
-    if (type === "Professional License" && !licensed) status = "Not applicable";
-
-    const doc: PersonnelDocument = {
-      id: `doc-${employeeId}-${i + 1}`,
-      employeeId,
-      type,
-      status,
-      ...(status === "Submitted"
-        ? { fileName: `${type.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pdf`, uploadedOn: "2024-01-15" }
-        : {}),
-      ...(type === "Valid Government ID" && status === "Submitted"
-        ? { idType: "UMID", idNumber: `01-${employeeId.slice(-7)}-0`, idExpiry: "2028-05-01" }
-        : {}),
-      ...(type === "Professional License" && licensed
-        ? {
-            licenseNumber: professionalLicenses.find((l) => l.employeeId === employeeId)?.licenseNumber,
-            licenseExpiry: "2029-01-01",
-          }
-        : {}),
-    };
-    return { ...doc, ...overrides[type] };
-  });
-}
-
 export interface NewHireGovernmentId {
   idType: string;
   idNumber?: string;
@@ -773,101 +651,59 @@ export interface NewHireGovernmentId {
   extraFileNames?: string[];
 }
 
-/** A fresh 201 checklist for someone just added through the directory:
- * everything Missing (situational documents Not applicable) except the
- * government ID, when HR scanned one while adding them. */
+/** Situational 201 documents: only needed when they apply to the person. */
+export const SITUATIONAL_DOCUMENT_TYPES: PersonnelDocumentType[] = [
+  "Marriage Certificate (PSA)",
+  "Child's Birth Certificate",
+  "Professional License",
+  "Certificate of Employment (Previous)",
+];
+
+/** A fresh 201 checklist for a new hire: what they uploaded in Onboarding is Submitted
+ * (awaiting HR verification), the rest Missing, and situational documents that don't apply
+ * Not applicable. */
 export function buildNewHireDocuments(
   employeeId: string,
-  governmentId?: NewHireGovernmentId,
-  /** Documents ticked as received during onboarding. */
-  received: PersonnelDocumentType[] = [],
-  /** Situational documents that apply to this person (from their Onboarding choices). */
-  applicable?: PersonnelDocumentType[],
+  governmentId: NewHireGovernmentId | undefined,
+  uploads: UploadedDocument[],
+  /** Situational documents that apply to this person; the others are Not applicable. */
+  applicable: PersonnelDocumentType[],
   license?: { number: string; expiry?: string },
+  uploadedOn = new Date().toISOString().slice(0, 10),
 ): PersonnelDocument[] {
-  const situational: PersonnelDocumentType[] = [
-    "Marriage Certificate (PSA)",
-    "Child's Birth Certificate",
-    "Professional License",
-    ...(applicable ? (["Certificate of Employment (Previous)"] as PersonnelDocumentType[]) : []),
-  ];
-  const today = new Date().toISOString().slice(0, 10);
   return PERSONNEL_DOCUMENT_TYPES.map((type, i) => {
     const doc: PersonnelDocument = {
       id: `doc-${employeeId}-${i + 1}`,
       employeeId,
       type,
-      status: situational.includes(type) && !applicable?.includes(type) ? "Not applicable" : "Missing",
+      status: SITUATIONAL_DOCUMENT_TYPES.includes(type) && !applicable.includes(type) ? "Not applicable" : "Missing",
     };
     if (type === "Professional License" && license) Object.assign(doc, { licenseNumber: license.number, licenseExpiry: license.expiry });
+    const upload = uploads.find((u) => u.type === type);
     if (type === "Valid Government ID" && governmentId) {
-      return { ...doc, status: "Submitted", uploadedOn: today, ...governmentId };
+      return { ...doc, status: "Submitted", uploadedOn, ...governmentId, ...(upload ? { fileName: upload.fileName } : {}) };
     }
-    if (received.includes(type)) return { ...doc, status: "Submitted", uploadedOn: today };
+    if (upload && doc.status !== "Not applicable") return { ...doc, status: "Submitted", uploadedOn, fileName: upload.fileName };
     return doc;
   });
 }
 
-export let personnelDocuments: PersonnelDocument[] = [
-  ...buildPersonnelDocuments("MSMA-00482", {
-    "Valid Government ID": { idType: "UMID", idNumber: "01-0482-1997-0", idExpiry: "2026-10-05" },
-    "Professional License": { status: "Verified", licenseNumber: "0123456", licenseExpiry: "2027-06-15" },
-    "Pre-Employment Medical Result": { status: "Missing", fileName: undefined, uploadedOn: undefined },
-  }),
-  ...buildPersonnelDocuments("MSMA-00317", {
-    "Application Form / Resume": { status: "Verified" },
-    "Birth Certificate (PSA)": { status: "Verified" },
-    "Valid Government ID": { status: "Verified", idType: "Passport", idNumber: "P1234567A", idExpiry: "2030-01-01" },
-    "Professional License": { status: "Verified", licenseNumber: "0087654", licenseExpiry: "2029-01-01" },
-    "NBI Clearance": { status: "Verified" },
-  }),
-  ...buildPersonnelDocuments("MSMA-00560", {
-    "NBI Clearance": { status: "Missing", fileName: undefined, uploadedOn: undefined },
-    "Police/Barangay Clearance": { status: "Missing", fileName: undefined, uploadedOn: undefined },
-  }),
-  ...buildPersonnelDocuments("MSMA-00611"),
-  ...buildPersonnelDocuments("MSMA-00098"),
-  ...buildPersonnelDocuments("MSMA-00203", {
-    "Professional License": { status: "Verified", licenseNumber: "0145233", licenseExpiry: "2028-03-15" },
-  }),
-  ...buildPersonnelDocuments("MSMA-00276"),
-  ...buildPersonnelDocuments("MSMA-00341"),
-  ...buildPersonnelDocuments("MSMA-00398"),
-  ...buildPersonnelDocuments("MSMA-00623", {
-    "Professional License": { status: "Submitted", licenseNumber: "0198812", licenseExpiry: "2027-12-01" },
-  }),
-  ...buildPersonnelDocuments("MSMA-00701"),
-  ...buildPersonnelDocuments("MSMA-00733"),
-  ...buildPersonnelDocuments("MSMA-00812"),
-  ...buildPersonnelDocuments("MSMA-00845"),
-];
+export let personnelDocuments: PersonnelDocument[] = [];
 
 export function setPersonnelDocuments(next: PersonnelDocument[]) {
   personnelDocuments = next;
 }
 
-export let auditLogEntries: AuditLogEntry[] = [
-  {
-    id: "audit-1",
-    employeeId: "MSMA-00482",
-    actorName: "Dinah Marquez",
-    actorRole: "admin",
-    action: "Verified",
-    target: "Professional License",
-    detail: "Marked Verified",
-    timestamp: "2026-09-20T10:15:00",
-  },
-  {
-    id: "audit-2",
-    employeeId: "MSMA-00560",
-    actorName: "Rafael Ortiz",
-    actorRole: "manager",
-    action: "Viewed",
-    target: "201 File",
-    timestamp: "2026-09-25T09:02:00",
-  },
-];
+export let auditLogEntries: AuditLogEntry[] = [];
 
 export function setAuditLogEntries(next: AuditLogEntry[]) {
   auditLogEntries = next;
+}
+
+// --- Onboarding submissions waiting for HR to add employment details (Pipeline) ---
+
+export let onboardingSubmissions: OnboardingSubmission[] = [];
+
+export function setOnboardingSubmissions(next: OnboardingSubmission[]) {
+  onboardingSubmissions = next;
 }

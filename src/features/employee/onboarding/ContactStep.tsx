@@ -3,7 +3,6 @@ import { formatPhMobile, isValidPhMobile } from "@/lib/govIds";
 import { emergencyRelationshipOptions, type AddEmployeeFormValues } from "@/lib/schemas";
 import { FieldError, FieldGroup, FieldHint, inputClass, Label } from "./fields";
 import { describe } from "./fieldProps";
-import { useChoices } from "./choices";
 
 export function ContactStep() {
   const {
@@ -11,7 +10,6 @@ export function ContactStep() {
     setValue,
     formState: { errors },
   } = useFormContext<AddEmployeeFormValues>();
-  const choices = useChoices();
 
   // Any accepted way of typing a mobile number is tidied to +63 9XX XXX XXXX on leaving the field.
   const mobile = (name: "phone" | "emergencyPhone") =>
@@ -76,7 +74,6 @@ export function ContactStep() {
           </div>
         </FieldGroup>
 
-        {choices.address && (
         <FieldGroup title="Home address">
           <div>
             <Label htmlFor="emp-street">
@@ -105,9 +102,7 @@ export function ContactStep() {
             </div>
           </div>
         </FieldGroup>
-        )}
 
-        {choices.emergency && (
         <FieldGroup title="Emergency contact">
           <div className="grid gap-4 md:grid-cols-3">
             <div>
@@ -146,7 +141,46 @@ export function ContactStep() {
             </div>
           </div>
         </FieldGroup>
-        )}
+
+        <FieldGroup title="Work background (if any)" description="Skip this if it doesn't apply to you.">
+          <div className="flex flex-col gap-4">
+            <p className="text-[0.82rem] font-semibold text-ink-2">Professional license</p>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <Label htmlFor="emp-license-prof">Profession</Label>
+                <select id="emp-license-prof" className={inputClass} {...register("licenseProfession")}>
+                  <option value="">Select…</option>
+                  {["Certified Public Accountant", "Lawyer", "Other PRC license"].map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="emp-license-no">PRC license number</Label>
+                <input id="emp-license-no" inputMode="numeric" className={inputClass} placeholder="0123456" {...describe("emp-license-no", undefined, true)} {...register("licenseNumber")} />
+                <FieldHint id="emp-license-no-hint">HR tracks the expiry for you</FieldHint>
+              </div>
+              <div>
+                <Label htmlFor="emp-license-exp">Valid until</Label>
+                <input id="emp-license-exp" type="date" className={inputClass} {...register("licenseExpiry")} />
+              </div>
+            </div>
+            <p className="mt-1 text-[0.82rem] font-semibold text-ink-2">Previous employer</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <Label htmlFor="emp-prev-company">Company name</Label>
+                <input id="emp-prev-company" className={inputClass} placeholder="SGV & Co." {...describe("emp-prev-company", undefined, true)} {...register("previousEmployer")} />
+                <FieldHint id="emp-prev-company-hint">Ask them for your BIR Form 2316 so this year's tax is computed right</FieldHint>
+              </div>
+              <div>
+                <Label htmlFor="emp-prev-last">Last day there</Label>
+                <input id="emp-prev-last" type="date" className={inputClass} {...register("previousLastDay")} />
+              </div>
+            </div>
+          </div>
+        </FieldGroup>
       </div>
     </>
   );

@@ -129,11 +129,6 @@ export interface ComplianceItem {
   referenceNo?: string;
 }
 
-export interface OnboardingStage {
-  stage: "Offer accepted" | "Documents submitted" | "Day 1 setup";
-  count: number;
-}
-
 export interface AdminOverviewStats {
   totalHeadcount: number;
   newHiresThisMonth: number;
@@ -361,6 +356,12 @@ export interface PersonnelDocument {
   licenseExpiry?: string;
 }
 
+/** A 201 document the new hire attached in Onboarding (mock: the file name only). */
+export interface UploadedDocument {
+  type: PersonnelDocumentType;
+  fileName: string;
+}
+
 /** The employee-safe projection of a PersonnelDocument — status only, no
  * sensitive fields and no file — used by the employee's own checklist view. */
 export interface PersonnelDocumentChecklistItem {
@@ -376,6 +377,43 @@ export interface Dependent {
   name: string;
   relationship: "Spouse" | "Child";
   birthDate?: string;
+}
+
+/** Everything a new hire tells HR in Onboarding: personal details only. HR adds the
+ * employment details (position, department, start date…) in Pipeline. */
+export interface OnboardingSubmissionInput {
+  lastName: string;
+  firstName: string;
+  middleName?: string;
+  suffix?: string;
+  nickname?: string;
+  birthDate?: string;
+  civilStatus?: CivilStatus;
+  /** Work email, if they already have one. */
+  email?: string;
+  personalEmail?: string;
+  phone?: string;
+  bloodType?: string;
+  address?: string;
+  emergencyContact?: { name: string; relationship?: string; phone?: string };
+  governmentNumbers?: Employee["governmentNumbers"];
+  dependents?: Omit<Dependent, "id">[];
+  license?: { profession?: string; number: string; expiry?: string };
+  previousEmployer?: { name: string; lastDay?: string };
+  /** Scanned or typed ID details — becomes the "Valid Government ID" 201 document.
+   * `fileName` is the first image; `extraFileNames` holds any others (e.g. the back). */
+  governmentId?: { idType: string; idNumber?: string; idExpiry?: string; fileName?: string; extraFileNames?: string[] };
+  /** 201 documents they attached; HR verifies them. */
+  uploadedDocuments?: UploadedDocument[];
+}
+
+export interface OnboardingSubmission {
+  id: string;
+  /** ISO timestamp. */
+  submittedAt: string;
+  input: OnboardingSubmissionInput;
+  /** Made by the signed-in employee in this demo; their account becomes the new record. */
+  fromSignedInEmployee: boolean;
 }
 
 export interface PersonnelProfile {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Chip, type ChipVariant } from "@/components/ui/Chip";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/Bento";
 import { useToast } from "@/components/ui/ToastContext";
 import {
+  ArrowRightIcon,
   BellIcon,
   CheckIcon,
   DownloadIcon,
@@ -35,7 +36,7 @@ import {
   fetchComplianceCalendar,
   fetchEmployeeDirectory,
   fetchHeadcountByOffice,
-  fetchOnboardingPipeline,
+  fetchOnboardingSubmissions,
   fetchAllPersonnelDocuments,
   fetchAllPersonnelProfiles,
   fetchJobRequisitions,
@@ -77,7 +78,7 @@ export function AdminOverview() {
   const headcountQuery = useQuery({ queryKey: ["admin", "headcount-by-office"], queryFn: fetchHeadcountByOffice });
   const complianceQuery = useQuery({ queryKey: ["admin", "compliance-calendar"], queryFn: fetchComplianceCalendar });
   const directoryQuery = useQuery({ queryKey: ["admin", "employee-directory"], queryFn: fetchEmployeeDirectory });
-  const onboardingQuery = useQuery({ queryKey: ["admin", "onboarding-pipeline"], queryFn: fetchOnboardingPipeline });
+  const pipelineQuery = useQuery({ queryKey: ["admin", "onboarding-submissions"], queryFn: fetchOnboardingSubmissions });
   const certificatesQuery = useQuery({
     queryKey: ["admin", "certificate-requests"],
     queryFn: fetchCertificateRequestsForReview,
@@ -371,17 +372,14 @@ export function AdminOverview() {
 
         <BentoArea area="onboarding">
           <Card className="h-full">
-            <CardHeader title="Onboarding pipeline" meta="September batch" />
-            <div className="flex divide-x divide-dashed divide-border px-2 pb-4">
-              {onboardingQuery.data?.map((stage) => (
-                <div key={stage.stage} className="flex-1 px-2 py-3 text-center">
-                  <div className="font-num font-display text-[28px] font-semibold tracking-[-0.02em]">
-                    {stage.count}
-                  </div>
-                  <div className="mt-0.5 text-xs text-ink-2">{stage.stage}</div>
-                </div>
-              ))}
-            </div>
+            <CardHeader title="Pipeline" />
+            <Link to="/admin/pipeline" className="flex items-center justify-between gap-3 px-4.5 pb-4 hover:text-brand-ink">
+              <div>
+                <div className="font-num font-display text-[28px] font-semibold tracking-[-0.02em]">{pipelineQuery.data?.length ?? 0}</div>
+                <div className="mt-0.5 text-xs text-ink-2">New hires awaiting employment details</div>
+              </div>
+              <ArrowRightIcon className="h-4 w-4 flex-none text-ink-3" />
+            </Link>
           </Card>
         </BentoArea>
       </div>

@@ -45,7 +45,7 @@ export function AdminLayout() {
                   to: "/admin/lifecycle",
                   icon: <UserPlusIcon />,
                   children: [
-                    { label: "Onboarding", to: "/admin/onboarding" },
+                    { label: "Pipeline", to: "/admin/pipeline" },
                     { label: "Offboarding", to: "/admin/offboarding" },
                     { label: "Assets", to: "/admin/assets" },
                   ],

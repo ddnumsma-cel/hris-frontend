@@ -119,23 +119,15 @@ export const addEmployeeSchema = z
       .trim()
       .refine((v) => !v || isValidPhMobile(v), "Use a PH mobile number, e.g. 0917 552 0184"),
 
-    // 3 · Employment
-    position: z.string().trim().min(1, "Enter the position"),
-    department: z.union([z.enum(hireDepartmentOptions), z.literal("")]).refine((v) => v.length > 0, "Choose a department"),
-    cluster: z.union([z.enum(hireClusterOptions), z.literal("Admin & Support"), z.literal("")]),
-    office: z.enum(officeOptions),
-    dateHired: z.string().min(1, "Enter the date hired"),
-    employmentStatus: z.enum(employmentStatusOptions),
-    reportsToId: z.string(),
-
-    // 4 · Government IDs & documents (all optional)
+    // 3 · Government IDs & documents (all optional)
     tin: govId("tin"),
     sss: govId("sss"),
     philHealth: govId("philHealth"),
     pagIbig: govId("pagIbig"),
-    receivedDocuments: z.array(z.string()),
+    /** 201 documents the new hire attached (mock: file names only). */
+    uploadedDocuments: z.array(z.object({ type: z.string(), fileName: z.string() })),
 
-    // Only asked when the employee says it applies (Onboarding choices); checked in the form's resolver.
+    // Optional family and work background; the spouse rule is checked in the form's resolver.
     spouseName: z.string().trim(),
     dependents: z.array(z.object({ name: z.string().trim(), birthDate: z.string() })),
     licenseProfession: z.string().trim(),
@@ -143,6 +135,20 @@ export const addEmployeeSchema = z
     licenseExpiry: z.string(),
     previousEmployer: z.string().trim(),
     previousLastDay: z.string(),
+  });
+
+export type AddEmployeeFormValues = z.infer<typeof addEmployeeSchema>;
+
+/** What HR adds in Pipeline once a new hire has submitted Onboarding. */
+export const employmentSchema = z
+  .object({
+    position: z.string().trim().min(1, "Choose the position"),
+    department: z.union([z.enum(hireDepartmentOptions), z.literal("")]).refine((v) => v.length > 0, "Choose a department"),
+    cluster: z.union([z.enum(hireClusterOptions), z.literal("Admin & Support"), z.literal("")]),
+    office: z.enum(officeOptions),
+    dateHired: z.string().min(1, "Enter the date hired"),
+    employmentStatus: z.enum(employmentStatusOptions),
+    reportsToId: z.string(),
   })
   // Client clusters only apply to Accounting; IT staff sit under Admin & Support.
   .refine((v) => v.department !== "Accounting" || (hireClusterOptions as readonly string[]).includes(v.cluster), {
@@ -150,7 +156,7 @@ export const addEmployeeSchema = z
     path: ["cluster"],
   });
 
-export type AddEmployeeFormValues = z.infer<typeof addEmployeeSchema>;
+export type EmploymentFormValues = z.infer<typeof employmentSchema>;
 
 export const clusterDescriptions: Record<(typeof clusterOptions)[number], string> = {
   RPM: "Accountants — RPM client group",

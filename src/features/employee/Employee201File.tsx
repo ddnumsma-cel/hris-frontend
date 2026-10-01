@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -12,6 +13,7 @@ import {
   enrollFaceId,
   fetchCurrentEmployee,
   fetchMyAssets,
+  fetchMyOnboardingStatus,
   fetchMyPersonnelChecklist,
   fetchMyPhoto,
   fetchMyProfessionalLicense,
@@ -63,6 +65,7 @@ export function Employee201File() {
     queryFn: fetchMyPersonnelChecklist,
   });
   const photoQuery = useQuery({ queryKey: ["employee", "my-photo"], queryFn: fetchMyPhoto });
+  const onboardingQuery = useQuery({ queryKey: ["employee", "onboarding-status"], queryFn: fetchMyOnboardingStatus });
   const employee = employeeQuery.data;
   const license = licenseQuery.data;
   const cpd = license ? getCpdStatus(license) : null;
@@ -203,6 +206,20 @@ export function Employee201File() {
             wrong.
           </p>
           {checklistQuery.isLoading && <Skeleton className="h-24 w-full" />}
+          {checklistQuery.data?.length === 0 && onboardingQuery.data === "pending" && (
+            <p className="rounded-lg bg-surface-2 px-3.5 py-3 text-sm">
+              <span className="font-semibold">HR is finishing your setup.</span>{" "}
+              <span className="text-ink-2">Your 201 checklist opens once they add your role and start date.</span>
+            </p>
+          )}
+          {checklistQuery.data?.length === 0 && onboardingQuery.data === "none" && (
+            <p className="rounded-lg bg-surface-2 px-3.5 py-3 text-sm">
+              <span className="font-semibold">Your 201 file starts with Onboarding.</span>{" "}
+              <Link to="/employee/onboarding" className="font-semibold text-brand-ink hover:underline">
+                Fill in your details and upload your files
+              </Link>
+            </p>
+          )}
           {checklistQuery.data
             ?.filter((doc) => doc.status !== "Not applicable")
             .map((doc) => (

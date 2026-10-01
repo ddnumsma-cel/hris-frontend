@@ -27,7 +27,6 @@ import {
   myDtrLog,
   offboardingCases,
   onLeaveToday,
-  onboardingPipeline,
   priorLeaveUsage,
   payrollCostBreakdown,
   payrollCutoff,
@@ -52,7 +51,9 @@ import {
   setApplicants,
   setEmployeeDirectory,
   setJobRequisitions,
-  setOnboardingPipeline,
+  setOnboardingSubmissions,
+  onboardingSubmissions,
+  SITUATIONAL_DOCUMENT_TYPES,
   setLeaveRequests,
   setOffboardingCases,
   setPayrollEntries,
@@ -69,6 +70,8 @@ import {
   workforceAlerts,
 } from "./mockData";
 import type {
+  OnboardingSubmission,
+  OnboardingSubmissionInput,
   Announcement,
   Applicant,
   ApplicantStage,
@@ -619,7 +622,8 @@ export function countLeaveDays(startDate: string, endDate: string) {
 
 /** HR files on the employee's behalf; it still goes to the Partner, then HR. */
 export async function fileLeaveForEmployee(input: FileLeaveForEmployeeInput): Promise<LeaveRequest> {
-  const employee = employeeDirectory.find((e) => e.id === input.employeeId)!;
+  const employee = employeeDirectory.find((e) => e.id === input.employeeId);
+  if (!employee) throw new Error("That employee is no longer in the directory.");
   const days = countLeaveDays(input.startDate, input.endDate);
   const dates =
     input.startDate === input.endDate
@@ -759,45 +763,24 @@ export function fetchEmployeeDirectory() {
   return delay(employeeDirectory);
 }
 
-export interface CreateEmployeeInput {
-  lastName: string;
-  firstName: string;
-  middleName?: string;
-  suffix?: string;
-  nickname?: string;
-  birthDate?: string;
-  civilStatus?: CivilStatus;
-  /** Work email. */
-  email?: string;
-  personalEmail?: string;
-  phone?: string;
-  employmentStatus?: Employee["employmentStatus"];
-  /** Directory ID of their supervisor; empty reports to HR. */
-  reportsToId?: string;
-  governmentNumbers?: Employee["governmentNumbers"];
-  /** 201 documents HR already has in hand. */
-  receivedDocuments?: PersonnelDocumentType[];
-  /** Set when the hire comes from Recruitment, to link the application and start onboarding. */
-  applicantId?: string;
-  /** Who added them, for the audit log. */
-  actor?: AuditActor;
-  /** Situational 201 documents that apply (from Onboarding choices); others are "Not applicable". */
-  applicableDocuments?: PersonnelDocumentType[];
-  dependents?: Omit<Dependent, "id">[];
-  license?: { profession?: string; number: string; expiry?: string };
-  previousEmployer?: { name: string; lastDay?: string };
+/** What HR sets in Pipeline once a new hire has submitted Onboarding. */
+export interface EmploymentInput {
   position: string;
   department: string;
   office: Employee["office"];
   cluster: Employee["cluster"];
   /** ISO date, e.g. "2026-09-29" — decides the employee ID. */
   dateHired: string;
-  bloodType?: string;
-  address?: string;
-  emergencyContact?: { name: string; relationship?: string; phone?: string };
-  /** Scanned or typed ID details — becomes the new hire's "Valid Government ID" 201 document.
-   * `fileName` is the first image; `extraFileNames` holds any others (e.g. the back). */
-  governmentId?: { idType: string; idNumber?: string; idExpiry?: string; fileName?: string; extraFileNames?: string[] };
+  employmentStatus?: Employee["employmentStatus"];
+  /** Directory ID of their supervisor; empty reports to HR. */
+  reportsToId?: string;
+}
+
+export interface CreateEmployeeInput extends OnboardingSubmissionInput, EmploymentInput {
+  /** Set when the hire comes from Recruitment, to link the application. */
+  applicantId?: string;
+  /** Who added them, for the audit log. */
+  actor?: AuditActor;
 }
 
 /** "Juan P. Dela Cruz Jr." — how names read across the directory. */
@@ -910,11 +893,10 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Employ
   ]);
   setPersonnelDocuments([
     ...personnelDocuments,
-    ...buildNewHireDocuments(employee.id, input.governmentId, input.receivedDocuments, input.applicableDocuments, input.license),
+    ...buildNewHireDocuments(employee.id, input.governmentId, input.uploadedDocuments ?? [], applicableDocuments(input), input.license),
   ]);
   if (input.actor) logPersonnelAccess(employee.id, input.actor, "Created", "201 File", `Added as ${employee.position}`);
-  // Every new hire starts onboarding (BRD ONB-001); a Recruitment hire is also linked to the application.
-  setOnboardingPipeline(onboardingPipeline.map((s) => (s.stage === "Offer accepted" ? { ...s, count: s.count + 1 } : s)));
+  // A Recruitment hire is also linked to the application.
   if (input.applicantId) {
     setApplicants(applicants.map((a) => (a.id === input.applicantId ? { ...a, employeeId: employee.id } : a)));
   }
@@ -991,8 +973,49 @@ export async function registerEmployee(input: RegisterEmployeeInput): Promise<Em
   return delay(employee);
 }
 
-export function fetchOnboardingPipeline() {
-  return delay(onboardingPipeline);
+/** Situational 201 documents that apply, from what the new hire told us. */
+export function applicableDocuments(input: OnboardingSubmissionInput): PersonnelDocumentType[] {
+  const applies: Record<string, boolean> = {
+    "Marriage Certificate (PSA)": input.civilStatus === "Married",
+    "Child's Birth Certificate": (input.dependents ?? []).some((d) => d.relationship === "Child"),
+    "Professional License": Boolean(input.license?.number),
+    "Certificate of Employment (Previous)": Boolean(input.previousEmployer?.name),
+  };
+  return SITUATIONAL_DOCUMENT_TYPES.filter((t) => applies[t]);
+}
+
+/** The new hire sends their details to HR; they wait in Pipeline until HR adds employment details. */
+export function submitOnboarding(input: OnboardingSubmissionInput): Promise<OnboardingSubmission> {
+  const submission: OnboardingSubmission = {
+    id: `sub-${Date.now().toString(36)}`,
+    submittedAt: new Date().toISOString(),
+    input,
+    fromSignedInEmployee: true,
+  };
+  // Sending again replaces their earlier submission rather than queuing a second one.
+  setOnboardingSubmissions([submission, ...onboardingSubmissions.filter((s) => !s.fromSignedInEmployee)]);
+  return delay(submission);
+}
+
+export function fetchOnboardingSubmissions() {
+  return delay([...onboardingSubmissions].sort((x, y) => y.submittedAt.localeCompare(x.submittedAt)));
+}
+
+/** Where the signed-in employee is: not started, waiting for HR, or set up in the directory. */
+export function fetchMyOnboardingStatus(): Promise<"none" | "pending" | "done"> {
+  if (employeeDirectory.some((e) => e.id === currentEmployee.id)) return delay("done");
+  return delay(onboardingSubmissions.some((s) => s.fromSignedInEmployee) ? "pending" : "none");
+}
+
+/** HR adds employment details: the new hire gets their ID and 201 file and joins the directory. */
+export async function completeOnboarding(submissionId: string, employment: EmploymentInput, actor?: AuditActor): Promise<Employee> {
+  const submission = onboardingSubmissions.find((s) => s.id === submissionId);
+  if (!submission) throw new Error("That submission was already set up or removed.");
+  const employee = await createEmployee({ ...submission.input, ...employment, actor });
+  setOnboardingSubmissions(onboardingSubmissions.filter((s) => s.id !== submissionId));
+  // The demo has one signed-in employee: once set up, their account is this record.
+  if (submission.fromSignedInEmployee) setCurrentEmployee({ ...employee, faceEnrolled: currentEmployee.faceEnrolled });
+  return employee;
 }
 
 export function fetchJobRequisitions() {

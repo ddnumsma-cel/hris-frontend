@@ -6,11 +6,10 @@ import {
   hireDepartmentOptions,
   officeOptions,
   positionsByDepartment,
-  type AddEmployeeFormValues,
+  type EmploymentFormValues,
 } from "@/lib/schemas";
-import { FieldError, FieldGroup, FieldHint, inputClass, Label } from "./fields";
-import { useChoices } from "./choices";
-import { describe } from "./fieldProps";
+import { FieldError, FieldHint, inputClass, Label } from "@/features/employee/onboarding/fields";
+import { describe } from "@/features/employee/onboarding/fieldProps";
 
 const statusHelp: Record<(typeof employmentStatusOptions)[number], string> = {
   Probationary: "Up to 6 months before regularization (Labor Code Art. 296)",
@@ -24,17 +23,17 @@ function formatLongDate(d: Date) {
   return d.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function EmploymentStep() {
+/** Department-first position picker, cluster, office, status and hire date, for HR in Pipeline. */
+export function EmploymentFields({ lastName, firstName }: { lastName: string; firstName: string }) {
   const {
     register,
     setValue,
     control,
     formState: { errors },
-  } = useFormContext<AddEmployeeFormValues>();
-  const choices = useChoices();
-  const [lastName, firstName, dateHired, department, employmentStatus, position] = useWatch({
+  } = useFormContext<EmploymentFormValues>();
+  const [dateHired, department, employmentStatus, position] = useWatch({
     control,
-    name: ["lastName", "firstName", "dateHired", "department", "employmentStatus", "position"],
+    name: ["dateHired", "department", "employmentStatus", "position"],
   });
   // Positions follow the department; a title from a Recruitment requisition stays selectable.
   const positions = department ? positionsByDepartment[department] : [];
@@ -176,65 +175,6 @@ export function EmploymentStep() {
         </div>
       </div>
 
-      {choices.licensed && (
-        <FieldGroup title="Professional license" description="HR tracks the expiry so your license stays valid for client work.">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <Label htmlFor="emp-license-prof">Profession</Label>
-              <select id="emp-license-prof" className={inputClass} {...register("licenseProfession")}>
-                <option value="">Select…</option>
-                {["Certified Public Accountant", "Lawyer", "Other PRC license"].map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="emp-license-no" required>
-                PRC license number
-              </Label>
-              <input
-                id="emp-license-no"
-                inputMode="numeric"
-                className={inputClass}
-                placeholder="0123456"
-                {...describe("emp-license-no", errors.licenseNumber?.message)}
-                {...register("licenseNumber")}
-              />
-              <FieldError id="emp-license-no-error" message={errors.licenseNumber?.message} />
-            </div>
-            <div>
-              <Label htmlFor="emp-license-exp">Valid until</Label>
-              <input id="emp-license-exp" type="date" className={inputClass} {...register("licenseExpiry")} />
-            </div>
-          </div>
-        </FieldGroup>
-      )}
-
-      {choices.previousEmployer && (
-        <FieldGroup title="Previous employer" description="Ask them for your BIR Form 2316 so this year's tax is computed right.">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="emp-prev-company" required>
-                Company name
-              </Label>
-              <input
-                id="emp-prev-company"
-                className={inputClass}
-                placeholder="SGV & Co."
-                {...describe("emp-prev-company", errors.previousEmployer?.message)}
-                {...register("previousEmployer")}
-              />
-              <FieldError id="emp-prev-company-error" message={errors.previousEmployer?.message} />
-            </div>
-            <div>
-              <Label htmlFor="emp-prev-last">Last day there</Label>
-              <input id="emp-prev-last" type="date" className={inputClass} {...register("previousLastDay")} />
-            </div>
-          </div>
-        </FieldGroup>
-      )}
     </div>
   );
 }

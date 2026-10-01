@@ -1,6 +1,5 @@
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import { PlusIcon, XIcon } from "@/components/icons";
-import { useChoices } from "./choices";
 import { getAge } from "@/lib/automation";
 import {
   bloodTypeOptions,
@@ -20,9 +19,8 @@ export function IdentityStep({ idScan }: { idScan: IdScan }) {
     control,
     formState: { errors },
   } = useFormContext<AddEmployeeFormValues>();
-  const choices = useChoices();
   const dependents = useFieldArray({ control, name: "dependents" });
-  const birthDate = useWatch({ control, name: "birthDate" });
+  const [birthDate, civilStatus] = useWatch({ control, name: ["birthDate", "civilStatus"] });
   const age = birthDate ? getAge(birthDate) : null;
 
   // A manual edit clears the "From ID" tag on that field.
@@ -145,8 +143,7 @@ export function IdentityStep({ idScan }: { idScan: IdScan }) {
               </select>
               <FieldHint id="emp-civil-hint">Decides if a marriage certificate is needed</FieldHint>
             </div>
-            {choices.bloodType && (
-              <div>
+            <div>
                 <Label htmlFor="emp-blood">Blood type</Label>
                 <select id="emp-blood" className={inputClass} {...field("bloodType")}>
                   <option value="">Select…</option>
@@ -157,13 +154,11 @@ export function IdentityStep({ idScan }: { idScan: IdScan }) {
                   ))}
                 </select>
               </div>
-            )}
           </div>
         </FieldGroup>
 
-        {(choices.married || choices.dependents) && (
-          <FieldGroup title="Family" description="For your HMO coverage and tax records.">
-            {choices.married && (
+        <FieldGroup title="Family" description="For your HMO coverage and tax records. Skip this if it doesn't apply.">
+            {civilStatus === "Married" && (
               <div className="md:max-w-[calc(50%-0.5rem)]">
                 <Label htmlFor="emp-spouse" required>
                   Spouse's full name
@@ -178,11 +173,9 @@ export function IdentityStep({ idScan }: { idScan: IdScan }) {
                 <FieldError id="emp-spouse-error" message={errors.spouseName?.message} />
               </div>
             )}
-            {choices.dependents && (
               <div className="flex flex-col gap-3">
-                <p className="text-[0.82rem] font-semibold text-ink-2">
-                  Children and dependents<span className="ml-0.5 text-critical" aria-hidden="true">*</span>
-                </p>
+                <p className="text-[0.82rem] font-semibold text-ink-2">Children and dependents</p>
+                {dependents.fields.length === 0 && <p className="text-xs text-ink-2">None added. Add each child or dependent you want covered.</p>}
                 {dependents.fields.map((row, i) => (
                   <div key={row.id} className="grid items-start gap-3 md:grid-cols-[2fr_1fr_auto]">
                     <div>
@@ -200,7 +193,6 @@ export function IdentityStep({ idScan }: { idScan: IdScan }) {
                       <Label htmlFor={`emp-dep-birth-${i}`}>Birth date</Label>
                       <input id={`emp-dep-birth-${i}`} type="date" className={inputClass} {...register(`dependents.${i}.birthDate`)} />
                     </div>
-                    {dependents.fields.length > 1 && (
                       <button
                         type="button"
                         onClick={() => dependents.remove(i)}
@@ -209,7 +201,6 @@ export function IdentityStep({ idScan }: { idScan: IdScan }) {
                       >
                         <XIcon className="h-4 w-4" />
                       </button>
-                    )}
                   </div>
                 ))}
                 {dependents.fields.length < 8 && (
@@ -219,13 +210,11 @@ export function IdentityStep({ idScan }: { idScan: IdScan }) {
                     className="flex items-center gap-1.5 self-start rounded-full px-2 py-1.5 text-sm font-semibold text-brand-ink hover:bg-surface-2"
                   >
                     <PlusIcon className="h-3.5 w-3.5" />
-                    Add another
+                    {dependents.fields.length === 0 ? "Add dependent" : "Add another"}
                   </button>
                 )}
               </div>
-            )}
           </FieldGroup>
-        )}
       </div>
     </>
   );

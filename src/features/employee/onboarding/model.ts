@@ -1,14 +1,15 @@
-import type { CreateEmployeeInput } from "@/lib/api";
+import type { FieldErrors, Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { applicableDocuments } from "@/lib/api";
 import { formatPhMobile } from "@/lib/govIds";
-import { todayIso } from "@/lib/format";
-import { PERSONNEL_DOCUMENT_TYPES } from "@/lib/mockData";
-import type { AddEmployeeFormValues } from "@/lib/schemas";
-import type { PersonnelDocumentType } from "@/lib/types";
+import { PERSONNEL_DOCUMENT_TYPES, SITUATIONAL_DOCUMENT_TYPES } from "@/lib/mockData";
+import { addEmployeeSchema, type AddEmployeeFormValues } from "@/lib/schemas";
+import type { OnboardingSubmissionInput, PersonnelDocumentType, UploadedDocument } from "@/lib/types";
 
 export type FieldName = keyof AddEmployeeFormValues;
 
 export interface StepDef {
-  id: "identity" | "contact" | "employment" | "government" | "review";
+  id: "identity" | "contact" | "government" | "review";
   title: string;
   /** Shown under the title in the step list. */
   summary: string;
@@ -21,13 +22,13 @@ export const steps: StepDef[] = [
     id: "identity",
     title: "Identity",
     summary: "Name, birth date, civil status",
-    fields: ["lastName", "firstName", "middleName", "suffix", "birthDate", "sex", "civilStatus", "bloodType"],
+    fields: ["lastName", "firstName", "middleName", "suffix", "birthDate", "sex", "civilStatus", "bloodType", "spouseName", "dependents"],
     required: ["lastName", "firstName", "birthDate", "sex"],
   },
   {
     id: "contact",
     title: "Contact",
-    summary: "Mobile, email, address, emergency",
+    summary: "Mobile, address, emergency, work background",
     fields: [
       "phone",
       "personalEmail",
@@ -39,43 +40,37 @@ export const steps: StepDef[] = [
       "emergencyName",
       "emergencyRelationship",
       "emergencyPhone",
+      "licenseProfession",
+      "licenseNumber",
+      "licenseExpiry",
+      "previousEmployer",
+      "previousLastDay",
     ],
     required: ["phone"],
   },
   {
-    id: "employment",
-    title: "Employment",
-    summary: "Position, office, status, date hired",
-    fields: ["position", "department", "cluster", "office", "dateHired", "employmentStatus"],
-    required: ["position", "department", "cluster", "office", "dateHired", "employmentStatus"],
-  },
-  {
     id: "government",
     title: "Gov't IDs & documents",
-    summary: "TIN, SSS, PhilHealth, Pag-IBIG · 201 checklist",
-    fields: ["tin", "sss", "philHealth", "pagIbig", "receivedDocuments"],
+    summary: "TIN, SSS, PhilHealth, Pag-IBIG · upload your 201 files",
+    fields: ["tin", "sss", "philHealth", "pagIbig", "uploadedDocuments"],
     required: [],
   },
   { id: "review", title: "Review", summary: "Check and submit", fields: [], required: [] },
 ];
 
-/** Details payroll and the 201 file need soon, but that HR can add after creating the record.
- * Sections the employee chose to leave for later aren't listed; HR follows up on those. */
-export function stillNeededBeforePayroll(
-  v: AddEmployeeFormValues,
-  shown: { address: boolean; emergency: boolean } = { address: true, emergency: true },
-): { label: string; step: number }[] {
+/** Details payroll and the 201 file need soon, but that can be added later. */
+export function stillNeededBeforePayroll(v: AddEmployeeFormValues): { label: string; step: number }[] {
   const missing: { label: string; step: number }[] = [];
   if (!v.civilStatus) missing.push({ label: "Civil status", step: 0 });
-  if (shown.address && ![v.street, v.barangay, v.city, v.province].some((x) => x.trim())) missing.push({ label: "Home address", step: 1 });
-  if (shown.emergency && !v.emergencyName.trim()) missing.push({ label: "Emergency contact", step: 1 });
+  if (![v.street, v.barangay, v.city, v.province].some((x) => x.trim())) missing.push({ label: "Home address", step: 1 });
+  if (!v.emergencyName.trim()) missing.push({ label: "Emergency contact", step: 1 });
   const gov: [keyof AddEmployeeFormValues, string][] = [
     ["tin", "TIN"],
     ["sss", "SSS number"],
     ["philHealth", "PhilHealth number"],
     ["pagIbig", "Pag-IBIG MID"],
   ];
-  for (const [key, label] of gov) if (!String(v[key] ?? "").trim()) missing.push({ label, step: 3 });
+  for (const [key, label] of gov) if (!String(v[key] ?? "").trim()) missing.push({ label, step: 2 });
   return missing;
 }
 
@@ -99,18 +94,11 @@ export function emptyValues(): AddEmployeeFormValues {
     emergencyName: "",
     emergencyRelationship: "",
     emergencyPhone: "",
-    position: "",
-    department: "",
-    cluster: "",
-    office: "Cebu HQ",
-    dateHired: todayIso(),
-    employmentStatus: "Probationary",
-    reportsToId: "",
     tin: "",
     sss: "",
     philHealth: "",
     pagIbig: "",
-    receivedDocuments: [],
+    uploadedDocuments: [],
     spouseName: "",
     dependents: [],
     licenseProfession: "",
@@ -134,16 +122,50 @@ export function stepProgress(step: StepDef, values: AddEmployeeFormValues) {
   return { filled, total: counted.length };
 }
 
-// ---- 201 documents HR can tick off on day one ----
+// ---- 201 documents the new hire uploads ----
 
-/** Only needed if they apply (married, has children, licensed profession). */
-export const situationalDocuments: PersonnelDocumentType[] = [
-  "Marriage Certificate (PSA)",
-  "Child's Birth Certificate",
-  "Professional License",
-];
+export const coreDocuments = PERSONNEL_DOCUMENT_TYPES.filter((t) => !SITUATIONAL_DOCUMENT_TYPES.includes(t));
 
-export const coreDocuments = PERSONNEL_DOCUMENT_TYPES.filter((t) => !situationalDocuments.includes(t));
+/** Situational documents that apply to what they've entered so far (married, a child, a license, a previous job). */
+export function situationalFor(v: AddEmployeeFormValues): PersonnelDocumentType[] {
+  return applicableDocuments({
+    lastName: "",
+    firstName: "",
+    civilStatus: v.civilStatus || undefined,
+    dependents: v.dependents.filter((d) => d.name.trim()).map((d) => ({ name: d.name, relationship: "Child" as const })),
+    license: v.licenseNumber.trim() ? { number: v.licenseNumber } : undefined,
+    previousEmployer: v.previousEmployer.trim() ? { name: v.previousEmployer } : undefined,
+  });
+}
+
+/** Uploads that still count: a situational document that no longer applies is dropped. */
+export function activeUploads(v: AddEmployeeFormValues): UploadedDocument[] {
+  const shown = new Set<string>([...coreDocuments, ...situationalFor(v)]);
+  return (v.uploadedDocuments as UploadedDocument[]).filter((u) => shown.has(u.type));
+}
+
+// ---- Validation ----
+
+const err = (message: string) => ({ type: "custom", message });
+
+/** zod skips object refinements while any other field has an error, so the conditional rules
+ * run here instead — they show up on the step the employee is on. */
+export function onboardingResolver(): Resolver<AddEmployeeFormValues> {
+  const base = zodResolver(addEmployeeSchema) as unknown as Resolver<AddEmployeeFormValues>;
+  return async (values, context, options) => {
+    const result = await base(values, context, options);
+    const extra: FieldErrors<AddEmployeeFormValues> = {};
+    if (values.civilStatus === "Married" && !values.spouseName.trim()) extra.spouseName = err("Enter your spouse's full name");
+    // A row with only a birth date is missing its name; fully empty rows are ignored.
+    const rows = values.dependents.map((d) => (!d.name.trim() && d.birthDate ? { name: err("Enter their full name") } : undefined));
+    if (rows.some(Boolean)) extra.dependents = rows as FieldErrors<AddEmployeeFormValues>["dependents"];
+    const errors = { ...result.errors, ...extra };
+    if (Object.keys(errors).length === 0) {
+      return { values: (result.values && Object.keys(result.values).length ? result.values : values) as AddEmployeeFormValues, errors: {} };
+    }
+    return { values: {}, errors: errors as FieldErrors<AddEmployeeFormValues> };
+  };
+}
 
 // ---- Draft (kept in this browser only) ----
 
@@ -160,8 +182,12 @@ export function loadDraft(): Draft | null {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
     const draft = JSON.parse(raw) as Draft;
-    // Older or broken drafts lose nothing important — fall back to blanks for missing fields.
-    return { ...draft, values: { ...emptyValues(), ...draft.values } };
+    // Older or broken drafts lose nothing important: blanks fill missing fields, and fields this
+    // form no longer has (e.g. employment details from the old form) are dropped.
+    const blank = emptyValues();
+    const kept = Object.fromEntries(Object.entries(draft.values ?? {}).filter(([k]) => k in blank));
+    const step = Number.isInteger(draft.step) ? Math.max(0, Math.min(draft.step, steps.length - 2)) : 0;
+    return { ...draft, step, values: { ...blank, ...kept } as AddEmployeeFormValues };
   } catch {
     return null;
   }
@@ -189,9 +215,7 @@ export function clearDraft() {
 /** A draft is worth offering back only if someone actually typed something. */
 export function draftHasInput(values: AddEmployeeFormValues) {
   const blank = emptyValues();
-  return (Object.keys(blank) as FieldName[]).some(
-    (k) => k !== "dateHired" && JSON.stringify(values[k]) !== JSON.stringify(blank[k]),
-  );
+  return (Object.keys(blank) as FieldName[]).some((k) => JSON.stringify(values[k]) !== JSON.stringify(blank[k]));
 }
 
 export function formatSavedAt(iso: string) {
@@ -209,10 +233,10 @@ export function composeAddress(v: Pick<AddEmployeeFormValues, "street" | "barang
   return [v.street.trim(), barangay, v.city.trim(), v.province.trim()].filter(Boolean).join(", ");
 }
 
-export function toCreateInput(
+export function toSubmissionInput(
   v: AddEmployeeFormValues,
-  extras: Pick<CreateEmployeeInput, "governmentId" | "applicantId" | "actor" | "applicableDocuments">,
-): CreateEmployeeInput {
+  governmentId: OnboardingSubmissionInput["governmentId"],
+): OnboardingSubmissionInput {
   const governmentNumbers = Object.fromEntries(
     (["tin", "sss", "philHealth", "pagIbig"] as const).filter((k) => v[k].trim()).map((k) => [k, v[k].trim()]),
   );
@@ -235,23 +259,16 @@ export function toCreateInput(
           phone: v.emergencyPhone ? formatPhMobile(v.emergencyPhone) : undefined,
         }
       : undefined,
-    position: v.position,
-    department: v.department,
-    cluster: v.cluster as CreateEmployeeInput["cluster"],
-    office: v.office,
-    dateHired: v.dateHired,
-    employmentStatus: v.employmentStatus,
-    reportsToId: v.reportsToId || undefined,
     governmentNumbers,
-    receivedDocuments: v.receivedDocuments as PersonnelDocumentType[],
+    governmentId,
+    uploadedDocuments: activeUploads(v),
     dependents: [
-      ...(v.spouseName.trim() ? [{ name: v.spouseName.trim(), relationship: "Spouse" as const }] : []),
+      ...(v.civilStatus === "Married" && v.spouseName.trim() ? [{ name: v.spouseName.trim(), relationship: "Spouse" as const }] : []),
       ...v.dependents.filter((d) => d.name.trim()).map((d) => ({ name: d.name.trim(), relationship: "Child" as const, birthDate: d.birthDate || undefined })),
     ],
     license: v.licenseNumber.trim()
       ? { profession: v.licenseProfession || undefined, number: v.licenseNumber.trim(), expiry: v.licenseExpiry || undefined }
       : undefined,
     previousEmployer: v.previousEmployer.trim() ? { name: v.previousEmployer.trim(), lastDay: v.previousLastDay || undefined } : undefined,
-    ...extras,
   };
 }

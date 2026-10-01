@@ -20,8 +20,8 @@ const ManagerReportPage = lazy(() =>
 );
 const AdminLayout = lazy(() => import("@/features/admin/AdminLayout").then((m) => ({ default: m.AdminLayout })));
 const AdminOverview = lazy(() => import("@/features/admin/AdminOverview").then((m) => ({ default: m.AdminOverview })));
-const AdminOnboardingPage = lazy(() =>
-  import("@/features/admin/AdminOnboardingPage").then((m) => ({ default: m.AdminOnboardingPage })),
+const AdminPipelinePage = lazy(() =>
+  import("@/features/admin/pipeline/AdminPipelinePage").then((m) => ({ default: m.AdminPipelinePage })),
 );
 const AdminPayrollRuns = lazy(() =>
   import("@/features/admin/AdminPayrollRuns").then((m) => ({ default: m.AdminPayrollRuns })),
@@ -173,7 +173,8 @@ function App() {
               <Route path="directory" element={<AdminPersonnelFiles />} />
               <Route path="org-chart" element={<AdminOrgChart />} />
               <Route path="recruitment" element={<AdminRecruitment />} />
-              <Route path="onboarding" element={<AdminOnboardingPage />} />
+              <Route path="pipeline" element={<AdminPipelinePage />} />
+              <Route path="onboarding" element={<Navigate to="/admin/pipeline" replace />} />
               <Route path="offboarding" element={<AdminOffboarding />} />
               <Route path="assets" element={<AdminAssets />} />
               <Route path="leave" element={<AdminLeave />} />
