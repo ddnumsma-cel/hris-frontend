@@ -54,9 +54,11 @@ function useFlip(ref: RefObject<HTMLElement | null>) {
     if (!root) return;
     const next = new Map<string, number>();
     const motion = !reducedMotion();
+    // Measured against the list itself, so scrolling the dialog between renders doesn't count as movement.
+    const origin = root.getBoundingClientRect().top;
     for (const el of root.querySelectorAll<HTMLElement>("[data-flip-key]")) {
       const key = el.dataset.flipKey!;
-      const top = el.getBoundingClientRect().top;
+      const top = el.getBoundingClientRect().top - origin;
       next.set(key, top);
       const before = last.current.get(key);
       if (motion && before !== undefined && Math.abs(before - top) > 1) {
@@ -70,18 +72,31 @@ function useFlip(ref: RefObject<HTMLElement | null>) {
   });
 }
 
-function Switch({ checked, label, onChange }: { checked: boolean; label: string; onChange: () => void }) {
+function Switch({ checked, label, focusKey, onChange }: { checked: boolean; label: string; focusKey: string; onChange: () => void }) {
   return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={onChange} className="cz-switch">
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} data-focus={focusKey} onClick={onChange} className="cz-switch">
       <span />
     </button>
   );
 }
 
-function MoveButton({ direction, label, disabled, onClick }: { direction: "up" | "down"; label: string; disabled: boolean; onClick: () => void }) {
+function MoveButton({
+  direction,
+  label,
+  disabled,
+  focusKey,
+  onClick,
+}: {
+  direction: "up" | "down";
+  label: string;
+  disabled: boolean;
+  focusKey: string;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
+      data-focus={focusKey}
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
@@ -120,6 +135,19 @@ function CustomizeSession({ initial, onSave, onClose }: { initial: string[]; onS
   const previewRef = useRef<HTMLDivElement>(null);
   useFlip(listRef);
   useFlip(previewRef);
+  // Rows move between lists when toggled or reordered, which drops keyboard focus; put it back on
+  // the same control (or its neighbour, if that one just became disabled).
+  const refocus = useRef<string[] | null>(null);
+  const finishing = useRef(false);
+  useLayoutEffect(() => {
+    const wanted = refocus.current;
+    if (!wanted || !listRef.current) return;
+    refocus.current = null;
+    for (const key of wanted) {
+      const el = listRef.current.querySelector<HTMLButtonElement>(`[data-focus="${key}"]`);
+      if (el && !el.disabled) return el.focus();
+    }
+  });
 
   const shownSet = new Set(shown);
   const hidden = DIRECTORY_FIELDS.filter((f) => !shownSet.has(f.key));
@@ -128,6 +156,7 @@ function CustomizeSession({ initial, onSave, onClose }: { initial: string[]; onS
   const glow = (key: string) => setFlash((f) => ({ key, n: (f?.n ?? 0) + 1 }));
 
   function toggle(key: string) {
+    refocus.current = [`switch-${key}`];
     if (shownSet.has(key)) setShown(shown.filter((k) => k !== key));
     else {
       setShown([...shown, key]);
@@ -141,12 +170,16 @@ function CustomizeSession({ initial, onSave, onClose }: { initial: string[]; onS
     if (j < 0 || j >= shown.length) return;
     const next = [...shown];
     [next[i], next[j]] = [next[j], next[i]];
+    const [same, other] = by < 0 ? ["up", "down"] : ["down", "up"];
+    refocus.current = [`${same}-${key}`, `${other}-${key}`, `switch-${key}`];
     setShown(next);
     glow(key);
   }
 
   function close(after?: () => void) {
-    if (closing) return;
+    // One exit only: a click on × while "Saved" is showing can't close it a second time.
+    if (finishing.current) return;
+    finishing.current = true;
     const done = () => {
       after?.();
       onClose();
@@ -174,7 +207,7 @@ function CustomizeSession({ initial, onSave, onClose }: { initial: string[]; onS
     <Dialog
       open
       closing={closing}
-      onClose={() => close()}
+      onClose={() => !saved && close()}
       title="Customize Directory"
       description="Choose which details HR sees for each person. You can change this anytime."
       size="xl"
@@ -219,10 +252,16 @@ function CustomizeSession({ initial, onSave, onClose }: { initial: string[]; onS
                       <p className="truncate text-xs text-ink-2">{f.hint}</p>
                     </div>
                     <div className="flex flex-none items-center">
-                      <MoveButton direction="up" label={`Move ${f.label} up`} disabled={i === 0} onClick={() => move(key, -1)} />
-                      <MoveButton direction="down" label={`Move ${f.label} down`} disabled={i === shown.length - 1} onClick={() => move(key, 1)} />
+                      <MoveButton direction="up" label={`Move ${f.label} up`} focusKey={`up-${key}`} disabled={i === 0} onClick={() => move(key, -1)} />
+                      <MoveButton
+                        direction="down"
+                        label={`Move ${f.label} down`}
+                        focusKey={`down-${key}`}
+                        disabled={i === shown.length - 1}
+                        onClick={() => move(key, 1)}
+                      />
                     </div>
-                    <Switch checked label={`Show ${f.label}`} onChange={() => toggle(key)} />
+                    <Switch checked label={`Show ${f.label}`} focusKey={`switch-${key}`} onChange={() => toggle(key)} />
                   </li>
                 );
               })}
@@ -247,7 +286,7 @@ function CustomizeSession({ initial, onSave, onClose }: { initial: string[]; onS
                         <p className="truncate text-sm font-medium text-ink-2">{f.label}</p>
                         <p className="truncate text-xs text-ink-3">{f.hint}</p>
                       </div>
-                      <Switch checked={false} label={`Show ${f.label}`} onChange={() => toggle(f.key)} />
+                      <Switch checked={false} label={`Show ${f.label}`} focusKey={`switch-${f.key}`} onChange={() => toggle(f.key)} />
                     </li>
                   ))}
                 </ul>

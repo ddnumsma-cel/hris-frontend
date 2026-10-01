@@ -122,9 +122,11 @@ export function AdminPersonnelFiles() {
   const [fields, setFields] = useState<string[]>(() => loadDirectoryFields(owner));
   // Opens by itself the first time HR visits the directory.
   const [customizeOpen, setCustomizeOpen] = useState(() => !hasSeenCustomize(owner));
+  // Only counts as seen once it has actually shown (a deep link to a profile doesn't render it).
+  const customizeVisible = customizeOpen && !selectedId;
   useEffect(() => {
-    if (customizeOpen) markCustomizeSeen(owner);
-  }, [customizeOpen, owner]);
+    if (customizeVisible) markCustomizeSeen(owner);
+  }, [customizeVisible, owner]);
 
   function saveFields(next: string[]) {
     setFields(next);
@@ -179,13 +181,13 @@ export function AdminPersonnelFiles() {
 
   /** Everything the chosen details read for one person. */
   function rowData(e: Employee): DirectoryRowData {
-    const manager = e.reportsToId && e.reportsToId !== "admin" ? directoryQuery.data?.find((m) => m.id === e.reportsToId) : undefined;
+    const toHr = !e.reportsToId || e.reportsToId === "admin";
     return {
       employee: e,
       profile: profileById.get(e.id),
       hiredOn: hireDatesQuery.data?.[e.id],
       completion: completionById.get(e.id),
-      managerName: manager?.name ?? "HR & People Operations",
+      managerName: toHr ? "HR & People Operations" : directoryQuery.data?.find((m) => m.id === e.reportsToId)?.name,
     };
   }
 
@@ -417,7 +419,7 @@ export function AdminPersonnelFiles() {
         </ul>
       )}
 
-      <CustomizeDirectoryDialog open={customizeOpen} initial={fields} onSave={saveFields} onClose={() => setCustomizeOpen(false)} />
+      <CustomizeDirectoryDialog open={customizeVisible} initial={fields} onSave={saveFields} onClose={() => setCustomizeOpen(false)} />
     </>
   );
 }

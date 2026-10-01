@@ -834,6 +834,8 @@ export function previewEmployeeId(input: Pick<CreateEmployeeInput, "dateHired" |
 function rekeyEmployees(renamed: Map<string, string>) {
   if (renamed.size === 0) return;
   const to = (id: string) => renamed.get(id) ?? id;
+  // The signed-in employee follows their record when a same-month hire renumbers them.
+  if (renamed.has(currentEmployee.id)) setCurrentEmployee({ ...currentEmployee, id: to(currentEmployee.id) });
   setEmployeeDirectory(
     employeeDirectory.map((e) => ({ ...e, id: to(e.id), reportsToId: e.reportsToId && to(e.reportsToId) })),
   );
@@ -1011,8 +1013,9 @@ export function fetchMyOnboardingStatus(): Promise<"none" | "pending" | "done"> 
 export async function completeOnboarding(submissionId: string, employment: EmploymentInput, actor?: AuditActor): Promise<Employee> {
   const submission = onboardingSubmissions.find((s) => s.id === submissionId);
   if (!submission) throw new Error("That submission was already set up or removed.");
-  const employee = await createEmployee({ ...submission.input, ...employment, actor });
+  // Taken off the list before anything awaits, so a second click can't add the same person twice.
   setOnboardingSubmissions(onboardingSubmissions.filter((s) => s.id !== submissionId));
+  const employee = await createEmployee({ ...submission.input, ...employment, actor });
   // The demo has one signed-in employee: once set up, their account is this record.
   if (submission.fromSignedInEmployee) setCurrentEmployee({ ...employee, faceEnrolled: currentEmployee.faceEnrolled });
   return employee;

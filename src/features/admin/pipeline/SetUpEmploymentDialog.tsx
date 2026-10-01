@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { useAuditActor } from "@/components/shared/PersonnelFilePanels";
@@ -11,6 +11,8 @@ import { employmentSchema, type EmploymentFormValues } from "@/lib/schemas";
 import type { Employee, OnboardingSubmission } from "@/lib/types";
 import { inputClass, Label } from "@/features/employee/onboarding/fields";
 import { EmploymentFields } from "./EmploymentFields";
+
+const MUTATION_KEY = ["pipeline", "complete-onboarding"];
 
 const defaults = (): EmploymentFormValues => ({
   position: "",
@@ -32,6 +34,8 @@ export function SetUpEmploymentDialog({
   onClose: () => void;
   onDone: (employee: Employee) => void;
 }) {
+  // Disabled while saving so a double click can't add the same person twice.
+  const saving = useIsMutating({ mutationKey: MUTATION_KEY }) > 0;
   return (
     <Dialog
       open={Boolean(submission)}
@@ -41,11 +45,11 @@ export function SetUpEmploymentDialog({
       dismissOnBackdrop={false}
       footer={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button type="button" variant="ghost" className="justify-center" onClick={onClose}>
+          <Button type="button" variant="ghost" className="justify-center" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit" form="set-up-employment" className="justify-center">
-            Add to directory
+          <Button type="submit" form="set-up-employment" className="justify-center" disabled={saving}>
+            {saving ? "Adding…" : "Add to directory"}
           </Button>
         </div>
       }
@@ -65,6 +69,7 @@ function SetUpForm({ submission, onDone }: { submission: OnboardingSubmission; o
   const files = new Set([...(input.uploadedDocuments ?? []).map((u) => u.type), ...(input.governmentId ? ["Valid Government ID"] : [])]).size;
 
   const mutation = useMutation({
+    mutationKey: MUTATION_KEY,
     mutationFn: (v: EmploymentFormValues) =>
       completeOnboarding(
         submission.id,

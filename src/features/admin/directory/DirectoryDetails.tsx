@@ -31,18 +31,22 @@ export function DirectoryDetails({
   open?: Set<string>;
   className?: string;
 }) {
+  // The animated preview nests each line in two wrappers, which <dl> doesn't allow, so it renders plain divs.
+  const Wrapper = open ? "div" : "dl";
+  const Term = open ? "span" : "dt";
+  const Desc = open ? "span" : "dd";
   return (
-    <dl className={clsx("flex flex-col text-xs", className)}>
+    <Wrapper className={clsx("flex flex-col text-xs", className)}>
       {keys.map((key) => {
         const field = fieldByKey(key);
         if (!field) return null;
         const value = field.value(data);
         const line = (
-          <div className="flex min-w-0 items-center gap-3 py-[3px]">
-            <dt className="w-[6.5rem] flex-none truncate text-ink-3">{field.short ?? field.label}</dt>
-            <dd className="flex min-w-0 flex-1 items-center truncate font-medium text-ink">
+          <div key={key} className="flex min-w-0 items-center gap-3 py-[3px]">
+            <Term className="w-[6.5rem] flex-none truncate text-ink-3">{field.short ?? field.label}</Term>
+            <Desc className="flex min-w-0 flex-1 items-center truncate font-medium text-ink">
               {key === "documents" ? <DocumentProgress data={data} compact /> : (value ?? <span className="font-normal text-ink-3">—</span>)}
-            </dd>
+            </Desc>
           </div>
         );
         return open ? (
@@ -50,9 +54,9 @@ export function DirectoryDetails({
             <div className="min-h-0 overflow-hidden">{line}</div>
           </div>
         ) : (
-          <div key={key}>{line}</div>
+          line
         );
       })}
-    </dl>
+    </Wrapper>
   );
 }

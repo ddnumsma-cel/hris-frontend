@@ -365,7 +365,13 @@ export function AdminOverview() {
               meta={run && registerQuery.data ? `${run.cutoff.shortLabel} · ${formatPHPCompact(grossTotal)}` : undefined}
             />
             <CardBody>
-              {grossBreakdown ? <PayrollCostChart data={grossBreakdown} /> : <Skeleton className="h-9 w-full" />}
+              {grossBreakdown ? (
+                <PayrollCostChart data={grossBreakdown} />
+              ) : registerQuery.data ? (
+                <p className="text-xs text-ink-2">No payroll yet. Costs show here once employees are on this cutoff.</p>
+              ) : (
+                <Skeleton className="h-9 w-full" />
+              )}
             </CardBody>
           </Card>
         </BentoArea>
@@ -375,7 +381,7 @@ export function AdminOverview() {
             <CardHeader title="Pipeline" />
             <Link to="/admin/pipeline" className="flex items-center justify-between gap-3 px-4.5 pb-4 hover:text-brand-ink">
               <div>
-                <div className="font-num font-display text-[28px] font-semibold tracking-[-0.02em]">{pipelineQuery.data?.length ?? 0}</div>
+                <div className="font-num font-display text-[28px] font-semibold tracking-[-0.02em]">{pipelineQuery.data ? pipelineQuery.data.length : <Skeleton className="h-8 w-8" />}</div>
                 <div className="mt-0.5 text-xs text-ink-2">New hires awaiting employment details</div>
               </div>
               <ArrowRightIcon className="h-4 w-4 flex-none text-ink-3" />
