@@ -10,7 +10,6 @@ import type {
   EmployeeBenefit,
   EmployeeCase,
   Applicant,
-  ApplicantProfession,
   JobRequisition,
   LeaveBalance,
   LeaveOverviewStats,
@@ -266,41 +265,16 @@ export function setJobRequisitions(next: JobRequisition[]) {
   savePeopleStore();
 }
 
-const seedProfessions: Record<string, ApplicantProfession> = {
-  "ap-1": "BS Accountancy graduate",
-  "ap-2": "Accounting student / undergrad",
-  "ap-3": "CPA",
-  "ap-4": "CPA",
-  "ap-5": "BS Accountancy graduate",
-  "ap-6": "CPA",
-  "ap-7": "BS Accountancy graduate",
-  "ap-8": "CPA",
-  "ap-9": "CPA",
-  "ap-10": "BS Accountancy graduate",
-  "ap-11": "Other",
-  "ap-12": "CPA",
-  "ap-13": "Other",
-  "ap-14": "Other",
-  "ap-15": "BS Accountancy graduate",
-};
+// No sample applicants: only applications sent through the job link. Older saved data may still hold the
+// old samples (ids "ap-1" … "ap-15"); those are dropped, real ones (time-based ids) stay.
+export let applicants: Applicant[] = (stored.applicants ?? []).filter((x) => !/^ap-\d+$/.test(x.id));
 
-export let applicants: Applicant[] = stored.applicants ?? ([
-  { id: "ap-1", requisitionId: "jr-1", firstName: "Kristine Mae", lastName: "Abellana", email: "kristine.abellana@gmail.com", stage: "Applied", note: "JobStreet · Sep 28" },
-  { id: "ap-2", requisitionId: "jr-1", firstName: "John Paul", lastName: "Ybañez", email: "jp.ybanez@gmail.com", stage: "Applied", note: "Referral · Sep 27" },
-  { id: "ap-3", requisitionId: "jr-1", firstName: "Cyril", lastName: "Go", email: "cyril.go@yahoo.com", stage: "Applied", note: "LinkedIn · Sep 26" },
-  { id: "ap-4", requisitionId: "jr-1", firstName: "Angelica", lastName: "Sy", email: "angelica.sy@gmail.com", stage: "Screening", note: "Exam 86% · Sep 24" },
-  { id: "ap-5", requisitionId: "jr-1", firstName: "Mark", lastName: "Lao", email: "mark.lao@gmail.com", stage: "Screening", note: "Exam 79% · Sep 23" },
-  { id: "ap-6", requisitionId: "jr-1", firstName: "Rachelle", lastName: "Tumulak", email: "rachelle.tumulak@gmail.com", stage: "Interview", note: "Partner interview · Oct 1, 2:00 PM" },
-  { id: "ap-7", requisitionId: "jr-1", firstName: "Mark Anthony", lastName: "Cabahug", email: "ma.cabahug@gmail.com", stage: "Interview", note: "HR interview · Oct 2, 10:00 AM" },
-  { id: "ap-8", requisitionId: "jr-1", firstName: "Cyrus", lastName: "Villamor", email: "cyrus.villamor@gmail.com", stage: "Offered", note: "Offer sent Sep 26 · expires Oct 3", offerExpires: "2026-10-03" },
-  { id: "ap-9", requisitionId: "jr-1", firstName: "Joanna", lastName: "Villacura", email: "joanna.villacura@gmail.com", phone: "+63 917 552 0184", stage: "Hired", note: "Accepted · starts Oct 16", startDate: "2026-10-16" },
-  { id: "ap-10", requisitionId: "jr-1", firstName: "Kenneth", lastName: "Go", email: "kenneth.go@gmail.com", stage: "Rejected", note: "Did not meet CPA requirement" },
-  { id: "ap-11", requisitionId: "jr-2", firstName: "Patricia", lastName: "Lim", email: "patricia.lim@gmail.com", stage: "Applied", note: "JobStreet · Sep 29" },
-  { id: "ap-12", requisitionId: "jr-2", firstName: "Ramon", lastName: "Dizon", email: "ramon.dizon@gmail.com", stage: "Screening", note: "Exam scheduled · Oct 1" },
-  { id: "ap-13", requisitionId: "jr-3", firstName: "Liza", lastName: "Moreno", email: "liza.moreno@gmail.com", stage: "Applied", note: "Referral · Sep 25" },
-  { id: "ap-14", requisitionId: "jr-3", firstName: "Paolo", lastName: "Santiago", email: "paolo.santiago@gmail.com", stage: "Screening", note: "Bar passer 2025 · Sep 22" },
-  { id: "ap-15", requisitionId: "jr-4", firstName: "Jenny", lastName: "Alcantara", email: "jenny.alcantara@gmail.com", stage: "Applied", note: "Walk-in · Sep 28" },
-] as Applicant[]).map((a) => ({ ...a, profession: seedProfessions[a.id] }));
+// Applicant counts on each role come from the real applications, not sample numbers.
+const WEEK = 7 * 24 * 60 * 60 * 1000;
+jobRequisitions = jobRequisitions.map((r) => {
+  const mine = applicants.filter((x) => x.requisitionId === r.id);
+  return { ...r, applicants: mine.length, applicantsThisWeek: mine.filter((x) => x.appliedAt && Date.now() - new Date(x.appliedAt).getTime() < WEEK).length };
+});
 
 export function setApplicants(next: Applicant[]) {
   applicants = next;
