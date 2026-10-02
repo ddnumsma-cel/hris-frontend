@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
 import { SideNav } from "@/components/layout/SideNav";
-import { BriefcaseIcon, BuildingIcon, FolderIcon, GridIcon, UsersIcon } from "@/components/icons";
+import { BuildingIcon, FolderIcon, GridIcon, UsersIcon } from "@/components/icons";
 
 export function AdminLayout() {
   return (
@@ -17,8 +17,7 @@ export function AdminLayout() {
               title: "Core HR",
               items: [
                 { label: "People", to: "/admin/people", icon: <UsersIcon /> },
-                { label: "Organization", to: "/admin/organization", icon: <BuildingIcon /> },
-                { label: "Positions", to: "/admin/positions", icon: <BriefcaseIcon /> },
+                { label: "Company", to: "/admin/company", icon: <BuildingIcon /> },
                 { label: "Documents", to: "/admin/documents", icon: <FolderIcon /> },
               ],
             },

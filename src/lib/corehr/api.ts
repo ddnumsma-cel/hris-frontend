@@ -191,7 +191,7 @@ export async function createEmployee(values: NewEmployeeValues, actor: string, s
   if (state.employees.some((e) => e.contact.workEmail.toLowerCase() === email)) return fail("Another employee already uses that work email");
   const position = positionById(v.job.positionId);
   if (!position?.active) return fail("That position isn't available");
-  if (holdersOf(position.id).length >= position.slots) return fail(`${position.title} has no opening. Add room for one more person in Positions first.`);
+  if (holdersOf(position.id).length >= position.slots) return fail(`${position.title} has no opening. Open the job on the Company page and add room for one more person first.`);
   const team = unitById(v.job.teamId);
   const unitId = team && team.parentId === position.departmentId ? team.id : position.departmentId;
 
@@ -357,7 +357,7 @@ export async function setUnitActive(id: string, active: boolean): Promise<OrgUni
     const people = state.employees.filter((e) => isCurrent(e) && ids.has(e.job.unitId)).length;
     if (people) return fail(`${people} ${people === 1 ? "person is" : "people are"} still in ${unit.name}. Move them to another department with a job change first.`);
     const positions = state.positions.filter((p) => p.active && ids.has(p.departmentId)).length;
-    if (positions) return fail(`${unit.name} still has ${positions} open job${positions === 1 ? "" : "s"}. Close those jobs in Positions first.`);
+    if (positions) return fail(`${unit.name} still has ${positions} open job${positions === 1 ? "" : "s"}. Close those jobs on the Company page first.`);
     const kids = state.units.filter((u) => u.parentId === id && u.active).length;
     if (kids) return fail(`Close the departments and teams inside ${unit.name} first.`);
   } else {
@@ -427,7 +427,7 @@ export async function savePosition(input: PositionInput): Promise<Position> {
     if (input.slots < filled) return fail(`${filled} people hold this position, so it needs at least ${filled}`);
     if (filled && input.departmentId !== existing.departmentId) return fail("Move the people in this position before changing its department");
   }
-  if (input.reportsToPositionId === input.id) return fail("A position can't report to itself");
+  if (input.id && input.reportsToPositionId === input.id) return fail("A position can't report to itself");
   if (state.positions.some((p) => p.id !== input.id && p.departmentId === input.departmentId && p.title.toLowerCase() === title.toLowerCase())) return fail(`${dept.name} already has a ${title} position`);
   const code = (input.code.trim() || title.split(/\s+/).map((w) => w[0]).join("")).toUpperCase();
   const position: Position = { active: true, ...existing, ...input, title, code, reportsToPositionId: input.reportsToPositionId || undefined, description: input.description?.trim() || undefined, id: existing?.id ?? newId("ps") };
@@ -554,7 +554,7 @@ export async function recordChange(input: ChangeInput, actor: string): Promise<J
       const team = unitById(input.teamId);
       const unitId = team && team.parentId === position.departmentId ? team.id : position.departmentId;
       if (position.id === job.positionId && unitId === job.unitId) return fail(input.kind === "Promotion" ? "Choose a different position" : "Choose a different position or team");
-      if (position.id !== job.positionId && holdersOf(position.id).length >= position.slots) return fail(`${position.title} has no opening. Add room for one more person in Positions first.`);
+      if (position.id !== job.positionId && holdersOf(position.id).length >= position.slots) return fail(`${position.title} has no opening. Open the job on the Company page and add room for one more person first.`);
       if (position.id !== job.positionId) changes.push({ label: "Position", from: positionById(job.positionId)?.title, to: position.title });
       if (unitId !== job.unitId) changes.push({ label: "Unit", from: unitPathOf(job.unitId, state.units), to: unitPathOf(unitId, state.units) });
       job.positionId = position.id;

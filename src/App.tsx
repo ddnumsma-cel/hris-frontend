@@ -21,11 +21,9 @@ const ManagerReportPage = lazy(() =>
 const AdminLayout = lazy(() => import("@/features/admin/AdminLayout").then((m) => ({ default: m.AdminLayout })));
 const AdminOverview = lazy(() => import("@/features/admin/AdminOverview").then((m) => ({ default: m.AdminOverview })));
 const PeoplePage = lazy(() => import("@/features/admin/corehr/PeoplePage").then((m) => ({ default: m.PeoplePage })));
+const EmployeePage = lazy(() => import("@/features/admin/corehr/EmployeePage").then((m) => ({ default: m.EmployeePage })));
 const NewEmployeePage = lazy(() => import("@/features/admin/corehr/NewEmployeePage").then((m) => ({ default: m.NewEmployeePage })));
-const OrganizationPage = lazy(() =>
-  import("@/features/admin/corehr/OrganizationPage").then((m) => ({ default: m.OrganizationPage })),
-);
-const PositionsPage = lazy(() => import("@/features/admin/corehr/PositionsPage").then((m) => ({ default: m.PositionsPage })));
+const CompanyPage = lazy(() => import("@/features/admin/corehr/CompanyPage").then((m) => ({ default: m.CompanyPage })));
 const DocumentsPage = lazy(() => import("@/features/admin/corehr/DocumentsPage").then((m) => ({ default: m.DocumentsPage })));
 const DirectoryRedirect = lazy(() =>
   import("@/features/admin/corehr/DirectoryRedirect").then((m) => ({ default: m.DirectoryRedirect })),
@@ -153,9 +151,10 @@ function App() {
               <Route index element={<AdminOverview />} />
               <Route path="people" element={<PeoplePage />} />
               <Route path="people/new" element={<NewEmployeePage />} />
-              <Route path="people/:employeeId" element={<PeoplePage />} />
-              <Route path="organization" element={<OrganizationPage />} />
-              <Route path="positions" element={<PositionsPage />} />
+              <Route path="people/:employeeId" element={<EmployeePage />} />
+              <Route path="company" element={<CompanyPage />} />
+              <Route path="organization" element={<Navigate to="/admin/company" replace />} />
+              <Route path="positions" element={<Navigate to="/admin/company" replace />} />
               <Route path="documents" element={<DocumentsPage />} />
               <Route path="directory" element={<DirectoryRedirect />} />
             </Route>

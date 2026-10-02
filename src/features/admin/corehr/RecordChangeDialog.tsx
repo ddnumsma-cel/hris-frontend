@@ -143,7 +143,7 @@ export function RecordChangeDialog({ record, onClose }: { record: EmployeeRecord
 
           {moves && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field id="ch-position" label="New position" required className="sm:col-span-2" hint={position ? `${position.filled} of ${position.slots} slots filled` : "Full positions can't be chosen. Add a slot in Positions first."}>
+              <Field id="ch-position" label="New position" required className="sm:col-span-2" hint={position ? `${position.filled} of ${position.slots} slots filled` : "Full jobs can't be chosen. Add room on the Company page first."}>
                 <select
                   id="ch-position"
                   className={inputClass}

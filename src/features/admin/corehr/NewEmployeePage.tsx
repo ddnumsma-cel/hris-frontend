@@ -62,7 +62,7 @@ function ReviewGroup({ title, onEdit, rows }: { title: string; onEdit: () => voi
 /** Add employee as a short wizard: one topic per step, a review at the end. */
 export function NewEmployeePage() {
   const navigate = useNavigate();
-  // "Hire for this job" on Positions arrives with ?position= already chosen.
+  // "Hire" on the Company page arrives with ?position= already chosen.
   const [params] = useSearchParams();
   const toast = useToast();
   const actor = useActor();

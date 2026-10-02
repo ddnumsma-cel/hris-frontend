@@ -102,7 +102,6 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
   return (
     <div className="rise-in flex min-h-full flex-col">
       <DetailHeader
-        back={{ to: "/admin/people", label: "People" }}
         leading={<Initials initials={s.initials} size="md" />}
         title={s.name}
         subtitle={
