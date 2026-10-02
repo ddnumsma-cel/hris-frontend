@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import clsx from "clsx";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -370,11 +370,6 @@ export function AdminPersonnelFiles() {
             title="No employees yet"
             description="New hires appear here once you accept their Onboarding form from the inbox above."
           />
-          <div className="-mt-4 flex justify-center pb-8">
-            <Link to="/admin/pipeline" className="rounded-full border border-border px-4 py-2 text-sm font-semibold text-brand-ink hover:border-brand">
-              Go to Pipeline
-            </Link>
-          </div>
         </Card>
       ) : !directoryQuery.isLoading && filtered.length === 0 ? (
         <Card>

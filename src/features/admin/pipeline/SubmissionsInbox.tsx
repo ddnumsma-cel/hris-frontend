@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { MiniAvatar } from "@/components/ui/MiniAvatar";
 import { ArrowRightIcon, CheckCircleIcon, InboxIcon } from "@/components/icons";
@@ -151,14 +150,6 @@ export function SubmissionsInbox({ onReview }: { onReview: (s: OnboardingSubmiss
               </ul>
             )}
 
-            <Link
-              to="/admin/pipeline"
-              onClick={() => setOpen(false)}
-              className="flex items-center justify-center gap-1.5 border-t border-border bg-surface-2/60 px-4 py-2.5 text-xs font-semibold text-ink-2 transition-colors hover:text-ink"
-            >
-              See everyone in Pipeline
-              <ArrowRightIcon className="h-3.5 w-3.5" />
-            </Link>
           </div>,
           document.body,
         )}
