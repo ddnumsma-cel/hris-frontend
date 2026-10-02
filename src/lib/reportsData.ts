@@ -24,7 +24,12 @@ export interface ReportRow {
 }
 
 const team = {
-  AD: "Angela Dela Cruz",
+  BS: "Bea Santos",
+  MR: "Miguel Reyes",
+  CU: "Carla Uy",
+  JA: "Jon Ababa",
+  DL: "Dennis Lim",
+  GT: "Grace Tan",
 } as const;
 
 type Initials = keyof typeof team;
@@ -50,7 +55,12 @@ const timesheetWeeks: { start: string; label: string }[] = [
 ];
 
 const timesheetSeed: Record<Initials, [present: number, absent: number, lates: number, lateMins: number, undertime: number, overtime: number][]> = {
-  AD: [],
+  BS: [],
+  MR: [],
+  CU: [],
+  JA: [],
+  DL: [],
+  GT: [],
 };
 
 const timesheet: ReportRow[] = (Object.keys(timesheetSeed) as Initials[]).flatMap((initials) =>

@@ -42,7 +42,7 @@ import type {
 // People added through Onboarding (and the signed-in employee's account) are kept in this browser so
 // the hire flow survives a reload. Everything else stays in memory, as before. A backend replaces this.
 
-export const PEOPLE_STORE_KEY = "msma-demo-people-v4";
+export const PEOPLE_STORE_KEY = "msma-demo-people-v5";
 
 interface PeopleStore {
   currentEmployee?: Employee;
@@ -135,7 +135,11 @@ export function setPayslips(next: Payslip[]) {
   payslips = next;
 }
 
-export let announcements: Announcement[] = [];
+export let announcements: Announcement[] = [
+  { id: "an-1", title: "BIR Form 2316 for 2025 is now available for download", postedOn: "Posted Sept 20, 2026" },
+  { id: "an-2", title: "Cebu HQ town hall — Oct 3, 2026, 4:00 PM, 5th floor training room", postedOn: "Posted Sept 18, 2026" },
+  { id: "an-3", title: "HMO dependent enrollment closes Sept 30 — submit via Benefits", postedOn: "Posted Sept 12, 2026" },
+];
 
 export function setAnnouncements(next: Announcement[]) {
   announcements = next;
@@ -148,13 +152,9 @@ export function setLeaveRequests(next: LeaveRequest[]) {
 }
 
 /** Credits used before the requests on file (carried over from the old system). */
-export const priorLeaveUsage: Record<string, Partial<Record<LeaveType, number>>> = {
-  "Angela Dela Cruz": { Vacation: 2 },
-};
+export const priorLeaveUsage: Record<string, Partial<Record<LeaveType, number>>> = {};
 
-export const latesThisCutoff: Record<string, number> = {
-  "Angela Dela Cruz": 1,
-};
+export const latesThisCutoff: Record<string, number> = {};
 
 export const leavePolicies: LeavePolicy[] = [
   { code: "VL", type: "Vacation", days: 15, accrual: "1.25 / month", cashConversion: "Yes · Dec" },
@@ -223,7 +223,13 @@ export const payrollCostBreakdown: PayrollCostSegment[] = [
   { label: "Overtime", percent: 7 },
 ];
 
-export let complianceCalendar: ComplianceItem[] = [];
+export let complianceCalendar: ComplianceItem[] = [
+  { id: "c-1", filing: "Monthly contribution remittance", agency: "SSS", due: "Sept 30", status: "Filed", periodCovered: "August 2026", amount: 18375, referenceNo: "PRN 0826-44192" },
+  { id: "c-2", filing: "Monthly premium remittance", agency: "PhilHealth", due: "Sept 30", status: "Filed", periodCovered: "August 2026", amount: 13550, referenceNo: "PHP-0826-7713" },
+  { id: "c-3", filing: "Monthly contribution remittance", agency: "Pag-IBIG", due: "Sept 30", status: "Due soon", note: "Due in 5 days", periodCovered: "August 2026", amount: 2800 },
+  { id: "c-4", filing: "Withholding tax remittance (1601-C)", agency: "BIR", due: "Oct 10", status: "Due soon", note: "Due in 15 days", periodCovered: "September 2026", amount: 42469.42 },
+  { id: "c-5", filing: "Certificate of Compensation (2316)", agency: "BIR", due: "Sept 15", status: "Overdue", note: "3 employees", periodCovered: "2025" },
+];
 
 export function setComplianceCalendar(next: ComplianceItem[]) {
   complianceCalendar = next;
@@ -248,7 +254,12 @@ export function setEmployeeBenefits(next: EmployeeBenefit[]) {
 
 export const teamRoster: TeamRosterMember[] = [];
 
-export let jobRequisitions: JobRequisition[] = stored.jobRequisitions ?? [];
+export let jobRequisitions: JobRequisition[] = stored.jobRequisitions ?? [
+  { id: "jr-1", title: "Audit Associate", department: "Audit & Assurance", cluster: "VCM", office: "Cebu HQ", openings: 3, applicants: 21, applicantsThisWeek: 5, stage: "Interviewing", approval: "Approved" },
+  { id: "jr-2", title: "Tax Associate", department: "Tax Advisory", cluster: "RPM", office: "Cebu HQ", openings: 4, applicants: 14, applicantsThisWeek: 3, stage: "Sourcing", approval: "Approved" },
+  { id: "jr-3", title: "Corporate Lawyer", department: "Corporate Legal", cluster: "ADS", office: "Manila", openings: 2, applicants: 6, applicantsThisWeek: 1, stage: "Offer extended", approval: "Approved" },
+  { id: "jr-4", title: "Bookkeeper", department: "Bookkeeping", cluster: "RPM", office: "Davao", openings: 1, applicants: 9, applicantsThisWeek: 3, stage: "Sourcing", approval: "Pending L2" },
+];
 
 export function setJobRequisitions(next: JobRequisition[]) {
   jobRequisitions = next;
@@ -273,7 +284,23 @@ const seedProfessions: Record<string, ApplicantProfession> = {
   "ap-15": "BS Accountancy graduate",
 };
 
-export let applicants: Applicant[] = stored.applicants ?? ([] as Applicant[]).map((a) => ({ ...a, profession: seedProfessions[a.id] }));
+export let applicants: Applicant[] = stored.applicants ?? ([
+  { id: "ap-1", requisitionId: "jr-1", firstName: "Kristine Mae", lastName: "Abellana", email: "kristine.abellana@gmail.com", stage: "Applied", note: "JobStreet · Sep 28" },
+  { id: "ap-2", requisitionId: "jr-1", firstName: "John Paul", lastName: "Ybañez", email: "jp.ybanez@gmail.com", stage: "Applied", note: "Referral · Sep 27" },
+  { id: "ap-3", requisitionId: "jr-1", firstName: "Cyril", lastName: "Go", email: "cyril.go@yahoo.com", stage: "Applied", note: "LinkedIn · Sep 26" },
+  { id: "ap-4", requisitionId: "jr-1", firstName: "Angelica", lastName: "Sy", email: "angelica.sy@gmail.com", stage: "Screening", note: "Exam 86% · Sep 24" },
+  { id: "ap-5", requisitionId: "jr-1", firstName: "Mark", lastName: "Lao", email: "mark.lao@gmail.com", stage: "Screening", note: "Exam 79% · Sep 23" },
+  { id: "ap-6", requisitionId: "jr-1", firstName: "Rachelle", lastName: "Tumulak", email: "rachelle.tumulak@gmail.com", stage: "Interview", note: "Partner interview · Oct 1, 2:00 PM" },
+  { id: "ap-7", requisitionId: "jr-1", firstName: "Mark Anthony", lastName: "Cabahug", email: "ma.cabahug@gmail.com", stage: "Interview", note: "HR interview · Oct 2, 10:00 AM" },
+  { id: "ap-8", requisitionId: "jr-1", firstName: "Cyrus", lastName: "Villamor", email: "cyrus.villamor@gmail.com", stage: "Offered", note: "Offer sent Sep 26 · expires Oct 3", offerExpires: "2026-10-03" },
+  { id: "ap-9", requisitionId: "jr-1", firstName: "Joanna", lastName: "Villacura", email: "joanna.villacura@gmail.com", phone: "+63 917 552 0184", stage: "Hired", note: "Accepted · starts Oct 16", startDate: "2026-10-16" },
+  { id: "ap-10", requisitionId: "jr-1", firstName: "Kenneth", lastName: "Go", email: "kenneth.go@gmail.com", stage: "Rejected", note: "Did not meet CPA requirement" },
+  { id: "ap-11", requisitionId: "jr-2", firstName: "Patricia", lastName: "Lim", email: "patricia.lim@gmail.com", stage: "Applied", note: "JobStreet · Sep 29" },
+  { id: "ap-12", requisitionId: "jr-2", firstName: "Ramon", lastName: "Dizon", email: "ramon.dizon@gmail.com", stage: "Screening", note: "Exam scheduled · Oct 1" },
+  { id: "ap-13", requisitionId: "jr-3", firstName: "Liza", lastName: "Moreno", email: "liza.moreno@gmail.com", stage: "Applied", note: "Referral · Sep 25" },
+  { id: "ap-14", requisitionId: "jr-3", firstName: "Paolo", lastName: "Santiago", email: "paolo.santiago@gmail.com", stage: "Screening", note: "Bar passer 2025 · Sep 22" },
+  { id: "ap-15", requisitionId: "jr-4", firstName: "Jenny", lastName: "Alcantara", email: "jenny.alcantara@gmail.com", stage: "Applied", note: "Walk-in · Sep 28" },
+] as Applicant[]).map((a) => ({ ...a, profession: seedProfessions[a.id] }));
 
 export function setApplicants(next: Applicant[]) {
   applicants = next;
@@ -286,9 +313,7 @@ export const managerTeamStats = {
   attendanceRate: 94,
 };
 
-export let performanceReviewStatuses: Record<string, "Submitted" | "Pending"> = {
-  "MSMA-00482": "Pending",
-};
+export let performanceReviewStatuses: Record<string, "Submitted" | "Pending"> = {};
 
 export function setPerformanceReviewStatuses(next: Record<string, "Submitted" | "Pending">) {
   performanceReviewStatuses = next;
