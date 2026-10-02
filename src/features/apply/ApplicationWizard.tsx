@@ -569,7 +569,7 @@ export function ApplicationWizard({
                 How many years' experience do you have as {d.role ? `${/^[aeiou]/i.test(d.role) ? "an" : "a"} ${d.role}` : "this role"}?
               </Label>
               <select id="ap-years" className={inputClass} value={d.years} onChange={(e) => set("years", e.target.value)} {...fieldProps("years")}>
-                <option value="" />
+                <option value="" disabled>Select years of experience…</option>
                 {YEARS.map((y) => (
                   <option key={y}>{y}</option>
                 ))}
@@ -588,7 +588,7 @@ export function ApplicationWizard({
                 onChange={(e) => set("background", e.target.value)}
                 {...fieldProps("background")}
               >
-                <option value="">{d.role ? "" : "Choose a role first"}</option>
+                <option value="" disabled>{d.role ? "Select your background…" : "Choose a role first"}</option>
                 {(field?.backgrounds ?? [{ label: "Graduate of a related course" }, { label: "Student or undergraduate" }, { label: "Other field" }]).map((b) => (
                   <option key={b.label}>{b.label}</option>
                 ))}
