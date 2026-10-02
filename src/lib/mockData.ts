@@ -42,7 +42,7 @@ import type {
 // People added through Onboarding (and the signed-in employee's account) are kept in this browser so
 // the hire flow survives a reload. Everything else stays in memory, as before. A backend replaces this.
 
-export const PEOPLE_STORE_KEY = "msma-demo-people-v2";
+export const PEOPLE_STORE_KEY = "msma-demo-people-v3";
 
 interface PeopleStore {
   currentEmployee?: Employee;
@@ -157,7 +157,7 @@ export function setAnnouncements(next: Announcement[]) {
 }
 
 export let leaveRequests: LeaveRequest[] = [
-  { id: "lr-1", employeeName: "Bea Santos", employeeInitials: "BS", employeeRole: "Audit Associate", type: "Vacation", detail: "Oct 6–8 · 3 days", status: "Pending", requestedOn: "2026-09-25", partnerApproved: true, startDate: "2026-10-06", endDate: "2026-10-08", days: 3, reason: "Family trip to Bohol" },
+  { id: "lr-1", employeeName: "Angela Dela Cruz", employeeInitials: "AD", employeeRole: "Senior Tax Associate", type: "Vacation", detail: "Oct 6–8 · 3 days", status: "Pending", requestedOn: "2026-09-25", partnerApproved: true, startDate: "2026-10-06", endDate: "2026-10-08", days: 3, reason: "Family trip to Bohol" },
 ];
 
 export function setLeaveRequests(next: LeaveRequest[]) {
@@ -166,15 +166,11 @@ export function setLeaveRequests(next: LeaveRequest[]) {
 
 /** Credits used before the requests on file (carried over from the old system). */
 export const priorLeaveUsage: Record<string, Partial<Record<LeaveType, number>>> = {
-  "Bea Santos": { Vacation: 6.5 },
-  "Carla Uy": { Sick: 7 },
-  "Jon Ababa": { Vacation: 2 },
-  "Dennis Lim": { Emergency: 1, Sick: 3 },
+  "Angela Dela Cruz": { Vacation: 2 },
 };
 
 export const latesThisCutoff: Record<string, number> = {
-  "Dennis Lim": 2,
-  "Jon Ababa": 1,
+  "Angela Dela Cruz": 1,
 };
 
 export const leavePolicies: LeavePolicy[] = [
@@ -197,7 +193,7 @@ export const leaveOverviewStats: LeaveOverviewStats = {
 };
 
 export const onLeaveToday = [
-  { name: "Dennis Lim", initials: "DL", reason: "Emergency Leave" },
+  { name: "Angela Dela Cruz", initials: "AD", reason: "Vacation Leave" },
 ];
 
 export const attendanceTrend: AttendancePoint[] = [
@@ -266,8 +262,8 @@ export function setEmployeeDirectory(next: Employee[]) {
 export const workforceAlerts: WorkforceAlert[] = [
   {
     id: "wa-1",
-    employeeName: "Bea Santos",
-    employeeInitials: "BS",
+    employeeName: "Angela Dela Cruz",
+    employeeInitials: "AD",
     category: "Punctuality",
     message: "3 late clock-ins this week (avg 14 min) — breaks a 6-week on-time streak",
     severity: "warn",
@@ -284,7 +280,7 @@ export function setEmployeeBenefits(next: EmployeeBenefit[]) {
 }
 
 export const teamRoster: TeamRosterMember[] = [
-  { id: "MSMA-00560", name: "Bea Santos", initials: "BS", position: "Audit Associate", tenureLabel: "2 yrs 3 mos", email: "bea.santos@msma.ph", status: "On leave" },
+  { id: "MSMA-00482", name: "Angela Dela Cruz", initials: "AD", position: "Senior Tax Associate", tenureLabel: "2 yrs 3 mos", email: "angela.delacruz@msma.ph", status: "Active" },
 ];
 
 export let jobRequisitions: JobRequisition[] = stored.jobRequisitions ?? [
@@ -315,7 +311,7 @@ const seedProfessions: Record<string, ApplicantProfession> = {
 };
 
 export let applicants: Applicant[] = stored.applicants ?? ([
-  { id: "ap-1", requisitionId: "jr-1", firstName: "Kristine Mae", lastName: "Abellana", email: "kristine.abellana@gmail.com", stage: "Applied", note: "JobStreet · Sep 28" },
+  { id: "ap-1", requisitionId: "jr-1", firstName: "Angela", lastName: "Dela Cruz", email: "angela.delacruz@gmail.com", stage: "Applied", note: "JobStreet · Sep 28" },
 ] as Applicant[]).map((a) => ({ ...a, profession: seedProfessions[a.id] }));
 
 export function setApplicants(next: Applicant[]) {
@@ -330,12 +326,7 @@ export const managerTeamStats = {
 };
 
 export let performanceReviewStatuses: Record<string, "Submitted" | "Pending"> = {
-  "MSMA-00560": "Submitted",
-  "MSMA-00591": "Submitted",
-  "MSMA-00602": "Submitted",
-  "MSMA-00614": "Submitted",
-  "MSMA-00625": "Pending",
-  "MSMA-00398": "Pending",
+  "MSMA-00482": "Pending",
 };
 
 export function setPerformanceReviewStatuses(next: Record<string, "Submitted" | "Pending">) {
@@ -379,7 +370,7 @@ export function setCurrentManager(next: PartnerProfile) {
 }
 
 export let attendanceRequests: AttendanceRequest[] = [
-  { id: "ar-1", employeeName: "Bea Santos", employeeInitials: "BS", employeeRole: "Audit Associate", kind: "Missed clock-out", date: "Sept 24, 2026", recordedTime: "In 8:52 AM · Out —", requestedTime: "Out 6:15 PM", reason: "Left straight from the client site in Mandaue; scanner was not reachable.", status: "Pending", filedOn: "2026-09-25" },
+  { id: "ar-1", employeeName: "Angela Dela Cruz", employeeInitials: "AD", employeeRole: "Senior Tax Associate", kind: "Missed clock-out", date: "Sept 24, 2026", recordedTime: "In 8:52 AM · Out —", requestedTime: "Out 6:15 PM", reason: "Left straight from the client site in Mandaue; scanner was not reachable.", status: "Pending", filedOn: "2026-09-25" },
 ];
 
 export function setAttendanceRequests(next: AttendanceRequest[]) {
@@ -460,7 +451,7 @@ export function setCurrentAdmin(next: AdminProfile) {
 }
 
 export let offboardingCases: OffboardingCase[] = [
-  { id: "off-1", employeeName: "Grace Tan", employeeInitials: "GT", department: "Audit & Assurance", lastDay: "Oct 15, 2026", stage: "Clearance in progress" },
+  { id: "off-1", employeeName: "Angela Dela Cruz", employeeInitials: "AD", department: "Tax Advisory", lastDay: "Oct 15, 2026", stage: "Clearance in progress" },
 ];
 
 export function setOffboardingCases(next: OffboardingCase[]) {
@@ -486,8 +477,8 @@ export function setTrainingRecords(next: TrainingRecord[]) {
 export let employeeCases: EmployeeCase[] = [
   {
     id: "case-1",
-    employeeName: "Jon Ababa",
-    employeeInitials: "JA",
+    employeeName: "Angela Dela Cruz",
+    employeeInitials: "AD",
     type: "Attendance",
     filedBy: "Rafael Ortiz",
     status: "Under review",

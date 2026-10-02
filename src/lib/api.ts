@@ -530,7 +530,7 @@ export interface LeaveApplication extends LeaveRequest {
   office?: Employee["office"];
   /** Credits left once this request is approved, e.g. { left: 5.5, of: 15 }; null for overtime. */
   balanceAfter: { left: number; of: number } | null;
-  /** Teammates (same department) off on overlapping days, e.g. "Dennis Lim (Oct 6)". */
+  /** Teammates (same department) off on overlapping days, e.g. "Angela Dela Cruz (Oct 6)". */
   teamOffSameDays: string[];
   latesThisCutoff: number;
   /** Days since it was filed. */
