@@ -21,8 +21,9 @@ export function Label({
 }) {
   const source = from ?? (fromId ? "ID" : undefined);
   return (
-    <label htmlFor={htmlFor} className="mb-1.5 flex flex-wrap items-center gap-1.5 text-[0.82rem] font-semibold text-ink-2">
-      <span>
+    // One line: the tag sits at the right end and never wraps, so inputs side by side stay aligned.
+    <label htmlFor={htmlFor} className="mb-1.5 flex min-h-5 items-center gap-1.5 text-[0.82rem] font-semibold text-ink-2">
+      <span className="min-w-0 truncate">
         {children}
         {required && (
           <span className="ml-0.5 text-critical" aria-hidden="true">
@@ -32,7 +33,9 @@ export function Label({
         {required && <span className="sr-only"> (required)</span>}
       </span>
       {source && (
-        <span className="rounded-full bg-brand-tint px-2 py-px text-[0.68rem] font-semibold text-brand-ink">From {source} · check this</span>
+        <span title={`Filled in from your ${source}. Check it.`} className="ml-auto flex-none rounded-full bg-brand-tint px-2 py-px text-[0.68rem] font-semibold whitespace-nowrap text-brand-ink">
+          From {source}
+        </span>
       )}
     </label>
   );

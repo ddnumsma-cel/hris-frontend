@@ -259,6 +259,10 @@ export interface Applicant {
   resumeFileName?: string;
   message?: string;
   experienceLevel?: "Fresh graduate" | "Has work experience";
+  /** Their own words about their work experience. */
+  workExperience?: string;
+  /** What they picked for "Which describes your … background?". */
+  background?: string;
   coverLetter?: { kind: "upload"; fileName: string } | { kind: "write"; text: string };
   languages?: string[];
   careerHistory?: ApplicantRole[];

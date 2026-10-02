@@ -1494,7 +1494,16 @@ export function fetchOpenRequisitions() {
 }
 
 export interface ApplicationInput {
-  requisitionId: string;
+  /** An open requisition; empty when they picked a role from the catalog with no opening yet. */
+  requisitionId?: string;
+  /** The role they picked, e.g. "Web Developer". */
+  appliedRole: string;
+  /** Its field, e.g. "Information Technology". */
+  field: string;
+  /** What they chose for "Which describes your … background?". */
+  background: string;
+  /** In their own words. */
+  workExperience: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -1516,8 +1525,26 @@ export interface ApplicationInput {
 
 /** Someone applies through the shared link; they land in Recruitment's Applied column. */
 export async function submitApplication(input: ApplicationInput): Promise<Applicant> {
-  const role = jobRequisitions.find((r) => r.id === input.requisitionId);
-  if (!role || role.approval !== "Approved" || role.openings <= 0) throw new Error("This role is no longer open.");
+  let role = input.requisitionId
+    ? jobRequisitions.find((r) => r.id === input.requisitionId)
+    : jobRequisitions.find((r) => r.approval === "Approved" && r.openings > 0 && r.title.toLowerCase() === input.appliedRole.toLowerCase());
+  if (input.requisitionId && (!role || role.approval !== "Approved" || role.openings <= 0)) throw new Error("This role is no longer open.");
+  // A role from the catalog with no opening yet still reaches HR: it gets its own pipeline in Recruitment.
+  if (!role) {
+    role = {
+      id: `jr-${Date.now().toString(36)}`,
+      title: input.appliedRole,
+      department: input.field,
+      office: "Cebu HQ",
+      openings: 1,
+      applicants: 0,
+      applicantsThisWeek: 0,
+      stage: "Sourcing",
+      approval: "Approved",
+    };
+    setJobRequisitions([...jobRequisitions, role]);
+  }
+  const roleId = role.id;
   const email = input.email.trim().toLowerCase();
   if (applicants.some((a) => a.requisitionId === role.id && a.email?.toLowerCase() === email)) {
     throw new Error(`You've already applied for ${role.title} with this email. HR will contact you there.`);
@@ -1526,6 +1553,8 @@ export async function submitApplication(input: ApplicationInput): Promise<Applic
   const applicant: Applicant = {
     id: `ap-${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
     requisitionId: role.id,
+    background: input.background,
+    workExperience: input.workExperience.trim() || undefined,
     firstName: input.firstName.trim(),
     lastName: input.lastName.trim(),
     email,
@@ -1549,6 +1578,6 @@ export async function submitApplication(input: ApplicationInput): Promise<Applic
     skills: input.skills,
   };
   setApplicants([applicant, ...applicants]);
-  setJobRequisitions(jobRequisitions.map((r) => (r.id === role.id ? { ...r, applicants: r.applicants + 1, applicantsThisWeek: r.applicantsThisWeek + 1 } : r)));
+  setJobRequisitions(jobRequisitions.map((r) => (r.id === roleId ? { ...r, applicants: r.applicants + 1, applicantsThisWeek: r.applicantsThisWeek + 1 } : r)));
   return delay(applicant);
 }

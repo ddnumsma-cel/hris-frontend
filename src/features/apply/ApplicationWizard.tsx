@@ -6,14 +6,16 @@ import { AlertTriangleIcon, CheckCircleIcon, EditIcon, FileIcon, LoaderIcon, Plu
 import { submitApplication } from "@/lib/api";
 import { formatPhMobile, isValidPhMobile } from "@/lib/govIds";
 import { fetchCities, fetchProvinces } from "@/lib/psgc";
-import { PROFESSIONS } from "@/lib/recruitment";
+import { fieldOfRole, ROLE_FIELDS } from "@/lib/roleCatalog";
 import { addressFirst, findCity, findProvince, parseResume, readResumeText } from "@/lib/resumeRead";
 import type { Applicant, ApplicantEducation, ApplicantProfession, ApplicantRole, JobRequisition } from "@/lib/types";
 import { FieldError, inputClass, Label } from "@/features/employee/onboarding/fields";
 
 const STEPS = ["Documents", "Employer questions", "Profile", "Review"] as const;
 const LANGUAGES = ["English", "Filipino", "Cebuano", "Hiligaynon", "Ilocano", "Mandarin", "Japanese", "Korean", "Other (language not listed)"];
-const YEARS = ["Less than 1 year", ...Array.from({ length: 10 }, (_, i) => `${i + 1} year${i ? "s" : ""}`), "More than 10 years"];
+const YEARS = ["None yet (fresh graduate)", "Less than 1 year", ...Array.from({ length: 10 }, (_, i) => `${i + 1} year${i ? "s" : ""}`), "More than 10 years"];
+// Skills useful in any role; the applicant can add their own.
+const GENERAL_SKILLS = ["Interpersonal skills", "Communication", "Problem solving", "Teamwork", "Time management", "Adaptability", "Critical thinking", "Attention to detail", "Leadership", "Customer service", "Microsoft Office", "Willingness to learn"];
 const MAX_FILE = 5 * 1024 * 1024;
 const RESUME_TYPES = /\.(pdf|doc|docx|txt|rtf|png|jpe?g)$/i;
 
@@ -30,15 +32,18 @@ interface Data {
   province: string;
   city: string;
   requisitionId: string;
-  experienceLevel: "" | "Fresh graduate" | "Has work experience";
+  /** From the role catalog, e.g. "Web Developer". */
+  role: string;
+  /** Their own words. */
+  workExperience: string;
   years: string;
-  profession: "" | ApplicantProfession;
+  /** A label from the role's field, e.g. "Certified Public Accountant (CPA)". */
+  background: string;
   prcLicenseNumber: string;
   languages: string[];
   careerHistory: ApplicantRole[];
   education: ApplicantEducation[];
   skills: string[];
-  message: string;
   consent: boolean;
 }
 
@@ -90,16 +95,16 @@ export function ApplicationWizard({
     phone: "",
     province: "",
     city: "",
-    requisitionId: fixedRoleId ?? (roles.length === 1 ? roles[0].id : ""),
-    experienceLevel: "",
+    requisitionId: fixedRoleId ?? "",
+    role: roles.find((r) => r.id === fixedRoleId)?.title ?? "",
+    workExperience: "",
     years: "",
-    profession: "",
+    background: "",
     prcLicenseNumber: "",
     languages: [],
     careerHistory: [],
     education: [],
     skills: [],
-    message: "",
     consent: false,
   });
   const set = <K extends keyof Data>(k: K, v: Data[K]) => {
@@ -122,6 +127,9 @@ export function ApplicationWizard({
   const citiesQuery = useQuery({ queryKey: ["psgc", "cities", provinceCode], queryFn: () => fetchCities(provinceCode!), enabled: Boolean(provinceCode), staleTime: Infinity });
 
   const role = roles.find((r) => r.id === d.requisitionId);
+  // The field decides the background options and skill suggestions; unknown roles get a generic set.
+  const field = fieldOfRole(d.role) ?? (role && /audit|tax|book|account/i.test(role.title) ? ROLE_FIELDS[0] : undefined);
+  const backgroundOption = field?.backgrounds.find((b) => b.label === d.background);
 
   // ---- Resume ----
   function pickResume(file: File | undefined) {
@@ -152,15 +160,12 @@ export function ApplicationWizard({
       fill("lastName", f.lastName);
       fill("email", f.email);
       fill("phone", f.phone);
-      fill("profession", f.profession);
+      const acct = ROLE_FIELDS[0].backgrounds.find((b) => b.profession === f.profession);
+      if (acct && (!d.role || fieldOfRole(d.role)?.key === "accounting")) fill("background", acct.label);
       fill("prcLicenseNumber", f.prcLicenseNumber);
-      if (f.yearsExperience !== undefined && !d.experienceLevel) {
-        next.experienceLevel = f.yearsExperience > 0 ? "Has work experience" : "Fresh graduate";
-        filled.add("experienceLevel");
-        if (f.yearsExperience > 0) {
-          next.years = f.yearsExperience > 10 ? YEARS[11] : YEARS[f.yearsExperience];
-          filled.add("years");
-        }
+      if (f.yearsExperience !== undefined && !d.years) {
+        next.years = f.yearsExperience > 10 ? YEARS[12] : f.yearsExperience === 0 ? YEARS[0] : YEARS[f.yearsExperience + 1];
+        filled.add("years");
       }
       if (!d.province) {
         const lines = addressFirst(text);
@@ -181,6 +186,8 @@ export function ApplicationWizard({
         }
       }
       setD((p) => ({ ...p, ...next }));
+      // Filled fields are no longer missing.
+      setErrors((e) => Object.fromEntries(Object.entries(e).filter(([k]) => !filled.has(k))));
       setFromResume(filled);
       setReadNote({ filled: filled.size });
     } catch {
@@ -207,11 +214,11 @@ export function ApplicationWizard({
       if (!d.city) e.city = "Choose your city or municipality";
     }
     if (s === 1) {
-      if (!d.requisitionId) e.requisitionId = "Choose the position you're applying for";
-      if (!d.experienceLevel) e.experienceLevel = "Choose one";
-      if (d.experienceLevel === "Has work experience" && !d.years) e.years = "Choose how many years";
-      if (!d.profession) e.profession = "Choose the option closest to you";
-      if (d.profession === "CPA" && !d.prcLicenseNumber.trim()) e.prcLicenseNumber = "Enter your PRC license number";
+      if (!d.role) e.role = "Choose the role you're applying for";
+      if (!d.workExperience.trim()) e.workExperience = "Tell us about your work experience, or write “Fresh graduate”";
+      if (!d.years) e.years = "Choose how many years";
+      if (!d.background) e.background = "Choose the option closest to you";
+      if (backgroundOption?.licensed && !d.prcLicenseNumber.trim()) e.prcLicenseNumber = "Enter your license number";
     }
     if (s === 3 && !d.consent) e.consent = "Tick this so HR can use your details for this application";
     return e;
@@ -237,26 +244,31 @@ export function ApplicationWizard({
   const mutation = useMutation({
     mutationFn: () =>
       submitApplication({
-        requisitionId: d.requisitionId,
+        requisitionId: d.requisitionId || undefined,
+        appliedRole: d.role,
+        field: field?.label ?? "Other",
+        background: d.background,
+        workExperience: d.workExperience,
         firstName: d.firstName,
         lastName: d.lastName,
         email: d.email,
         phone: d.phone,
         province: d.province,
         city: d.city,
-        profession: (d.profession || "Other") as ApplicantProfession,
-        experienceLevel: d.experienceLevel as "Fresh graduate" | "Has work experience",
-        yearsExperience: d.experienceLevel === "Has work experience" ? Math.max(0, YEARS.indexOf(d.years)) : 0,
-        prcLicenseNumber: d.profession === "CPA" ? d.prcLicenseNumber : undefined,
+        profession: (backgroundOption?.profession ?? "Other") as ApplicantProfession,
+        experienceLevel: d.years === YEARS[0] ? "Fresh graduate" : "Has work experience",
+        yearsExperience: Math.max(0, YEARS.indexOf(d.years) - 1),
+        prcLicenseNumber: backgroundOption?.licensed ? d.prcLicenseNumber : undefined,
         resumeFileName: d.resumeChoice === "upload" ? resume?.name : undefined,
         coverLetter: d.coverChoice === "upload" && cover ? { kind: "upload", fileName: cover.name } : d.coverChoice === "write" ? { kind: "write", text: d.coverText.trim() } : undefined,
         languages: d.languages,
         careerHistory: d.careerHistory,
         education: d.education,
         skills: d.skills,
-        message: d.message,
       }),
-    onSuccess: (applicant) => onSent({ applicant, role: roles.find((r) => r.id === applicant.requisitionId)! }),
+    // A catalog role may have no opening on the list yet; the thank-you screen only needs its title.
+    onSuccess: (applicant) =>
+      onSent({ applicant, role: roles.find((r) => r.id === applicant.requisitionId) ?? ({ id: applicant.requisitionId, title: d.role, office: "Cebu HQ" } as JobRequisition) }),
   });
 
   function submit() {
@@ -267,7 +279,7 @@ export function ApplicationWizard({
   }
 
   const err = (k: string) => errors[k];
-  const field = (k: keyof Data) => ({ "aria-invalid": err(k) ? true : undefined, "aria-describedby": err(k) ? `ap-${k}-error` : undefined });
+  const fieldProps = (k: keyof Data) => ({ "aria-invalid": err(k) ? true : undefined, "aria-describedby": err(k) ? `ap-${k}-error` : undefined });
 
   return (
     <div className="flex flex-col gap-5">
@@ -408,7 +420,7 @@ export function ApplicationWizard({
                       onChange={(e) => set("coverText", e.target.value)}
                       placeholder="Dear Hiring Team, …"
                       aria-label="Cover letter"
-                      {...field("coverText")}
+                      {...fieldProps("coverText")}
                       className={clsx(inputClass, "resize-y")}
                     />
                     <FieldError id="ap-coverText-error" message={err("coverText")} />
@@ -445,7 +457,7 @@ export function ApplicationWizard({
                       value={d[k]}
                       onChange={(e) => set(k, e.target.value)}
                       onBlur={k === "phone" ? () => isValidPhMobile(d.phone) && set("phone", formatPhMobile(d.phone)) : undefined}
-                      {...field(k)}
+                      {...fieldProps(k)}
                     />
                     <FieldError id={`ap-${k}-error`} message={err(k)} />
                   </div>
@@ -462,7 +474,7 @@ export function ApplicationWizard({
                       set("province", e.target.value);
                       set("city", "");
                     }}
-                    {...field("province")}
+                    {...fieldProps("province")}
                   >
                     <option value="">{provincesQuery.isLoading ? "Loading…" : "Select province…"}</option>
                     {(provincesQuery.data ?? []).map((p) => (
@@ -477,7 +489,7 @@ export function ApplicationWizard({
                   <Label htmlFor="ap-city" required from={tag("city")}>
                     City / municipality
                   </Label>
-                  <select id="ap-city" className={inputClass} value={d.city} disabled={!d.province} onChange={(e) => set("city", e.target.value)} {...field("city")}>
+                  <select id="ap-city" className={inputClass} value={d.city} disabled={!d.province} onChange={(e) => set("city", e.target.value)} {...fieldProps("city")}>
                     <option value="">{!d.province ? "Choose a province first" : citiesQuery.isLoading ? "Loading…" : "Select city / municipality…"}</option>
                     {d.city && !(citiesQuery.data ?? []).some((c) => c.name === d.city) && <option value={d.city}>{d.city}</option>}
                     {(citiesQuery.data ?? []).map((c) => (
@@ -497,82 +509,98 @@ export function ApplicationWizard({
           <>
             <div>
               <Heading>Answer employer questions</Heading>
-              <p className="mt-1 text-sm text-ink-2">Provide some extra information about your experience in accounting.</p>
+              <p className="mt-1 text-sm text-ink-2">Tell the employer about the role you want and your experience.</p>
             </div>
             <div>
-              <Label htmlFor="ap-requisitionId" required>
-                Which accounting role are you applying for?
+              <Label htmlFor="ap-role" required>
+                Which role are you applying for?
               </Label>
               {fixedRoleId && role ? (
                 <p className="rounded-lg bg-surface-2 px-3 py-2.5 text-sm font-medium">
                   {role.title} · {role.office}
                 </p>
               ) : (
-                <select id="ap-requisitionId" className={inputClass} value={d.requisitionId} onChange={(e) => set("requisitionId", e.target.value)} {...field("requisitionId")}>
+                <select
+                  id="ap-role"
+                  className={inputClass}
+                  value={d.role}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    set("role", next);
+                    // An open requisition with the same title takes the application directly.
+                    set("requisitionId", roles.find((r) => r.title === next)?.id ?? "");
+                    // A different field has different background options.
+                    if (fieldOfRole(next)?.key !== field?.key) set("background", "");
+                  }}
+                  {...fieldProps("role")}
+                >
                   <option value="">Choose a role…</option>
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.title} · {r.office}
-                    </option>
+                  {ROLE_FIELDS.map((f) => (
+                    <optgroup key={f.key} label={f.label}>
+                      {f.roles.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                          {roles.some((o) => o.title === r) ? " · Hiring now" : ""}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               )}
-              <FieldError id="ap-requisitionId-error" message={err("requisitionId")} />
+              <FieldError id="ap-role-error" message={err("role")} />
             </div>
             <div>
-              <Label htmlFor="ap-experienceLevel" required from={tag("experienceLevel")}>
-                Which describes your work experience?
+              <Label htmlFor="ap-workExperience" required>
+                Tell us about your work experience
               </Label>
-              <select
-                id="ap-experienceLevel"
-                className={inputClass}
-                value={d.experienceLevel}
-                onChange={(e) => {
-                  set("experienceLevel", e.target.value as Data["experienceLevel"]);
-                  if (e.target.value !== "Has work experience") set("years", "");
-                }}
-                {...field("experienceLevel")}
-              >
-                <option value="" />
-                <option>Fresh graduate</option>
-                <option>Has work experience</option>
-              </select>
-              <FieldError id="ap-experienceLevel-error" message={err("experienceLevel")} />
+              <textarea
+                id="ap-workExperience"
+                rows={3}
+                className={clsx(inputClass, "resize-y")}
+                placeholder="e.g. Fresh graduate with a 3-month internship in audit, or 4 years as a web developer at a BPO"
+                value={d.workExperience}
+                onChange={(e) => set("workExperience", e.target.value)}
+                {...fieldProps("workExperience")}
+              />
+              <FieldError id="ap-workExperience-error" message={err("workExperience")} />
             </div>
-            {d.experienceLevel === "Has work experience" && (
-              <div className="item-enter">
-                <Label htmlFor="ap-years" required from={tag("years")}>
-                  How many years' experience do you have as {role ? `${/^[aeiou]/i.test(role.title) ? "an" : "a"} ${role.title}` : "an accountant"}?
-                </Label>
-                <select id="ap-years" className={inputClass} value={d.years} onChange={(e) => set("years", e.target.value)} {...field("years")}>
-                  <option value="" />
-                  {YEARS.map((y) => (
-                    <option key={y}>{y}</option>
-                  ))}
-                </select>
-                <FieldError id="ap-years-error" message={err("years")} />
-              </div>
-            )}
             <div>
-              <Label htmlFor="ap-profession" required from={tag("profession")}>
-                Which describes your accounting background?
+              <Label htmlFor="ap-years" required from={tag("years")}>
+                How many years' experience do you have as {d.role ? `${/^[aeiou]/i.test(d.role) ? "an" : "a"} ${d.role}` : "this role"}?
               </Label>
-              <select id="ap-profession" className={inputClass} value={d.profession} onChange={(e) => set("profession", e.target.value as Data["profession"])} {...field("profession")}>
+              <select id="ap-years" className={inputClass} value={d.years} onChange={(e) => set("years", e.target.value)} {...fieldProps("years")}>
                 <option value="" />
-                {PROFESSIONS.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
+                {YEARS.map((y) => (
+                  <option key={y}>{y}</option>
                 ))}
               </select>
-              <FieldError id="ap-profession-error" message={err("profession")} />
+              <FieldError id="ap-years-error" message={err("years")} />
             </div>
-            {d.profession === "CPA" && (
+            <div>
+              <Label htmlFor="ap-background" required from={tag("background")}>
+                Which describes your {field ? field.label.toLowerCase() : "professional"} background?
+              </Label>
+              <select
+                id="ap-background"
+                className={inputClass}
+                value={d.background}
+                disabled={!d.role}
+                onChange={(e) => set("background", e.target.value)}
+                {...fieldProps("background")}
+              >
+                <option value="">{d.role ? "" : "Choose a role first"}</option>
+                {(field?.backgrounds ?? [{ label: "Graduate of a related course" }, { label: "Student or undergraduate" }, { label: "Other field" }]).map((b) => (
+                  <option key={b.label}>{b.label}</option>
+                ))}
+              </select>
+              <FieldError id="ap-background-error" message={err("background")} />
+            </div>
+            {backgroundOption?.licensed && (
               <div className="item-enter md:max-w-xs">
                 <Label htmlFor="ap-prcLicenseNumber" required from={tag("prcLicenseNumber")}>
-                  PRC license number
+                  License number
                 </Label>
-                <input id="ap-prcLicenseNumber" inputMode="numeric" className={inputClass} placeholder="0123456" value={d.prcLicenseNumber} onChange={(e) => set("prcLicenseNumber", e.target.value)} {...field("prcLicenseNumber")} />
+                <input id="ap-prcLicenseNumber" className={inputClass} placeholder="0123456" value={d.prcLicenseNumber} onChange={(e) => set("prcLicenseNumber", e.target.value)} {...fieldProps("prcLicenseNumber")} />
                 <FieldError id="ap-prcLicenseNumber-error" message={err("prcLicenseNumber")} />
               </div>
             )}
@@ -597,19 +625,8 @@ export function ApplicationWizard({
           <>
             <CareerHistory items={d.careerHistory} onChange={(v) => set("careerHistory", v)} />
             <EducationList items={d.education} onChange={(v) => set("education", v)} />
-            <Skills items={d.skills} onChange={(v) => set("skills", v)} />
-            <section>
-              <Heading>Anything you'd like HR to know?</Heading>
-              <textarea
-                rows={4}
-                value={d.message}
-                onChange={(e) => set("message", e.target.value.slice(0, 500))}
-                placeholder="Availability, preferred office, a link to your portfolio…"
-                aria-label="Anything you'd like HR to know"
-                className={clsx(inputClass, "mt-3 resize-y")}
-              />
-              <p className="mt-1 text-xs text-ink-3">Optional · {d.message.length}/500</p>
-            </section>
+            <Skills items={d.skills} suggested={GENERAL_SKILLS} onChange={(v) => set("skills", v)} />
+
           </>
         )}
 
@@ -628,17 +645,17 @@ export function ApplicationWizard({
               <Row label="Location">{[d.city, d.province].filter(Boolean).join(", ")}</Row>
             </ReviewBlock>
             <ReviewBlock title="Employer questions" onEdit={() => goTo(1)}>
-              <Row label="Role">{role ? `${role.title} · ${role.office}` : ""}</Row>
-              <Row label="Experience">{d.experienceLevel === "Has work experience" ? d.years : d.experienceLevel}</Row>
-              <Row label="Background">{PROFESSIONS.find((p) => p.value === d.profession)?.label}</Row>
-              {d.profession === "CPA" && <Row label="PRC license">{d.prcLicenseNumber}</Row>}
+              <Row label="Role">{role ? `${role.title} · ${role.office}` : d.role}</Row>
+              <Row label="Experience">{d.workExperience}</Row>
+              <Row label="Years">{d.years}</Row>
+              <Row label="Background">{d.background}</Row>
+              {backgroundOption?.licensed && <Row label="License no.">{d.prcLicenseNumber}</Row>}
               <Row label="Languages">{d.languages.join(", ")}</Row>
             </ReviewBlock>
             <ReviewBlock title="Profile" onEdit={() => goTo(2)}>
               <Row label="Career history">{d.careerHistory.map((r) => `${r.title}, ${r.company}`).join("; ")}</Row>
               <Row label="Education">{d.education.map((e) => `${e.degree}, ${e.school}`).join("; ")}</Row>
               <Row label="Skills">{d.skills.join(", ")}</Row>
-              <Row label="Note to HR">{d.message}</Row>
             </ReviewBlock>
             <div>
               <label className="flex cursor-pointer items-start gap-3 text-sm text-ink-2">
@@ -647,7 +664,7 @@ export function ApplicationWizard({
                   type="checkbox"
                   checked={d.consent}
                   onChange={(e) => set("consent", e.target.checked)}
-                  {...field("consent")}
+                  {...fieldProps("consent")}
                   className="mt-0.5 h-5 w-5 flex-none accent-[var(--color-brand)]"
                 />
                 <span>I agree that MSMA Group may collect and use my details to review this application, as allowed by the Data Privacy Act of 2012 (RA 10173).</span>
@@ -855,68 +872,55 @@ function EducationList({ items, onChange }: { items: ApplicantEducation[]; onCha
   );
 }
 
-const SUGGESTED_SKILLS = ["Financial reporting", "Auditing", "Tax compliance", "Bookkeeping", "Microsoft Excel", "QuickBooks", "SAP", "Payroll"];
-
-function Skills({ items, onChange }: { items: string[]; onChange: (v: string[]) => void }) {
-  const [adding, setAdding] = useState(false);
+function Skills({ items, suggested, onChange }: { items: string[]; suggested: string[]; onChange: (v: string[]) => void }) {
   const [text, setText] = useState("");
-  const add = (s: string) => {
-    const v = s.trim();
-    if (v && !items.some((x) => x.toLowerCase() === v.toLowerCase())) onChange([...items, v]);
+  const add = (v: string) => {
+    const t = v.trim();
+    if (t && !items.some((x) => x.toLowerCase() === t.toLowerCase())) onChange([...items, t]);
     setText("");
   };
-  const suggestions = SUGGESTED_SKILLS.filter((s) => !items.includes(s));
+  const suggestions = suggested.filter((x) => !items.includes(x));
   return (
     <section className="flex flex-col gap-3">
       <Heading>Skills</Heading>
       {items.length > 0 && (
         <ul className="flex flex-wrap gap-2">
-          {items.map((s) => (
-            <li key={s} className="item-enter flex items-center gap-1 rounded-full bg-surface-2 py-1.5 pr-1.5 pl-3.5 text-sm">
-              {s}
-              <button type="button" aria-label={`Remove ${s}`} onClick={() => onChange(items.filter((x) => x !== s))} className="rounded-full p-1 text-ink-3 hover:bg-surface hover:text-ink">
+          {items.map((x) => (
+            <li key={x} className="item-enter flex items-center gap-1 rounded-full bg-surface-2 py-1.5 pr-1.5 pl-3.5 text-sm">
+              {x}
+              <button type="button" aria-label={`Remove ${x}`} onClick={() => onChange(items.filter((y) => y !== x))} className="rounded-full p-1 text-ink-3 hover:bg-surface hover:text-ink">
                 <XIcon className="h-3 w-3" />
               </button>
             </li>
           ))}
         </ul>
       )}
-      {adding ? (
-        <div className="item-enter flex flex-col gap-2">
-          <div className="flex gap-2">
-            <input
-              autoFocus
-              className={inputClass}
-              placeholder="Type a skill and press Enter"
-              aria-label="Add a skill"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  add(text);
-                }
-              }}
-            />
-            <Button type="button" onClick={() => add(text)} className="flex-none justify-center">
-              Add
-            </Button>
-          </div>
-          {suggestions.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {suggestions.map((s) => (
-                <button key={s} type="button" onClick={() => add(s)} className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-ink-2 hover:border-brand hover:text-ink">
-                  + {s}
-                </button>
-              ))}
-            </div>
-          )}
-          <button type="button" onClick={() => setAdding(false)} className="self-start text-xs font-semibold text-brand-ink hover:underline">
-            Done
-          </button>
+      <div className="flex gap-2">
+        <input
+          className={inputClass}
+          placeholder="Type a skill and press Enter"
+          aria-label="Add a skill"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add(text);
+            }
+          }}
+        />
+        <Button type="button" onClick={() => add(text)} className="flex-none justify-center">
+          Add
+        </Button>
+      </div>
+      {suggestions.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {suggestions.map((x) => (
+            <button key={x} type="button" onClick={() => add(x)} className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-ink-2 hover:border-brand hover:text-ink">
+              + {x}
+            </button>
+          ))}
         </div>
-      ) : (
-        <AddButton onClick={() => setAdding(true)}>Add skills</AddButton>
       )}
     </section>
   );
