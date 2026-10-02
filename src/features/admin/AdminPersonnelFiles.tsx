@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/ToastContext";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
   ArrowRightIcon,
+  EditIcon,
   GridIcon,
   ListIcon,
   MailIcon,
@@ -40,6 +41,8 @@ import { formatToday } from "@/lib/format";
 import { clusterOptions } from "@/lib/schemas";
 import type { Cluster, Employee } from "@/lib/types";
 import { AddEmployeeDialog } from "./AddEmployeeDialog";
+import { EmploymentHistoryPanel } from "./corehr/EmploymentHistoryPanel";
+import { MasterDataDialog } from "./corehr/MasterDataDialog";
 import {
   EmploymentPanel,
   GovernmentNumbersPanel,
@@ -57,7 +60,7 @@ type ClusterFilter = "All clusters" | Cluster;
 // The employee's profile, then the 201 File's sections with short labels to
 // keep the tab bar compact: pre-employment & identity documents, government registration numbers,
 // employment records, records kept during employment, and separation.
-const tabs = ["Profile", "Pre-hire & IDs", "Gov't Nos.", "Employment", "In Service", "Separation"] as const;
+const tabs = ["Profile", "History", "Pre-hire & IDs", "Gov't Nos.", "Employment", "In Service", "Separation"] as const;
 type Tab = (typeof tabs)[number];
 
 type DirectoryView = "cards" | "table";
@@ -106,6 +109,7 @@ export function AdminPersonnelFiles() {
   const [clusterFilter, setClusterFilter] = useState<ClusterFilter>("All clusters");
   const [tab, setTab] = useState<Tab>("Profile");
   const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
+  const [editingDetails, setEditingDetails] = useState(false);
   const recordCardRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<DirectoryView>(loadDirectoryView);
 
@@ -194,15 +198,21 @@ export function AdminPersonnelFiles() {
           title="Employee Profile"
           subtitle={`Employee Directory · ${selected.name} · ${formatToday()}`}
           actions={
-            <Button
-              variant="ghost"
-              icon={<ArrowRightIcon className="h-3.75 w-3.75 rotate-180" />}
-              onClick={() => select(null)}
-            >
-              Back to directory
-            </Button>
+            <>
+              <Button variant="ghost" icon={<EditIcon className="h-3.75 w-3.75" />} onClick={() => setEditingDetails(true)}>
+                Edit details
+              </Button>
+              <Button
+                variant="ghost"
+                icon={<ArrowRightIcon className="h-3.75 w-3.75 rotate-180" />}
+                onClick={() => select(null)}
+              >
+                Back to directory
+              </Button>
+            </>
           }
         />
+        {editingDetails && <MasterDataDialog employee={selected} onClose={() => setEditingDetails(false)} />}
 
         {/* Fills the window below the title so the page itself never scrolls;
             a section longer than that scrolls inside the card instead. */}
@@ -256,6 +266,7 @@ export function AdminPersonnelFiles() {
 
           <div className="min-h-0 flex-1 overflow-y-auto p-4.5">
             {tab === "Profile" && <PersonnelProfilePanel subject={selected} />}
+            {tab === "History" && <EmploymentHistoryPanel employeeId={selected.id} />}
             {tab === "Pre-hire & IDs" && <PersonnelDocumentsPanel employeeId={selected.id} readOnly />}
             {tab === "Gov't Nos." && <GovernmentNumbersPanel employeeId={selected.id} />}
             {tab === "Employment" && <EmploymentPanel employeeId={selected.id} />}

@@ -297,7 +297,7 @@ export interface AuditActor {
   role: "manager" | "admin";
 }
 
-function logPersonnelAccess(
+export function logPersonnelAccess(
   employeeId: string,
   actor: AuditActor,
   action: AuditLogEntry["action"],

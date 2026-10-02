@@ -29,6 +29,13 @@ const AdminPayrollRuns = lazy(() =>
 const AdminCompliancePage = lazy(() =>
   import("@/features/admin/AdminCompliancePage").then((m) => ({ default: m.AdminCompliancePage })),
 );
+const AdminOrganization = lazy(() =>
+  import("@/features/admin/corehr/AdminOrganization").then((m) => ({ default: m.AdminOrganization })),
+);
+const AdminPositions = lazy(() => import("@/features/admin/corehr/AdminPositions").then((m) => ({ default: m.AdminPositions })));
+const AdminDocuments201 = lazy(() =>
+  import("@/features/admin/corehr/AdminDocuments201").then((m) => ({ default: m.AdminDocuments201 })),
+);
 const AdminOrgChart = lazy(() => import("@/features/admin/AdminOrgChart").then((m) => ({ default: m.AdminOrgChart })));
 const AdminOffboarding = lazy(() =>
   import("@/features/admin/AdminOffboarding").then((m) => ({ default: m.AdminOffboarding })),
@@ -166,6 +173,9 @@ function App() {
             >
               <Route index element={<AdminOverview />} />
               <Route path="directory" element={<AdminPersonnelFiles />} />
+              <Route path="organization" element={<AdminOrganization />} />
+              <Route path="positions" element={<AdminPositions />} />
+              <Route path="documents" element={<AdminDocuments201 />} />
               <Route path="org-chart" element={<AdminOrgChart />} />
               <Route path="onboarding" element={<AdminOnboardingPage />} />
               <Route path="offboarding" element={<AdminOffboarding />} />
