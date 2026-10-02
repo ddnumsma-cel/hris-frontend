@@ -42,7 +42,7 @@ import type {
 // People added through Onboarding (and the signed-in employee's account) are kept in this browser so
 // the hire flow survives a reload. Everything else stays in memory, as before. A backend replaces this.
 
-export const PEOPLE_STORE_KEY = "msma-demo-people-v3";
+export const PEOPLE_STORE_KEY = "msma-demo-people-v4";
 
 interface PeopleStore {
   currentEmployee?: Employee;
@@ -129,36 +129,19 @@ export const leaveBalances: LeaveBalance[] = [
   { type: "Bereavement", used: 0, entitlement: 3 },
 ];
 
-const standardPayslipBreakdown: Payslip["breakdown"] = [
-  { label: "Basic pay", amount: 35000, kind: "earning" },
-  { label: "Transportation allowance", amount: 4000, kind: "earning" },
-  { label: "Overtime pay", amount: 3000, kind: "earning" },
-  { label: "SSS contribution", amount: 1350, kind: "deduction" },
-  { label: "PhilHealth contribution", amount: 875, kind: "deduction" },
-  { label: "Pag-IBIG contribution", amount: 200, kind: "deduction" },
-  { label: "Withholding tax", amount: 1408.33, kind: "deduction" },
-  { label: "Pag-IBIG salary loan", amount: 200, kind: "deduction" },
-];
-
-export let payslips: Payslip[] = [
-  { id: "PS-2609B", cutoffLabel: "Sept 16–30, 2026", gross: 42000, deductions: 4033.33, net: 37966.67, status: "Processing", breakdown: standardPayslipBreakdown },
-];
+export let payslips: Payslip[] = [];
 
 export function setPayslips(next: Payslip[]) {
   payslips = next;
 }
 
-export let announcements: Announcement[] = [
-  { id: "an-1", title: "BIR Form 2316 for 2025 is now available for download", postedOn: "Posted Sept 20, 2026" },
-];
+export let announcements: Announcement[] = [];
 
 export function setAnnouncements(next: Announcement[]) {
   announcements = next;
 }
 
-export let leaveRequests: LeaveRequest[] = [
-  { id: "lr-1", employeeName: "Angela Dela Cruz", employeeInitials: "AD", employeeRole: "Senior Tax Associate", type: "Vacation", detail: "Oct 6–8 · 3 days", status: "Pending", requestedOn: "2026-09-25", partnerApproved: true, startDate: "2026-10-06", endDate: "2026-10-08", days: 3, reason: "Family trip to Bohol" },
-];
+export let leaveRequests: LeaveRequest[] = [];
 
 export function setLeaveRequests(next: LeaveRequest[]) {
   leaveRequests = next;
@@ -192,9 +175,7 @@ export const leaveOverviewStats: LeaveOverviewStats = {
   vlToConvertDays: 126,
 };
 
-export const onLeaveToday = [
-  { name: "Angela Dela Cruz", initials: "AD", reason: "Vacation Leave" },
-];
+export const onLeaveToday: { name: string; initials: string; reason: string }[] = [];
 
 export const attendanceTrend: AttendancePoint[] = [
   { date: "Sep 12", rate: 96 },
@@ -242,9 +223,7 @@ export const payrollCostBreakdown: PayrollCostSegment[] = [
   { label: "Overtime", percent: 7 },
 ];
 
-export let complianceCalendar: ComplianceItem[] = [
-  { id: "c-1", filing: "Monthly contribution remittance", agency: "SSS", due: "Sept 30", status: "Filed", periodCovered: "August 2026", amount: 18375, referenceNo: "PRN 0826-44192" },
-];
+export let complianceCalendar: ComplianceItem[] = [];
 
 export function setComplianceCalendar(next: ComplianceItem[]) {
   complianceCalendar = next;
@@ -259,33 +238,17 @@ export function setEmployeeDirectory(next: Employee[]) {
 }
 
 
-export const workforceAlerts: WorkforceAlert[] = [
-  {
-    id: "wa-1",
-    employeeName: "Angela Dela Cruz",
-    employeeInitials: "AD",
-    category: "Punctuality",
-    message: "3 late clock-ins this week (avg 14 min) — breaks a 6-week on-time streak",
-    severity: "warn",
-    detectedLabel: "Detected 2 hrs ago",
-  },
-];
+export const workforceAlerts: WorkforceAlert[] = [];
 
-export let employeeBenefits: EmployeeBenefit[] = [
-  { id: "b-1", name: "HMO", provider: "Maxicare", memberId: "MX-88213", status: "Active" },
-];
+export let employeeBenefits: EmployeeBenefit[] = [];
 
 export function setEmployeeBenefits(next: EmployeeBenefit[]) {
   employeeBenefits = next;
 }
 
-export const teamRoster: TeamRosterMember[] = [
-  { id: "MSMA-00482", name: "Angela Dela Cruz", initials: "AD", position: "Senior Tax Associate", tenureLabel: "2 yrs 3 mos", email: "angela.delacruz@msma.ph", status: "Active" },
-];
+export const teamRoster: TeamRosterMember[] = [];
 
-export let jobRequisitions: JobRequisition[] = stored.jobRequisitions ?? [
-  { id: "jr-1", title: "Audit Associate", department: "Audit & Assurance", cluster: "VCM", office: "Cebu HQ", openings: 3, applicants: 21, applicantsThisWeek: 5, stage: "Interviewing", approval: "Approved" },
-];
+export let jobRequisitions: JobRequisition[] = stored.jobRequisitions ?? [];
 
 export function setJobRequisitions(next: JobRequisition[]) {
   jobRequisitions = next;
@@ -310,9 +273,7 @@ const seedProfessions: Record<string, ApplicantProfession> = {
   "ap-15": "BS Accountancy graduate",
 };
 
-export let applicants: Applicant[] = stored.applicants ?? ([
-  { id: "ap-1", requisitionId: "jr-1", firstName: "Angela", lastName: "Dela Cruz", email: "angela.delacruz@gmail.com", stage: "Applied", note: "JobStreet · Sep 28" },
-] as Applicant[]).map((a) => ({ ...a, profession: seedProfessions[a.id] }));
+export let applicants: Applicant[] = stored.applicants ?? ([] as Applicant[]).map((a) => ({ ...a, profession: seedProfessions[a.id] }));
 
 export function setApplicants(next: Applicant[]) {
   applicants = next;
@@ -369,9 +330,7 @@ export function setCurrentManager(next: PartnerProfile) {
   }
 }
 
-export let attendanceRequests: AttendanceRequest[] = [
-  { id: "ar-1", employeeName: "Angela Dela Cruz", employeeInitials: "AD", employeeRole: "Senior Tax Associate", kind: "Missed clock-out", date: "Sept 24, 2026", recordedTime: "In 8:52 AM · Out —", requestedTime: "Out 6:15 PM", reason: "Left straight from the client site in Mandaue; scanner was not reachable.", status: "Pending", filedOn: "2026-09-25" },
-];
+export let attendanceRequests: AttendanceRequest[] = [];
 
 export function setAttendanceRequests(next: AttendanceRequest[]) {
   attendanceRequests = next;
@@ -395,21 +354,15 @@ export function setPayrollReleasedAt(next: string | null) {
   payrollReleasedAt = next;
 }
 
-export let payrollEntries: PayrollEntry[] = [
-  { employeeId: "MSMA-00482", monthlyBasic: 70000, allowance: 4000, overtimeHours: 6, otherDeductions: 200, status: "Draft" },
-];
+export let payrollEntries: PayrollEntry[] = [];
 
 export function setPayrollEntries(next: PayrollEntry[]) {
   payrollEntries = next;
 }
 
-export const myDtrLog: DtrLogEntry[] = [
-  { date: "Sept 25, 2026", timeIn: "8:58 AM", timeOut: "6:05 PM", status: "On time", location: "Onsite", method: "Fingerprint" },
-];
+export const myDtrLog: DtrLogEntry[] = [];
 
-export let certificateRequests: CertificateRequest[] = [
-  { id: "cr-1", type: "Certificate of Employment", purpose: "Bank loan application", status: "Released", requestedOn: "2026-08-14" },
-];
+export let certificateRequests: CertificateRequest[] = [];
 
 export function setCertificateRequests(next: CertificateRequest[]) {
   certificateRequests = next;
@@ -450,60 +403,31 @@ export function setCurrentAdmin(next: AdminProfile) {
   }
 }
 
-export let offboardingCases: OffboardingCase[] = [
-  { id: "off-1", employeeName: "Angela Dela Cruz", employeeInitials: "AD", department: "Tax Advisory", lastDay: "Oct 15, 2026", stage: "Clearance in progress" },
-];
+export let offboardingCases: OffboardingCase[] = [];
 
 export function setOffboardingCases(next: OffboardingCase[]) {
   offboardingCases = next;
 }
 
-export let companyAssets: CompanyAsset[] = [
-  { id: "as-1", type: "Laptop", assetTag: "LT-0231", assignedToName: "Angela Dela Cruz", assignedToInitials: "AD", issuedOn: "2024-02-10", status: "Issued" },
-];
+export let companyAssets: CompanyAsset[] = [];
 
 export function setCompanyAssets(next: CompanyAsset[]) {
   companyAssets = next;
 }
 
-export let trainingRecords: TrainingRecord[] = [
-  { id: "tr-1", employeeName: "Angela Dela Cruz", employeeInitials: "AD", course: "Data Privacy Act Refresher", dueDate: "Oct 15, 2026", status: "In progress" },
-];
+export let trainingRecords: TrainingRecord[] = [];
 
 export function setTrainingRecords(next: TrainingRecord[]) {
   trainingRecords = next;
 }
 
-export let employeeCases: EmployeeCase[] = [
-  {
-    id: "case-1",
-    employeeName: "Angela Dela Cruz",
-    employeeInitials: "AD",
-    type: "Attendance",
-    filedBy: "Rafael Ortiz",
-    status: "Under review",
-    filedOn: "2026-09-18",
-    summary: "Recurring late clock-ins flagged by workforce intelligence; verbal coaching scheduled.",
-  },
-];
+export let employeeCases: EmployeeCase[] = [];
 
 export function setEmployeeCases(next: EmployeeCase[]) {
   employeeCases = next;
 }
 
-export let professionalLicenses: ProfessionalLicense[] = [
-  {
-    id: "lic-1",
-    employeeId: "MSMA-00482",
-    employeeName: "Angela Dela Cruz",
-    employeeInitials: "AD",
-    licenseType: "CPA",
-    licenseNumber: "0123456",
-    cpdUnitsEarned: 58,
-    cpdUnitsRequired: 60,
-    cycleEndDate: "Oct 1, 2026",
-  },
-];
+export let professionalLicenses: ProfessionalLicense[] = [];
 
 export function setProfessionalLicenses(next: ProfessionalLicense[]) {
   professionalLicenses = next;

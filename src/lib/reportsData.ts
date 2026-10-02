@@ -35,17 +35,11 @@ function who(initials: Initials) {
 
 export const reportTeamMembers = Object.values(team);
 
-const overtime: ReportRow[] = [
-  { id: "ot-1", ...who("AD"), date: "2026-09-24", timeIn: "6:00 PM", timeOut: "8:30 PM", hours: 2.5, reason: "Q3 inventory count wrap-up", status: "Pending" },
-];
+const overtime: ReportRow[] = [];
 
-const leave: ReportRow[] = [
-  { id: "lv-1", ...who("AD"), date: "2026-10-06", leaveType: "Vacation", period: "Oct 6 – Oct 8", days: 3, filedOn: "Sept 21", status: "Pending" },
-];
+const leave: ReportRow[] = [];
 
-const locatorSlip: ReportRow[] = [
-  { id: "ls-1", ...who("AD"), date: "2026-09-24", destination: "Mandaue client site", purpose: "Inventory observation", timeOut: "1:00 PM", timeIn: "6:15 PM", status: "Approved" },
-];
+const locatorSlip: ReportRow[] = [];
 
 // Weekly DTR roll-up per team member for September.
 const timesheetWeeks: { start: string; label: string }[] = [
@@ -56,7 +50,7 @@ const timesheetWeeks: { start: string; label: string }[] = [
 ];
 
 const timesheetSeed: Record<Initials, [present: number, absent: number, lates: number, lateMins: number, undertime: number, overtime: number][]> = {
-  AD: [[5, 0, 1, 12, 0, 1.5], [5, 0, 0, 0, 0, 0], [4, 1, 0, 0, 0, 2], [5, 0, 1, 8, 0, 0]],
+  AD: [],
 };
 
 const timesheet: ReportRow[] = (Object.keys(timesheetSeed) as Initials[]).flatMap((initials) =>
@@ -75,17 +69,11 @@ const timesheet: ReportRow[] = (Object.keys(timesheetSeed) as Initials[]).flatMa
   })),
 );
 
-const temporaryShift: ReportRow[] = [
-  { id: "tsh-1", ...who("AD"), date: "2026-09-28", effective: "Sept 28 – Oct 9", regularShift: "8:30 AM – 5:30 PM", temporaryShift: "10:00 AM – 7:00 PM", reason: "Client with late-afternoon cutoff", status: "Pending" },
-];
+const temporaryShift: ReportRow[] = [];
 
-const brokenTime: ReportRow[] = [
-  { id: "bt-1", ...who("AD"), date: "2026-09-25", firstBlock: "8:00 AM – 12:00 PM", secondBlock: "4:00 PM – 8:00 PM", hours: 8, reason: "Child's school event mid-day", status: "Pending" },
-];
+const brokenTime: ReportRow[] = [];
 
-const offsetHours: ReportRow[] = [
-  { id: "oh-1", ...who("AD"), date: "2026-09-26", earnedFrom: "Sept 18 overtime", hoursEarned: 4, dateUsed: "Sept 26 (PM)", hoursUsed: 4, balance: 0, status: "Approved" },
-];
+const offsetHours: ReportRow[] = [];
 
 export const teamReports: Record<ReportId, ReportRow[]> = {
   overtime,
