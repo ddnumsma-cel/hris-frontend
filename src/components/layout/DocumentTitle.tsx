@@ -29,13 +29,18 @@ const titles: Record<string, string> = {
   "/manager/reports/broken-time": "Broken Time Report",
   "/manager/reports/offset-hours": "Offset Hours Report",
   "/admin": "Overview",
+  "/admin/people": "People",
+  "/admin/people/new": "Add employee",
+  "/admin/organization": "Organization",
+  "/admin/positions": "Positions",
+  "/admin/documents": "Documents",
 };
 
 export function DocumentTitle() {
   const location = useLocation();
 
   useEffect(() => {
-    const label = titles[location.pathname];
+    const label = titles[location.pathname] ?? (location.pathname.startsWith("/admin/people/") ? "201 File" : undefined);
     document.title = label ? `${label} · MSMA` : "MSMA";
   }, [location.pathname]);
 

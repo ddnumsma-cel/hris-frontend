@@ -9,6 +9,8 @@ import { ToastProvider } from "./components/ui/ToastContext";
 import { ErrorBoundary } from "./components/layout/ErrorBoundary";
 import { queryClient } from "./lib/queryClient";
 import { getStoredTheme } from "./lib/theme";
+// Core HR's saved records feed the shared directory before any page reads it.
+import "./lib/corehr/store";
 
 const storedTheme = getStoredTheme();
 if (storedTheme) document.documentElement.dataset.theme = storedTheme;

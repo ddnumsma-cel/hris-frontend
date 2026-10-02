@@ -1,28 +1,36 @@
 // Client-side ID reading for the Add Employee form. There is no backend, so
 // everything happens in the browser:
 //   1. PhilSys National IDs carry a QR code with the holder's details as
-//      JSON — decoded with jsQR, this is exact.
+//      JSON — decoded with jsQR, this is exact (confidence 1).
 //   2. Otherwise the card is upscaled, turned black-and-white (see
-//      idParse.ts for why) and read with Tesseract OCR. If key fields are
-//      still missing, it retries with a different image treatment and fills
-//      only the gaps.
+//      idParse.ts for why) and read with Tesseract OCR — at least twice, with
+//      different image treatments. Each value is scored from the OCR
+//      confidence of the words it came from, raised when passes agree and
+//      lowered when they don't, and dropped outright if it fails validation
+//      (idValidate.ts). A third pass runs only when the first two disagree or
+//      missed a core field.
 // Both libraries are imported lazily so they only load when someone uploads.
 
 import {
   binarizeAdaptive,
   binarizeOtsu,
   clean,
-  hasCoreFields,
-  mergeScans,
+  combinePasses,
+  CORE_FIELDS,
   normalizeDate,
-  normalizeSuffix,
-  parseIdText,
+  parseOcrWords,
+  passesDisagree,
   titleCase,
+  type Candidates,
   type IdSex,
+  type OcrWord,
+  type ScannedField,
   type ScannedIdFields,
 } from "./idParse";
+import { validBirthDate, validName, validSuffix } from "./idValidate";
+import type { Page } from "tesseract.js";
 
-export { idTypeOptions, type ScannedIdFields } from "./idParse";
+export { idTypeOptions, type ScannedField, type ScannedIdFields } from "./idParse";
 
 export interface ScanProgress {
   stage: "Checking for QR code" | "Loading reader" | "Reading text";
@@ -31,50 +39,95 @@ export interface ScanProgress {
   passes?: number;
 }
 
+export interface IdScanResult {
+  /** Only values that passed validation. */
+  fields: ScannedIdFields;
+  /** 0–1 per present field. QR-decoded = 1. */
+  confidence: Partial<Record<ScannedField, number>>;
+  source: "qr" | "ocr";
+}
+
+/** At/above: safe to prefill. Below: show the value as "please check". */
+export const CONFIDENT = 0.8;
+
 // Tesseract reads best when capital letters are ~30–40px tall; card photos
 // are usually far smaller, so upscale to this width first.
 const OCR_WIDTH = 2000;
 
+// Everything that legitimately appears on a PH ID. Keeps background texture
+// from coming back as "%", "»", "©"… ("<" is the passport MRZ filler.)
+const CHAR_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÑñ0123456789 -,./':<";
+
+/** Reads an ID, returning only the values confident enough to prefill. */
 export async function scanIdImage(file: File, onProgress?: (p: ScanProgress) => void): Promise<ScannedIdFields> {
+  const { fields, confidence } = await scanIdImageDetailed(file, onProgress);
+  return clean(
+    Object.fromEntries(
+      Object.entries(fields).filter(([k]) => (confidence[k as ScannedField] ?? 0) >= CONFIDENT),
+    ) as ScannedIdFields,
+  );
+}
+
+/** Reads an ID, returning every validated value with its confidence (0–1). */
+export async function scanIdImageDetailed(
+  file: File,
+  onProgress?: (p: ScanProgress) => void,
+): Promise<IdScanResult> {
   const image = await loadImage(file);
 
   onProgress?.({ stage: "Checking for QR code", progress: 0 });
   const fromQr = await readPhilSysQr(image);
-  if (fromQr) return fromQr;
+  if (fromQr) {
+    const confidence = Object.fromEntries(Object.keys(fromQr).map((k) => [k, 1]));
+    return { fields: fromQr, confidence, source: "qr" };
+  }
 
   onProgress?.({ stage: "Loading reader", progress: 0 });
   const { gray, width, height } = toGrayscale(image, OCR_WIDTH);
-  // Ordered by how often each one wins: Otsu for clean scans, adaptive for
-  // shadows/uneven lighting, plain grayscale as a last resort.
+  // Otsu for clean scans, adaptive for shadows/uneven lighting, plain
+  // grayscale as the tie-breaker.
   const treatments = [() => binarizeOtsu(gray), () => binarizeAdaptive(gray, width, height), () => gray];
 
   const { createWorker, PSM } = await import("tesseract.js");
   let pass = 0;
+  let planned = 2;
   const worker = await createWorker("eng", 1, {
     logger: (m) => {
       if (m.status === "recognizing text") {
-        onProgress?.({ stage: "Reading text", progress: m.progress, pass, passes: treatments.length });
+        onProgress?.({ stage: "Reading text", progress: m.progress, pass, passes: planned });
       }
     },
   });
   try {
     // Sparse-text mode: ID cards are scattered fields, not paragraphs.
-    await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT });
-    let result: ScannedIdFields = {};
-    const texts: string[] = [];
+    await worker.setParameters({
+      tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+      tessedit_char_whitelist: CHAR_WHITELIST,
+    });
+    const passes: Candidates[] = [];
     for (const treat of treatments) {
       pass++;
-      const { data } = await worker.recognize(toCanvas(treat(), width, height));
-      texts.push(data.text);
-      result = mergeScans(result, parseIdText(data.text));
-      if (hasCoreFields(result)) return result;
+      const { data } = await worker.recognize(toCanvas(treat(), width, height), { rotateAuto: true }, { blocks: true });
+      passes.push(parseOcrWords(wordsOf(data)));
+      if (passes.length < 2) continue;
+      const missingCore = CORE_FIELDS.some((f) => passes.every((p) => !p[f]));
+      if (!passesDisagree(passes) && !missingCore) break;
+      planned = 3;
     }
-    // Labels never came through clearly: fall back to guessing names by
-    // their printed order, from the cleanest (first) pass.
-    return mergeScans(result, parseIdText(texts[0]!, { positional: true }));
+    const { fields, confidence } = combinePasses(passes);
+    return { fields, confidence, source: "ocr" };
   } finally {
     await worker.terminate();
   }
+}
+
+function wordsOf(page: Page): OcrWord[] {
+  const words: OcrWord[] = [];
+  for (const block of page.blocks ?? [])
+    for (const para of block.paragraphs)
+      for (const line of para.lines)
+        for (const w of line.words) words.push({ text: w.text, confidence: w.confidence, bbox: w.bbox });
+  return words;
 }
 
 function loadImage(file: File): Promise<HTMLImageElement> {
@@ -148,15 +201,17 @@ export function parsePhilSysQr(payload: string): ScannedIdFields | null {
     const s = json.subject;
     if (!s || (!s.lName && !s.fName)) return null;
     const sex = s.sex?.trim().toUpperCase();
+    const pcn = s.PCN?.replace(/\D/g, "");
+    // The QR is exact, but still refuse anything that isn't a real value.
     return clean({
-      lastName: titleCase(s.lName),
-      firstName: titleCase(s.fName),
-      middleName: titleCase(s.mName),
-      suffix: normalizeSuffix(s.Suffix),
-      birthDate: normalizeDate(s.DOB),
+      lastName: validName(titleCase(s.lName), { allowLabelWords: true }),
+      firstName: validName(titleCase(s.fName), { allowLabelWords: true }),
+      middleName: validName(titleCase(s.mName), { allowLabelWords: true }),
+      suffix: validSuffix(s.Suffix),
+      birthDate: validBirthDate(normalizeDate(s.DOB)),
       sex: (sex?.startsWith("M") ? "Male" : sex?.startsWith("F") ? "Female" : undefined) as IdSex | undefined,
       idType: "PhilSys National ID",
-      idNumber: s.PCN?.replace(/\D/g, "").replace(/(\d{4})(?=\d)/g, "$1-"),
+      idNumber: pcn?.length === 16 ? pcn.replace(/(\d{4})(?=\d)/g, "$1-") : undefined,
     });
   } catch {
     return null;

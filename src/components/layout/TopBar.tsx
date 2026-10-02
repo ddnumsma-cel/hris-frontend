@@ -41,7 +41,7 @@ export function TopBar() {
 
   function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" && searchValue.trim()) {
-      navigate(`/admin/directory?q=${encodeURIComponent(searchValue.trim())}`);
+      navigate(`/admin/people?q=${encodeURIComponent(searchValue.trim())}`);
     }
   }
 
