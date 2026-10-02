@@ -29,21 +29,6 @@ const titles: Record<string, string> = {
   "/manager/reports/broken-time": "Broken Time Report",
   "/manager/reports/offset-hours": "Offset Hours Report",
   "/admin": "Overview",
-  "/admin/directory": "Employee Directory",
-  "/admin/settings": "Settings",
-  "/admin/organization": "Organization",
-  "/admin/positions": "Positions",
-  "/admin/documents": "201 Documents",
-  "/admin/org-chart": "Org Chart",
-  "/admin/onboarding": "Onboarding",
-  "/admin/offboarding": "Offboarding",
-  "/admin/assets": "Company Assets",
-  "/admin/trainings": "Training & Development",
-  "/admin/cases": "Employee Relations",
-  "/admin/certificates": "Certificate Requests",
-  "/admin/payroll-runs": "Payroll Runs",
-  "/admin/compliance": "Compliance",
-  "/admin/reports": "Reports",
 };
 
 export function DocumentTitle() {

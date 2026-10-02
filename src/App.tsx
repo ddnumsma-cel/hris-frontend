@@ -20,37 +20,6 @@ const ManagerReportPage = lazy(() =>
 );
 const AdminLayout = lazy(() => import("@/features/admin/AdminLayout").then((m) => ({ default: m.AdminLayout })));
 const AdminOverview = lazy(() => import("@/features/admin/AdminOverview").then((m) => ({ default: m.AdminOverview })));
-const AdminOnboardingPage = lazy(() =>
-  import("@/features/admin/AdminOnboardingPage").then((m) => ({ default: m.AdminOnboardingPage })),
-);
-const AdminPayrollRuns = lazy(() =>
-  import("@/features/admin/AdminPayrollRuns").then((m) => ({ default: m.AdminPayrollRuns })),
-);
-const AdminCompliancePage = lazy(() =>
-  import("@/features/admin/AdminCompliancePage").then((m) => ({ default: m.AdminCompliancePage })),
-);
-const AdminOrganization = lazy(() =>
-  import("@/features/admin/corehr/AdminOrganization").then((m) => ({ default: m.AdminOrganization })),
-);
-const AdminPositions = lazy(() => import("@/features/admin/corehr/AdminPositions").then((m) => ({ default: m.AdminPositions })));
-const AdminDocuments201 = lazy(() =>
-  import("@/features/admin/corehr/AdminDocuments201").then((m) => ({ default: m.AdminDocuments201 })),
-);
-const AdminOrgChart = lazy(() => import("@/features/admin/AdminOrgChart").then((m) => ({ default: m.AdminOrgChart })));
-const AdminOffboarding = lazy(() =>
-  import("@/features/admin/AdminOffboarding").then((m) => ({ default: m.AdminOffboarding })),
-);
-const AdminAssets = lazy(() => import("@/features/admin/AdminAssets").then((m) => ({ default: m.AdminAssets })));
-const AdminTrainings = lazy(() => import("@/features/admin/AdminTrainings").then((m) => ({ default: m.AdminTrainings })));
-const AdminCases = lazy(() => import("@/features/admin/AdminCases").then((m) => ({ default: m.AdminCases })));
-const AdminCertificateRequests = lazy(() =>
-  import("@/features/admin/AdminCertificateRequests").then((m) => ({ default: m.AdminCertificateRequests })),
-);
-const AdminReports = lazy(() => import("@/features/admin/AdminReports").then((m) => ({ default: m.AdminReports })));
-const AdminPersonnelFiles = lazy(() =>
-  import("@/features/admin/AdminPersonnelFiles").then((m) => ({ default: m.AdminPersonnelFiles })),
-);
-const AdminSettings = lazy(() => import("@/features/admin/AdminSettings").then((m) => ({ default: m.AdminSettings })));
 
 const EmployeeLayout = lazy(() =>
   import("@/features/employee/EmployeeLayout").then((m) => ({ default: m.EmployeeLayout })),
@@ -172,21 +141,6 @@ function App() {
               }
             >
               <Route index element={<AdminOverview />} />
-              <Route path="directory" element={<AdminPersonnelFiles />} />
-              <Route path="organization" element={<AdminOrganization />} />
-              <Route path="positions" element={<AdminPositions />} />
-              <Route path="documents" element={<AdminDocuments201 />} />
-              <Route path="org-chart" element={<AdminOrgChart />} />
-              <Route path="onboarding" element={<AdminOnboardingPage />} />
-              <Route path="offboarding" element={<AdminOffboarding />} />
-              <Route path="assets" element={<AdminAssets />} />
-              <Route path="trainings" element={<AdminTrainings />} />
-              <Route path="cases" element={<AdminCases />} />
-              <Route path="certificates" element={<AdminCertificateRequests />} />
-              <Route path="payroll-runs" element={<AdminPayrollRuns />} />
-              <Route path="compliance" element={<AdminCompliancePage />} />
-              <Route path="reports" element={<AdminReports />} />
-            <Route path="settings" element={<AdminSettings />} />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

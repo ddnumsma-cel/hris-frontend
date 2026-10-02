@@ -8,8 +8,6 @@ import { AuthProvider } from "./features/auth/AuthContext";
 import { ToastProvider } from "./components/ui/ToastContext";
 import { ErrorBoundary } from "./components/layout/ErrorBoundary";
 import { queryClient } from "./lib/queryClient";
-// Core HR applies saved organization and employee edits before any page reads the directory.
-import "./lib/coreHr";
 import { getStoredTheme } from "./lib/theme";
 
 const storedTheme = getStoredTheme();

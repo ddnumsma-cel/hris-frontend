@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { IdCardIcon, LoaderIcon, UploadIcon, XIcon } from "@/components/icons";
 import { createEmployee } from "@/lib/api";
-import { assignNewHire } from "@/lib/coreHr";
 import { idTypeOptions, scanIdImage, type ScannedIdFields, type ScanProgress } from "@/lib/idScan";
 import {
   addEmployeeSchema,
@@ -91,10 +90,7 @@ export function AddEmployeeDialog({
 
   const mutation = useMutation({
     mutationFn: createEmployee,
-    onSuccess: (employee) => {
-      // Give the new hire a Core HR assignment and a "Hired" entry in their history.
-      assignNewHire(employee);
-      queryClient.invalidateQueries({ queryKey: ["corehr"] });
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "employee-directory"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "overview-stats"] });
       queryClient.invalidateQueries({ queryKey: ["personnel"] });
