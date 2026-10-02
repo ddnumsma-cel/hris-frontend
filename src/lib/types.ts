@@ -222,6 +222,23 @@ export type ApplicantStage = "Applied" | "Screening" | "Interview" | "Offered" |
 /** What an applicant says they are; CPAs and accountancy graduates are reviewed first. */
 export type ApplicantProfession = "CPA" | "BS Accountancy graduate" | "Accounting student / undergrad" | "Other";
 
+export interface ApplicantRole {
+  title: string;
+  company: string;
+  /** "2024-02" */
+  start: string;
+  /** "2025-05", or empty while still there. */
+  end: string;
+  description?: string;
+}
+
+export interface ApplicantEducation {
+  degree: string;
+  school: string;
+  /** Year finished, or expected. */
+  finished: string;
+}
+
 export interface Applicant {
   id: string;
   requisitionId: string;
@@ -241,6 +258,12 @@ export interface Applicant {
   prcLicenseNumber?: string;
   resumeFileName?: string;
   message?: string;
+  experienceLevel?: "Fresh graduate" | "Has work experience";
+  coverLetter?: { kind: "upload"; fileName: string } | { kind: "write"; text: string };
+  languages?: string[];
+  careerHistory?: ApplicantRole[];
+  education?: ApplicantEducation[];
+  skills?: string[];
   /** One-line status under the name, e.g. "Exam 86% · Sep 24". */
   note: string;
   /** ISO date an open offer lapses. */

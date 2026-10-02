@@ -74,7 +74,9 @@ import type {
   OnboardingSubmissionInput,
   Announcement,
   Applicant,
+  ApplicantEducation,
   ApplicantProfession,
+  ApplicantRole,
   ApplicantStage,
   AttendanceRequest,
   AttendanceRequestStatus,
@@ -1502,8 +1504,14 @@ export interface ApplicationInput {
   profession: ApplicantProfession;
   yearsExperience: number;
   prcLicenseNumber?: string;
-  resumeFileName: string;
+  resumeFileName?: string;
   message?: string;
+  experienceLevel: "Fresh graduate" | "Has work experience";
+  coverLetter?: { kind: "upload"; fileName: string } | { kind: "write"; text: string };
+  languages: string[];
+  careerHistory: ApplicantRole[];
+  education: ApplicantEducation[];
+  skills: string[];
 }
 
 /** Someone applies through the shared link; they land in Recruitment's Applied column. */
@@ -1533,6 +1541,12 @@ export async function submitApplication(input: ApplicationInput): Promise<Applic
     prcLicenseNumber: input.prcLicenseNumber?.trim() || undefined,
     resumeFileName: input.resumeFileName,
     message: input.message?.trim() || undefined,
+    experienceLevel: input.experienceLevel,
+    coverLetter: input.coverLetter,
+    languages: input.languages,
+    careerHistory: input.careerHistory,
+    education: input.education,
+    skills: input.skills,
   };
   setApplicants([applicant, ...applicants]);
   setJobRequisitions(jobRequisitions.map((r) => (r.id === role.id ? { ...r, applicants: r.applicants + 1, applicantsThisWeek: r.applicantsThisWeek + 1 } : r)));
