@@ -261,7 +261,7 @@ function BranchCard({
         </span>
         {onOpen ? (
           <Button size="sm" onClick={onOpen} icon={<ArrowRightIcon className="h-3.5 w-3.5" />}>
-            Open branch
+            View branch
           </Button>
         ) : (
           branch.active && (
@@ -275,7 +275,7 @@ function BranchCard({
   );
 }
 
-/** All branches first; open one to see its departments as cards with their people, teams and jobs. */
+/** All branches first; view one to see its departments as cards with their people, teams and jobs. */
 export function CompanyPage() {
   const [params, setParams] = useSearchParams();
   const toast = useToast();
@@ -328,13 +328,31 @@ export function CompanyPage() {
             <ArrowRightIcon className="h-4 w-4 rotate-180" />
             All branches
           </button>
-          <h1 className="font-display mt-2 text-2xl font-semibold tracking-[-0.02em]">{branch.name}</h1>
-          <p className="mt-0.5 text-[0.85rem] text-ink-2">Its departments: who leads them, who works there, and which jobs still need people.</p>
+          <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="font-display text-2xl font-semibold tracking-[-0.02em]">{branch.name}</h1>
+              <p className="mt-0.5 text-[0.85rem] text-ink-2">
+                {departments.length} department{departments.length === 1 ? "" : "s"} · {people(branch.headcount)}
+                {branch.openSlots > 0 && <span className="font-medium text-warning"> · {openingText(branch.openSlots)} to fill</span>}
+                {branch.headName && <> · Led by {branch.headName}</>}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="ghost" onClick={() => setEditingUnit(editInput(branch))}>
+                Edit branch
+              </Button>
+              {branch.active && (
+                <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEditingUnit({ type: "department", name: "", code: "", parentId: branch.id })}>
+                  Add a department
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       ) : (
         <ContentHead
           title="Company"
-          subtitle={`${branches.filter((b) => b.active).length} branches · ${company?.headcount ?? 0} people${company?.openSlots ? ` · ${openingText(company.openSlots)} to fill` : ""}. Open a branch to see its departments.`}
+          subtitle={`${branches.filter((b) => b.active).length} branches · ${company?.headcount ?? 0} people${company?.openSlots ? ` · ${openingText(company.openSlots)} to fill` : ""}. View a branch to see its departments.`}
           actions={
             company && (
               <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEditingUnit({ type: "branch", name: "", code: "", parentId: company.id })}>
@@ -374,18 +392,10 @@ export function CompanyPage() {
         </section>
       ) : (
         <section key={branch.id} aria-label={branch.name} className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-          <BranchCard
-            index={0}
-            branch={branch}
-            departments={departments}
-            staff={staffOf(branch.id)}
-            onEdit={() => setEditingUnit(editInput(branch))}
-            onAddDepartment={() => setEditingUnit({ type: "department", name: "", code: "", parentId: branch.id })}
-          />
           {departments.map((d, i) => (
             <DepartmentCard
               key={d.id}
-              index={i + 1}
+              index={i}
               dept={d}
               teams={units.filter((u) => u.type === "team" && u.parentId === d.id && (u.active || showClosed))}
               jobs={jobs.filter((j) => j.departmentId === d.id && (j.active || showClosed)).sort((a, b) => b.open - a.open || a.title.localeCompare(b.title))}
@@ -397,6 +407,7 @@ export function CompanyPage() {
               onAddJob={() => setJob({ departmentId: d.id })}
             />
           ))}
+          {departments.length === 0 && <p className="text-sm text-ink-3">No departments in {branch.name} yet. Use Add a department to create the first one.</p>}
         </section>
       )}
 
