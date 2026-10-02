@@ -26,9 +26,10 @@ export const ROLE_FIELDS: RoleField[] = [
     label: "Accounting & Finance",
     roles: ["Audit Associate", "Tax Associate", "Bookkeeper", "Staff Accountant", "Senior Accountant", "Payroll Specialist", "Financial Analyst", "Accounts Payable Clerk", "Accounts Receivable Clerk", "Finance Manager"],
     backgrounds: [
-      { label: "Certified Public Accountant (CPA)", profession: "CPA", licensed: true },
+      { label: "Certified Public Accountant (CPA)", profession: "CPA" },
       { label: "BS Accountancy graduate", profession: "BS Accountancy graduate" },
-      { label: "Accounting student or undergraduate", profession: "Accounting student / undergrad" },
+      // Counted with accountancy graduates for accountant-first sorting.
+      { label: "BS Accounting Management graduate", profession: "BS Accountancy graduate" },
       { label: "Other field", profession: "Other" },
     ],
     skills: ["Financial reporting", "Auditing", "Tax compliance", "Bookkeeping", "Microsoft Excel", "QuickBooks", "SAP", "Payroll"],

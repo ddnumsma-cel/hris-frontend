@@ -13,7 +13,6 @@ import type { Applicant, ApplicantEducation, ApplicantProfession, ApplicantRole,
 import { FieldError, inputClass, Label } from "@/features/employee/onboarding/fields";
 
 const STEPS = ["Documents", "Employer questions", "Profile", "Review"] as const;
-const LANGUAGES = ["English", "Filipino", "Cebuano", "Hiligaynon", "Ilocano", "Mandarin", "Japanese", "Korean", "Other (language not listed)"];
 const YEARS = ["None yet (fresh graduate)", "Less than 1 year", ...Array.from({ length: 10 }, (_, i) => `${i + 1} year${i ? "s" : ""}`), "More than 10 years"];
 // Skills useful in any role; the applicant can add their own.
 const GENERAL_SKILLS = ["Interpersonal skills", "Communication", "Problem solving", "Teamwork", "Time management", "Adaptability", "Critical thinking", "Attention to detail", "Leadership", "Customer service", "Microsoft Office", "Willingness to learn"];
@@ -605,20 +604,6 @@ export function ApplicationWizard({
                 <FieldError id="ap-prcLicenseNumber-error" message={err("prcLicenseNumber")} />
               </div>
             )}
-            <fieldset>
-              <legend className="mb-1 text-[0.82rem] font-semibold text-ink-2">Which of the following languages are you fluent in?</legend>
-              {LANGUAGES.map((l) => (
-                <label key={l} className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={d.languages.includes(l)}
-                    onChange={() => set("languages", d.languages.includes(l) ? d.languages.filter((x) => x !== l) : [...d.languages, l])}
-                    className="h-5 w-5 flex-none accent-[var(--color-brand)]"
-                  />
-                  {l}
-                </label>
-              ))}
-            </fieldset>
           </>
         )}
 
@@ -651,7 +636,6 @@ export function ApplicationWizard({
               <Row label="Years">{d.years}</Row>
               <Row label="Background">{d.background}</Row>
               {backgroundOption?.licensed && <Row label="License no.">{d.prcLicenseNumber}</Row>}
-              <Row label="Languages">{d.languages.join(", ")}</Row>
             </ReviewBlock>
             <ReviewBlock title="Profile" onEdit={() => goTo(2)}>
               <Row label="Career history">{d.careerHistory.map((r) => `${r.title}, ${r.company}`).join("; ")}</Row>
