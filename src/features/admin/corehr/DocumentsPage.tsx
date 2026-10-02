@@ -1,247 +1,224 @@
 import { useMemo, useState } from "react";
 import clsx from "clsx";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
-import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { CheckCircleIcon, CheckIcon, GridIcon, ListIcon, SearchIcon } from "@/components/icons";
-import { DOCUMENT_TYPES, daysUntil, documentAlert, listDocuments, listEmployees } from "@/lib/corehr/api";
-import type { DocumentType, EmployeeDocument } from "@/lib/corehr/types";
+import { useToast } from "@/components/ui/ToastContext";
+import { CheckCircleIcon, CheckIcon, SearchIcon, UploadIcon } from "@/components/icons";
+import { daysUntil, documentAlert, listDocuments, listEmployees, updateDocument, type EmployeeSummary } from "@/lib/corehr/api";
+import type { EmployeeDocument } from "@/lib/corehr/types";
 import { useOfficeFilter } from "../OfficeFilterContext";
 import { DocumentDrawer } from "./DocumentDrawer";
-import { documentTone, filterSearchClass, formatDate, keys } from "./format";
-import { FilterChip, LoadError, Pill } from "./ui";
+import { documentState, filterSearchClass, formatDate, keys, useActor } from "./format";
+import { useCountUp } from "./motion";
+import { StatusText } from "./SplitView";
+import { Initials, LoadError } from "./ui";
 
-const SHORT: Record<DocumentType, string> = {
-  "Application Form / Resume": "Resume",
-  "Birth Certificate (PSA)": "PSA birth",
-  "Marriage Certificate (PSA)": "PSA marriage",
-  "Child's Birth Certificate": "Child's birth",
-  "Valid Government ID": "Gov't ID",
-  "Diploma / Transcript of Records": "Diploma / TOR",
-  "Professional License": "License",
-  "Certificate of Employment (Previous)": "Prev. COE",
-  "NBI Clearance": "NBI",
-  "Police/Barangay Clearance": "Police / Brgy",
-  "Pre-Employment Medical Result": "Medical",
-};
+type Queue = "check" | "missing" | "expiring" | "expired" | "everyone";
 
-type Queue = "all" | "missing" | "verify" | "expiring" | "expired";
-const QUEUES: { id: Queue; label: string }[] = [
-  { id: "all", label: "Everything" },
-  { id: "verify", label: "To verify" },
-  { id: "missing", label: "Missing" },
-  { id: "expiring", label: "Expiring in 30 days" },
-  { id: "expired", label: "Expired" },
+const QUEUES: { id: Exclude<Queue, "everyone">; title: string; hint: string; tone: string }[] = [
+  { id: "check", title: "Waiting for you to check", hint: "Uploaded, not yet compared with the original", tone: "text-cat-1" },
+  { id: "missing", title: "Not submitted yet", hint: "Still needed for the 201 file", tone: "text-critical" },
+  { id: "expiring", title: "Expiring in 30 days", hint: "IDs and licenses about to lapse", tone: "text-warning" },
+  { id: "expired", title: "Expired", hint: "Ask the employee for a new copy", tone: "text-critical" },
 ];
 
 function inQueue(d: EmployeeDocument, q: Queue) {
-  if (q === "all") return true;
+  if (q === "everyone") return d.status !== "Not applicable";
+  if (q === "check") return d.status === "Submitted" && documentAlert(d) !== "expired";
   if (q === "missing") return d.status === "Missing";
-  if (q === "verify") return d.status === "Submitted";
   return documentAlert(d) === q;
 }
 
-/** The cell glyph: what state a document is in, at a glance. */
-function Cell({ d, dim, onOpen }: { d: EmployeeDocument; dim: boolean; onOpen: () => void }) {
-  const alert = documentAlert(d);
-  const label = `${d.type}: ${alert === "expired" ? "expired" : alert === "expiring" ? "expiring soon" : d.status.toLowerCase()}`;
+function QueueCard({ q, count, active, onClick, index }: { q: (typeof QUEUES)[number]; count: number; active: boolean; onClick: () => void; index: number }) {
+  const shown = useCountUp(count);
   return (
-    <button type="button" onClick={onOpen} title={label} aria-label={label} className={clsx("mx-auto flex h-7 w-7 items-center justify-center rounded-md transition-opacity hover:ring-2 hover:ring-ink-3/40", dim && "opacity-25")}>
-      {d.status === "Not applicable" ? (
-        <span className="h-px w-3 bg-ink-3" />
-      ) : alert === "expired" ? (
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-critical text-[0.6rem] font-bold text-white">!</span>
-      ) : d.status === "Verified" ? (
-        <span className={clsx("flex h-5 w-5 items-center justify-center rounded-full text-white", alert === "expiring" ? "bg-warning" : "bg-good")}>
-          <CheckIcon className="h-3 w-3" />
-        </span>
-      ) : d.status === "Submitted" ? (
-        <span className={clsx("h-5 w-5 rounded-full border-2", alert === "expiring" ? "border-warning" : "border-cat-1")}>
-          <span className={clsx("m-auto mt-[5px] block h-1.5 w-1.5 rounded-full", alert === "expiring" ? "bg-warning" : "bg-cat-1")} />
-        </span>
-      ) : (
-        <span className="h-5 w-5 rounded-full border-2 border-dashed border-critical/70" />
-      )}
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      style={{ "--i": index } as React.CSSProperties}
+      className={clsx("rise-in lift flex flex-col rounded-2xl border bg-surface px-5 py-4 text-left shadow-sm transition-colors", active ? "border-ink ring-1 ring-ink" : "border-border hover:border-ink-3")}
+    >
+      <span className={clsx("font-display text-3xl font-semibold tracking-[-0.02em]", count > 0 ? q.tone : "text-ink-3")}>{shown}</span>
+      <span className="mt-1 text-sm font-semibold">{q.title}</span>
+      <span className="mt-0.5 text-xs text-ink-3">{q.hint}</span>
     </button>
   );
 }
 
+/** The row action that finishes the job in one click, where one click is enough. */
+function DocRow({ d, onOpen }: { d: EmployeeDocument; onOpen: () => void }) {
+  const toast = useToast();
+  const actor = useActor();
+  const queryClient = useQueryClient();
+  const state = documentState(d);
+  const alert = documentAlert(d);
+  const verify = useMutation({
+    mutationFn: () => updateDocument(d.id, { kind: "verify" }, actor),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["corehr"] });
+      queryClient.invalidateQueries({ queryKey: ["personnel"] });
+      toast.show(`${d.type} checked.`);
+    },
+  });
+  return (
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5">
+      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
+        <span className="block truncate text-sm font-medium hover:underline">{d.type}</span>
+        <span className="block text-xs text-ink-3">
+          {alert && d.expiresOn ? (daysUntil(d.expiresOn) < 0 ? `Expired ${formatDate(d.expiresOn)}` : `Expires ${formatDate(d.expiresOn)}`) : d.uploadedAt ? `Uploaded ${formatDate(d.uploadedAt)}${d.fileName ? ` · ${d.fileName}` : ""}` : d.note ? `Sent back: ${d.note}` : <StatusText tone={state.tone}>{state.label}</StatusText>}
+        </span>
+      </button>
+      {d.status === "Submitted" && !alert ? (
+        <Button size="sm" variant="ghost" icon={<CheckIcon className="h-3.5 w-3.5" />} disabled={verify.isPending} onClick={() => verify.mutate()}>
+          Mark as checked
+        </Button>
+      ) : d.status === "Missing" ? (
+        <Button size="sm" variant="ghost" icon={<UploadIcon className="h-3.5 w-3.5" />} onClick={onOpen}>
+          Upload
+        </Button>
+      ) : alert ? (
+        <Button size="sm" variant="ghost" icon={<UploadIcon className="h-3.5 w-3.5" />} onClick={onOpen}>
+          Upload new copy
+        </Button>
+      ) : (
+        <button type="button" onClick={onOpen} className="text-xs text-ink-2 hover:text-ink hover:underline">
+          View
+        </button>
+      )}
+    </li>
+  );
+}
+
+function PersonCard({ e, docs, queue, index, onOpenDoc }: { e: EmployeeSummary; docs: EmployeeDocument[]; queue: Queue; index: number; onOpenDoc: (d: EmployeeDocument) => void }) {
+  const required = docs.filter((d) => d.status !== "Not applicable");
+  const checked = required.filter((d) => d.status === "Verified").length;
+  const pct = required.length ? Math.round((checked / required.length) * 100) : 100;
+  const [expanded, setExpanded] = useState(false);
+  const matching = queue === "everyone" ? required.filter((d) => d.status !== "Verified" || documentAlert(d)) : docs.filter((d) => inQueue(d, queue));
+  const LIMIT = 4;
+  const shown = expanded ? matching : matching.slice(0, LIMIT);
+  return (
+    <article style={{ "--i": index } as React.CSSProperties} className="rise-in flex min-w-0 flex-col rounded-2xl border border-border bg-surface shadow-sm">
+      <header className="flex items-center gap-3 px-5 pt-4 pb-3">
+        <Initials initials={e.initials} size="md" />
+        <div className="min-w-0 flex-1">
+          <Link to={`/admin/people/${e.id}#documents`} className="font-display block truncate text-[0.95rem] font-semibold hover:underline">
+            {e.name}
+          </Link>
+          <p className="truncate text-xs text-ink-3">
+            {e.positionTitle} · {e.departmentName}, {e.branchName}
+          </p>
+        </div>
+      </header>
+      <div className="flex items-center gap-3 px-5 pb-3">
+        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
+          <span className={clsx("grow-x block h-full rounded-full", pct === 100 ? "bg-good" : "bg-ink")} style={{ width: `${pct}%` }} />
+        </span>
+        <span className="flex-none text-xs text-ink-2">
+          {checked} of {required.length} checked
+        </span>
+      </div>
+      <ul className="flex-1 divide-y divide-border border-t border-border px-5">
+        {shown.length === 0 ? (
+          <li className="py-3 text-sm text-good">Everything is checked.</li>
+        ) : (
+          shown.map((d) => <DocRow key={d.id} d={d} onOpen={() => onOpenDoc(d)} />)
+        )}
+        {matching.length > LIMIT && (
+          <li className="py-2">
+            <button type="button" onClick={() => setExpanded((v) => !v)} className="text-xs font-medium text-ink-2 hover:text-ink hover:underline">
+              {expanded ? "Show fewer" : `Show ${matching.length - LIMIT} more`}
+            </button>
+          </li>
+        )}
+      </ul>
+      <footer className="rounded-b-2xl border-t border-border bg-surface-2/50 px-5 py-2.5">
+        <Link to={`/admin/people/${e.id}#documents`} className="text-xs font-medium text-ink-2 hover:text-ink hover:underline">
+          Open full checklist in their 201 file →
+        </Link>
+      </footer>
+    </article>
+  );
+}
+
+/** 201 documents by what HR needs to do: check, chase, renew. */
 export function DocumentsPage() {
   const { office } = useOfficeFilter();
   const employeesQuery = useQuery({ queryKey: keys.employees, queryFn: listEmployees });
   const documentsQuery = useQuery({ queryKey: keys.documents, queryFn: () => listDocuments() });
-  const [queue, setQueue] = useState<Queue>("all");
-  const [view, setView] = useState<"grid" | "list">("grid");
+  const [queue, setQueue] = useState<Queue>("check");
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState<EmployeeDocument | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const employees = useMemo(() => (employeesQuery.data ?? []).filter((e) => e.status !== "Separated" && (office === "All offices" || e.branchName === office)), [employeesQuery.data, office]);
   const ids = new Set(employees.map((e) => e.id));
   const docs = (documentsQuery.data ?? []).filter((d) => ids.has(d.employeeId));
-  const byEmployee = useMemo(() => {
-    const m = new Map<string, Map<DocumentType, EmployeeDocument>>();
-    for (const d of documentsQuery.data ?? []) {
-      if (!m.has(d.employeeId)) m.set(d.employeeId, new Map());
-      m.get(d.employeeId)!.set(d.type, d);
-    }
-    return m;
-  }, [documentsQuery.data]);
-  const count = (q: Queue) => docs.filter((d) => d.status !== "Not applicable" && inQueue(d, q)).length;
+  const docsOf = (id: string) => docs.filter((d) => d.employeeId === id);
+  const count = (q: Queue) => docs.filter((d) => inQueue(d, q)).length;
   const required = docs.filter((d) => d.status !== "Not applicable");
-  const verified = required.filter((d) => d.status === "Verified").length;
+  const checked = required.filter((d) => d.status === "Verified").length;
 
   const q = query.trim().toLowerCase();
-  const rows = employees.filter((e) => (!q || e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q)) && (queue === "all" || docs.some((d) => d.employeeId === e.id && inQueue(d, queue))));
-  const nameOf = (id: string) => employees.find((e) => e.id === id)?.name ?? id;
-  const listItems = docs
-    .filter((d) => d.status !== "Not applicable" && (queue === "all" ? d.status !== "Verified" || documentAlert(d) : inQueue(d, queue)) && (!q || nameOf(d.employeeId).toLowerCase().includes(q) || d.type.toLowerCase().includes(q)))
-    .sort((a, b) => (a.expiresOn ?? "9").localeCompare(b.expiresOn ?? "9") || nameOf(a.employeeId).localeCompare(nameOf(b.employeeId)));
-
+  const people = employees
+    .filter((e) => (!q || e.name.toLowerCase().includes(q) || e.departmentName.toLowerCase().includes(q)) && (queue === "everyone" || docsOf(e.id).some((d) => inQueue(d, queue))))
+    .sort((a, b) => docsOf(b.id).filter((d) => inQueue(d, queue)).length - docsOf(a.id).filter((d) => inQueue(d, queue)).length || a.name.localeCompare(b.name));
+  const open = docs.find((d) => d.id === openId);
+  const openName = employees.find((e) => e.id === open?.employeeId)?.name ?? "";
   const loading = employeesQuery.isLoading || documentsQuery.isLoading;
+  const current = QUEUES.find((x) => x.id === queue);
+
   if (employeesQuery.isError || documentsQuery.isError) return <LoadError onRetry={() => (employeesQuery.refetch(), documentsQuery.refetch())} />;
 
   return (
     <>
-      <ContentHead title="Documents" subtitle={`201 checklists · ${verified} of ${required.length} required documents verified (${required.length ? Math.round((verified / required.length) * 100) : 0}%)`} />
+      <ContentHead title="Documents" subtitle={`201 file paperwork for ${employees.length} employees · ${checked} of ${required.length} documents checked so far.`} />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="no-scrollbar flex flex-1 gap-1.5 overflow-x-auto">
-          {QUEUES.map((x) => (
-            <FilterChip key={x.id} active={queue === x.id} onClick={() => setQueue(x.id)} count={x.id === "all" ? undefined : count(x.id)}>
-              {x.label}
-            </FilterChip>
-          ))}
-        </div>
-        <div className="relative w-full sm:w-56">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {QUEUES.map((x, i) => (
+          <QueueCard key={x.id} q={x} index={i} count={loading ? 0 : count(x.id)} active={queue === x.id} onClick={() => setQueue(x.id)} />
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="font-display text-base font-semibold">{current ? current.title : "Everyone's progress"}</h2>
+        <span className="text-xs text-ink-3">
+          {people.length} {people.length === 1 ? "person" : "people"}
+        </span>
+        <button
+          type="button"
+          onClick={() => setQueue(queue === "everyone" ? "check" : "everyone")}
+          className="text-xs font-medium text-ink-2 underline-offset-4 hover:text-ink hover:underline"
+        >
+          {queue === "everyone" ? "Back to what needs checking" : "See everyone's progress"}
+        </button>
+        <div className="relative ml-auto w-full sm:w-64">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-ink-3" />
-          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Employee or document" aria-label="Search documents" className={filterSearchClass} />
-        </div>
-        <div role="group" aria-label="View" className="flex rounded-lg border border-border bg-surface p-0.5">
-          {(
-            [
-              ["grid", "Grid", GridIcon],
-              ["list", "Action list", ListIcon],
-            ] as const
-          ).map(([id, label, Icon]) => (
-            <button key={id} type="button" aria-pressed={view === id} onClick={() => setView(id)} className={clsx("flex h-[1.625rem] items-center gap-1.5 rounded-md px-2.5 text-xs font-medium", view === id ? "bg-ink text-surface" : "text-ink-2 hover:text-ink")}>
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
+          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search employee or department" aria-label="Search employees" className={filterSearchClass} />
         </div>
       </div>
 
       {loading ? (
-        <Skeleton className="h-96 w-full" />
-      ) : view === "grid" ? (
-        <Card className="overflow-hidden">
-          {rows.length === 0 ? (
-            <EmptyState icon={<CheckCircleIcon />} title="Nothing in this queue" description="Every 201 file here is up to date." />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[58rem] text-sm">
-                <caption className="sr-only">201 document status by employee</caption>
-                <thead>
-                  <tr className="border-b border-border">
-                    <th scope="col" className="sticky left-0 z-[1] bg-surface px-4 py-2.5 text-left text-xs font-medium text-ink-3">
-                      Employee
-                    </th>
-                    {DOCUMENT_TYPES.map((t) => (
-                      <th key={t} scope="col" title={t} className="px-1 py-2.5 text-center text-[0.68rem] leading-tight font-medium text-ink-3">
-                        {SHORT[t]}
-                      </th>
-                    ))}
-                    <th scope="col" className="px-3 py-2.5 text-right text-xs font-medium text-ink-3">
-                      Verified
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((e, i) => {
-                    const mine = byEmployee.get(e.id);
-                    return (
-                      <tr key={e.id} style={{ "--i": i } as React.CSSProperties} className="rise-in border-b border-border last:border-0 hover:bg-surface-2/50">
-                        <th scope="row" className="sticky left-0 z-[1] bg-surface px-4 py-1.5 text-left font-normal">
-                          <Link to={`/admin/people/${e.id}#documents`} className="block truncate font-medium hover:underline">
-                            {e.name}
-                          </Link>
-                          <span className="block text-xs text-ink-3">{e.departmentName}</span>
-                        </th>
-                        {DOCUMENT_TYPES.map((t) => {
-                          const d = mine?.get(t);
-                          return <td key={t} className="px-1 py-1.5 text-center">{d ? <Cell d={d} dim={queue !== "all" && !inQueue(d, queue)} onOpen={() => setOpen(d)} /> : null}</td>;
-                        })}
-                        <td className="font-num px-3 py-1.5 text-right text-xs text-ink-2">
-                          {e.documents.verified}/{e.documents.required}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-border px-4 py-2.5 text-xs text-ink-2">
-            <span className="flex items-center gap-1.5">
-              <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-good text-white">
-                <CheckIcon className="h-2.5 w-2.5" />
-              </span>
-              Verified
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-3.5 w-3.5 rounded-full border-2 border-cat-1" />
-              Submitted, to verify
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-3.5 w-3.5 rounded-full border-2 border-dashed border-critical/70" />
-              Missing
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-3.5 w-3.5 rounded-full bg-warning" />
-              Expiring soon
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-critical text-[0.5rem] font-bold text-white">!</span>
-              Expired
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-px w-3 bg-ink-3" />
-              Not applicable
-            </span>
-          </div>
-        </Card>
+        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-64 w-full" />
+          ))}
+        </div>
+      ) : people.length === 0 ? (
+        <EmptyState icon={<CheckCircleIcon />} title={q ? "No one matches that search" : "Nothing here, all caught up"} description={q ? "Try another name or department." : "Pick another card above to see what else needs doing."} />
       ) : (
-        <Card className="overflow-hidden">
-          {listItems.length === 0 ? (
-            <EmptyState icon={<CheckCircleIcon />} title="Nothing needs action" description="No missing, unverified or lapsing documents here." />
-          ) : (
-            <ul className="divide-y divide-border">
-              {listItems.map((d, i) => {
-                const alert = documentAlert(d);
-                return (
-                  <li key={d.id} className="rise-in" style={{ "--i": i } as React.CSSProperties}>
-                    <button type="button" onClick={() => setOpen(d)} className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left hover:bg-surface-2/60">
-                      <span className="min-w-[12rem] flex-1">
-                        <span className="block text-sm font-medium">{d.type}</span>
-                        <span className="block text-xs text-ink-2">{nameOf(d.employeeId)}</span>
-                      </span>
-                      <span className="text-xs text-ink-3">
-                        {alert && d.expiresOn ? (daysUntil(d.expiresOn) < 0 ? `Expired ${formatDate(d.expiresOn)}` : `Expires ${formatDate(d.expiresOn)}`) : d.uploadedAt ? `Uploaded ${formatDate(d.uploadedAt)}` : d.note ? "Returned to employee" : "Not submitted"}
-                      </span>
-                      {alert ? <Pill tone={alert === "expired" ? "crit" : "warn"}>{alert === "expired" ? "Expired" : "Expiring"}</Pill> : <Pill tone={documentTone[d.status]}>{d.status === "Submitted" ? "To verify" : d.status}</Pill>}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Card>
+        <div key={queue} className="grid items-start gap-4 md:grid-cols-2 2xl:grid-cols-3">
+          {people.map((e, i) => (
+            <PersonCard key={e.id} e={e} docs={docsOf(e.id)} queue={queue} index={i} onOpenDoc={(d) => setOpenId(d.id)} />
+          ))}
+        </div>
       )}
 
-      {open && <DocumentDrawer document={open} employeeName={nameOf(open.employeeId)} onClose={() => setOpen(null)} />}
+      {open && <DocumentDrawer key={open.id + open.status} document={open} employeeName={openName} onClose={() => setOpenId(null)} />}
     </>
   );
 }
