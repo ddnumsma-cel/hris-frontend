@@ -244,30 +244,62 @@ export function CompanyPage() {
           </div>
 
           {branch && (
-            <section key={branch.id} aria-label={branch.name} className="rise-in flex flex-col gap-4">
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-surface px-5 py-3 text-sm">
-                <span className="flex min-w-0 items-center gap-1.5 text-ink-2">
-                  <MapPinIcon className="h-4 w-4 flex-none text-ink-3" />
-                  <span className="truncate">{branch.address || "No address yet"}</span>
-                </span>
-                <span className="text-ink-2">
-                  Branch head: <span className="font-medium text-ink">{branch.headName ?? "not set"}</span>
-                </span>
-                <span className="text-ink-2">{people(branch.headcount)}</span>
-                {branch.openSlots > 0 && <span className="font-medium text-warning">{openingText(branch.openSlots)}</span>}
-                <span className="ml-auto flex gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setEditingUnit(editInput(branch))}>
-                    Edit branch
-                  </Button>
-                  {branch.active && (
-                    <Button size="sm" icon={<PlusIcon className="h-3.5 w-3.5" />} onClick={() => setEditingUnit({ type: "department", name: "", code: "", parentId: branch.id })}>
-                      Add a department
-                    </Button>
-                  )}
-                </span>
-              </div>
-
+            <section key={branch.id} aria-label={branch.name} className="rise-in">
               <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                {/* The branch itself, as the first card alongside its departments. */}
+                <article className="rise-in flex flex-col rounded-2xl border border-border bg-surface shadow-sm">
+                  <header className="flex items-start gap-3 px-5 pt-4">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[0.7rem] font-medium text-ink-3">Branch</p>
+                      <h2 className="font-display truncate text-base font-semibold tracking-[-0.01em]">{branch.name}</h2>
+                      <p className="mt-0.5 truncate text-xs text-ink-2">
+                        {branch.headName ? (
+                          <>
+                            Led by{" "}
+                            <Link to={`/admin/people/${branch.headEmployeeId}`} className="font-medium text-ink hover:underline">
+                              {branch.headName}
+                            </Link>
+                          </>
+                        ) : (
+                          <button type="button" onClick={() => setEditingUnit(editInput(branch))} className="text-ink-3 underline underline-offset-4 hover:text-ink">
+                            No branch head yet, set one
+                          </button>
+                        )}
+                      </p>
+                    </div>
+                    <button type="button" onClick={() => setEditingUnit(editInput(branch))} className="flex-none rounded-md px-2 py-1 text-xs text-ink-2 hover:bg-surface-2 hover:text-ink">
+                      Edit
+                    </button>
+                  </header>
+                  <p className="flex items-start gap-1.5 px-5 pt-3 text-xs text-ink-2">
+                    <MapPinIcon className="mt-px h-3.5 w-3.5 flex-none text-ink-3" />
+                    {branch.address || "No address yet"}
+                  </p>
+                  <dl className="mt-3 grid flex-1 grid-cols-3 gap-3 border-t border-border px-5 py-4">
+                    <div>
+                      <dt className="text-xs text-ink-3">People</dt>
+                      <dd className="font-display mt-0.5 text-xl font-semibold">{branch.headcount}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-ink-3">Departments</dt>
+                      <dd className="font-display mt-0.5 text-xl font-semibold">{departments.length}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-ink-3">Openings</dt>
+                      <dd className={clsx("font-display mt-0.5 text-xl font-semibold", branch.openSlots > 0 && "text-warning")}>{branch.openSlots}</dd>
+                    </div>
+                  </dl>
+                  <footer className="flex items-center justify-between gap-3 rounded-b-2xl border-t border-border bg-surface-2/50 px-5 py-3">
+                    <span className={clsx("text-xs", branch.openSlots > 0 ? "font-medium text-warning" : "text-ink-3")}>
+                      {!branch.active ? "This branch is closed" : branch.openSlots > 0 ? `${openingText(branch.openSlots)} to fill` : "All jobs filled"}
+                    </span>
+                    {branch.active && (
+                      <Button size="sm" icon={<PlusIcon className="h-3.5 w-3.5" />} onClick={() => setEditingUnit({ type: "department", name: "", code: "", parentId: branch.id })}>
+                        Add a department
+                      </Button>
+                    )}
+                  </footer>
+                </article>
                 {departments.map((d, i) => (
                   <DepartmentCard
                     key={d.id}
@@ -283,16 +315,6 @@ export function CompanyPage() {
                     onAddJob={() => setJob({ departmentId: d.id })}
                   />
                 ))}
-                {branch.active && (
-                  <button
-                    type="button"
-                    onClick={() => setEditingUnit({ type: "department", name: "", code: "", parentId: branch.id })}
-                    className="flex min-h-[12rem] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border text-sm text-ink-3 transition-colors hover:border-ink-3 hover:text-ink"
-                  >
-                    <PlusIcon className="h-5 w-5" />
-                    Add a department to {branch.name}
-                  </button>
-                )}
               </div>
             </section>
           )}

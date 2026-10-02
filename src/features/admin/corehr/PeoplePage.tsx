@@ -8,14 +8,11 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { GridIcon, ListIcon, SearchIcon, SearchXIcon, UserPlusIcon } from "@/components/icons";
 import { listEmployees, listUnits, type EmployeeSummary } from "@/lib/corehr/api";
-import type { EmploymentStatus } from "@/lib/corehr/types";
 import { useOfficeFilter } from "../OfficeFilterContext";
 import { filterSearchClass, filterSelectClass, formatDate, keys, statusTone, tenure } from "./format";
 import { StatusText } from "./SplitView";
 import { Initials, LoadError } from "./ui";
 
-type ShowFilter = "Current" | "Needs documents" | "Probationary" | EmploymentStatus;
-const SHOW_FILTERS: ShowFilter[] = ["Current", "Needs documents", "Probationary", "On leave", "Suspended", "Separated"];
 type View = "cards" | "table";
 type SortKey = "name" | "job" | "department" | "branch" | "status" | "hired" | "documents";
 
@@ -28,12 +25,6 @@ function loadView(): View {
   }
 }
 
-function matchesShow(e: EmployeeSummary, show: ShowFilter) {
-  if (show === "Current") return e.status !== "Separated";
-  if (show === "Needs documents") return e.status !== "Separated" && e.documents.needsAction > 0;
-  if (show === "Probationary") return e.status !== "Separated" && e.employmentType === "Probationary";
-  return e.status === show;
-}
 
 /** "3 of 9 checked", with a thin bar. */
 function DocProgress({ e, wide }: { e: EmployeeSummary; wide?: boolean }) {
@@ -100,7 +91,6 @@ export function PeoplePage() {
   const employeesQuery = useQuery({ queryKey: keys.employees, queryFn: listEmployees });
   const unitsQuery = useQuery({ queryKey: keys.units, queryFn: listUnits });
   const [query, setQuery] = useState(params.get("q") ?? "");
-  const [show, setShow] = useState<ShowFilter>("Current");
   const [departmentId, setDepartmentId] = useState("");
   const [view, setView] = useState<View>(loadView);
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: "name", asc: true });
@@ -127,7 +117,7 @@ export function PeoplePage() {
   const value = (e: EmployeeSummary, k: SortKey): string | number =>
     k === "name" ? e.name : k === "job" ? e.positionTitle : k === "department" ? e.departmentName : k === "branch" ? e.branchName : k === "status" ? e.status : k === "hired" ? e.dateHired : e.documents.required ? e.documents.verified / e.documents.required : 1;
   const rows = all
-    .filter((e) => matchesShow(e, show) && (!departmentId || e.departmentId === departmentId) && (!q || e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q) || e.positionTitle.toLowerCase().includes(q) || e.workEmail.toLowerCase().includes(q)))
+    .filter((e) => e.status !== "Separated" && (!departmentId || e.departmentId === departmentId) && (!q || e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q) || e.positionTitle.toLowerCase().includes(q) || e.workEmail.toLowerCase().includes(q)))
     .sort((a, b) => {
       const x = value(a, sort.key);
       const y = value(b, sort.key);
@@ -157,13 +147,6 @@ export function PeoplePage() {
           <SearchIcon className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-ink-3" />
           <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, ID, job or email" aria-label="Search employees" className={filterSearchClass} />
         </div>
-        <select aria-label="Show" value={show} onChange={(e) => setShow(e.target.value as ShowFilter)} className={filterSelectClass}>
-          {SHOW_FILTERS.map((s) => (
-            <option key={s} value={s}>
-              {s === "Current" ? "Everyone current" : s} ({all.filter((e) => matchesShow(e, s)).length})
-            </option>
-          ))}
-        </select>
         <select aria-label="Department" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} className={filterSelectClass}>
           <option value="">All departments</option>
           {departments.map((d) => (
@@ -202,7 +185,7 @@ export function PeoplePage() {
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <EmptyState icon={<SearchXIcon />} title="No one matches" description="Try a different search, or set Show back to Everyone current." />
+        <EmptyState icon={<SearchXIcon />} title="No one matches" description="Try a different search or department." />
       ) : view === "cards" ? (
         <div key="cards" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
           {rows.map((e, i) => (
@@ -258,7 +241,7 @@ export function PeoplePage() {
       )}
       {rows.length > 0 && (
         <p className="text-xs text-ink-3">
-          Showing {rows.length} of {all.filter((e) => matchesShow(e, show)).length}
+          Showing {rows.length} of {current.length}
         </p>
       )}
     </>
