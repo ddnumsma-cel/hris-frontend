@@ -7,6 +7,7 @@ import { submitApplication } from "@/lib/api";
 import { formatPhMobile, isValidPhMobile } from "@/lib/govIds";
 import { fetchCities, fetchProvinces } from "@/lib/psgc";
 import { fieldOfRole, ROLE_FIELDS } from "@/lib/roleCatalog";
+import { searchSkills } from "@/lib/skillCatalog";
 import { addressFirst, findCity, findProvince, parseResume, readResumeText } from "@/lib/resumeRead";
 import type { Applicant, ApplicantEducation, ApplicantProfession, ApplicantRole, JobRequisition } from "@/lib/types";
 import { FieldError, inputClass, Label } from "@/features/employee/onboarding/fields";
@@ -872,14 +873,37 @@ function EducationList({ items, onChange }: { items: ApplicantEducation[]; onCha
   );
 }
 
+/** Shows the typed part plain and the rest bold, so the match is easy to see ("Collabo" + **ration**). */
+function Highlight({ text, query }: { text: string; query: string }) {
+  const i = text.toLowerCase().indexOf(query.trim().toLowerCase());
+  if (!query.trim() || i < 0) return <span className="font-semibold">{text}</span>;
+  const end = i + query.trim().length;
+  return (
+    <>
+      {i > 0 && <span className="font-semibold">{text.slice(0, i)}</span>}
+      <span className="font-normal">{text.slice(i, end)}</span>
+      <span className="font-semibold">{text.slice(end)}</span>
+    </>
+  );
+}
+
 function Skills({ items, suggested, onChange }: { items: string[]; suggested: string[]; onChange: (v: string[]) => void }) {
   const [text, setText] = useState("");
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const matches = searchSkills(text, items);
+  const showList = open && matches.length > 0;
+
   const add = (v: string) => {
     const t = v.trim();
     if (t && !items.some((x) => x.toLowerCase() === t.toLowerCase())) onChange([...items, t]);
     setText("");
+    setActive(0);
+    inputRef.current?.focus();
   };
-  const suggestions = suggested.filter((x) => !items.includes(x));
+  const chips = suggested.filter((x) => !items.includes(x));
+
   return (
     <section className="flex flex-col gap-3">
       <Heading>Skills</Heading>
@@ -895,31 +919,104 @@ function Skills({ items, suggested, onChange }: { items: string[]; suggested: st
           ))}
         </ul>
       )}
-      <div className="flex gap-2">
-        <input
-          className={inputClass}
-          placeholder="Type a skill and press Enter"
-          aria-label="Add a skill"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              add(text);
-            }
-          }}
-        />
-        <Button type="button" onClick={() => add(text)} className="flex-none justify-center">
-          Add
-        </Button>
+      <div>
+        <label htmlFor="ap-skill" className="mb-1.5 block text-[0.82rem] font-semibold text-ink-2">
+          Add new skill
+        </label>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <input
+              ref={inputRef}
+              id="ap-skill"
+              role="combobox"
+              aria-expanded={showList}
+              aria-controls="ap-skill-list"
+              aria-autocomplete="list"
+              aria-activedescendant={showList ? `ap-skill-opt-${active}` : undefined}
+              autoComplete="off"
+              className={clsx(inputClass, "pr-9")}
+              placeholder="Type a skill, e.g. Collaboration"
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
+                setActive(0);
+                setOpen(true);
+              }}
+              onFocus={() => setOpen(true)}
+              // Leave time for a click on a suggestion to land first.
+              onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown" && matches.length) {
+                  e.preventDefault();
+                  setOpen(true);
+                  setActive((a) => (a + 1) % matches.length);
+                } else if (e.key === "ArrowUp" && matches.length) {
+                  e.preventDefault();
+                  setActive((a) => (a - 1 + matches.length) % matches.length);
+                } else if (e.key === "Enter") {
+                  e.preventDefault();
+                  add(showList ? matches[active] : text);
+                } else if (e.key === "Escape") {
+                  if (showList) setOpen(false);
+                  else setText("");
+                }
+              }}
+            />
+            {text && (
+              <button
+                type="button"
+                aria-label="Clear"
+                onClick={() => {
+                  setText("");
+                  inputRef.current?.focus();
+                }}
+                className="absolute top-1/2 right-2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-ink-3 hover:bg-surface-2 hover:text-ink"
+              >
+                <XIcon className="h-4 w-4" />
+              </button>
+            )}
+            {showList && (
+              <ul
+                id="ap-skill-list"
+                role="listbox"
+                aria-label="Matching skills"
+                className="panel-enter absolute top-full right-0 left-0 z-20 mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-border bg-surface py-1.5 shadow-[0_12px_32px_-8px_rgb(15_23_42/0.25)]"
+              >
+                {matches.map((m, i) => (
+                  <li
+                    key={m}
+                    id={`ap-skill-opt-${i}`}
+                    role="option"
+                    aria-selected={i === active}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      add(m);
+                    }}
+                    onMouseEnter={() => setActive(i)}
+                    className={clsx("cursor-pointer px-4 py-2.5 text-sm text-ink", i === active && "bg-surface-2")}
+                  >
+                    <Highlight text={m} query={text} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <Button type="button" onClick={() => add(text)} disabled={!text.trim()} className="min-h-11 flex-none justify-center">
+            Add
+          </Button>
+        </div>
+        {text.trim() && matches.length === 0 && <p className="mt-1.5 text-xs text-ink-2">No match. Press Add to use "{text.trim()}" as it is.</p>}
       </div>
-      {suggestions.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {suggestions.map((x) => (
-            <button key={x} type="button" onClick={() => add(x)} className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-ink-2 hover:border-brand hover:text-ink">
-              + {x}
-            </button>
-          ))}
+      {chips.length > 0 && (
+        <div>
+          <p className="mb-1.5 text-xs text-ink-3">Popular skills</p>
+          <div className="flex flex-wrap gap-1.5">
+            {chips.map((x) => (
+              <button key={x} type="button" onClick={() => add(x)} className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-ink-2 hover:border-brand hover:text-ink">
+                + {x}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </section>
