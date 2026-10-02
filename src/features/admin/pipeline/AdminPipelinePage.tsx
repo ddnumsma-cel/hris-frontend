@@ -1,4 +1,5 @@
 import { useMemo, useState, type DragEvent, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import clsx from "clsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ContentHead } from "@/components/layout/RolePage";
@@ -45,7 +46,9 @@ export function AdminPipelinePage() {
   const applicantsQuery = useQuery({ queryKey: ["admin", "applicants"], queryFn: fetchApplicants });
   const rolesQuery = useQuery({ queryKey: ["admin", "job-requisitions"], queryFn: fetchJobRequisitions });
   const [search, setSearch] = useState("");
-  const [roleId, setRoleId] = useState("all");
+  // Recruitment links here with ?role= to open one role's applicants.
+  const [searchParams] = useSearchParams();
+  const [roleId, setRoleId] = useState(() => searchParams.get("role") ?? "all");
   const [accountantsOnly, setAccountantsOnly] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);

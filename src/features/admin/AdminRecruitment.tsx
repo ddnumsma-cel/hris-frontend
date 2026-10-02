@@ -1,6 +1,6 @@
-import { useState, type DragEvent } from "react";
-import { Link } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -10,14 +10,13 @@ import { StatTile } from "@/components/ui/StatTile";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/ToastContext";
-import { MoreVerticalIcon, PlusIcon, SearchIcon, ShareIcon } from "@/components/icons";
-import { fetchApplicants, fetchJobRequisitions, moveApplicant } from "@/lib/api";
+import { ArrowRightIcon, PlusIcon, SearchIcon, ShareIcon } from "@/components/icons";
+import { fetchApplicants, fetchJobRequisitions } from "@/lib/api";
 import { formatToday } from "@/lib/format";
-import type { Applicant, ApplicantStage, JobRequisition, RequisitionApproval, RequisitionStage } from "@/lib/types";
+import type { Applicant, JobRequisition, RequisitionApproval, RequisitionStage } from "@/lib/types";
 import { useOfficeFilter } from "./OfficeFilterContext";
 import { NewRequisitionDialog } from "./NewRequisitionDialog";
 import { ShareJobLinkDialog } from "./ShareJobLinkDialog";
-import { byAccountantPriority, isAccountant } from "@/lib/recruitment";
 
 const stageVariant: Record<RequisitionStage, ChipVariant> = {
   Sourcing: "neutral",
@@ -31,50 +30,28 @@ const approvalVariant: Record<RequisitionApproval, ChipVariant> = {
   "Pending L2": "warn",
 };
 
-const pipelineStages: ApplicantStage[] = ["Applied", "Screening", "Interview", "Offered", "Hired", "Rejected"];
-
 const thClass = "border-b border-border px-4 py-2.5 text-left text-xs font-medium tracking-[0.01em] text-ink-3";
 const tdClass = "border-b border-border px-4 py-2.5";
-
-function applicantName(a: Applicant) {
-  return `${a.firstName} ${a.lastName}`;
-}
 
 function formatShortDate(iso: string) {
   return new Date(iso + "T00:00:00").toLocaleDateString("en-PH", { month: "short", day: "numeric" });
 }
 
+/** Job requisitions and the numbers behind them. Applicants themselves are moved through stages in Pipeline. */
 export function AdminRecruitment() {
   const toast = useToast();
-  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { office } = useOfficeFilter();
   const [requisitionDialogOpen, setRequisitionDialogOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [dragOverStage, setDragOverStage] = useState<ApplicantStage | null>(null);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
   // Which link the share dialog opens on: undefined = every open role.
   const [shareRole, setShareRole] = useState<string | undefined | null>(null);
-  // The firm hires mostly accountants: they're listed first, and HR can show only them.
-  const [accountantsOnly, setAccountantsOnly] = useState(false);
 
   const requisitionsQuery = useQuery({ queryKey: ["admin", "job-requisitions"], queryFn: fetchJobRequisitions });
   const applicantsQuery = useQuery({ queryKey: ["admin", "applicants"], queryFn: fetchApplicants });
 
-  const moveMutation = useMutation({
-    mutationFn: ({ id, stage }: { id: string; stage: ApplicantStage }) => moveApplicant(id, stage),
-    onSuccess: (applicant) => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "applicants"] });
-      toast.show(`${applicantName(applicant)} moved to ${applicant.stage}.`);
-    },
-  });
-
   const requisitions = (requisitionsQuery.data ?? []).filter((r) => office === "All offices" || r.office === office);
   const requisitionIds = new Set(requisitions.map((r) => r.id));
   const allApplicants = (applicantsQuery.data ?? []).filter((a) => requisitionIds.has(a.requisitionId));
-  const selected = requisitions.find((r) => r.id === selectedId) ?? requisitions[0];
-  const forRole = allApplicants.filter((a) => a.requisitionId === selected?.id);
-  const accountantCount = forRole.filter(isAccountant).length;
-  const pipeline = forRole.filter((a) => !accountantsOnly || isAccountant(a)).sort(byAccountantPriority);
 
   const totalOpenings = requisitions.reduce((sum, r) => sum + r.openings, 0);
   const totalApplicants = requisitions.reduce((sum, r) => sum + r.applicants, 0);
@@ -88,17 +65,6 @@ export function AdminRecruitment() {
 
   function roleTitles(list: Applicant[]) {
     return [...new Set(list.map((a) => requisitions.find((r) => r.id === a.requisitionId)?.title))].join(", ");
-  }
-
-  function move(applicant: Applicant, stage: ApplicantStage) {
-    if (applicant.stage !== stage) moveMutation.mutate({ id: applicant.id, stage });
-  }
-
-  function handleDrop(e: DragEvent, stage: ApplicantStage) {
-    e.preventDefault();
-    setDragOverStage(null);
-    const applicant = pipeline.find((a) => a.id === e.dataTransfer.getData("text/plain"));
-    if (applicant) move(applicant, stage);
   }
 
   return (
@@ -135,7 +101,7 @@ export function AdminRecruitment() {
       </div>
 
       <Card>
-        <CardHeader title="Job requisitions" />
+        <CardHeader title="Job requisitions" meta="Open a role to see its applicants in Pipeline" />
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-[0.82rem]">
             <thead>
@@ -159,136 +125,13 @@ export function AdminRecruitment() {
                 </tr>
               )}
               {requisitions.map((r) => (
-                <RequisitionRow key={r.id} requisition={r} selected={r.id === selected?.id} onSelect={setSelectedId} />
+                <RequisitionRow key={r.id} requisition={r} onOpen={() => navigate(`/admin/pipeline?role=${r.id}`)} />
               ))}
             </tbody>
           </table>
         </div>
       </Card>
 
-      {selected && (
-        <Card>
-          <CardHeader
-            title={`Pipeline · ${selected.title}`}
-            meta="Drag a card to move stages · Hired → creates the 201 file and onboarding checklist"
-          />
-          <div className="flex flex-wrap items-center gap-3 px-4 pt-3">
-            <div role="radiogroup" aria-label="Which applicants to show" className="inline-flex rounded-full border border-border bg-surface-2 p-0.5">
-              {[
-                { value: false, label: "All applicants" },
-                { value: true, label: "Accountants only" },
-              ].map((o) => (
-                <button
-                  key={o.label}
-                  type="button"
-                  role="radio"
-                  aria-checked={accountantsOnly === o.value}
-                  onClick={() => setAccountantsOnly(o.value)}
-                  className={clsx(
-                    "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-                    accountantsOnly === o.value ? "bg-surface text-ink shadow-sm" : "text-ink-2 hover:text-ink",
-                  )}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-ink-2">
-              <span className="font-num font-semibold text-ink">{accountantCount}</span> accountant{accountantCount === 1 ? "" : "s"} of{" "}
-              <span className="font-num">{forRole.length}</span> · CPAs and accountancy graduates are listed first
-            </p>
-            {selected.approval === "Approved" && selected.openings > 0 ? (
-            <button type="button" onClick={() => setShareRole(selected.id)} className="ml-auto text-xs font-semibold text-brand-ink hover:underline">
-              Share this role's link
-            </button>
-            ) : (
-              // Only approved roles with openings take public applications.
-              <span className="ml-auto text-xs text-ink-3">Not open for applications yet</span>
-            )}
-          </div>
-          <div className="overflow-x-auto p-4">
-            <div key={selected.id} className="tab-enter grid min-w-[56rem] grid-cols-6 gap-3">
-              {pipelineStages.map((stage) => {
-                const cards = pipeline.filter((a) => a.stage === stage);
-                return (
-                  <section
-                    key={stage}
-                    aria-label={stage}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDragOverStage(stage);
-                    }}
-                    onDragLeave={() => setDragOverStage((s) => (s === stage ? null : s))}
-                    onDrop={(e) => handleDrop(e, stage)}
-                    className={clsx(
-                      "flex min-h-48 flex-col gap-2 rounded-xl bg-surface-2 p-2.5",
-                      dragOverStage === stage && "ring-2 ring-brand",
-                    )}
-                  >
-                    <div className="flex items-center justify-between px-1 text-xs font-semibold text-ink-2">
-                      <span>{stage}</span>
-                      <span className="font-num">{cards.length}</span>
-                    </div>
-                    {cards.map((a) => (
-                      <article
-                        key={a.id}
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData("text/plain", a.id);
-                          setDraggingId(a.id);
-                        }}
-                        onDragEnd={() => setDraggingId(null)}
-                        className={clsx(
-                          "item-enter relative cursor-grab rounded-lg border border-border bg-surface p-2.5 shadow-sm active:cursor-grabbing",
-                          draggingId === a.id && "is-dragging",
-                        )}
-                      >
-                        <p className="pr-5 text-[0.82rem] font-semibold">{applicantName(a)}</p>
-                        {a.profession && (
-                          <p className="mt-1 flex flex-wrap items-center gap-1">
-                            {isAccountant(a) && (
-                              <span className="rounded-full bg-brand-tint px-1.5 py-px text-[0.65rem] font-semibold text-brand-ink">Accountant</span>
-                            )}
-                            <span className="text-[0.7rem] text-ink-2">{a.profession === "Accounting student / undergrad" ? "Accounting student" : a.profession}</span>
-                          </p>
-                        )}
-                        <p className="mt-0.5 text-xs text-ink-3">{a.note}</p>
-                        {stage === "Hired" &&
-                          (a.employeeId ? (
-                            <Link
-                              to={`/admin/directory?employee=${a.employeeId}`}
-                              className="mt-2 inline-block text-xs font-semibold text-brand-ink hover:underline"
-                            >
-                              Open 201 file
-                            </Link>
-                          ) : (
-                            <p className="mt-2 text-xs text-ink-2">Fills in their own details from Onboarding in the employee app</p>
-                          ))}
-                        {/* Dragging doesn't work on touch screens or from the keyboard, so each card also has a stage picker. */}
-                        <span className="absolute top-2 right-1.5 flex h-5 w-5 items-center justify-center rounded text-ink-3 focus-within:ring-2 focus-within:ring-brand hover:bg-surface-2 hover:text-ink">
-                          <MoreVerticalIcon className="h-3.5 w-3.5" />
-                          <select
-                            aria-label={`Move ${applicantName(a)} to another stage`}
-                            value={a.stage}
-                            onChange={(e) => move(a, e.target.value as ApplicantStage)}
-                            className="absolute inset-0 cursor-pointer opacity-0"
-                          >
-                            {pipelineStages.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                          </select>
-                        </span>
-                      </article>
-                    ))}
-                  </section>
-                );
-              })}
-            </div>
-          </div>
-        </Card>
-      )}
 
       <ShareJobLinkDialog open={shareRole !== null} roles={requisitionsQuery.data ?? []} initialRoleId={shareRole ?? undefined} onClose={() => setShareRole(null)} />
       <NewRequisitionDialog
@@ -301,24 +144,13 @@ export function AdminRecruitment() {
   );
 }
 
-function RequisitionRow({
-  requisition: r,
-  selected,
-  onSelect,
-}: {
-  requisition: JobRequisition;
-  selected: boolean;
-  onSelect: (id: string) => void;
-}) {
+function RequisitionRow({ requisition: r, onOpen }: { requisition: JobRequisition; onOpen: () => void }) {
   return (
-    <tr
-      onClick={() => onSelect(r.id)}
-      aria-selected={selected}
-      className={clsx("cursor-pointer", selected ? "bg-gold-tint" : "hover:bg-surface-2")}
-    >
+    <tr onClick={onOpen} className="group cursor-pointer hover:bg-surface-2">
       <td className={clsx(tdClass, "font-semibold")}>
-        <button type="button" onClick={() => onSelect(r.id)} className="text-left">
+        <button type="button" onClick={onOpen} className="flex items-center gap-1.5 text-left" aria-label={`See applicants for ${r.title} in Pipeline`}>
           {r.title}
+          <ArrowRightIcon className="h-3.5 w-3.5 text-ink-3 opacity-0 transition-opacity group-hover:opacity-100" />
         </button>
       </td>
       <td className={tdClass}>{r.department}</td>
