@@ -32,6 +32,12 @@ const titles: Record<string, string> = {
   "/admin/people": "People",
   "/admin/people/new": "Add employee",
   "/admin/company": "Company",
+  "/admin/timekeeping/shifts": "Shifts",
+  "/admin/timekeeping/schedules": "Schedules",
+  "/admin/timekeeping/logs": "Attendance logs",
+  "/admin/timekeeping/overtime": "Overtime",
+  "/admin/timekeeping/undertime": "Undertime",
+  "/admin/timekeeping/tardiness": "Tardiness",
   "/admin/documents": "Documents",
 };
 

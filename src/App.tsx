@@ -23,6 +23,12 @@ const AdminOverview = lazy(() => import("@/features/admin/AdminOverview").then((
 const PeoplePage = lazy(() => import("@/features/admin/corehr/PeoplePage").then((m) => ({ default: m.PeoplePage })));
 const EmployeePage = lazy(() => import("@/features/admin/corehr/EmployeePage").then((m) => ({ default: m.EmployeePage })));
 const NewEmployeePage = lazy(() => import("@/features/admin/corehr/NewEmployeePage").then((m) => ({ default: m.NewEmployeePage })));
+const ShiftsPage = lazy(() => import("@/features/admin/timekeeping/ShiftsPage").then((m) => ({ default: m.ShiftsPage })));
+const SchedulesPage = lazy(() => import("@/features/admin/timekeeping/SchedulesPage").then((m) => ({ default: m.SchedulesPage })));
+const AttendanceLogsPage = lazy(() => import("@/features/admin/timekeeping/AttendanceLogsPage").then((m) => ({ default: m.AttendanceLogsPage })));
+const OvertimePage = lazy(() => import("@/features/admin/timekeeping/RequestsPage").then((m) => ({ default: m.OvertimePage })));
+const UndertimePage = lazy(() => import("@/features/admin/timekeeping/RequestsPage").then((m) => ({ default: m.UndertimePage })));
+const TardinessPage = lazy(() => import("@/features/admin/timekeeping/TardinessPage").then((m) => ({ default: m.TardinessPage })));
 const CompanyPage = lazy(() => import("@/features/admin/corehr/CompanyPage").then((m) => ({ default: m.CompanyPage })));
 const DocumentsPage = lazy(() => import("@/features/admin/corehr/DocumentsPage").then((m) => ({ default: m.DocumentsPage })));
 const DirectoryRedirect = lazy(() =>
@@ -153,6 +159,13 @@ function App() {
               <Route path="people/new" element={<NewEmployeePage />} />
               <Route path="people/:employeeId" element={<EmployeePage />} />
               <Route path="company" element={<CompanyPage />} />
+              <Route path="timekeeping" element={<Navigate to="/admin/timekeeping/logs" replace />} />
+              <Route path="timekeeping/shifts" element={<ShiftsPage />} />
+              <Route path="timekeeping/schedules" element={<SchedulesPage />} />
+              <Route path="timekeeping/logs" element={<AttendanceLogsPage />} />
+              <Route path="timekeeping/overtime" element={<OvertimePage />} />
+              <Route path="timekeeping/undertime" element={<UndertimePage />} />
+              <Route path="timekeeping/tardiness" element={<TardinessPage />} />
               <Route path="organization" element={<Navigate to="/admin/company" replace />} />
               <Route path="positions" element={<Navigate to="/admin/company" replace />} />
               <Route path="documents" element={<DocumentsPage />} />
