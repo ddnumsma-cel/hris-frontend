@@ -86,7 +86,12 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
           <Link to={`/admin/people/${e.id}`} title={e.name} className="font-display line-clamp-2 text-[0.95rem] leading-tight font-semibold break-words hover:underline">
             {e.name}
           </Link>
-          <span className="mt-0.5 block truncate text-xs text-ink-2">{e.positionTitle}</span>
+          <span className="mt-0.5 line-clamp-2 text-xs text-ink-2" title={e.positionTitle}>
+            {e.positionTitle}
+          </span>
+          <span className="mt-1.5 inline-flex">
+            <Pill tone={statusTone[e.status]}>{e.employmentType === "Probationary" && e.status === "Active" ? "Probationary" : e.status}</Pill>
+          </span>
         </div>
         <div className="relative -mr-1.5 flex-none">
           <button type="button" aria-label={`More for ${e.name}`} aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)} className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-3 hover:bg-surface-2 hover:text-ink">
@@ -151,13 +156,11 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
 
       <div className="my-3 border-t border-border" />
 
-      <footer className="flex items-end justify-between gap-2">
-        <span className="min-w-0 text-xs leading-tight text-ink-3">
-          Hired:
-          <span className="mt-0.5 block text-[0.8rem] whitespace-nowrap text-ink-2">{formatDate(e.dateHired)}</span>
+      <footer className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-xs text-ink-3">
+          Hired <span className="text-[0.8rem] text-ink-2">{formatDate(e.dateHired)}</span>
         </span>
-        <span className="flex flex-none items-center gap-1">
-          <Pill tone={statusTone[e.status]}>{e.employmentType === "Probationary" && e.status === "Active" ? "Probationary" : e.status}</Pill>
+        <span className="flex flex-none items-center">
           <button type="button" onClick={() => setPreview(true)} className="h-7 rounded-lg border border-brand px-2 text-xs font-semibold text-brand hover:bg-brand-tint">
             Preview
           </button>
