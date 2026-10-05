@@ -14,8 +14,8 @@ import { StatusText } from "./SplitView";
 import { EmployeeCard } from "./EmployeeCard";
 import { Initials, LoadError } from "./ui";
 
-/** People per page: two full rows of five cards, or 8 table rows. */
-const PAGE_SIZE = { cards: 10, table: 8 } as const;
+/** Table rows per page. Cards show everyone and the page scrolls. */
+const PAGE_SIZE = 8;
 
 type View = "cards" | "table";
 type SortKey = "name" | "job" | "department" | "branch" | "status" | "hired" | "documents";
@@ -109,10 +109,10 @@ export function PeoplePage() {
       return (sort.asc ? c : -c) || a.name.localeCompare(b.name);
     });
 
-  const size = PAGE_SIZE[view];
+  const size = PAGE_SIZE;
   const pages = Math.max(1, Math.ceil(rows.length / size));
   const pageNo = Math.min(page, pages - 1);
-  const shown = rows.slice(pageNo * size, pageNo * size + size);
+  const shown = view === "cards" ? rows : rows.slice(pageNo * size, pageNo * size + size);
 
   const onLeave = current.filter((e) => e.status === "On leave" || e.status === "Suspended").length;
   const needDocs = current.filter((e) => e.documents.needsAction > 0).length;
@@ -228,7 +228,8 @@ export function PeoplePage() {
           </div>
         </div>
       )}
-      {rows.length > 0 && (
+      {rows.length > 0 && view === "cards" && <p className="text-xs text-ink-3">Showing all {rows.length} employees</p>}
+      {rows.length > 0 && view === "table" && (
         <div className="flex items-center justify-between gap-3 text-xs text-ink-2">
           <span>
             {pageNo * size + 1}–{Math.min(rows.length, pageNo * size + size)} of {rows.length} employees
