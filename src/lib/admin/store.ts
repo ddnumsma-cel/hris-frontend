@@ -96,14 +96,14 @@ export interface AdminState {
   log: AdminLog[];
 }
 
-const KEY = "heyhr-admin-v2";
+const KEY = "heyhr-admin-v3";
 
 const all = (a: Access): Record<ModuleKey, Access> => ({ people: a, company: a, documents: a, timekeeping: a, leave: a, reports: a, administration: a });
 
 export const DEFAULT_ROLES: SystemRole[] = [
-  { id: "super-admin", name: "Super Admin", description: "Everything, including roles, system settings and other admins.", workspace: "admin", builtIn: true, superAdmin: true, access: { ...all("edit"), timekeeping: "approve", leave: "approve" } },
-  { id: "admin", name: "Admin", description: "Every HR module plus users, approval workflows and the audit trail. Can't change roles or system settings.", workspace: "admin", builtIn: true, access: { ...all("edit"), timekeeping: "approve", leave: "approve" } },
-  { id: "hr", name: "HR", description: "Employee records, attendance, leave and reports. Approves leave, overtime and undertime.", workspace: "admin", builtIn: true, access: { people: "edit", company: "edit", documents: "edit", timekeeping: "approve", leave: "approve", reports: "view", administration: "none" } },
+  { id: "super-admin", name: "Super Admin", description: "Runs the system: users, roles, approval workflows, audit trail and settings. No access to employee data.", workspace: "admin", builtIn: true, superAdmin: true, access: { ...all("none"), administration: "edit" } },
+  { id: "admin", name: "Admin", description: "Runs HR: every HR module, company setup and approvals.", workspace: "admin", builtIn: true, access: { ...all("edit"), timekeeping: "approve", leave: "approve", administration: "none" } },
+  { id: "hr", name: "HR", description: "Day-to-day HR: employee records, attendance, leave and reports. Approves leave, overtime and undertime.", workspace: "admin", builtIn: true, access: { people: "edit", company: "view", documents: "edit", timekeeping: "approve", leave: "approve", reports: "view", administration: "none" } },
   { id: "employee", name: "Employee", description: "Self-service: own leave, time, payslips and 201 file.", workspace: "employee", builtIn: true, access: all("none") },
 ];
 

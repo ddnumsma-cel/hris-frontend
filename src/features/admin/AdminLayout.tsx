@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
 import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
 import { BarChartIcon, BuildingIcon, CalendarIcon, ClockIcon, FolderIcon, GridIcon, LockIcon, ShieldIcon, UsersIcon } from "@/components/icons";
@@ -112,8 +112,11 @@ export function AdminLayout() {
   const access = useAccess();
   const { pathname } = useLocation();
   const isSuper = useIsSuperAdmin();
+  // System-only accounts (Super Admin) have no HR modules, so no HR overview either.
+  const hrModules = Object.entries(access).some(([k, v]) => k !== "administration" && v !== "none");
   const allowed = (to: string) => {
     if (!isSuper && SUPER_ADMIN_PAGES.some((p) => to === p || to.startsWith(`${p}/`))) return false;
+    if (to === "/admin" && !hrModules) return false;
     const m = moduleForPath(to);
     return !m || access[m] !== "none";
   };
@@ -132,7 +135,7 @@ export function AdminLayout() {
         </>
       }
     >
-      {allowed(pathname) ? <Outlet /> : <NoAccess />}
+      {allowed(pathname) ? <Outlet /> : pathname === "/admin" && groups[0] ? <Navigate to={groups[0].items[0]!.children?.[0]?.to ?? groups[0].items[0]!.to} replace /> : <NoAccess />}
     </RolePage>
   );
 }

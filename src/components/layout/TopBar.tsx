@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { useAuth } from "@/features/auth/AuthContext";
+import { hasHrAccess } from "@/lib/admin/auth";
 import { useOfficeFilter, type OfficeFilter } from "@/features/admin/OfficeFilterContext";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { fetchAnnouncements, fetchMyPhoto } from "@/lib/api";
@@ -51,13 +52,15 @@ export function TopBar() {
   }
 
   if (!user) return null;
+  // System-only accounts (Super Admin) don't get the office filter or employee search.
+  const hr = user.role !== "admin" || hasHrAccess(user.accountId);
 
   return (
     <header ref={headerRef} className="topbar sticky top-0 z-40 flex flex-wrap items-center gap-3.5 px-4.5 py-2.5">
       {/* Shown here only while no desktop sidebar is on screen; otherwise the sidebar carries them. */}
       <BrandName className="topbar-sidebar-dup" />
 
-      {user.role === "admin" && (
+      {user.role === "admin" && hr && (
         <div className="relative">
           <button
             type="button"
@@ -108,7 +111,7 @@ export function TopBar() {
       <WorkspaceLabel role={user.role} className="topbar-sidebar-dup mx-auto" />
 
       <div className="ml-auto flex items-center gap-2">
-        {user.role === "admin" && (
+        {user.role === "admin" && hr && (
           <div className="topbar-field hidden min-w-37.5 sm:flex">
             <SearchIcon className="h-3.5 w-3.5" />
             <input

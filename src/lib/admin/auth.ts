@@ -78,3 +78,9 @@ export function endedForInactivity() {
     return false;
   }
 }
+
+/** True when the account can open at least one HR module (not just Administration). */
+export function hasHrAccess(accountId: string | undefined) {
+  const access = accessFor(accountId);
+  return (Object.keys(access) as ModuleKey[]).some((k) => k !== "administration" && access[k] !== "none");
+}

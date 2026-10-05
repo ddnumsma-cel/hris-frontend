@@ -7,6 +7,7 @@ import { DocumentTitle } from "@/components/layout/DocumentTitle";
 import { NotFoundPage } from "@/components/layout/NotFoundPage";
 import { PageLoadingFallback } from "@/components/layout/PageLoadingFallback";
 import { useAuth } from "@/features/auth/AuthContext";
+import { hasHrAccess } from "@/lib/admin/auth";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { OfficeFilterProvider } from "@/features/admin/OfficeFilterContext";
 import { FirstLoginTour } from "@/components/shared/FirstLoginTour";
@@ -209,7 +210,8 @@ function App() {
           </Routes>
         </Suspense>
 
-        {user && (
+        {/* The HR assistant answers from employee data, so system-only accounts don't get it. */}
+        {user && (user.role !== "admin" || hasHrAccess(user.accountId)) && (
           <Suspense fallback={null}>
             <AssistantWidget />
           </Suspense>

@@ -100,7 +100,7 @@ function RoleDialog({ initial, onClose }: { initial: Draft; onClose: () => void 
           </div>
         )}
         {matrix && <p className="text-xs text-ink-3">No access hides the module from the menu. "Edit and approve" lets them approve leave, overtime and undertime.</p>}
-        {d.locked && <p className="text-xs text-ink-3">The Super Admin role always has full access, so someone can always manage roles and settings.</p>}
+        {d.locked && <p className="text-xs text-ink-3">The Super Admin role is fixed: it manages users, roles and settings, and never sees employee data.</p>}
         <ErrorNote error={save.error} />
       </div>
     </Dialog>
@@ -135,7 +135,7 @@ export function RolesPage() {
   const blank: Draft = { name: "", description: "", workspace: "admin", locked: false, access: Object.fromEntries(MODULES.map((m) => [m.key, "none"])) as Record<ModuleKey, Access> };
   const cols: Col<RoleRow>[] = [
     { header: "Role", cell: (r) => <Name name={r.name} sub={r.description} /> },
-    { header: "Signs into", cell: (r) => WORKSPACE[r.workspace] },
+    { header: "Signs into", cell: (r) => (r.superAdmin ? "System administration" : WORKSPACE[r.workspace]) },
     { header: "Can open", cell: (r) => <span className="inline-block max-w-72 truncate align-bottom text-ink-2">{summary(r)}</span> },
     { header: "Users", cell: (r) => r.users },
     {

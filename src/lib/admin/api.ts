@@ -135,7 +135,7 @@ export async function saveRole(input: { id?: string; name: string; description: 
   if (!name) return fail("Name the role");
   if (admin.roles.some((r) => r.id !== input.id && r.name.toLowerCase() === name.toLowerCase())) return fail("There's already a role with that name");
   const existing = admin.roles.find((r) => r.id === input.id);
-  if (existing?.superAdmin) return fail("The Super Admin role always has full access");
+  if (existing?.superAdmin) return fail("The Super Admin role is fixed: it runs the system and has no access to employee data.");
   // "Approve" only applies to modules with requests.
   const access = Object.fromEntries(MODULES.map((m) => [m.key, !m.approvable && input.access[m.key] === "approve" ? "edit" : input.access[m.key]])) as Record<ModuleKey, Access>;
   const role: SystemRole = existing ? { ...existing, name, description: input.description.trim(), access } : { id: `role-${Date.now().toString(36)}`, name, description: input.description.trim(), workspace: "admin", builtIn: false, access };
