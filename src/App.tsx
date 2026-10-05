@@ -46,8 +46,8 @@ const WorkflowsPage = lazy(() => import("@/features/admin/administration/Workflo
 const AuditTrailPage = lazy(() => import("@/features/admin/administration/AuditTrailPage").then((m) => ({ default: m.AuditTrailPage })));
 const SystemSettingsPage = lazy(() => import("@/features/admin/administration/SystemSettingsPage").then((m) => ({ default: m.SystemSettingsPage })));
 const CorrectionsPage = lazy(() => import("@/features/admin/timekeeping/CorrectionsPage").then((m) => ({ default: m.CorrectionsPage })));
+const OrgChartPage = lazy(() => import("@/features/admin/corehr/OrgChartPage").then((m) => ({ default: m.OrgChartPage })));
 const TardinessPage = lazy(() => import("@/features/admin/timekeeping/TardinessPage").then((m) => ({ default: m.TardinessPage })));
-const CompanyPage = lazy(() => import("@/features/admin/corehr/CompanyPage").then((m) => ({ default: m.CompanyPage })));
 const DocumentsPage = lazy(() => import("@/features/admin/corehr/DocumentsPage").then((m) => ({ default: m.DocumentsPage })));
 const DirectoryRedirect = lazy(() =>
   import("@/features/admin/corehr/DirectoryRedirect").then((m) => ({ default: m.DirectoryRedirect })),
@@ -185,7 +185,8 @@ function App() {
               <Route path="people" element={<PeoplePage />} />
               <Route path="people/new" element={<NewEmployeePage />} />
               <Route path="people/:employeeId" element={<EmployeePage />} />
-              <Route path="company" element={<CompanyPage />} />
+              <Route path="org-chart" element={<OrgChartPage />} />
+              <Route path="company" element={<Navigate to="/admin/org-chart" replace />} />
               <Route path="timekeeping" element={<Navigate to="/admin/timekeeping/logs" replace />} />
               <Route path="timekeeping/shifts" element={<ShiftsPage />} />
               <Route path="timekeeping/schedules" element={<SchedulesPage />} />
@@ -213,8 +214,8 @@ function App() {
               <Route path="administration/workflows" element={<WorkflowsPage />} />
               <Route path="administration/audit" element={<AuditTrailPage />} />
               <Route path="administration/settings" element={<SystemSettingsPage />} />
-              <Route path="organization" element={<Navigate to="/admin/company" replace />} />
-              <Route path="positions" element={<Navigate to="/admin/company" replace />} />
+              <Route path="organization" element={<Navigate to="/admin/org-chart" replace />} />
+              <Route path="positions" element={<Navigate to="/admin/org-chart" replace />} />
               <Route path="documents" element={<DocumentsPage />} />
               <Route path="directory" element={<DirectoryRedirect />} />
             </Route>

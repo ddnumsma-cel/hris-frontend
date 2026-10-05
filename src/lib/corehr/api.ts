@@ -5,12 +5,10 @@ import { firstIssue, contactSchema, governmentSchema, newEmployeeSchema, persona
 import { commit, fullName, initialsOf, isoDate, newId, reconcile, state, type CoreHrState } from "./store";
 import type {
   AuditEntry,
-  ChangeKind,
   CoreEmployee,
   DocumentType,
   EmployeeDocument,
   EmploymentStatus,
-  FieldChange,
   JobEvent,
   JobLevel,
   OrgUnit,
@@ -93,6 +91,7 @@ export interface EmployeeSummary {
   status: EmploymentStatus;
   dateHired: string;
   workEmail: string;
+  mobile: string;
   documents: { verified: number; required: number; needsAction: number };
 }
 
@@ -118,6 +117,7 @@ function summarize(e: CoreEmployee): EmployeeSummary {
     status: e.job.status,
     dateHired: e.job.dateHired,
     workEmail: e.contact.workEmail,
+    mobile: e.contact.mobile,
     documents: {
       verified: docs.filter((d) => d.status === "Verified").length,
       required: docs.length,
@@ -318,57 +318,6 @@ export function listUnits(): Promise<UnitSummary[]> {
   );
 }
 
-const PARENT_TYPE: Record<UnitType, UnitType | null> = { company: null, branch: "company", department: "branch", team: "department" };
-export const CHILD_TYPE: Record<UnitType, UnitType | null> = { company: "branch", branch: "department", department: "team", team: null };
-
-export interface UnitInput {
-  id?: string;
-  type: UnitType;
-  name: string;
-  code: string;
-  parentId: string | null;
-  headEmployeeId?: string;
-  address?: string;
-}
-
-export async function saveUnit(input: UnitInput): Promise<OrgUnit> {
-  const name = input.name.trim();
-  if (!name) return fail("Enter a name");
-  const existing = unitById(input.id);
-  if (input.type !== "company") {
-    const parent = unitById(input.parentId ?? undefined);
-    if (!parent || parent.type !== PARENT_TYPE[input.type]) return fail(`Choose which ${PARENT_TYPE[input.type]} it belongs to`);
-    if (!parent.active) return fail(`${parent.name} is inactive`);
-  }
-  if (state.units.some((u) => u.id !== input.id && u.parentId === input.parentId && u.name.toLowerCase() === name.toLowerCase())) return fail(`There's already a ${input.type} named "${name}" there`);
-  const code = (input.code.trim() || name.replace(/[^A-Za-z ]/g, "").split(/\s+/).map((w) => w[0]).join("").slice(0, 4)).toUpperCase();
-  const unit: OrgUnit = { active: true, ...existing, type: input.type, name, code, parentId: input.type === "company" ? null : input.parentId, headEmployeeId: input.headEmployeeId || undefined, address: input.address?.trim() || undefined, id: existing?.id ?? newId(input.type.slice(0, 2)) };
-  // Moving a department to another branch carries its positions and people along with it.
-  commit({ ...state, units: existing ? state.units.map((u) => (u.id === unit.id ? unit : u)) : [...state.units, unit] });
-  return respond(unit);
-}
-
-export async function setUnitActive(id: string, active: boolean): Promise<OrgUnit> {
-  const unit = unitById(id);
-  if (!unit) return fail("That unit no longer exists");
-  if (unit.type === "company") return fail("The company itself can't be closed");
-  if (!active) {
-    const ids = subtree(id);
-    const people = state.employees.filter((e) => isCurrent(e) && ids.has(e.job.unitId)).length;
-    if (people) return fail(`${people} ${people === 1 ? "person is" : "people are"} still in ${unit.name}. Move them to another department with a job change first.`);
-    const positions = state.positions.filter((p) => p.active && ids.has(p.departmentId)).length;
-    if (positions) return fail(`${unit.name} still has ${positions} open job${positions === 1 ? "" : "s"}. Close those jobs on the Company page first.`);
-    const kids = state.units.filter((u) => u.parentId === id && u.active).length;
-    if (kids) return fail(`Close the departments and teams inside ${unit.name} first.`);
-  } else {
-    const parent = unitById(unit.parentId ?? undefined);
-    if (parent && !parent.active) return fail(`Reopen ${parent.name} first.`);
-  }
-  const next = { ...unit, active };
-  commit({ ...state, units: state.units.map((u) => (u.id === id ? next : u)) });
-  return respond(next);
-}
-
 // ---- Positions ----
 
 export interface PositionSummary extends Position {
@@ -402,48 +351,57 @@ export function listPositions(): Promise<PositionSummary[]> {
   );
 }
 
-export interface PositionInput {
-  id?: string;
-  title: string;
-  code: string;
-  departmentId: string;
-  level: JobLevel;
-  employmentType: EmploymentType;
-  slots: number;
-  reportsToPositionId?: string;
-  description?: string;
+// ---- Organization chart ----
+
+export interface OrgChart {
+  /** The head of the company, at the top of the chart. */
+  headId?: string;
+  people: (EmployeeSummary & { supervisorId?: string })[];
 }
 
-export async function savePosition(input: PositionInput): Promise<Position> {
-  const title = input.title.trim();
-  if (!title) return fail("Enter the position title");
-  const dept = unitById(input.departmentId);
-  if (!dept || dept.type !== "department") return fail("Choose a department");
-  if (!dept.active) return fail(`${dept.name} is inactive`);
-  if (!Number.isInteger(input.slots) || input.slots < 1) return fail("Enter how many people this job needs (at least 1)");
-  const existing = positionById(input.id);
-  if (existing) {
-    const filled = holdersOf(existing.id).length;
-    if (input.slots < filled) return fail(`${filled} people hold this position, so it needs at least ${filled}`);
-    if (filled && input.departmentId !== existing.departmentId) return fail("Move the people in this position before changing its department");
+/** Everyone currently employed with who they report to. */
+export function getOrgChart(): Promise<OrgChart> {
+  reconcile();
+  const company = state.units.find((u) => u.type === "company");
+  const people = state.employees.filter(isCurrent).map((e) => ({ ...summarize(e), supervisorId: e.job.supervisorId }));
+  return respond({ headId: company?.headEmployeeId, people: people.sort((a, b) => a.name.localeCompare(b.name)) });
+}
+
+export async function setCompanyHead(employeeId: string, actor: string): Promise<void> {
+  const company = state.units.find((u) => u.type === "company");
+  const e = employeeById(employeeId);
+  if (!company) return fail("The company record is missing");
+  if (!e || !isCurrent(e)) return fail("Choose a current employee");
+  const before = employeeById(company.headEmployeeId);
+  // The head reports to no one.
+  commit({
+    ...state,
+    units: state.units.map((u) => (u.id === company.id ? { ...u, headEmployeeId: e.id } : u)),
+    employees: state.employees.map((x) => (x.id === e.id ? { ...x, job: { ...x.job, supervisorId: undefined } } : x)),
+    audit: [audit(e.id, actor, "Edited", "Organization chart", `Head of the company: ${before ? fullName(before.personal) : "—"} → ${fullName(e.personal)}`), ...state.audit],
+  });
+  return respond(undefined);
+}
+
+/** Change who someone reports to. Blocks loops (reporting to someone who reports to them). */
+export async function setReportsTo(employeeId: string, supervisorId: string | null, actor: string): Promise<void> {
+  const e = employeeById(employeeId);
+  if (!e || !isCurrent(e)) return fail("That employee no longer works here");
+  if (supervisorId === employeeId) return fail("Someone can't report to themselves");
+  const sup = supervisorId ? employeeById(supervisorId) : undefined;
+  if (supervisorId && (!sup || !isCurrent(sup))) return fail("Choose a current employee");
+  for (let x = sup; x; x = employeeById(x.job.supervisorId)) {
+    if (x.id === employeeId) return fail(`${fullName(sup!.personal)} already reports to ${fullName(e.personal)}, directly or through someone else`);
   }
-  if (input.id && input.reportsToPositionId === input.id) return fail("A position can't report to itself");
-  if (state.positions.some((p) => p.id !== input.id && p.departmentId === input.departmentId && p.title.toLowerCase() === title.toLowerCase())) return fail(`${dept.name} already has a ${title} position`);
-  const code = (input.code.trim() || title.split(/\s+/).map((w) => w[0]).join("")).toUpperCase();
-  const position: Position = { active: true, ...existing, ...input, title, code, reportsToPositionId: input.reportsToPositionId || undefined, description: input.description?.trim() || undefined, id: existing?.id ?? newId("ps") };
-  commit({ ...state, positions: existing ? state.positions.map((p) => (p.id === position.id ? position : p)) : [...state.positions, position] });
-  return respond(position);
-}
-
-export async function setPositionActive(id: string, active: boolean): Promise<Position> {
-  const p = positionById(id);
-  if (!p) return fail("That position no longer exists");
-  const filled = holdersOf(id).length;
-  if (!active && filled) return fail(`${filled} ${filled === 1 ? "person holds" : "people hold"} this job. Move them to another job first.`);
-  if (active && !unitById(p.departmentId)?.active) return fail("Its department is closed. Reopen the department first.");
-  const next = { ...p, active };
-  commit({ ...state, positions: state.positions.map((x) => (x.id === id ? next : x)) });
-  return respond(next);
+  const company = state.units.find((u) => u.type === "company");
+  if (company?.headEmployeeId === employeeId && supervisorId) return fail("The head of the company reports to no one. Choose a new head first.");
+  const before = employeeById(e.job.supervisorId);
+  commit({
+    ...state,
+    employees: state.employees.map((x) => (x.id === e.id ? { ...x, job: { ...x.job, supervisorId: supervisorId ?? undefined } } : x)),
+    audit: [audit(e.id, actor, "Edited", "Organization chart", `Reports to: ${before ? fullName(before.personal) : "—"} → ${sup ? fullName(sup.personal) : "—"}`), ...state.audit],
+  });
+  return respond(undefined);
 }
 
 // ---- Documents ----
@@ -518,99 +476,5 @@ export function listEvents(employeeId: string): Promise<JobEvent[]> {
       .filter((e) => e.employeeId === employeeId)
       .sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate) || b.recordedAt.localeCompare(a.recordedAt)),
   );
-}
-
-export interface ChangeInput {
-  employeeId: string;
-  kind: ChangeKind;
-  effectiveDate: string;
-  positionId?: string;
-  teamId?: string;
-  supervisorId?: string;
-  monthlySalary?: number;
-  status?: EmploymentStatus;
-  remarks: string;
-}
-
-/** Applies a promotion, transfer, salary change… to the employee's current job and adds it to their history. */
-export async function recordChange(input: ChangeInput, actor: string): Promise<JobEvent> {
-  const e = employeeById(input.employeeId);
-  if (!e) return fail("That employee no longer exists");
-  if (!isCurrent(e)) return fail("This employee is already separated");
-  if (!input.effectiveDate) return fail("Choose the effective date");
-  if (input.effectiveDate < e.job.dateHired) return fail("The effective date can't be before the date hired");
-  const job = { ...e.job };
-  const changes: FieldChange[] = [];
-  const nameOf = (id?: string) => {
-    const x = employeeById(id);
-    return x ? fullName(x.personal) : "—";
-  };
-
-  switch (input.kind) {
-    case "Promotion":
-    case "Transfer": {
-      const position = positionById(input.positionId);
-      if (!position?.active) return fail("Choose the new position");
-      const team = unitById(input.teamId);
-      const unitId = team && team.parentId === position.departmentId ? team.id : position.departmentId;
-      if (position.id === job.positionId && unitId === job.unitId) return fail(input.kind === "Promotion" ? "Choose a different position" : "Choose a different position or team");
-      if (position.id !== job.positionId && holdersOf(position.id).length >= position.slots) return fail(`${position.title} has no opening. Open the job on the Company page and add room for one more person first.`);
-      if (position.id !== job.positionId) changes.push({ label: "Position", from: positionById(job.positionId)?.title, to: position.title });
-      if (unitId !== job.unitId) changes.push({ label: "Unit", from: unitPathOf(job.unitId, state.units), to: unitPathOf(unitId, state.units) });
-      job.positionId = position.id;
-      job.unitId = unitId;
-      const supervisorId = input.supervisorId || holdersOf(position.reportsToPositionId ?? "").find((h) => h.id !== e.id)?.id;
-      if (supervisorId !== job.supervisorId) changes.push({ label: "Supervisor", from: nameOf(job.supervisorId), to: nameOf(supervisorId) });
-      job.supervisorId = supervisorId;
-      if (input.monthlySalary !== undefined && input.monthlySalary !== job.monthlySalary) {
-        if (input.monthlySalary <= 0) return fail("Enter a valid monthly salary");
-        changes.push({ label: "Monthly salary", from: peso(job.monthlySalary), to: peso(input.monthlySalary) });
-        job.monthlySalary = input.monthlySalary;
-      }
-      break;
-    }
-    case "Salary adjustment":
-      if (!input.monthlySalary || input.monthlySalary <= 0) return fail("Enter the new monthly salary");
-      if (input.monthlySalary === job.monthlySalary) return fail("That's the current salary");
-      changes.push({ label: "Monthly salary", from: peso(job.monthlySalary), to: peso(input.monthlySalary) });
-      job.monthlySalary = input.monthlySalary;
-      break;
-    case "Regularization":
-      if (job.employmentType !== "Probationary") return fail("Only probationary employees can be regularized");
-      changes.push({ label: "Employment type", from: job.employmentType, to: "Regular" });
-      job.employmentType = "Regular";
-      job.regularizationDate = input.effectiveDate;
-      break;
-    case "Supervisor change":
-      if (!input.supervisorId) return fail("Choose the new supervisor");
-      if (input.supervisorId === e.id) return fail("An employee can't supervise themselves");
-      if (input.supervisorId === job.supervisorId) return fail("That's already their supervisor");
-      changes.push({ label: "Supervisor", from: nameOf(job.supervisorId), to: nameOf(input.supervisorId) });
-      job.supervisorId = input.supervisorId;
-      break;
-    case "Status change":
-      if (!input.status || input.status === "Separated") return fail("Choose the new status");
-      if (input.status === job.status) return fail(`They're already ${job.status.toLowerCase()}`);
-      changes.push({ label: "Status", from: job.status, to: input.status });
-      job.status = input.status;
-      break;
-    case "Separation":
-      if (!input.remarks.trim()) return fail("Give the reason for separation");
-      changes.push({ label: "Status", from: job.status, to: "Separated" });
-      job.status = "Separated";
-      job.separationDate = input.effectiveDate;
-      break;
-  }
-
-  const event: JobEvent = { id: newId("ev"), employeeId: e.id, kind: input.kind, effectiveDate: input.effectiveDate, changes, remarks: input.remarks.trim() || undefined, recordedBy: actor, recordedAt: new Date().toISOString() };
-  // People who reported to someone now separated lose that link.
-  const employees = state.employees.map((x) => (x.id === e.id ? { ...x, job } : input.kind === "Separation" && x.job.supervisorId === e.id ? { ...x, job: { ...x.job, supervisorId: undefined } } : x));
-  commit({
-    ...state,
-    employees,
-    events: [event, ...state.events],
-    audit: [audit(e.id, actor, "Recorded", "Employment history", `${input.kind}: ${changes.map((c) => `${c.label} → ${c.to}`).join("; ")}`), ...state.audit],
-  });
-  return respond(event);
 }
 

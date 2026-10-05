@@ -16,6 +16,10 @@ export interface ShiftTemplate {
   graceMinutes: number;
   /** Days of the week off, 0 = Sunday. */
   restDays: number[];
+  /** Flexible time: clock in any time between start and end; only the hours worked count. */
+  flexible?: boolean;
+  /** Hours to work on a flexible day, not counting the break. */
+  requiredHours?: number;
   active: boolean;
 }
 

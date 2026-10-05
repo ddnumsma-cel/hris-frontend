@@ -1,7 +1,7 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
 import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
-import { BarChartIcon, BuildingIcon, CalendarIcon, ClockIcon, FolderIcon, GridIcon, LockIcon, ReceiptIcon, ShieldIcon, UsersIcon } from "@/components/icons";
+import { BarChartIcon, CalendarIcon, ClockIcon, FolderIcon, GridIcon, LockIcon, OrgChartIcon, ReceiptIcon, ShieldIcon, UsersIcon } from "@/components/icons";
 import { RailNav } from "@/components/layout/RailNav";
 import { moduleForPath, SUPER_ADMIN_PAGES, useAccess, useIsSuperAdmin } from "./administration/access";
 
@@ -16,7 +16,7 @@ const GROUPS: SideNavGroup[] = [
     short: "Core HR",
     items: [
       { label: "People", to: "/admin/people", icon: <UsersIcon /> },
-      { label: "Company", to: "/admin/company", icon: <BuildingIcon /> },
+      { label: "Org chart", to: "/admin/org-chart", icon: <OrgChartIcon /> },
       { label: "Documents", to: "/admin/documents", icon: <FolderIcon /> },
     ],
   },
