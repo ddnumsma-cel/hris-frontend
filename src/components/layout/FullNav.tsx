@@ -1,10 +1,9 @@
 // Full sidebar: section headings that fold away, bookmarks (pinned pages) on
-// top, and modules whose pages open in a panel beside the sidebar on hover.
-// Nothing expands inside the list, so it stays short enough not to scroll.
+// top, and modules whose pages open underneath them. Only one module is open
+// at a time, so the list stays short.
 
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import clsx from "clsx";
 import { useAuth } from "@/features/auth/AuthContext";
 import { ChevronDownIcon, ChevronRightIcon, EditIcon, PinIcon, SlidersIcon } from "@/components/icons";
@@ -19,7 +18,7 @@ import type { SideNavGroup, SideNavItem } from "./SideNav";
 
 function Heading({ title, open, onToggle, onEdit }: { title: string; open: boolean; onToggle: () => void; onEdit?: () => void }) {
   return (
-    <div className="flex items-center gap-1 px-2 pt-3 pb-1">
+    <div className="flex items-center gap-1 px-2 pt-2 pb-0.5">
       <button type="button" onClick={onToggle} aria-expanded={open} className="flex flex-1 items-center gap-1.5 text-left text-[11px] font-semibold tracking-wide text-[var(--sb-muted)] uppercase hover:text-[var(--sb-text)]">
         <ChevronDownIcon className={clsx("h-3.5 w-3.5 transition-transform", !open && "-rotate-90")} />
         {title}
@@ -37,15 +36,14 @@ export function FullNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
   const { user } = useAuth();
   const { pathname } = useLocation();
   const [customizing, setCustomizing] = useState(false);
-  const [open, setOpen] = useState<{ item: SideNavItem; top: number } | null>(null);
-  const closeTimer = useRef(0);
-  const [seen, setSeen] = useState(pathname);
-  if (seen !== pathname) {
-    setSeen(pathname);
-    setOpen(null);
+  // One module open at a time; the one holding the current page opens by itself.
+  const activeModule = groups.flatMap((g) => g.items).find((i) => i.children && isItemActive(i, pathname))?.to ?? null;
+  const [expanded, setExpanded] = useState<string | null>(activeModule);
+  const [seen, setSeen] = useState(activeModule);
+  if (seen !== activeModule) {
+    setSeen(activeModule);
+    if (activeModule) setExpanded(activeModule);
   }
-  useEffect(() => () => window.clearTimeout(closeTimer.current), []);
-
   const sections = toSections(groups);
   const pins = pinned(sections, prefs.pins);
   // Groups follow the user's module order.
@@ -64,33 +62,21 @@ export function FullNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
   const isCollapsed = (t: string) => prefs.collapsed.includes(t);
   const toggle = (t: string) => setPrefs({ ...prefs, collapsed: isCollapsed(t) ? prefs.collapsed.filter((x) => x !== t) : [...prefs.collapsed, t] });
 
-  const show = (item: SideNavItem, el: HTMLElement) => {
-    window.clearTimeout(closeTimer.current);
-    const r = el.getBoundingClientRect();
-    const height = 44 + (item.children?.length ?? 0) * 38;
-    setOpen({ item, top: Math.max(8, Math.min(r.top - 6, window.innerHeight - height - 8)) });
-  };
-  const hide = () => {
-    window.clearTimeout(closeTimer.current);
-    closeTimer.current = window.setTimeout(() => setOpen(null), 180);
-  };
-  const keep = () => window.clearTimeout(closeTimer.current);
-
   return (
-    <aside data-tour="sidenav" className="sidebar sidebar-desktop sidebar-full no-scrollbar hidden sm:sticky sm:top-0 sm:-mt-[var(--topbar-h)] sm:flex sm:h-dvh sm:w-[var(--sidenav-w)] sm:flex-none sm:flex-col sm:self-start sm:overflow-y-auto sm:border-r sm:border-[var(--sb-border)]">
+    <aside data-tour="sidenav" className="sidebar sidebar-desktop sidebar-full no-scrollbar hidden sm:sticky sm:top-0 sm:-mt-[var(--topbar-h)] sm:flex sm:h-dvh sm:w-[var(--sidenav-w)] sm:flex-none sm:flex-col sm:self-start sm:overflow-hidden sm:border-r sm:border-[var(--sb-border)]">
       {user && (
-        <div className="flex flex-none flex-col items-center gap-1.5 border-b border-[var(--sb-border)] px-2 pt-4 pb-3 text-center">
+        <div className="flex flex-none flex-col items-center gap-1.5 border-b border-[var(--sb-border)] px-2 pt-3 pb-2.5 text-center">
           <BrandName />
           <WorkspaceLabel role={user.role} variant="caption" />
         </div>
       )}
 
-      <div className="flex-1 px-2 pb-2">
+      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {homeItems.length > 0 && (
-          <ul className="flex flex-col gap-0.5 pt-3">
+          <ul className="flex flex-col gap-0.5 pt-2">
             {homeItems.map((item) => (
               <li key={item.to}>
-                <NavLink to={item.to} end={item.end} className="sidebar-item !py-1.5">
+                <NavLink to={item.to} end={item.end} className="sidebar-item !py-1">
                   {({ isActive }) => (
                     <>
                       <span className="sidebar-icon">{item.icon}</span>
@@ -120,7 +106,7 @@ export function FullNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
             )}
             {pins.map(({ page, section }) => (
               <li key={page.to}>
-                <NavLink to={page.to} end={page.end} title={`${section.label} › ${page.label}`} className="sidebar-item !py-1.5">
+                <NavLink to={page.to} end={page.end} title={`${section.label} › ${page.label}`} className="sidebar-item !py-1">
                   {({ isActive }) => (
                     <>
                       <span className="sidebar-icon">{section.icon}</span>
@@ -147,7 +133,7 @@ export function FullNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
                   if (!item.children) {
                     return (
                       <li key={item.to}>
-                        <NavLink to={item.to} end={item.end} className="sidebar-item !py-1.5">
+                        <NavLink to={item.to} end={item.end} className="sidebar-item !py-1">
                           {({ isActive }) => (
                             <>
                               <span className="sidebar-icon">{item.icon}</span>
@@ -165,27 +151,43 @@ export function FullNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
                   }
                   const active = isItemActive(item, pathname);
                   const current = item.children.find((c) => isItemActive(c, pathname));
+                  const isOpen = expanded === item.to;
                   return (
                     <li key={item.to}>
-                      <Link
-                        to={item.children[0]!.to}
-                        aria-haspopup="menu"
-                        aria-expanded={open?.item.to === item.to}
-                        onMouseEnter={(e) => show(item, e.currentTarget)}
-                        onMouseLeave={hide}
-                        onFocus={(e) => show(item, e.currentTarget)}
-                        onBlur={hide}
-                        onKeyDown={(e) => e.key === "Escape" && setOpen(null)}
+                      <button
+                        type="button"
+                        aria-expanded={isOpen}
+                        onClick={() => setExpanded(isOpen ? null : item.to)}
                         data-child-active={active}
-                        className={clsx("sidebar-item !py-1.5", open?.item.to === item.to && "bg-[var(--sb-hover)]")}
+                        className="sidebar-item !py-1"
                       >
                         <span className="sidebar-icon">{item.icon}</span>
                         <span className="flex min-w-0 flex-1 flex-col">
                           <span className="truncate">{item.label}</span>
-                          {current && <span className="truncate text-xs font-normal text-[var(--sb-muted)]">{current.label}</span>}
+                          {current && !isOpen && <span className="truncate text-xs font-normal text-[var(--sb-muted)]">{current.label}</span>}
                         </span>
-                        <ChevronRightIcon className="h-3.5 w-3.5 flex-none text-[var(--sb-muted)]" />
-                      </Link>
+                        <ChevronRightIcon className={clsx("h-3.5 w-3.5 flex-none text-[var(--sb-muted)] transition-transform", isOpen && "rotate-90")} />
+                      </button>
+                      {isOpen && (
+                        <ul className="mt-0.5 mb-1 ml-[1.15rem] flex flex-col border-l border-[var(--sb-border)] pl-2.5">
+                          {item.children.map((c) => (
+                            <li key={c.to}>
+                              <NavLink to={c.to} end={c.end} className="sidebar-item sidebar-subitem !py-0.5">
+                                {({ isActive }) => (
+                                  <>
+                                    <span className="truncate">{c.label}</span>
+                                    {isActive && (
+                                      <span className="sidebar-active-chevron" aria-hidden="true">
+                                        ›
+                                      </span>
+                                    )}
+                                  </>
+                                )}
+                              </NavLink>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </li>
                   );
                 })}
@@ -196,7 +198,7 @@ export function FullNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
       </div>
 
       <div className="flex-none border-t border-[var(--sb-border)] px-2 py-2">
-        <button type="button" onClick={() => setCustomizing(true)} className="sidebar-item !py-1.5">
+        <button type="button" onClick={() => setCustomizing(true)} className="sidebar-item !py-1">
           <span className="sidebar-icon">
             <SlidersIcon />
           </span>
@@ -205,27 +207,6 @@ export function FullNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
       </div>
 
       {customizing && <CustomizeNavDialog sections={sections} prefs={prefs} onSave={setPrefs} onClose={() => setCustomizing(false)} />}
-      {open &&
-        createPortal(
-          <div role="menu" aria-label={open.item.label} onMouseEnter={keep} onMouseLeave={hide} onFocus={keep} onBlur={hide} onKeyDown={(e) => e.key === "Escape" && setOpen(null)} className="sidebar fixed z-50 flex w-56 flex-col gap-0.5 rounded-xl border border-[var(--sb-border)] !bg-surface p-2 shadow-xl" style={{ top: open.top, left: "calc(var(--sidenav-w) + 0.5rem)" }}>
-            <div className="mb-1 px-2 pt-1 text-xs font-semibold text-[var(--sb-muted)]">{open.item.label}</div>
-            {open.item.children!.map((c) => (
-              <NavLink key={c.to} to={c.to} end={c.end} role="menuitem" className="sidebar-item">
-                {({ isActive }) => (
-                  <>
-                    <span className="truncate">{c.label}</span>
-                    {isActive && (
-                      <span className="sidebar-active-chevron" aria-hidden="true">
-                        ›
-                      </span>
-                    )}
-                  </>
-                )}
-              </NavLink>
-            ))}
-          </div>,
-          document.body,
-        )}
     </aside>
   );
 }
