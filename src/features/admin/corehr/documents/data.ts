@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/ToastContext";
 import { documentAlert, listDocuments, listEmployees, updateDocument, type EmployeeSummary } from "@/lib/corehr/api";
@@ -59,30 +59,4 @@ export function useDocuments() {
     checked: required.filter((r) => r.d.status === "Verified").length,
     verify,
   };
-}
-
-export type Layout = "queue" | "cards" | "board";
-const KEY = "heyhr-documents-layout";
-
-/** Which layout is being tried, remembered per browser while choosing. */
-export function useLayout(): [Layout, (l: Layout) => void] {
-  const [layout, setLayout] = useState<Layout>(() => {
-    try {
-      const v = localStorage.getItem(KEY);
-      return v === "cards" || v === "board" ? v : "queue";
-    } catch {
-      return "queue";
-    }
-  });
-  return [
-    layout,
-    (l) => {
-      setLayout(l);
-      try {
-        localStorage.setItem(KEY, l);
-      } catch {
-        // Not remembered; still switches now.
-      }
-    },
-  ];
 }

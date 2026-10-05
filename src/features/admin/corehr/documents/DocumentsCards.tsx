@@ -15,8 +15,8 @@ import { stageOf, useDocuments, type DocRow } from "./data";
 
 type Filter = "all" | "check" | "missing" | "expiring" | "done";
 
-/** Option B: one card per employee; review someone's whole 201 file in a side panel. */
-export function DocumentsCards({ switcher }: { switcher: React.ReactNode }) {
+/** One card per employee; review someone's whole 201 file in a side panel. */
+export function DocumentsCards() {
   const docs = useDocuments();
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
@@ -43,7 +43,6 @@ export function DocumentsCards({ switcher }: { switcher: React.ReactNode }) {
 
   return (
     <>
-      {switcher}
       <ContentHead title="Documents" subtitle={`201 file paperwork for ${docs.people.size} employees · ${docs.checked} of ${docs.required} checked (${pct}%). Click Review to go through someone's documents.`} />
       <Toolbar>
         <SearchBox value={query} onChange={setQuery} placeholder="Search employee or department" />
