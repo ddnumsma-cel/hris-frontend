@@ -2,7 +2,7 @@ import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
 import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
 import { BarChartIcon, CalendarIcon, ClockIcon, FolderIcon, GridIcon, LockIcon, OrgChartIcon, ShieldIcon, UsersIcon } from "@/components/icons";
-import { RailNav } from "@/components/layout/RailNav";
+import { AppNav } from "@/components/layout/AppNav";
 import { moduleForPath, SUPER_ADMIN_PAGES, useAccess, useIsSuperAdmin } from "./administration/access";
 
 const GROUPS: SideNavGroup[] = [
@@ -130,9 +130,9 @@ export function AdminLayout() {
     <RolePage
       sidenav={
         <>
-          {/* Phones get the slide-in menu; desktop gets the icon rail. */}
+          {/* Phones get the slide-in menu; desktop gets the sidebar style chosen in Menu settings. */}
           <SideNav groups={groups} desktop={false} />
-          <RailNav groups={groups} />
+          <AppNav groups={groups} />
         </>
       }
     >

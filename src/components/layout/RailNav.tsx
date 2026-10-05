@@ -6,19 +6,16 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { NavLink, useLocation } from "react-router-dom";
 import clsx from "clsx";
-import { useAuth } from "@/features/auth/AuthContext";
 import { PinIcon, SlidersIcon } from "@/components/icons";
 import { CustomizeNavDialog } from "./CustomizeNavDialog";
 import { isItemActive, toSections, type NavSection } from "./navItems";
-import { ordered, pinned, useNavPrefs } from "./navPrefs";
+import { ordered, pinned, type NavPrefs } from "./navPrefs";
 import type { SideNavGroup } from "./SideNav";
 
 const sectionActive = (s: NavSection, pathname: string) => s.pages.some((p) => isItemActive(p, pathname));
 
-export function RailNav({ groups }: { groups: SideNavGroup[] }) {
+export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; prefs: NavPrefs; setPrefs: (p: NavPrefs) => void }) {
   const { pathname } = useLocation();
-  const { user } = useAuth();
-  const [prefs, setPrefs] = useNavPrefs(user?.accountId ?? user?.role ?? "guest");
   const [customizing, setCustomizing] = useState(false);
   const all = toSections(groups);
   const sections = ordered(all, prefs.order);
@@ -137,7 +134,7 @@ export function RailNav({ groups }: { groups: SideNavGroup[] }) {
             onFocus={keep}
             onBlur={hide}
             onKeyDown={(e) => e.key === "Escape" && setOpen(null)}
-            className="sidebar fixed z-50 flex w-56 flex-col gap-0.5 rounded-xl border border-[var(--sb-border)] p-2 shadow-xl"
+            className="sidebar fixed z-50 flex w-56 flex-col gap-0.5 rounded-xl border border-[var(--sb-border)] !bg-surface p-2 shadow-xl"
             style={{ top: open!.top, left: "calc(var(--sidenav-w) + 0.5rem)" }}
           >
             <div className="mb-1 px-2 pt-1 text-xs font-semibold text-[var(--sb-muted)]">{openSection.label}</div>

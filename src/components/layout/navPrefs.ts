@@ -7,10 +7,14 @@ export interface NavPrefs {
   pins: string[];
   /** Module keys in the order the user wants them. Unknown or new modules go last. */
   order: string[];
+  /** Compact icon rail, or the full sidebar with section headings. */
+  style: "rail" | "full";
+  /** Full sidebar: section headings the user has folded away. */
+  collapsed: string[];
 }
 
 export const MAX_PINS = 4;
-const EMPTY: NavPrefs = { pins: [], order: [] };
+const EMPTY: NavPrefs = { pins: [], order: [], style: "rail", collapsed: [] };
 const keyFor = (who: string) => `heyhr-nav-prefs:${who}`;
 
 /** Saved per signed-in account (or per workspace for older sessions), in this browser. */
@@ -20,7 +24,7 @@ export function useNavPrefs(who: string): [NavPrefs, (p: NavPrefs) => void] {
       const raw = localStorage.getItem(keyFor(who));
       if (raw) {
         const p = JSON.parse(raw) as Partial<NavPrefs>;
-        return { pins: Array.isArray(p.pins) ? p.pins : [], order: Array.isArray(p.order) ? p.order : [] };
+        return { pins: Array.isArray(p.pins) ? p.pins : [], order: Array.isArray(p.order) ? p.order : [], style: p.style === "full" ? "full" : "rail", collapsed: Array.isArray(p.collapsed) ? p.collapsed : [] };
       }
     } catch {
       // Storage blocked or corrupt: use the default layout.

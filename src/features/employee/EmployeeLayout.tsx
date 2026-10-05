@@ -1,6 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
-import { RailNav } from "@/components/layout/RailNav";
+import { AppNav } from "@/components/layout/AppNav";
 import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
 import {
   CalendarIcon,
@@ -41,9 +41,9 @@ export function EmployeeLayout() {
     <RolePage
       sidenav={
         <>
-          {/* Phones get the slide-in menu; desktop gets the icon rail. */}
+          {/* Phones get the slide-in menu; desktop gets the sidebar style chosen in Menu settings. */}
           <SideNav groups={GROUPS} desktop={false} />
-          <RailNav groups={GROUPS} />
+          <AppNav groups={GROUPS} />
         </>
       }
     >

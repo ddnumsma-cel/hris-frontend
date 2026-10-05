@@ -10,6 +10,7 @@ import { MAX_PINS, ordered, type NavPrefs } from "./navPrefs";
 export function CustomizeNavDialog({ sections, prefs, onSave, onClose }: { sections: NavSection[]; prefs: NavPrefs; onSave: (p: NavPrefs) => void; onClose: () => void }) {
   const [order, setOrder] = useState(() => ordered(sections, prefs.order).map((s) => s.key));
   const [pins, setPins] = useState(prefs.pins);
+  const [style, setStyle] = useState(prefs.style);
   const list = order.map((k) => sections.find((s) => s.key === k)!).filter(Boolean);
   const move = (i: number, by: number) => {
     const next = [...order];
@@ -24,7 +25,7 @@ export function CustomizeNavDialog({ sections, prefs, onSave, onClose }: { secti
       open
       size="lg"
       onClose={onClose}
-      title="Customize your sidebar"
+      title="Menu settings"
       footer={
         <div className="flex items-center justify-between gap-2">
           <Button
@@ -32,6 +33,7 @@ export function CustomizeNavDialog({ sections, prefs, onSave, onClose }: { secti
             onClick={() => {
               setOrder(sections.map((s) => s.key));
               setPins([]);
+              setStyle("rail");
             }}
           >
             Reset to default
@@ -42,7 +44,7 @@ export function CustomizeNavDialog({ sections, prefs, onSave, onClose }: { secti
             </Button>
             <Button
               onClick={() => {
-                onSave({ pins, order });
+                onSave({ ...prefs, pins, order, style });
                 onClose();
               }}
             >
@@ -53,8 +55,27 @@ export function CustomizeNavDialog({ sections, prefs, onSave, onClose }: { secti
       }
     >
       <div className="flex flex-col gap-4">
+        <div>
+          <h3 className="mb-2 text-sm font-semibold">Sidebar style</h3>
+          <div role="radiogroup" aria-label="Sidebar style" className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                ["rail", "Compact", "Icons only; pages open in a panel on hover. Leaves the most room for your work."],
+                ["full", "Full", "Names and section headings, with bookmarks at the top. Easier to read at a glance."],
+              ] as const
+            ).map(([v, name, hint]) => (
+              <button key={v} type="button" role="radio" aria-checked={style === v} onClick={() => setStyle(v)} className={clsx("rounded-xl border p-3 text-left transition-colors", style === v ? "border-ink bg-surface-2" : "border-border hover:border-ink-3")}>
+                <span className="flex items-center gap-2 text-sm font-semibold">
+                  <span className={clsx("h-3.5 w-3.5 rounded-full border-2", style === v ? "border-ink bg-ink" : "border-ink-3")} />
+                  {name}
+                </span>
+                <span className="mt-1 block text-xs text-ink-2">{hint}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         <p className="text-sm text-ink-2">
-          <span className="font-medium text-ink">Pin</span> up to {MAX_PINS} pages you use every day; they appear at the top of your sidebar. Use the arrows to put the modules you use most first. Only you see these changes.
+          <span className="font-medium text-ink">Pin</span> up to {MAX_PINS} pages you use every day; they appear at the top of your sidebar (as Bookmarks in the full sidebar). Use the arrows to put the modules you use most first. Only you see these changes.
         </p>
         <div className="flex items-center gap-2 text-xs text-ink-2">
           <PinIcon className="h-3.5 w-3.5" />
