@@ -4,7 +4,7 @@
 import { fullName, state as core } from "../corehr/store";
 import { leave, countDays } from "../leave/store";
 import { listDays, listRequests as listTimeRequests, type DayRow } from "../timekeeping/api";
-import { addDays } from "../timekeeping/compute";
+import { addDays, lateHoursCharged, lateRuns } from "../timekeeping/compute";
 import { branchOf, departmentOf, todayIso } from "../timekeeping/store";
 import { pagibig, philhealth, round2, sss, THIRTEENTH_MONTH_EXEMPT, withholding } from "./statutory";
 
@@ -130,6 +130,9 @@ interface AttendanceTotals {
   undertimeMinutes: number;
   overtimeMinutes: number;
   nightMinutes: number;
+  workedMinutes: number;
+  /** Unpaid lunch taken out of worked time (recorded automatically from the shift). */
+  lunchMinutes: number;
   days: DayRow[];
 }
 
@@ -138,7 +141,7 @@ async function attendance(from: string, to: string) {
   const days = end < from ? [] : await listDays(from, end);
   const by = new Map<string, AttendanceTotals>();
   for (const d of days) {
-    const t = by.get(d.person.id) ?? { scheduled: 0, present: 0, absent: 0, leave: 0, lateTimes: 0, lateMinutes: 0, undertimeMinutes: 0, overtimeMinutes: 0, nightMinutes: 0, days: [] };
+    const t = by.get(d.person.id) ?? { scheduled: 0, present: 0, absent: 0, leave: 0, lateTimes: 0, lateMinutes: 0, undertimeMinutes: 0, overtimeMinutes: 0, nightMinutes: 0, workedMinutes: 0, lunchMinutes: 0, days: [] };
     t.days.push(d);
     if (d.status === "done" || d.status === "working") t.present++;
     if (d.status === "absent") t.absent++;
@@ -149,6 +152,8 @@ async function attendance(from: string, to: string) {
     if (!d.undertimeExcused) t.undertimeMinutes += d.undertimeMinutes;
     t.overtimeMinutes += d.approvedOvertimeMinutes;
     t.nightMinutes += d.nightMinutes;
+    t.workedMinutes += d.workedMinutes;
+    t.lunchMinutes += d.lunchMinutes;
     by.set(d.person.id, t);
   }
   return by;
@@ -178,6 +183,8 @@ export interface PayLine {
   taxable: number;
   tax: number;
   net: number;
+  /** The attendance this cut-off's pay is based on. */
+  time: { present: number; absent: number; workedMinutes: number; lunchMinutes: number; lunchBreaks: number; lateMinutes: number; undertimeMinutes: number; overtimeMinutes: number };
 }
 
 function unpaidLeaveDays(employeeId: string, from: string, to: string) {
@@ -188,6 +195,10 @@ function unpaidLeaveDays(employeeId: string, from: string, to: string) {
 
 export async function payroll(period: Period, office: string): Promise<PayLine[]> {
   const att = await attendance(period.from, period.to);
+  // Two weeks before the cut-off too, so a late run that started in the last cut-off is seen.
+  const end = period.to > todayIso() ? todayIso() : period.to;
+  const history = new Map<string, DayRow[]>();
+  for (const d of end < period.from ? [] : await listDays(addDays(period.from, -14), end)) history.set(d.person.id, [...(history.get(d.person.id) ?? []), d]);
   return everyone(office)
     .filter((p) => employedIn(p, period.from, period.to) && p.salary > 0)
     .map((p) => {
@@ -196,7 +207,15 @@ export async function payroll(period: Period, office: string): Promise<PayLine[]
       const hourly = daily / 8;
       const basic = p.salary / 2;
       const lwop = unpaidLeaveDays(p.id, period.from, period.to);
-      const deductions = round2((a ? a.absent * daily + ((a.lateMinutes + a.undertimeMinutes) / 60) * hourly : 0) + lwop * daily);
+      // Company late rule: late days are charged by the hour; 3+ late days in a row are charged as full days (absent, then AWOL).
+      const runs = lateRuns(history.get(p.id) ?? []);
+      let lateHours = 0;
+      let lateRunDays = 0;
+      for (const d of a?.days ?? []) {
+        if (runs.has(d.date)) lateRunDays++;
+        else lateHours += lateHoursCharged(d);
+      }
+      const deductions = round2((a ? (a.absent + lateRunDays) * daily + (lateHours + a.undertimeMinutes / 60) * hourly : 0) + lwop * daily);
       let overtime = 0;
       let premiums = 0;
       for (const d of a?.days ?? []) {
@@ -229,6 +248,16 @@ export async function payroll(period: Period, office: string): Promise<PayLine[]
         taxable,
         tax,
         net: round2(gross - ee - tax),
+        time: {
+          present: a?.present ?? 0,
+          absent: a?.absent ?? 0,
+          workedMinutes: a?.workedMinutes ?? 0,
+          lunchMinutes: a?.lunchMinutes ?? 0,
+          lunchBreaks: a?.days.filter((d) => d.lunchMinutes > 0).length ?? 0,
+          lateMinutes: a?.lateMinutes ?? 0,
+          undertimeMinutes: a?.undertimeMinutes ?? 0,
+          overtimeMinutes: a?.overtimeMinutes ?? 0,
+        },
       };
     });
 }
@@ -710,57 +739,3 @@ export const REPORTS: ReportDef[] = [
     },
   },
 ];
-
-// ---- Dashboard ----
-
-export interface Dashboard {
-  headcount: number;
-  hiredThisYear: number;
-  attendanceRate: number;
-  lateThisMonth: number;
-  leaveDaysThisYear: number;
-  monthlyCost: number;
-  byDepartment: { name: string; count: number }[];
-  daily: { date: string; rate: number; late: number; present: number; scheduled: number }[];
-  waiting: { leave: number; overtime: number; undertime: number };
-}
-
-export async function getDashboard(office: string): Promise<Dashboard> {
-  const today = todayIso();
-  const ps = current(office);
-  const ids = new Set(ps.map((p) => p.id));
-  const from = addDays(today, -20);
-  const days = (await listDays(from, today)).filter((d) => ids.has(d.person.id));
-  const byDate = groupBy(days, (d) => d.date)
-    .map(([date, ds]) => {
-      const scheduled = ds.filter((d) => ["done", "working", "absent", "not-in"].includes(d.status)).length;
-      const present = ds.filter((d) => d.status === "done" || d.status === "working").length;
-      return { date, rate: pct(present, scheduled), late: ds.filter((d) => d.lateMinutes > 0).length, present, scheduled };
-    })
-    .filter((d) => d.scheduled > 0)
-    .slice(-10);
-  const month = today.slice(0, 7);
-  const leaveDays = leave.requests.filter((r) => r.status === "approved" && ids.has(r.employeeId) && r.start.slice(0, 4) === today.slice(0, 4)).reduce((n, r) => n + r.days, 0);
-  const time = await listTimeRequests();
-  const allPresent = sum(byDate, (d) => d.present);
-  return {
-    headcount: ps.length,
-    hiredThisYear: ps.filter((p) => p.hired.slice(0, 4) === today.slice(0, 4)).length,
-    attendanceRate: pct(allPresent, sum(byDate, (d) => d.scheduled)),
-    lateThisMonth: days.filter((d) => d.date.slice(0, 7) === month && d.lateMinutes > 0).length,
-    leaveDaysThisYear: leaveDays,
-    monthlyCost: sum(ps, (p) => {
-      const s = sss(p.salary);
-      return p.salary + s.er + s.ec + philhealth(p.salary).er + pagibig(p.salary).er;
-    }),
-    byDepartment: groupBy(ps, (p) => p.department)
-      .map(([name, list]) => ({ name, count: list.length }))
-      .sort((a, b) => b.count - a.count),
-    daily: byDate,
-    waiting: {
-      leave: leave.requests.filter((r) => r.status === "pending" && ids.has(r.employeeId)).length,
-      overtime: time.filter((r) => r.type === "overtime" && r.status === "pending" && ids.has(r.employeeId)).length,
-      undertime: time.filter((r) => r.type === "undertime" && r.status === "pending" && ids.has(r.employeeId)).length,
-    },
-  };
-}

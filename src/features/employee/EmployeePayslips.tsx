@@ -10,6 +10,21 @@ import { myName, myPayslips, type MyPayslip } from "@/lib/ess/api";
 import { formatPHP } from "@/lib/format";
 import { escapeHtml, openPrintDocument } from "@/lib/printDocument";
 import { LoadError, Pill } from "../admin/corehr/ui";
+import { duration } from "../admin/timekeeping/format";
+
+/** The attendance behind the pay: hours are net of the automatic, unpaid lunch break. */
+function timeLines(p: MyPayslip): [string, string][] {
+  const t = p.line.time;
+  return [
+    ["Days present", String(t.present)],
+    ["Hours worked", t.workedMinutes ? duration(t.workedMinutes) : "—"],
+    ["Lunch breaks (unpaid, automatic)", t.lunchBreaks ? `${t.lunchBreaks} · ${duration(t.lunchMinutes)}` : "—"],
+    ["Late", t.lateMinutes ? duration(t.lateMinutes) : "None"],
+    ["Undertime", t.undertimeMinutes ? duration(t.undertimeMinutes) : "None"],
+    ["Absences", t.absent ? String(t.absent) : "None"],
+    ...(t.overtimeMinutes ? [["Approved overtime", duration(t.overtimeMinutes)] as [string, string]] : []),
+  ];
+}
 
 function lines(p: MyPayslip) {
   const l = p.line;
@@ -18,7 +33,7 @@ function lines(p: MyPayslip) {
       ["Basic pay", l.basic],
       ...(l.overtime ? [["Overtime", l.overtime] as const] : []),
       ...(l.premiums ? [["Holiday and night pay", l.premiums] as const] : []),
-      ...(l.deductions ? [["Less absences and lates", -l.deductions] as const] : []),
+      ...(l.deductions ? [["Less absences, lates and undertime", -l.deductions] as const] : []),
     ] as [string, number][],
     deductions: [
       ["SSS", l.sssEe],
@@ -39,6 +54,7 @@ function printSlip(p: MyPayslip) {
      <div class="meta-grid"><div><span class="meta-label">Employee</span><span class="meta-value">${escapeHtml(myName())}</span></div><div><span class="meta-label">Department</span><span class="meta-value">${escapeHtml(p.line.person.department)}</span></div></div>
      <table><thead><tr><th>Earnings</th><th class="num">Amount</th></tr></thead><tbody>${earnings.map(row).join("")}<tr class="total-row"><td>Gross pay</td><td class="num">${escapeHtml(formatPHP(p.line.gross))}</td></tr></tbody></table>
      <table style="margin-top:20px"><thead><tr><th>Deductions</th><th class="num">Amount</th></tr></thead><tbody>${deductions.map(row).join("")}<tr class="total-row"><td>Total deductions</td><td class="num">${escapeHtml(formatPHP(totalDed))}</td></tr></tbody></table>
+     <table style="margin-top:20px"><thead><tr><th>Time &amp; attendance</th><th class="num"></th></tr></thead><tbody>${timeLines(p).map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td class="num">${escapeHtml(v)}</td></tr>`).join("")}</tbody></table>
      <table style="margin-top:20px"><tbody><tr class="total-row"><td>Take-home pay</td><td class="num">${escapeHtml(formatPHP(p.line.net))}</td></tr></tbody></table>
      <p class="doc-footer">${p.released ? "Released" : "Preview: this cut-off hasn't ended, so the final amount may change."} Generated ${escapeHtml(new Date().toLocaleString("en-PH"))}.</p>`,
   );
@@ -88,7 +104,18 @@ function Breakdown({ p }: { p: MyPayslip }) {
           </div>
         </div>
       </div>
-      <p className="mt-auto pt-4 text-xs text-ink-3">Government contributions are split across the two cut-offs of each month. Questions about your pay? Ask HR.</p>
+      <div className="mt-6">
+        <h3 className="mb-1 text-xs font-semibold tracking-wide text-ink-3 uppercase">Time &amp; attendance</h3>
+        <div className="grid gap-x-6 sm:grid-cols-2">
+          {timeLines(p).map(([k, v]) => (
+            <div key={k} className="flex justify-between border-b border-border/60 py-1.5 text-sm">
+              <span className="text-ink-2">{k}</span>
+              <span className="font-num">{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <p className="mt-auto pt-4 text-xs text-ink-3">Hours worked leave out the unpaid lunch break, which is recorded automatically from your shift. Government contributions are split across the two cut-offs of each month. Questions about your pay? Ask HR.</p>
     </section>
   );
 }

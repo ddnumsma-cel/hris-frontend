@@ -2,7 +2,7 @@
 
 import { fullName, initialsOf, newId, state as core } from "../corehr/store";
 import { HOLIDAYS } from "../holidays";
-import { addDays, balanceFor, countDays, isoToday, leave, saveLeave } from "./store";
+import { addDays, balanceFor, countDays, CREDITS_ADJUSTMENT, creditsFor, isoToday, leave, LEAVE_CREDITS_PER_YEAR, saveLeave, type Credits } from "./store";
 import type { Balance, LeaveRequest, LeaveType } from "./types";
 
 const DELAY = 250;
@@ -40,8 +40,6 @@ export async function saveType(input: Omit<LeaveType, "id" | "active"> & { id?: 
   const name = input.name.trim();
   if (!name) return fail("Name the leave type");
   if (!input.code.trim()) return fail("Give it a short code, e.g. VL");
-  if (input.earning.kind !== "unlimited" && (!Number.isFinite(input.daysPerYear) || input.daysPerYear <= 0)) return fail("Enter how many days a year");
-  if (input.earning.kind === "monthly" && (!Number.isFinite(input.earning.perMonth) || input.earning.perMonth <= 0)) return fail("Enter how many days are earned each month");
   if (leave.types.some((t) => t.id !== input.id && t.name.toLowerCase() === name.toLowerCase())) return fail("There's already a leave type with that name");
   const existing = leave.types.find((t) => t.id === input.id);
   const type: LeaveType = { active: true, ...existing, ...input, name, code: input.code.trim().toUpperCase(), id: existing?.id ?? newId("lt") };
@@ -87,6 +85,8 @@ export interface FileInput {
 export interface Preview {
   days: number;
   balance?: Balance;
+  /** The employee's yearly credit pool; absent for leave without pay, which uses none. */
+  credits?: Credits;
   /** Problems that stop the request from being filed. */
   errors: string[];
   /** Things HR should know but that don't block filing. */
@@ -110,13 +110,16 @@ export function previewRequest(input: FileInput, ignoreId?: string): Preview {
   const balance = balanceFor(input.employeeId, type);
   if (!balance.eligible) errors.push(balance.eligibilityNote ?? "This employee can't use this leave type");
   else if (balance.eligibilityNote) notes.push(balance.eligibilityNote);
-  if (!balance.unlimited && days > balance.available) errors.push(`Only ${fmtDays(balance.available)} available. File the rest as Leave without pay.`);
+  const credits = balance.unlimited ? undefined : creditsFor(input.employeeId);
+  if (credits && credits.available < 1) errors.push(`All ${credits.total} leaves for this year are used up. File it as Leave without pay.`);
   if (type.attachmentOver !== null && days > type.attachmentOver && !input.attachment) errors.push(type.attachmentOver === 0 ? `${type.name} needs a supporting document` : `${type.name} over ${type.attachmentOver} days needs a supporting document (e.g. medical certificate)`);
   const overlap = leave.requests.find((r) => r.id !== ignoreId && r.employeeId === input.employeeId && (r.status === "pending" || r.status === "approved") && r.start <= input.end && r.end >= input.start);
   if (overlap) errors.push(`Overlaps another ${overlap.status} request (${overlap.start === overlap.end ? overlap.start : `${overlap.start} to ${overlap.end}`})`);
   if (type.countBy === "calendar") notes.push("Counted in calendar days, weekends included.");
-  return { days, balance, errors, notes };
+  return { days, balance, credits, errors, notes };
 }
+
+export const fmtCredits = (n: number) => `${n} ${n === 1 ? "leave" : "leaves"}`;
 
 export const fmtDays = (n: number) => (n === Infinity ? "No limit" : `${Number.isInteger(n) ? n : n.toFixed(2).replace(/0$/, "")} ${n === 1 ? "day" : "days"}`);
 
@@ -151,9 +154,9 @@ export async function decideRequest(id: string, approve: boolean, note: string, 
   if (!approve && !note.trim()) return fail("Say why, so the employee knows");
   if (approve) {
     const type = leave.types.find((t) => t.id === r.typeId)!;
-    const b = balanceFor(r.employeeId, type);
     // Pending already includes this request, so compare against what's left before it.
-    if (!b.unlimited && r.days > b.available + r.days) return fail(`Only ${fmtDays(b.available + r.days)} left. Ask them to file the rest as Leave without pay.`);
+    const c = creditsFor(r.employeeId);
+    if (type.earning.kind !== "unlimited" && c.used >= c.total) return fail(`All ${c.total} leaves for this year are used up. Ask them to file it as Leave without pay.`);
   }
   const next: LeaveRequest = { ...r, status: approve ? "approved" : "rejected", decidedBy: actor, decidedAt: new Date().toISOString(), note: note.trim() || undefined };
   saveLeave({ ...leave, requests: leave.requests.map((x) => (x.id === id ? next : x)) });
@@ -171,34 +174,48 @@ export async function cancelRequest(id: string, note: string, actor: string): Pr
   return respond(next);
 }
 
-// ---- Balances ----
+// ---- Leave credits (6 a year, shared by every paid leave type) ----
 
-export interface BalanceRow {
+export interface CreditRow {
   person: LeavePerson;
-  balances: Balance[];
+  credits: Credits;
+  /** This year's paid leave that used a credit (approved or waiting), newest first. */
+  leaves: (LeaveRequest & { type: LeaveType })[];
 }
 
-export function listBalances(): Promise<BalanceRow[]> {
-  const types = leave.types.filter((t) => t.active);
-  return respond(people().map((person) => ({ person, balances: types.map((t) => balanceFor(person.id, t)) })));
+export function listCredits(): Promise<CreditRow[]> {
+  const year = isoToday().slice(0, 4);
+  return respond(
+    people().map((person) => ({
+      person,
+      credits: creditsFor(person.id),
+      leaves: leave.requests
+        .filter((r) => r.employeeId === person.id && r.start.slice(0, 4) === year && (r.status === "approved" || r.status === "pending"))
+        .flatMap((r) => {
+          const type = leave.types.find((t) => t.id === r.typeId);
+          return type && type.earning.kind !== "unlimited" ? [{ ...r, type }] : [];
+        })
+        .sort((a, b) => b.start.localeCompare(a.start)),
+    })),
+  );
 }
+
+/** HR adds or takes away whole leaves from someone's yearly 6. */
+export async function adjustCredits(input: { employeeId: string; leaves: number; reason: string }, actor: string) {
+  if (!Number.isInteger(input.leaves) || input.leaves === 0) return fail("Enter the leaves to add (e.g. 1) or remove (e.g. -1)");
+  if (Math.abs(input.leaves) > LEAVE_CREDITS_PER_YEAR) return fail(`Change at most ${LEAVE_CREDITS_PER_YEAR} leaves at a time`);
+  if (!input.reason.trim()) return fail("Say why the leaves are changing");
+  const c = creditsFor(input.employeeId);
+  if (c.available + input.leaves < 0) return fail(`They only have ${fmtCredits(c.available)} left`);
+  const adj = { id: newId("la"), employeeId: input.employeeId, typeId: CREDITS_ADJUSTMENT, days: input.leaves, reason: input.reason.trim(), by: actor, at: new Date().toISOString() };
+  saveLeave({ ...leave, adjustments: [adj, ...leave.adjustments] });
+  return respond(adj);
+}
+
+// ---- Adjustments ----
 
 export function listAdjustments(employeeId: string) {
   return respond(leave.adjustments.filter((a) => a.employeeId === employeeId).sort((a, b) => b.at.localeCompare(a.at)));
-}
-
-export async function adjustBalance(input: { employeeId: string; typeId: string; days: number; reason: string }, actor: string) {
-  if (!Number.isFinite(input.days) || input.days === 0) return fail("Enter the days to add (e.g. 1) or remove (e.g. -1)");
-  if (Math.abs(input.days) > 30) return fail("That's a big change; enter 30 days or fewer at a time");
-  if (!input.reason.trim()) return fail("Say why the balance is changing");
-  const type = leave.types.find((t) => t.id === input.typeId);
-  if (!type) return fail("Choose the leave type");
-  if (type.earning.kind === "unlimited") return fail("Leave without pay has no balance to adjust");
-  const b = balanceFor(input.employeeId, type);
-  if (b.remaining + input.days < 0) return fail(`They only have ${fmtDays(b.remaining)} left`);
-  const adj = { id: newId("la"), employeeId: input.employeeId, typeId: input.typeId, days: input.days, reason: input.reason.trim(), by: actor, at: new Date().toISOString() };
-  saveLeave({ ...leave, adjustments: [adj, ...leave.adjustments] });
-  return respond(adj);
 }
 
 // ---- Calendar ----

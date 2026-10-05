@@ -41,6 +41,7 @@ import {
   Network,
   Pencil,
   Plus,
+  Receipt,
   Search,
   SearchX,
   Pin,
@@ -291,4 +292,8 @@ export function PinIcon(props: IconProps) {
 
 export function SlidersIcon(props: IconProps) {
   return <SlidersHorizontal strokeWidth={strokeWidth} {...props} />;
+}
+
+export function ReceiptIcon(props: IconProps) {
+  return <Receipt strokeWidth={strokeWidth} {...props} />;
 }

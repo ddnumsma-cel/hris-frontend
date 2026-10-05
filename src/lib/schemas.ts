@@ -88,6 +88,8 @@ export const clusterDescriptions: Record<(typeof clusterOptions)[number], string
 export const registerSchema = z.object({
   name: z.string().min(1, "Full name is required"),
   position: z.string().min(1, "Position is required"),
+  email: z.union([z.literal(""), z.email("Enter a valid email address")]),
+  phone: z.union([z.literal(""), z.string().regex(/^9\d{9}$/, "Enter a 10-digit mobile number, e.g. 9171234567")]),
   cluster: z.enum(clusterOptions),
   office: z.enum(officeOptions),
 });

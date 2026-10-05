@@ -9,6 +9,7 @@ import {
   FolderIcon,
   GraduationCapIcon,
   GridIcon,
+  ReceiptIcon,
   UsersIcon,
   WalletIcon,
 } from "@/components/icons";
@@ -31,6 +32,7 @@ const GROUPS: SideNavGroup[] = [
     icon: <FileIcon />,
     items: [
       { label: "Certificates", to: "/employee/certificates", icon: <FileIcon /> },
+      { label: "Reimbursements", to: "/employee/reimbursements", icon: <ReceiptIcon /> },
       { label: "HMO & Benefits", to: "/employee/benefits", icon: <UsersIcon /> },
     ],
   },

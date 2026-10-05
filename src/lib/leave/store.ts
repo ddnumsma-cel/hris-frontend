@@ -16,8 +16,8 @@ export interface LeaveState {
 const KEY = "heyhr-leave-v1";
 
 export const DEFAULT_TYPES: LeaveType[] = [
-  { id: "vl", name: "Vacation leave", code: "VL", daysPerYear: 15, earning: { kind: "monthly", perMonth: 1.25 }, paid: true, carryOverMax: 5, countBy: "workdays", eligibility: "everyone", attachmentOver: null, confidential: false, basis: "Company policy (covers the 5-day Service Incentive Leave)", active: true },
-  { id: "sl", name: "Sick leave", code: "SL", daysPerYear: 15, earning: { kind: "monthly", perMonth: 1.25 }, paid: true, carryOverMax: 5, countBy: "workdays", eligibility: "everyone", attachmentOver: 2, confidential: false, basis: "Company policy", active: true },
+  { id: "vl", name: "Vacation leave", code: "VL", daysPerYear: 15, earning: { kind: "yearly" }, paid: true, carryOverMax: 5, countBy: "workdays", eligibility: "everyone", attachmentOver: null, confidential: false, basis: "Company policy (covers the 5-day Service Incentive Leave)", active: true },
+  { id: "sl", name: "Sick leave", code: "SL", daysPerYear: 15, earning: { kind: "yearly" }, paid: true, carryOverMax: 5, countBy: "workdays", eligibility: "everyone", attachmentOver: 2, confidential: false, basis: "Company policy", active: true },
   { id: "el", name: "Emergency leave", code: "EL", daysPerYear: 3, earning: { kind: "yearly" }, paid: true, carryOverMax: 0, countBy: "workdays", eligibility: "everyone", attachmentOver: null, confidential: false, basis: "Company policy", active: true },
   { id: "bl", name: "Bereavement leave", code: "BL", daysPerYear: 3, earning: { kind: "yearly" }, paid: true, carryOverMax: 0, countBy: "workdays", eligibility: "everyone", attachmentOver: 0, confidential: false, basis: "Company policy", active: true },
   { id: "ml", name: "Maternity leave", code: "ML", daysPerYear: 105, earning: { kind: "per-event" }, paid: true, carryOverMax: 0, countBy: "calendar", eligibility: "female", attachmentOver: 0, confidential: false, basis: "RA 11210 (105 days, +15 for solo parents)", active: true },
@@ -207,6 +207,35 @@ export function balanceFor(employeeId: string, type: LeaveType, today = isoToday
     eligible: elig.eligible,
     eligibilityNote: elig.note,
   };
+}
+
+/** Every employee can file this many leaves a year, any paid type. Each leave uses 1, however many days it covers. */
+export const LEAVE_CREDITS_PER_YEAR = 6;
+
+/** Adjustments with this type id change the yearly pool, not a leave type. */
+export const CREDITS_ADJUSTMENT = "credits";
+
+export interface Credits {
+  /** The 6 everyone gets, plus HR's changes. */
+  total: number;
+  /** Added (+) or removed (−) by HR this year. */
+  adjusted: number;
+  used: number;
+  pending: number;
+  /** total − used − pending: what can still be filed. */
+  available: number;
+}
+
+/** The yearly credit pool. Leave without pay doesn't use credits. */
+export function creditsFor(employeeId: string, today = isoToday()): Credits {
+  const year = today.slice(0, 4);
+  const paid = new Set(leave.types.filter((t) => t.earning.kind !== "unlimited").map((t) => t.id));
+  const mine = leave.requests.filter((r) => r.employeeId === employeeId && paid.has(r.typeId) && r.start.slice(0, 4) === year);
+  const used = mine.filter((r) => r.status === "approved").length;
+  const pending = mine.filter((r) => r.status === "pending").length;
+  const adjusted = leave.adjustments.filter((a) => a.employeeId === employeeId && a.typeId === CREDITS_ADJUSTMENT && a.at.slice(0, 4) === year).reduce((n, a) => n + a.days, 0);
+  const total = Math.max(0, LEAVE_CREDITS_PER_YEAR + adjusted);
+  return { total, adjusted, used, pending, available: Math.max(0, total - used - pending) };
 }
 
 /** Approved leave spans, for Timekeeping. */
