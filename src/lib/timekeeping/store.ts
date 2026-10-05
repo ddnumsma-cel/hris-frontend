@@ -5,7 +5,9 @@
 
 import { state as core } from "../corehr/store";
 import { addDays, at, isOvernight, toIsoDate, weekday } from "./compute";
-import type { Holiday, Punch, ShiftTemplate, TimeAudit, TimeRequest } from "./types";
+import { HOLIDAYS } from "../holidays";
+import { approvedLeaveSpans } from "../leave/store";
+import type { Punch, ShiftTemplate, TimeAudit, TimeRequest } from "./types";
 
 export interface TimekeepingState {
   shifts: ShiftTemplate[];
@@ -27,15 +29,7 @@ const KEY = "heyhr-timekeeping-v1";
 /** How far back device logs go. */
 export const HISTORY_DAYS = 40;
 
-export const HOLIDAYS: Holiday[] = [
-  { date: "2026-08-21", name: "Ninoy Aquino Day", type: "special", source: "Proclamation (2026 holidays)" },
-  { date: "2026-08-31", name: "National Heroes Day", type: "regular", source: "Proclamation (2026 holidays)" },
-  { date: "2026-11-01", name: "All Saints' Day", type: "special", source: "Proclamation (2026 holidays)" },
-  { date: "2026-11-30", name: "Bonifacio Day", type: "regular", source: "Proclamation (2026 holidays)" },
-  { date: "2026-12-08", name: "Feast of the Immaculate Conception", type: "special", source: "Proclamation (2026 holidays)" },
-  { date: "2026-12-24", name: "Christmas Eve", type: "special", source: "Proclamation (2026 holidays)" },
-  { date: "2026-12-25", name: "Christmas Day", type: "regular", source: "Proclamation (2026 holidays)" },
-];
+export { HOLIDAYS };
 
 const SHIFTS: ShiftTemplate[] = [
   { id: "sh-day", name: "Day shift", start: "08:00", end: "17:00", breakMinutes: 60, graceMinutes: 10, restDays: [0, 6], active: true },
@@ -122,23 +116,9 @@ export interface LeaveSpan {
   to: string;
 }
 
-/** Approved leave (mock). People marked "On leave" in Core HR get a span around today. */
+/** Approved leave, from Leave Management. */
 export function leaveSpans(): LeaveSpan[] {
-  const t = today();
-  const plan: Record<string, [string, number, number]> = {
-    "MSMA-00560": ["Vacation leave", -4, 1],
-    "MSMA-00341": ["Sick leave", -2, 3],
-    "MSMA-00398": ["Vacation leave", -3, 5],
-  };
-  const spans: LeaveSpan[] = core.employees
-    .filter((e) => e.job.status === "On leave")
-    .map((e) => {
-      const [type, a, b] = plan[e.id] ?? ["Vacation leave", -1, 2];
-      return { employeeId: e.id, type, from: addDays(t, a), to: addDays(t, b) };
-    });
-  // A past one-day leave, so leave also shows in older logs.
-  spans.push({ employeeId: "MSMA-00482", type: "Vacation leave", from: addDays(t, -12), to: addDays(t, -12) });
-  return spans;
+  return approvedLeaveSpans();
 }
 
 export function isOnLeave(employeeId: string, date: string) {

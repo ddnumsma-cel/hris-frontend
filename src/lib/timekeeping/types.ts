@@ -43,12 +43,8 @@ export interface Punch {
   confirmed?: { by: string; at: string };
 }
 
-export interface Holiday {
-  date: string;
-  name: string;
-  type: "regular" | "special";
-  source: string;
-}
+import type { Holiday } from "../holidays";
+export type { Holiday };
 
 export type DayKind = "work" | "rest" | "leave" | "holiday" | "unscheduled";
 export type DayType = "ordinary" | "rest" | "special" | "regular";

@@ -38,6 +38,10 @@ const titles: Record<string, string> = {
   "/admin/timekeeping/overtime": "Overtime",
   "/admin/timekeeping/undertime": "Undertime",
   "/admin/timekeeping/tardiness": "Tardiness",
+  "/admin/leave/overview": "Leave",
+  "/admin/leave/requests": "Leave requests",
+  "/admin/leave/balances": "Leave balances",
+  "/admin/leave/types": "Leave types",
   "/admin/documents": "Documents",
 };
 

@@ -28,6 +28,10 @@ const SchedulesPage = lazy(() => import("@/features/admin/timekeeping/SchedulesP
 const AttendanceLogsPage = lazy(() => import("@/features/admin/timekeeping/AttendanceLogsPage").then((m) => ({ default: m.AttendanceLogsPage })));
 const OvertimePage = lazy(() => import("@/features/admin/timekeeping/RequestsPage").then((m) => ({ default: m.OvertimePage })));
 const UndertimePage = lazy(() => import("@/features/admin/timekeeping/RequestsPage").then((m) => ({ default: m.UndertimePage })));
+const LeaveOverviewPage = lazy(() => import("@/features/admin/leave/LeaveOverviewPage").then((m) => ({ default: m.LeaveOverviewPage })));
+const LeaveRequestsPage = lazy(() => import("@/features/admin/leave/LeaveRequestsPage").then((m) => ({ default: m.LeaveRequestsPage })));
+const BalancesPage = lazy(() => import("@/features/admin/leave/BalancesPage").then((m) => ({ default: m.BalancesPage })));
+const LeaveTypesPage = lazy(() => import("@/features/admin/leave/LeaveTypesPage").then((m) => ({ default: m.LeaveTypesPage })));
 const TardinessPage = lazy(() => import("@/features/admin/timekeeping/TardinessPage").then((m) => ({ default: m.TardinessPage })));
 const CompanyPage = lazy(() => import("@/features/admin/corehr/CompanyPage").then((m) => ({ default: m.CompanyPage })));
 const DocumentsPage = lazy(() => import("@/features/admin/corehr/DocumentsPage").then((m) => ({ default: m.DocumentsPage })));
@@ -166,6 +170,11 @@ function App() {
               <Route path="timekeeping/overtime" element={<OvertimePage />} />
               <Route path="timekeeping/undertime" element={<UndertimePage />} />
               <Route path="timekeeping/tardiness" element={<TardinessPage />} />
+              <Route path="leave" element={<Navigate to="/admin/leave/overview" replace />} />
+              <Route path="leave/overview" element={<LeaveOverviewPage />} />
+              <Route path="leave/requests" element={<LeaveRequestsPage />} />
+              <Route path="leave/balances" element={<BalancesPage />} />
+              <Route path="leave/types" element={<LeaveTypesPage />} />
               <Route path="organization" element={<Navigate to="/admin/company" replace />} />
               <Route path="positions" element={<Navigate to="/admin/company" replace />} />
               <Route path="documents" element={<DocumentsPage />} />

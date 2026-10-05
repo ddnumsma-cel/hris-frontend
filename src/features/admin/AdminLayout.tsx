@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
 import { SideNav } from "@/components/layout/SideNav";
-import { BuildingIcon, ClockIcon, FolderIcon, GridIcon, UsersIcon } from "@/components/icons";
+import { BuildingIcon, CalendarIcon, ClockIcon, FolderIcon, GridIcon, UsersIcon } from "@/components/icons";
 
 export function AdminLayout() {
   return (
@@ -35,6 +35,22 @@ export function AdminLayout() {
                     { label: "Overtime", to: "/admin/timekeeping/overtime" },
                     { label: "Undertime", to: "/admin/timekeeping/undertime" },
                     { label: "Tardiness", to: "/admin/timekeeping/tardiness" },
+                  ],
+                },
+              ],
+            },
+            {
+              title: "Leave",
+              items: [
+                {
+                  label: "Leave Management",
+                  to: "/admin/leave",
+                  icon: <CalendarIcon />,
+                  children: [
+                    { label: "Overview", to: "/admin/leave/overview" },
+                    { label: "Requests", to: "/admin/leave/requests" },
+                    { label: "Balances", to: "/admin/leave/balances" },
+                    { label: "Leave types", to: "/admin/leave/types" },
                   ],
                 },
               ],
