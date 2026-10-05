@@ -91,6 +91,7 @@ export interface EmployeeSummary {
   status: EmploymentStatus;
   dateHired: string;
   workEmail: string;
+  mobile: string;
   documents: { verified: number; required: number; needsAction: number };
 }
 
@@ -116,6 +117,7 @@ function summarize(e: CoreEmployee): EmployeeSummary {
     status: e.job.status,
     dateHired: e.job.dateHired,
     workEmail: e.contact.workEmail,
+    mobile: e.contact.mobile,
     documents: {
       verified: docs.filter((d) => d.status === "Verified").length,
       required: docs.length,
