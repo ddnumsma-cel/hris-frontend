@@ -316,57 +316,6 @@ export function listUnits(): Promise<UnitSummary[]> {
   );
 }
 
-const PARENT_TYPE: Record<UnitType, UnitType | null> = { company: null, branch: "company", department: "branch", team: "department" };
-export const CHILD_TYPE: Record<UnitType, UnitType | null> = { company: "branch", branch: "department", department: "team", team: null };
-
-export interface UnitInput {
-  id?: string;
-  type: UnitType;
-  name: string;
-  code: string;
-  parentId: string | null;
-  headEmployeeId?: string;
-  address?: string;
-}
-
-export async function saveUnit(input: UnitInput): Promise<OrgUnit> {
-  const name = input.name.trim();
-  if (!name) return fail("Enter a name");
-  const existing = unitById(input.id);
-  if (input.type !== "company") {
-    const parent = unitById(input.parentId ?? undefined);
-    if (!parent || parent.type !== PARENT_TYPE[input.type]) return fail(`Choose which ${PARENT_TYPE[input.type]} it belongs to`);
-    if (!parent.active) return fail(`${parent.name} is inactive`);
-  }
-  if (state.units.some((u) => u.id !== input.id && u.parentId === input.parentId && u.name.toLowerCase() === name.toLowerCase())) return fail(`There's already a ${input.type} named "${name}" there`);
-  const code = (input.code.trim() || name.replace(/[^A-Za-z ]/g, "").split(/\s+/).map((w) => w[0]).join("").slice(0, 4)).toUpperCase();
-  const unit: OrgUnit = { active: true, ...existing, type: input.type, name, code, parentId: input.type === "company" ? null : input.parentId, headEmployeeId: input.headEmployeeId || undefined, address: input.address?.trim() || undefined, id: existing?.id ?? newId(input.type.slice(0, 2)) };
-  // Moving a department to another branch carries its positions and people along with it.
-  commit({ ...state, units: existing ? state.units.map((u) => (u.id === unit.id ? unit : u)) : [...state.units, unit] });
-  return respond(unit);
-}
-
-export async function setUnitActive(id: string, active: boolean): Promise<OrgUnit> {
-  const unit = unitById(id);
-  if (!unit) return fail("That unit no longer exists");
-  if (unit.type === "company") return fail("The company itself can't be closed");
-  if (!active) {
-    const ids = subtree(id);
-    const people = state.employees.filter((e) => isCurrent(e) && ids.has(e.job.unitId)).length;
-    if (people) return fail(`${people} ${people === 1 ? "person is" : "people are"} still in ${unit.name}. Move them to another department with a job change first.`);
-    const positions = state.positions.filter((p) => p.active && ids.has(p.departmentId)).length;
-    if (positions) return fail(`${unit.name} still has ${positions} open job${positions === 1 ? "" : "s"}. Close those jobs on the Company page first.`);
-    const kids = state.units.filter((u) => u.parentId === id && u.active).length;
-    if (kids) return fail(`Close the departments and teams inside ${unit.name} first.`);
-  } else {
-    const parent = unitById(unit.parentId ?? undefined);
-    if (parent && !parent.active) return fail(`Reopen ${parent.name} first.`);
-  }
-  const next = { ...unit, active };
-  commit({ ...state, units: state.units.map((u) => (u.id === id ? next : u)) });
-  return respond(next);
-}
-
 // ---- Positions ----
 
 export interface PositionSummary extends Position {
@@ -400,48 +349,57 @@ export function listPositions(): Promise<PositionSummary[]> {
   );
 }
 
-export interface PositionInput {
-  id?: string;
-  title: string;
-  code: string;
-  departmentId: string;
-  level: JobLevel;
-  employmentType: EmploymentType;
-  slots: number;
-  reportsToPositionId?: string;
-  description?: string;
+// ---- Organization chart ----
+
+export interface OrgChart {
+  /** The head of the company, at the top of the chart. */
+  headId?: string;
+  people: (EmployeeSummary & { supervisorId?: string })[];
 }
 
-export async function savePosition(input: PositionInput): Promise<Position> {
-  const title = input.title.trim();
-  if (!title) return fail("Enter the position title");
-  const dept = unitById(input.departmentId);
-  if (!dept || dept.type !== "department") return fail("Choose a department");
-  if (!dept.active) return fail(`${dept.name} is inactive`);
-  if (!Number.isInteger(input.slots) || input.slots < 1) return fail("Enter how many people this job needs (at least 1)");
-  const existing = positionById(input.id);
-  if (existing) {
-    const filled = holdersOf(existing.id).length;
-    if (input.slots < filled) return fail(`${filled} people hold this position, so it needs at least ${filled}`);
-    if (filled && input.departmentId !== existing.departmentId) return fail("Move the people in this position before changing its department");
+/** Everyone currently employed with who they report to. */
+export function getOrgChart(): Promise<OrgChart> {
+  reconcile();
+  const company = state.units.find((u) => u.type === "company");
+  const people = state.employees.filter(isCurrent).map((e) => ({ ...summarize(e), supervisorId: e.job.supervisorId }));
+  return respond({ headId: company?.headEmployeeId, people: people.sort((a, b) => a.name.localeCompare(b.name)) });
+}
+
+export async function setCompanyHead(employeeId: string, actor: string): Promise<void> {
+  const company = state.units.find((u) => u.type === "company");
+  const e = employeeById(employeeId);
+  if (!company) return fail("The company record is missing");
+  if (!e || !isCurrent(e)) return fail("Choose a current employee");
+  const before = employeeById(company.headEmployeeId);
+  // The head reports to no one.
+  commit({
+    ...state,
+    units: state.units.map((u) => (u.id === company.id ? { ...u, headEmployeeId: e.id } : u)),
+    employees: state.employees.map((x) => (x.id === e.id ? { ...x, job: { ...x.job, supervisorId: undefined } } : x)),
+    audit: [audit(e.id, actor, "Edited", "Organization chart", `Head of the company: ${before ? fullName(before.personal) : "—"} → ${fullName(e.personal)}`), ...state.audit],
+  });
+  return respond(undefined);
+}
+
+/** Change who someone reports to. Blocks loops (reporting to someone who reports to them). */
+export async function setReportsTo(employeeId: string, supervisorId: string | null, actor: string): Promise<void> {
+  const e = employeeById(employeeId);
+  if (!e || !isCurrent(e)) return fail("That employee no longer works here");
+  if (supervisorId === employeeId) return fail("Someone can't report to themselves");
+  const sup = supervisorId ? employeeById(supervisorId) : undefined;
+  if (supervisorId && (!sup || !isCurrent(sup))) return fail("Choose a current employee");
+  for (let x = sup; x; x = employeeById(x.job.supervisorId)) {
+    if (x.id === employeeId) return fail(`${fullName(sup!.personal)} already reports to ${fullName(e.personal)}, directly or through someone else`);
   }
-  if (input.id && input.reportsToPositionId === input.id) return fail("A position can't report to itself");
-  if (state.positions.some((p) => p.id !== input.id && p.departmentId === input.departmentId && p.title.toLowerCase() === title.toLowerCase())) return fail(`${dept.name} already has a ${title} position`);
-  const code = (input.code.trim() || title.split(/\s+/).map((w) => w[0]).join("")).toUpperCase();
-  const position: Position = { active: true, ...existing, ...input, title, code, reportsToPositionId: input.reportsToPositionId || undefined, description: input.description?.trim() || undefined, id: existing?.id ?? newId("ps") };
-  commit({ ...state, positions: existing ? state.positions.map((p) => (p.id === position.id ? position : p)) : [...state.positions, position] });
-  return respond(position);
-}
-
-export async function setPositionActive(id: string, active: boolean): Promise<Position> {
-  const p = positionById(id);
-  if (!p) return fail("That position no longer exists");
-  const filled = holdersOf(id).length;
-  if (!active && filled) return fail(`${filled} ${filled === 1 ? "person holds" : "people hold"} this job. Move them to another job first.`);
-  if (active && !unitById(p.departmentId)?.active) return fail("Its department is closed. Reopen the department first.");
-  const next = { ...p, active };
-  commit({ ...state, positions: state.positions.map((x) => (x.id === id ? next : x)) });
-  return respond(next);
+  const company = state.units.find((u) => u.type === "company");
+  if (company?.headEmployeeId === employeeId && supervisorId) return fail("The head of the company reports to no one. Choose a new head first.");
+  const before = employeeById(e.job.supervisorId);
+  commit({
+    ...state,
+    employees: state.employees.map((x) => (x.id === e.id ? { ...x, job: { ...x.job, supervisorId: supervisorId ?? undefined } } : x)),
+    audit: [audit(e.id, actor, "Edited", "Organization chart", `Reports to: ${before ? fullName(before.personal) : "—"} → ${sup ? fullName(sup.personal) : "—"}`), ...state.audit],
+  });
+  return respond(undefined);
 }
 
 // ---- Documents ----

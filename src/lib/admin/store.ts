@@ -9,7 +9,7 @@ export type Access = "none" | "view" | "edit" | "approve";
 
 export const MODULES: { key: ModuleKey; label: string; approvable?: boolean }[] = [
   { key: "people", label: "People" },
-  { key: "company", label: "Company" },
+  { key: "company", label: "Org chart" },
   { key: "documents", label: "Documents" },
   { key: "timekeeping", label: "Timekeeping & Attendance", approvable: true },
   { key: "leave", label: "Leave Management", approvable: true },
