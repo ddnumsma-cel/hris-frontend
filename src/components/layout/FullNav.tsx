@@ -124,7 +124,38 @@ export function FullNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
           </ul>
         )}
 
-        {sorted.map((g) => (
+        {sorted.map((g) => {
+          // A section that is just one module: the heading is the dropdown, its pages sit right under it.
+          const module = g.items.length === 1 ? g.items[0]!.children && g.items[0] : undefined;
+          if (module) {
+            const isOpen = expanded === module.to;
+            return (
+              <div key={g.title}>
+                <Heading title={g.title} open={isOpen} onToggle={() => setExpanded(isOpen ? null : module.to)} />
+                {isOpen && (
+                  <ul className="flex flex-col">
+                    {module.children!.map((c) => (
+                      <li key={c.to}>
+                        <NavLink to={c.to} end={c.end} className="sidebar-item !py-1 !pl-7">
+                          {({ isActive }) => (
+                            <>
+                              <span className="truncate">{c.label}</span>
+                              {isActive && (
+                                <span className="sidebar-active-chevron" aria-hidden="true">
+                                  ›
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </NavLink>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          }
+          return (
           <div key={g.title}>
             <Heading title={g.title} open={!isCollapsed(g.title)} onToggle={() => toggle(g.title)} />
             {!isCollapsed(g.title) && (
@@ -194,7 +225,8 @@ export function FullNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
               </ul>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="flex-none border-t border-[var(--sb-border)] px-2 py-2">
