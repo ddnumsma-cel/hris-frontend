@@ -100,7 +100,7 @@ function RoleDialog({ initial, onClose }: { initial: Draft; onClose: () => void 
           </div>
         )}
         {matrix && <p className="text-xs text-ink-3">No access hides the module from the menu. "Edit and approve" lets them approve leave, overtime and undertime.</p>}
-        {d.locked && <p className="text-xs text-ink-3">The HR administrator role always has full access, so someone can always manage users.</p>}
+        {d.locked && <p className="text-xs text-ink-3">The Super Admin role always has full access, so someone can always manage roles and settings.</p>}
         <ErrorNote error={save.error} />
       </div>
     </Dialog>
@@ -117,11 +117,12 @@ const summary = (r: RoleRow) => {
 export function RolesPage() {
   const toast = useToast();
   const actor = useActor();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const roles = useQuery({ queryKey: ["admin", "roles"], queryFn: listRoles });
   const [editing, setEditing] = useState<Draft | null>(null);
   const remove = useMutation({
-    mutationFn: (r: RoleRow) => deleteRole(r.id, actor),
+    mutationFn: (r: RoleRow) => deleteRole(r.id, actor, user?.accountId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin"] });
       toast.show("Role deleted.");
@@ -147,8 +148,8 @@ export function RolesPage() {
               Delete
             </Button>
           )}
-          <Button size="sm" variant="ghost" onClick={() => setEditing({ ...r, locked: r.id === "hr-admin" })}>
-            {r.id === "hr-admin" ? "View" : "Edit"}
+          <Button size="sm" variant="ghost" onClick={() => setEditing({ ...r, locked: !!r.superAdmin })}>
+            {r.superAdmin ? "View" : "Edit"}
           </Button>
         </span>
       ),

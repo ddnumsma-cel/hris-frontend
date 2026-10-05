@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/ToastContext";
 import { useAuth } from "@/features/auth/AuthContext";
+import { isSuperAdmin } from "@/lib/admin/store";
 import { createAccount, employeesWithoutAccount, listAccounts, listRoles, resetPassword, setAccountRole, setAccountStatus, unlockAccount, type AccountRow } from "@/lib/admin/api";
 import { inputClass, useActor } from "../corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
@@ -29,13 +30,15 @@ function PasswordNote({ username, password }: { username: string; password: stri
 
 function AddUserDialog({ onClose }: { onClose: () => void }) {
   const actor = useActor();
+  const { user } = useAuth();
+  const isSuper = isSuperAdmin(user?.accountId);
   const queryClient = useQueryClient();
   const roles = useQuery({ queryKey: KEYS.roles, queryFn: listRoles });
   const [staff] = useState(employeesWithoutAccount);
   const [form, setForm] = useState({ employeeId: "", name: "", username: "", roleId: "employee" });
   const [created, setCreated] = useState<{ username: string; password: string } | null>(null);
   const save = useMutation({
-    mutationFn: () => createAccount(form, actor),
+    mutationFn: () => createAccount(form, actor, user?.accountId),
     onSuccess: (r) => {
       queryClient.invalidateQueries({ queryKey: ["admin"] });
       setCreated(r);
@@ -93,7 +96,7 @@ function AddUserDialog({ onClose }: { onClose: () => void }) {
           </div>
           <Field id="u-role" label="Role" required hint={roles.data?.find((r) => r.id === form.roleId)?.description}>
             <select id="u-role" className={inputClass} value={form.roleId} onChange={(e) => setForm({ ...form, roleId: e.target.value })}>
-              {(roles.data ?? []).map((r) => (
+              {(roles.data ?? []).filter((r) => isSuper || !r.superAdmin).map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
                 </option>
@@ -122,9 +125,11 @@ function ManageDialog({ a, onClose }: { a: AccountRow; onClose: () => void }) {
   };
   const role = useMutation({ mutationFn: () => setAccountRole(a.id, roleId, actor, user?.accountId), onSuccess: () => (done("Role changed."), onClose()) });
   const status = useMutation({ mutationFn: () => setAccountStatus(a.id, a.status === "active" ? "disabled" : "active", actor, user?.accountId), onSuccess: () => (done(a.status === "active" ? "Account turned off. They can't sign in." : "Account turned on."), onClose()) });
-  const unlock = useMutation({ mutationFn: () => unlockAccount(a.id, actor), onSuccess: () => (done("Account unlocked."), onClose()) });
-  const reset = useMutation({ mutationFn: () => resetPassword(a.id, actor), onSuccess: (r) => (done("Password reset."), setNewPassword(r)) });
-  const self = a.id === user?.accountId;
+  const unlock = useMutation({ mutationFn: () => unlockAccount(a.id, actor, user?.accountId), onSuccess: () => (done("Account unlocked."), onClose()) });
+  const reset = useMutation({ mutationFn: () => resetPassword(a.id, actor, user?.accountId), onSuccess: (r) => (done("Password reset."), setNewPassword(r)) });
+  const isSuper = isSuperAdmin(user?.accountId);
+  // Admins can see Super Admin accounts but not change them.
+  const self = a.id === user?.accountId || (!isSuper && (roles.data ?? []).some((r) => r.id === a.roleId && r.superAdmin));
 
   return (
     <Dialog open onClose={onClose} title={a.name} footer={<div className="flex justify-end"><Button variant="ghost" onClick={onClose}>Close</Button></div>}>
@@ -134,11 +139,11 @@ function ManageDialog({ a, onClose }: { a: AccountRow; onClose: () => void }) {
           {a.employeeName && <> · linked to {a.employeeName}</>}
           {a.lastSignIn && <> · last signed in {shortDate(a.lastSignIn)}</>}
         </p>
-        {self && <p className="rounded-lg bg-surface-2 px-3 py-2 text-sm text-ink-2">This is your own account. Ask another HR administrator to change your role or turn it off.</p>}
+        {self && <p className="rounded-lg bg-surface-2 px-3 py-2 text-sm text-ink-2">{a.id === user?.accountId ? "This is your own account. Ask a Super Admin to change your role or turn it off." : "Only a Super Admin can change a Super Admin account."}</p>}
         <div className="flex items-end gap-2">
           <Field id="m-role" label="Role" className="flex-1" hint={roles.data?.find((r) => r.id === roleId)?.description}>
             <select id="m-role" className={inputClass} value={roleId} disabled={self} onChange={(e) => setRoleId(e.target.value)}>
-              {(roles.data ?? []).map((r) => (
+              {(roles.data ?? []).filter((r) => isSuper || !r.superAdmin).map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
                 </option>
@@ -151,12 +156,12 @@ function ManageDialog({ a, onClose }: { a: AccountRow; onClose: () => void }) {
         </div>
         {newPassword && <PasswordNote {...newPassword} />}
         <div className="flex flex-wrap gap-2 border-t border-border pt-3">
-          {a.locked && (
+          {a.locked && !self && (
             <Button variant="ghost" size="sm" disabled={unlock.isPending} onClick={() => unlock.mutate()}>
               Unlock
             </Button>
           )}
-          {!a.demoRole && (
+          {!a.demo && !self && (
             <Button variant="ghost" size="sm" disabled={reset.isPending} onClick={() => reset.mutate()}>
               Reset password
             </Button>
@@ -186,7 +191,7 @@ export function UsersPage() {
   const cols: Col<AccountRow>[] = [
     { header: "User", cell: (a) => <Name name={a.name} sub={a.username} /> },
     { header: "Role", cell: (a) => a.roleName },
-    { header: "Employee record", cell: (a) => <span className="text-ink-2">{a.employeeName ?? (a.demoRole ? "Demo login" : "Not linked")}</span> },
+    { header: "Employee record", cell: (a) => <span className="text-ink-2">{a.employeeName ?? (a.demo ? "Demo login" : "Not linked")}</span> },
     { header: "Status", cell: (a) => (a.locked ? <Pill tone="warn">Locked</Pill> : a.status === "active" ? <Pill tone="good">Active</Pill> : <Pill tone="neutral">Turned off</Pill>) },
     { header: "Last sign-in", cell: (a) => <span className="text-ink-2">{a.lastSignIn ? shortDate(a.lastSignIn) : "Never"}</span> },
     {

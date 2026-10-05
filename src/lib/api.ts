@@ -893,14 +893,14 @@ export interface ChangeCredentialsInput {
 // Rejects (like a real auth endpoint would) when the current password is
 // wrong or the username is already used by another account.
 export async function changeAdminCredentials(input: ChangeCredentialsInput): Promise<{ username: string }> {
-  const current = getCredential("admin");
+  const current = getCredential("hr");
   const username = input.username.trim().toLowerCase();
   await delay(null);
   if (input.currentPassword !== current.password) throw new Error("Your current password is incorrect.");
-  if (getCredentials().some((c) => c.role !== "admin" && c.username === username)) {
+  if (getCredentials().some((c) => c.key !== "hr" && c.username === username)) {
     throw new Error(`The username "${username}" is already taken.`);
   }
-  setCredential("admin", username, input.newPassword || current.password);
+  setCredential("hr", username, input.newPassword || current.password);
   return { username };
 }
 

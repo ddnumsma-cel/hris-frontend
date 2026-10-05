@@ -12,8 +12,8 @@ const RegisterDialog = lazy(() => import("./RegisterDialog").then((m) => ({ defa
 const highlights = [
   { icon: <CalendarIcon className="h-4.5 w-4.5" />, text: "Leave, payroll and DTR in one place" },
   { icon: <FingerprintIcon className="h-4.5 w-4.5" />, text: "Biometric onsite and remote face-scan attendance" },
-  { icon: <OrgChartIcon className="h-4.5 w-4.5" />, text: "Org-wide visibility for HR and Partners" },
-  { icon: <ShieldIcon className="h-4.5 w-4.5" />, text: "Role-based access for Employee, Partner and HR" },
+  { icon: <OrgChartIcon className="h-4.5 w-4.5" />, text: "Org-wide visibility for HR and admins" },
+  { icon: <ShieldIcon className="h-4.5 w-4.5" />, text: "Role-based access for Super Admin, Admin, HR and Employee" },
 ];
 
 export function LoginPage() {

@@ -3,7 +3,7 @@ import { RolePage } from "@/components/layout/RolePage";
 import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
 import { BarChartIcon, BuildingIcon, CalendarIcon, ClockIcon, FolderIcon, GridIcon, LockIcon, ShieldIcon, UsersIcon } from "@/components/icons";
 import { RailNav } from "@/components/layout/RailNav";
-import { moduleForPath, useAccess } from "./administration/access";
+import { moduleForPath, SUPER_ADMIN_PAGES, useAccess, useIsSuperAdmin } from "./administration/access";
 
 const GROUPS: SideNavGroup[] = [
   {
@@ -111,11 +111,16 @@ function NoAccess() {
 export function AdminLayout() {
   const access = useAccess();
   const { pathname } = useLocation();
+  const isSuper = useIsSuperAdmin();
   const allowed = (to: string) => {
+    if (!isSuper && SUPER_ADMIN_PAGES.some((p) => to === p || to.startsWith(`${p}/`))) return false;
     const m = moduleForPath(to);
     return !m || access[m] !== "none";
   };
-  const groups = GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => allowed(i.to)) })).filter((g) => g.items.length > 0);
+  const groups = GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => allowed(i.to)).map((i) => (i.children ? { ...i, children: i.children.filter((c) => allowed(c.to)) } : i)),
+  })).filter((g) => g.items.length > 0);
 
   return (
     <RolePage

@@ -52,17 +52,19 @@ export function RailNav({ groups }: { groups: SideNavGroup[] }) {
         {sections.map((s) => {
           const active = s.key === current?.key;
           const isOpen = s.key === open?.key;
+          // A module with a single page needs no pop-out: the icon goes straight there.
+          const single = s.pages.length === 1;
           return (
             <NavLink
               key={s.key}
               to={s.pages[0]!.to}
               end={s.pages[0]!.end}
               aria-label={s.label}
-              aria-haspopup="menu"
-              aria-expanded={isOpen}
-              onMouseEnter={(e) => show(s, e.currentTarget)}
+              aria-haspopup={single ? undefined : "menu"}
+              aria-expanded={single ? undefined : isOpen}
+              onMouseEnter={(e) => (single ? hide() : show(s, e.currentTarget))}
               onMouseLeave={hide}
-              onFocus={(e) => show(s, e.currentTarget)}
+              onFocus={(e) => (single ? hide() : show(s, e.currentTarget))}
               onBlur={hide}
               onKeyDown={(e) => e.key === "Escape" && setOpen(null)}
               className="group flex w-16 flex-col items-center gap-1 rounded-xl py-1.5"

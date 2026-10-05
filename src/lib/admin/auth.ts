@@ -13,7 +13,7 @@ const update = (id: string, patch: Partial<UserAccount>) => saveAdmin({ ...admin
 function accountFor(username: string) {
   const u = username.trim().toLowerCase();
   const demo = getCredentials().find((c) => c.username === u);
-  return demo ? admin.accounts.find((a) => a.demoRole === demo.role) : admin.accounts.find((a) => a.username === u && !a.demoRole);
+  return demo ? admin.accounts.find((a) => a.demo === demo.key) : admin.accounts.find((a) => a.username === u && !a.demo);
 }
 
 export function signIn(username: string, password: string): SignInResult {
@@ -28,7 +28,7 @@ export function signIn(username: string, password: string): SignInResult {
     const mins = Math.ceil((new Date(account.lockedUntil).getTime() - now.getTime()) / 60000);
     return fail(`Too many wrong passwords. Try again in ${mins} minute${mins === 1 ? "" : "s"}, or ask HR to unlock your account.`, "Account locked");
   }
-  const good = account.demoRole ? findCredential(username, password)?.role === account.demoRole : account.password === password;
+  const good = account.demo ? findCredential(username, password)?.key === account.demo : account.password === password;
   if (!good) {
     const failed = account.failedAttempts + 1;
     const lock = failed >= admin.settings.lockAfterFailed;

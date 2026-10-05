@@ -27,20 +27,14 @@ const initials = (name: string) =>
     .join("")
     .toUpperCase();
 
-// Built on demand (not once at import) so profile edits — e.g. the Partner
-// updating their name in Settings — show up in the top bar.
+// Built on demand (not once at import) so profile edits show up in the top bar.
+// The HR and Employee demo logins keep their profiles; every other account shows its own name.
 function userFor(role: Role, account?: UserAccount): AuthUser {
-  // Accounts HR created show their own name; the demo logins keep their profiles.
-  if (account && !account.demoRole) return { role, name: account.name, initials: initials(account.name), title: roleOf(account)?.name ?? "", accountId: account.id };
   const accountId = account?.id;
-  switch (role) {
-    case "employee":
-      return { role, name: currentEmployee.name, initials: currentEmployee.initials, title: currentEmployee.position, accountId };
-    case "manager":
-      return { role, name: currentManager.name, initials: currentManager.initials, title: currentManager.title, accountId };
-    case "admin":
-      return { role, name: currentAdmin.name, initials: currentAdmin.initials, title: currentAdmin.title, accountId };
-  }
+  if (account?.demo === "employee" || (!account && role === "employee")) return { role, name: currentEmployee.name, initials: currentEmployee.initials, title: currentEmployee.position, accountId };
+  if (account?.demo === "hr" || (!account && role === "admin")) return { role, name: currentAdmin.name, initials: currentAdmin.initials, title: currentAdmin.title, accountId };
+  if (account) return { role, name: account.name, initials: initials(account.name), title: roleOf(account)?.name ?? "", accountId };
+  return { role, name: currentManager.name, initials: currentManager.initials, title: currentManager.title };
 }
 
 interface AuthContextValue {

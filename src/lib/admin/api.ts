@@ -3,7 +3,7 @@
 import { fullName, state as core } from "../corehr/store";
 import { leave } from "../leave/store";
 import { tk } from "../timekeeping/store";
-import { admin, logAdmin, MODULES, saveAdmin, type Access, type ModuleKey, type RequestKind, type Settings, type SystemRole, type UserAccount, type Workflow } from "./store";
+import { admin, isSuperAdmin, logAdmin, MODULES, saveAdmin, type Access, type ModuleKey, type RequestKind, type Settings, type SystemRole, type UserAccount, type Workflow } from "./store";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -49,9 +49,11 @@ function tempPassword() {
   return p;
 }
 
-const fullAdmins = (accounts: UserAccount[], roles = admin.roles) => accounts.filter((a) => a.status === "active" && roles.find((r) => r.id === a.roleId)?.access.administration === "edit");
+const superAdmins = (accounts: UserAccount[], roles = admin.roles) => accounts.filter((a) => a.status === "active" && roles.find((r) => r.id === a.roleId)?.superAdmin);
+const isSuperRole = (roleId: string | undefined) => !!admin.roles.find((r) => r.id === roleId)?.superAdmin;
+const SUPER_ONLY = "Only a Super Admin can do this.";
 
-export async function createAccount(input: { name: string; username: string; roleId: string; employeeId?: string }, actor: string) {
+export async function createAccount(input: { name: string; username: string; roleId: string; employeeId?: string }, actor: string, actorAccountId?: string) {
   const name = input.name.trim();
   const username = input.username.trim().toLowerCase();
   if (!name) return fail("Enter the person's name");
@@ -59,6 +61,7 @@ export async function createAccount(input: { name: string; username: string; rol
   if (admin.accounts.some((a) => a.username === username) || ["admin", "admin1", "admin2"].includes(username)) return fail("That username is taken");
   const role = admin.roles.find((r) => r.id === input.roleId);
   if (!role) return fail("Choose a role");
+  if (role.superAdmin && !isSuperAdmin(actorAccountId)) return fail(SUPER_ONLY);
   const password = tempPassword();
   const account: UserAccount = { id: `ua-${Date.now().toString(36)}`, name, username, password, employeeId: input.employeeId || undefined, roleId: role.id, status: "active", mustChangePassword: true, failedAttempts: 0, createdAt: new Date().toISOString() };
   saveAdmin({ ...admin, accounts: [...admin.accounts, account] });
@@ -67,8 +70,11 @@ export async function createAccount(input: { name: string; username: string; rol
 }
 
 function guard(id: string, actorAccountId: string | undefined, next: UserAccount[]) {
+  const target = admin.accounts.find((a) => a.id === id);
+  const after = next.find((a) => a.id === id);
+  if ((isSuperRole(target?.roleId) || isSuperRole(after?.roleId)) && !isSuperAdmin(actorAccountId)) return "Only a Super Admin can change a Super Admin account or give the Super Admin role.";
   if (id === actorAccountId) return "You can't change your own access. Ask another HR administrator.";
-  if (fullAdmins(next).length === 0) return "At least one active account must keep full administration access.";
+  if (superAdmins(next).length === 0) return "There must always be at least one active Super Admin.";
   return null;
 }
 
@@ -95,18 +101,20 @@ export async function setAccountStatus(id: string, status: UserAccount["status"]
   return respond(undefined);
 }
 
-export async function unlockAccount(id: string, actor: string) {
+export async function unlockAccount(id: string, actor: string, actorAccountId?: string) {
   const a = admin.accounts.find((x) => x.id === id);
   if (!a) return fail("That account no longer exists");
+  if (isSuperRole(a.roleId) && !isSuperAdmin(actorAccountId)) return fail(SUPER_ONLY);
   saveAdmin({ ...admin, accounts: admin.accounts.map((x) => (x.id === id ? { ...x, lockedUntil: undefined, failedAttempts: 0 } : x)) });
   logAdmin({ actor, module: "Administration", action: "Unlocked account", target: a.username, detail: a.name });
   return respond(undefined);
 }
 
-export async function resetPassword(id: string, actor: string) {
+export async function resetPassword(id: string, actor: string, actorAccountId?: string) {
   const a = admin.accounts.find((x) => x.id === id);
   if (!a) return fail("That account no longer exists");
-  if (a.demoRole) return fail("This is a demo login. Change its password in the account's own Settings.");
+  if (isSuperRole(a.roleId) && !isSuperAdmin(actorAccountId)) return fail(SUPER_ONLY);
+  if (a.demo) return fail("This is a demo login. Its password is set on the sign-in screen's demo list.");
   const password = tempPassword();
   saveAdmin({ ...admin, accounts: admin.accounts.map((x) => (x.id === id ? { ...x, password, mustChangePassword: true, lockedUntil: undefined, failedAttempts: 0 } : x)) });
   logAdmin({ actor, module: "Administration", action: "Reset password", target: a.username, detail: a.name });
@@ -122,25 +130,27 @@ export interface RoleRow extends SystemRole {
 export const listRoles = () => respond(admin.roles.map((r) => ({ ...r, users: admin.accounts.filter((a) => a.roleId === r.id).length })));
 
 export async function saveRole(input: { id?: string; name: string; description: string; access: Record<ModuleKey, Access> }, actor: string, actorAccountId?: string) {
+  if (!isSuperAdmin(actorAccountId)) return fail(SUPER_ONLY);
   const name = input.name.trim();
   if (!name) return fail("Name the role");
   if (admin.roles.some((r) => r.id !== input.id && r.name.toLowerCase() === name.toLowerCase())) return fail("There's already a role with that name");
   const existing = admin.roles.find((r) => r.id === input.id);
-  if (existing?.id === "hr-admin") return fail("The HR administrator role always has full access");
+  if (existing?.superAdmin) return fail("The Super Admin role always has full access");
   // "Approve" only applies to modules with requests.
   const access = Object.fromEntries(MODULES.map((m) => [m.key, !m.approvable && input.access[m.key] === "approve" ? "edit" : input.access[m.key]])) as Record<ModuleKey, Access>;
   const role: SystemRole = existing ? { ...existing, name, description: input.description.trim(), access } : { id: `role-${Date.now().toString(36)}`, name, description: input.description.trim(), workspace: "admin", builtIn: false, access };
   const roles = existing ? admin.roles.map((r) => (r.id === role.id ? role : r)) : [...admin.roles, role];
   const mine = admin.accounts.find((a) => a.id === actorAccountId);
   if (existing && mine?.roleId === existing.id && access.administration !== "edit") return fail("This is your own role. Removing its Administration access would lock you out.");
-  if (fullAdmins(admin.accounts, roles).length === 0) return fail("At least one active account must keep full administration access.");
+  if (superAdmins(admin.accounts, roles).length === 0) return fail("There must always be at least one active Super Admin.");
   saveAdmin({ ...admin, roles });
   const changes = existing ? MODULES.filter((m) => existing.access[m.key] !== access[m.key]).map((m) => `${m.label}: ${ACCESS_LABEL[existing.access[m.key]]} → ${ACCESS_LABEL[access[m.key]]}`) : [];
   logAdmin({ actor, module: "Administration", action: existing ? "Changed role access" : "Added role", target: name, detail: existing ? changes.join("; ") || "Name or description" : role.description });
   return respond(role);
 }
 
-export async function deleteRole(id: string, actor: string) {
+export async function deleteRole(id: string, actor: string, actorAccountId?: string) {
+  if (!isSuperAdmin(actorAccountId)) return fail(SUPER_ONLY);
   const role = admin.roles.find((r) => r.id === id);
   if (!role) return fail("That role no longer exists");
   if (role.builtIn) return fail("Built-in roles can't be deleted");
@@ -229,7 +239,8 @@ export function sampleEmployees() {
 
 export const getSettings = () => respond(admin.settings);
 
-export async function saveSettings(input: Settings, actor: string) {
+export async function saveSettings(input: Settings, actor: string, actorAccountId?: string) {
+  if (!isSuperAdmin(actorAccountId)) return fail(SUPER_ONLY);
   if (!input.companyName.trim()) return fail("Enter the company name");
   if (input.tin && !/^\d{3}-\d{3}-\d{3}(-\d{3,5})?$/.test(input.tin.trim())) return fail("TIN looks like 000-000-000-00000");
   if (input.contactEmail && !/^\S+@\S+\.\S+$/.test(input.contactEmail.trim())) return fail("Enter a valid HR email");

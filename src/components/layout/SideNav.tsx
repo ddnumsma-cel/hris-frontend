@@ -11,6 +11,8 @@ export interface SideNavItem {
   to: string;
   icon?: ReactNode;
   end?: boolean;
+  /** Short name for the icon rail. */
+  short?: string;
   /** Sub-pages shown in a collapsible list under this item. */
   children?: SideNavItem[];
 }
@@ -18,7 +20,7 @@ export interface SideNavItem {
 export interface SideNavGroup {
   title: string;
   items: SideNavItem[];
-  /** Short name for tight places, e.g. the icon rail. */
+  /** Set to show the whole group as one icon on the rail, with its pages in a pop-out. */
   short?: string;
   icon?: ReactNode;
 }

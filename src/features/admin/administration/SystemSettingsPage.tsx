@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastContext";
 import { getSettings, saveSettings } from "@/lib/admin/api";
 import type { Settings } from "@/lib/admin/store";
+import { useAuth } from "@/features/auth/AuthContext";
 import { inputClass, useActor } from "../corehr/format";
 import { ErrorNote, Field, LoadError } from "../corehr/ui";
 
@@ -21,13 +22,14 @@ function Section({ title, hint, children }: { title: string; hint: string; child
 
 function Form({ initial }: { initial: Settings }) {
   const toast = useToast();
+  const { user } = useAuth();
   const actor = useActor();
   const queryClient = useQueryClient();
   const [s, setS] = useState(initial);
   const set = (patch: Partial<Settings>) => setS({ ...s, ...patch });
   const num = (k: keyof Settings) => ({ type: "number", className: inputClass, value: s[k] as number, onChange: (e: React.ChangeEvent<HTMLInputElement>) => set({ [k]: e.target.valueAsNumber } as Partial<Settings>) });
   const save = useMutation({
-    mutationFn: () => saveSettings(s, actor),
+    mutationFn: () => saveSettings(s, actor, user?.accountId),
     onSuccess: (next) => {
       queryClient.setQueryData(["admin", "settings"], next);
       queryClient.invalidateQueries({ queryKey: ["admin", "audit"] });

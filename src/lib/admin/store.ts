@@ -1,6 +1,7 @@
 // Administration & Security data: user accounts, roles and their access,
 // approval workflows, system settings and the admin log. Saved to localStorage.
 
+import type { DemoKey } from "../credentials";
 import type { Role } from "../types";
 
 export type ModuleKey = "people" | "company" | "documents" | "timekeeping" | "leave" | "reports" | "administration";
@@ -23,6 +24,8 @@ export interface SystemRole {
   /** Which workspace the role signs into. */
   workspace: Role;
   builtIn: boolean;
+  /** Can manage roles, system settings and other Super Admins. */
+  superAdmin?: boolean;
   /** Access per HR-workspace module. Ignored for the Employee and Partner workspaces. */
   access: Record<ModuleKey, Access>;
 }
@@ -34,7 +37,7 @@ export interface UserAccount {
   /** Demo accounts sign in with the credentials in Settings; others with this. */
   password?: string;
   /** Set for the three built-in demo logins. */
-  demoRole?: Role;
+  demo?: DemoKey;
   employeeId?: string;
   roleId: string;
   status: "active" | "disabled";
@@ -93,15 +96,14 @@ export interface AdminState {
   log: AdminLog[];
 }
 
-const KEY = "heyhr-admin-v1";
+const KEY = "heyhr-admin-v2";
 
 const all = (a: Access): Record<ModuleKey, Access> => ({ people: a, company: a, documents: a, timekeeping: a, leave: a, reports: a, administration: a });
 
 export const DEFAULT_ROLES: SystemRole[] = [
-  { id: "hr-admin", name: "HR administrator", description: "Full access, including users, roles and system settings.", workspace: "admin", builtIn: true, access: { ...all("edit"), timekeeping: "approve", leave: "approve" } },
-  { id: "hr-officer", name: "HR officer", description: "Day-to-day HR: employee records, attendance and leave approvals.", workspace: "admin", builtIn: false, access: { people: "edit", company: "view", documents: "edit", timekeeping: "approve", leave: "approve", reports: "view", administration: "none" } },
-  { id: "payroll-officer", name: "Payroll officer", description: "Sees attendance, leave and the payroll and government reports.", workspace: "admin", builtIn: false, access: { people: "view", company: "none", documents: "none", timekeeping: "view", leave: "view", reports: "view", administration: "none" } },
-  { id: "partner", name: "Partner / Manager", description: "Their own team: approvals, attendance and performance.", workspace: "manager", builtIn: true, access: all("none") },
+  { id: "super-admin", name: "Super Admin", description: "Everything, including roles, system settings and other admins.", workspace: "admin", builtIn: true, superAdmin: true, access: { ...all("edit"), timekeeping: "approve", leave: "approve" } },
+  { id: "admin", name: "Admin", description: "Every HR module plus users, approval workflows and the audit trail. Can't change roles or system settings.", workspace: "admin", builtIn: true, access: { ...all("edit"), timekeeping: "approve", leave: "approve" } },
+  { id: "hr", name: "HR", description: "Employee records, attendance, leave and reports. Approves leave, overtime and undertime.", workspace: "admin", builtIn: true, access: { people: "edit", company: "edit", documents: "edit", timekeeping: "approve", leave: "approve", reports: "view", administration: "none" } },
   { id: "employee", name: "Employee", description: "Self-service: own leave, time, payslips and 201 file.", workspace: "employee", builtIn: true, access: all("none") },
 ];
 
@@ -117,11 +119,11 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 const DEFAULT_WORKFLOWS: Workflow[] = [
-  { kind: "leave", steps: [{ approver: "supervisor" }, { approver: "role", roleId: "hr-officer", overDays: 3 }], remindAfterDays: 2, active: true },
-  { kind: "overtime", steps: [{ approver: "supervisor" }], remindAfterDays: 2, active: true },
-  { kind: "undertime", steps: [{ approver: "supervisor" }], remindAfterDays: 2, active: true },
-  { kind: "correction", steps: [{ approver: "supervisor" }, { approver: "role", roleId: "hr-officer" }], remindAfterDays: 1, active: true },
-  { kind: "profile", steps: [{ approver: "role", roleId: "hr-officer" }], remindAfterDays: 3, active: true },
+  { kind: "leave", steps: [{ approver: "role", roleId: "hr" }], remindAfterDays: 2, active: true },
+  { kind: "overtime", steps: [{ approver: "role", roleId: "hr" }], remindAfterDays: 2, active: true },
+  { kind: "undertime", steps: [{ approver: "role", roleId: "hr" }], remindAfterDays: 2, active: true },
+  { kind: "correction", steps: [{ approver: "role", roleId: "hr" }], remindAfterDays: 1, active: true },
+  { kind: "profile", steps: [{ approver: "role", roleId: "hr" }], remindAfterDays: 3, active: true },
 ];
 
 function seed(): AdminState {
@@ -129,11 +131,11 @@ function seed(): AdminState {
   return {
     roles: DEFAULT_ROLES,
     accounts: [
-      { id: "ua-hr", name: "Dinah Marquez", username: "admin1", demoRole: "admin", roleId: "hr-admin", status: "active", failedAttempts: 0, createdAt: at },
-      { id: "ua-partner", name: "Partner (demo)", username: "admin", demoRole: "manager", roleId: "partner", status: "active", failedAttempts: 0, createdAt: at },
-      { id: "ua-employee", name: "Employee (demo)", username: "admin2", demoRole: "employee", roleId: "employee", status: "active", failedAttempts: 0, createdAt: at },
-      { id: "ua-officer", name: "Joel Nierves", username: "hrofficer", password: "officer2026", employeeId: "MSMA-00812", roleId: "hr-officer", status: "active", failedAttempts: 0, createdAt: at },
-      { id: "ua-payroll", name: "Ferdz Salazar", username: "payroll", password: "payroll2026", employeeId: "MSMA-00845", roleId: "payroll-officer", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-super", name: "System Administrator", username: "superadmin", demo: "superadmin", roleId: "super-admin", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-admin", name: "Office Administrator", username: "admin", demo: "admin", roleId: "admin", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-hr", name: "Dinah Marquez", username: "admin1", demo: "hr", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-employee", name: "Employee (demo)", username: "admin2", demo: "employee", roleId: "employee", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-officer", name: "Joel Nierves", username: "hrofficer", password: "officer2026", employeeId: "MSMA-00812", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
     ],
     workflows: DEFAULT_WORKFLOWS,
     settings: DEFAULT_SETTINGS,
@@ -171,3 +173,5 @@ export function logAdmin(entry: Omit<AdminLog, "id" | "at">) {
 }
 
 export const roleOf = (account: UserAccount | undefined) => admin.roles.find((r) => r.id === account?.roleId);
+
+export const isSuperAdmin = (accountId: string | undefined) => !!roleOf(admin.accounts.find((a) => a.id === accountId))?.superAdmin;

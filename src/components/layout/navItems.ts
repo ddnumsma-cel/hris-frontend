@@ -15,11 +15,15 @@ export interface NavSection {
   pages: SideNavItem[];
 }
 
-/** A group that is one module with sub-pages becomes that module; any other group lists its items. */
+/**
+ * Rail icons: a group with a short name is one icon (its module's pages pop out);
+ * a group without one shows each of its items as its own icon.
+ */
 export function toSections(groups: SideNavGroup[]): NavSection[] {
-  return groups.map((g) => {
+  return groups.flatMap((g) => {
+    if (!g.short) return g.items.map((i) => ({ key: i.to, label: i.label, short: i.short ?? i.label, icon: i.icon, pages: i.children ?? [i] }));
     const only = g.items.length === 1 ? g.items[0]! : null;
-    if (only?.children) return { key: only.to, label: only.label, short: g.short ?? only.label, icon: g.icon ?? only.icon, pages: only.children };
-    return { key: g.title, label: g.title, short: g.short ?? g.title, icon: g.icon ?? g.items[0]?.icon, pages: g.items };
+    if (only?.children) return [{ key: only.to, label: only.label, short: g.short, icon: g.icon ?? only.icon, pages: only.children }];
+    return [{ key: g.title, label: g.title, short: g.short, icon: g.icon ?? g.items[0]?.icon, pages: g.items }];
   });
 }
