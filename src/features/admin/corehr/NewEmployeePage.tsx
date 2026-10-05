@@ -24,7 +24,7 @@ const empty: NewEmployeeValues = {
   personal: { firstName: "", middleName: "", lastName: "", suffix: "", birthDate: "", sex: "", civilStatus: "", nationality: "Filipino" },
   contact: { workEmail: "", personalEmail: "", mobile: "", address: "", city: "", province: "", emergencyName: "", emergencyRelationship: "", emergencyPhone: "" },
   government: { sss: "", philhealth: "", pagibig: "", tin: "" },
-  job: { positionId: "", teamId: "", supervisorId: "", employmentType: "Probationary", dateHired: isoDate(), monthlySalary: Number.NaN, workSchedule: "Mon–Fri, 8:00 AM – 5:00 PM" },
+  job: { positionId: "", teamId: "", supervisorId: "", employmentType: "Probationary", dateHired: isoDate(), monthlySalary: Number.NaN, workSchedule: "Mon–Fri, 8:30 AM – 5:00 PM" },
 };
 
 const STEPS = [

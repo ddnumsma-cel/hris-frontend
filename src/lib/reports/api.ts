@@ -4,7 +4,7 @@
 import { fullName, state as core } from "../corehr/store";
 import { leave, countDays } from "../leave/store";
 import { listDays, listRequests as listTimeRequests, type DayRow } from "../timekeeping/api";
-import { addDays } from "../timekeeping/compute";
+import { addDays, lateHoursCharged, lateRuns } from "../timekeeping/compute";
 import { branchOf, departmentOf, todayIso } from "../timekeeping/store";
 import { pagibig, philhealth, round2, sss, THIRTEENTH_MONTH_EXEMPT, withholding } from "./statutory";
 
@@ -195,6 +195,10 @@ function unpaidLeaveDays(employeeId: string, from: string, to: string) {
 
 export async function payroll(period: Period, office: string): Promise<PayLine[]> {
   const att = await attendance(period.from, period.to);
+  // Two weeks before the cut-off too, so a late run that started in the last cut-off is seen.
+  const end = period.to > todayIso() ? todayIso() : period.to;
+  const history = new Map<string, DayRow[]>();
+  for (const d of end < period.from ? [] : await listDays(addDays(period.from, -14), end)) history.set(d.person.id, [...(history.get(d.person.id) ?? []), d]);
   return everyone(office)
     .filter((p) => employedIn(p, period.from, period.to) && p.salary > 0)
     .map((p) => {
@@ -203,7 +207,15 @@ export async function payroll(period: Period, office: string): Promise<PayLine[]
       const hourly = daily / 8;
       const basic = p.salary / 2;
       const lwop = unpaidLeaveDays(p.id, period.from, period.to);
-      const deductions = round2((a ? a.absent * daily + ((a.lateMinutes + a.undertimeMinutes) / 60) * hourly : 0) + lwop * daily);
+      // Company late rule: late days are charged by the hour; 3+ late days in a row are charged as full days (absent, then AWOL).
+      const runs = lateRuns(history.get(p.id) ?? []);
+      let lateHours = 0;
+      let lateRunDays = 0;
+      for (const d of a?.days ?? []) {
+        if (runs.has(d.date)) lateRunDays++;
+        else lateHours += lateHoursCharged(d);
+      }
+      const deductions = round2((a ? (a.absent + lateRunDays) * daily + (lateHours + a.undertimeMinutes / 60) * hourly : 0) + lwop * daily);
       let overtime = 0;
       let premiums = 0;
       for (const d of a?.days ?? []) {

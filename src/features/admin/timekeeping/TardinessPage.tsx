@@ -33,7 +33,7 @@ export function TardinessPage() {
 
   return (
     <>
-      <ContentHead title="Tardiness" subtitle={`Minutes late after each shift's grace period (8:00 AM shift, 10 min grace, in at 8:14 AM = 4 min late). ${late.length} late ${late.length === 1 ? "arrival" : "arrivals"}, ${duration(late.reduce((n, d) => n + d.lateMinutes, 0))} in total.`} />
+      <ContentHead title="Tardiness" subtitle={`Minutes late after each shift's grace period (8:30 AM shift, 5 min grace, in at 8:44 AM = 9 min late). ${late.length} late ${late.length === 1 ? "arrival" : "arrivals"}, ${duration(late.reduce((n, d) => n + d.lateMinutes, 0))} in total.`} />
       <Tabs
         value={tab}
         onChange={setTab}

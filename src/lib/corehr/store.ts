@@ -317,7 +317,7 @@ export function reconcile() {
       personal: { firstName, middleName: "", lastName, suffix: "", birthDate: profile?.birthDate ?? "", sex: "", civilStatus: "", nationality: "Filipino" },
       contact: { workEmail: e.email ?? "", personalEmail: "", mobile: e.phone ?? "", address: "", city: "", province: "", emergencyName: "", emergencyRelationship: "", emergencyPhone: "" },
       government: { sss: "", philhealth: "", pagibig: "", tin: "" },
-      job: { positionId: position?.id ?? "", unitId: dept?.id ?? "", employmentType: "Probationary", status: "Active", dateHired: today, monthlySalary: 0, workSchedule: "Mon–Fri, 8:00 AM – 5:00 PM" },
+      job: { positionId: position?.id ?? "", unitId: dept?.id ?? "", employmentType: "Probationary", status: "Active", dateHired: today, monthlySalary: 0, workSchedule: "Mon–Fri, 8:30 AM – 5:00 PM" },
       createdAt: new Date().toISOString(),
     };
     next = {

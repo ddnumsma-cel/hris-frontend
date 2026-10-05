@@ -246,6 +246,42 @@ export function overtimePay(minutes: number, dayType: DayType, date: string, mon
   return { hours, rate: dayType === "ordinary" ? rate.overtime : rate.firstEightHours, amount, nightAmount, formula };
 }
 
+// ---- Company late rule (payroll only; attendance screens don't show it) ----
+
+/**
+ * Late past the grace period is charged by the hour, rounded up and counted
+ * from the shift start: 8:30 shift, in at 8:40 → 1 hour; in at 9:45 → 2 hours.
+ */
+export function lateHoursCharged(d: Pick<DayResult, "lateMinutes" | "lateRawMinutes">) {
+  return d.lateMinutes > 0 ? Math.ceil(d.lateRawMinutes / 60) : 0;
+}
+
+/** Late this many working days in a row and every day of the run counts as absent. */
+export const LATE_RUN_ABSENT = 3;
+
+/**
+ * One employee's days (any order) → the dates charged as a full day instead of
+ * late hours. 3 working days late in a row: all 3 are absent. A 4th straight
+ * late day onward is AWOL. Rest days and holidays don't break the run; an
+ * on-time day, an absence or leave does.
+ */
+export function lateRuns(days: Pick<DayResult, "date" | "kind" | "status" | "lateMinutes">[]): Map<string, "absent" | "awol"> {
+  const out = new Map<string, "absent" | "awol">();
+  let run: string[] = [];
+  const close = () => {
+    if (run.length >= LATE_RUN_ABSENT) run.forEach((date, i) => out.set(date, i < LATE_RUN_ABSENT ? "absent" : "awol"));
+    run = [];
+  };
+  for (const d of [...days].sort((a, b) => a.date.localeCompare(b.date))) {
+    if (d.kind === "rest" || d.kind === "holiday" || d.kind === "unscheduled") continue;
+    if (d.kind === "work" && (d.status === "upcoming" || d.status === "not-in")) break;
+    if (d.kind === "work" && d.lateMinutes > 0 && (d.status === "done" || d.status === "working")) run.push(d.date);
+    else close();
+  }
+  close();
+  return out;
+}
+
 /** Late deduction: minutes past grace at the hourly rate. */
 export function tardinessDeduction(lateMinutes: number, monthlySalary: number) {
   return (lateMinutes / 60) * hourlyRate(monthlySalary);

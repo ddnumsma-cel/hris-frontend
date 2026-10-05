@@ -25,6 +25,8 @@ export interface TimekeepingState {
   fixRequests: FixRequest[];
   audit: TimeAudit[];
   seededRequests: boolean;
+  /** Shifts moved to the 8:30 AM start with a 5-minute grace (Peak and Busy season). */
+  seasonShifts?: boolean;
 }
 
 const KEY = "heyhr-timekeeping-v1";
@@ -34,11 +36,22 @@ export const HISTORY_DAYS = 40;
 export { HOLIDAYS };
 
 const SHIFTS: ShiftTemplate[] = [
-  { id: "sh-day", name: "Day shift", start: "08:00", end: "17:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 10, restDays: [0, 6], active: true },
-  { id: "sh-mid", name: "Mid shift", start: "09:00", end: "18:00", breakMinutes: 60, breakStart: "13:00", graceMinutes: 10, restDays: [0, 6], active: true },
-  { id: "sh-night", name: "Night IT support", start: "22:00", end: "06:00", breakMinutes: 60, breakStart: "02:00", graceMinutes: 10, restDays: [5, 6], active: true },
-  { id: "sh-weekend", name: "Weekend front desk", start: "08:00", end: "17:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 10, restDays: [1, 2], active: true },
+  { id: "sh-day", name: "Busy season", start: "08:30", end: "17:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0, 6], active: true },
+  { id: "sh-peak", name: "Peak season", start: "08:30", end: "17:30", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0, 6], active: true },
+  { id: "sh-mid", name: "Mid shift", start: "09:00", end: "18:00", breakMinutes: 60, breakStart: "13:00", graceMinutes: 5, restDays: [0, 6], active: true },
+  { id: "sh-night", name: "Night IT support", start: "22:00", end: "06:00", breakMinutes: 60, breakStart: "02:00", graceMinutes: 5, restDays: [5, 6], active: true },
+  { id: "sh-weekend", name: "Weekend front desk", start: "08:30", end: "17:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [1, 2], active: true },
 ];
+
+/** Saved shifts from before the 8:30 start: move the 8:00 ones to 8:30, add Peak season, and use the 5-minute grace. */
+function toSeasonShifts(shifts: ShiftTemplate[]): ShiftTemplate[] {
+  const moved = shifts.map((x) => {
+    const base = SHIFTS.find((d) => d.id === x.id);
+    const untouched = base && x.start === "08:00";
+    return { ...x, ...(untouched ? { name: base.name, start: base.start, end: base.end } : {}), graceMinutes: 5 };
+  });
+  return moved.some((x) => x.id === "sh-peak") ? moved : [...moved.slice(0, 1), SHIFTS[1]!, ...moved.slice(1)];
+}
 
 const DEVICES: Record<string, { biometric: string; face: string }> = {
   "Cebu HQ": { biometric: "Cebu HQ lobby, 8F", face: "Cebu HQ face kiosk" },
@@ -56,7 +69,7 @@ function seed(): TimekeepingState {
   }
   // Ferdz covers an extra Monday this week: six days in a row, which the roster should flag.
   const monday = addDays(today(), -((weekday(today()) + 6) % 7));
-  return { shifts: SHIFTS, usualShift, overrides: { [`MSMA-00845|${monday}`]: "sh-weekend" }, corrections: [], voided: {}, confirmed: {}, requests: [], fixRequests: [], audit: [], seededRequests: false };
+  return { shifts: SHIFTS, usualShift, overrides: { [`MSMA-00845|${monday}`]: "sh-weekend" }, corrections: [], voided: {}, confirmed: {}, requests: [], fixRequests: [], audit: [], seededRequests: false, seasonShifts: true };
 }
 
 function load(): TimekeepingState {
@@ -65,7 +78,10 @@ function load(): TimekeepingState {
     if (raw) {
       const s = JSON.parse(raw) as TimekeepingState;
       // Shifts saved before lunch times existed get the usual 4 hours after the start.
-      if (Array.isArray(s.shifts) && s.usualShift) return { ...s, shifts: s.shifts.map((x) => ({ ...x, breakStart: x.breakStart ?? defaultBreakStart(x) })), confirmed: s.confirmed ?? {}, fixRequests: s.fixRequests ?? [] };
+      if (Array.isArray(s.shifts) && s.usualShift) {
+        const shifts = s.shifts.map((x) => ({ ...x, breakStart: x.breakStart ?? defaultBreakStart(x) }));
+        return { ...s, shifts: s.seasonShifts ? shifts : toSeasonShifts(shifts), seasonShifts: true, confirmed: s.confirmed ?? {}, fixRequests: s.fixRequests ?? [] };
+      }
     }
   } catch {
     // Blocked or corrupt storage: start from the seed.
@@ -201,7 +217,7 @@ function devicePunchesFor(employeeId: string, date: string): Punch[] {
   if (employeeId === "MSMA-00733" && daysAgo === 4) punches[0] = { ...punches[0]!, source: "face", device: dev.face, match: 74 };
   if (employeeId === "MSMA-00611" && daysAgo === 7) punches[0] = { ...punches[0]!, source: "biometric", device: "Unregistered device", deviceRegistered: false, match: undefined };
   if (employeeId === "MSMA-00098" && daysAgo === 6) punches[0] = { ...punches[0]!, source: "biometric", device: DEVICES["Cebu HQ"]!.biometric, deviceBranch: "Cebu HQ", match: undefined };
-  if (employeeId === "MSMA-00482" && daysAgo === 1 && weekday(date) !== 0 && weekday(date) !== 6) punches[0] = mk("in", at(date, "08:14"));
+  if (employeeId === "MSMA-00482" && daysAgo === 1 && weekday(date) !== 0 && weekday(date) !== 6) punches[0] = mk("in", at(date, "08:44"));
 
   // Only what has happened by now.
   const now = Date.now();
