@@ -80,13 +80,13 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
 
   return (
     <article style={{ "--i": index } as React.CSSProperties} className={clsx("rise-in lift relative flex flex-col rounded-2xl border border-border bg-surface px-4 py-3.5 shadow-sm", e.status === "Separated" && "opacity-60")}>
-      <header className="flex items-start gap-2.5">
-        <Initials initials={e.initials} size="lg" />
+      <header className="flex h-[4.25rem] items-start gap-2.5">
+        <Initials initials={e.initials} size="md" />
         <div className="min-w-0 flex-1 pt-0.5">
-          <Link to={`/admin/people/${e.id}`} title={e.name} className="font-display line-clamp-2 text-[0.95rem] leading-tight font-semibold break-words hover:underline">
+          <Link to={`/admin/people/${e.id}`} title={e.name} className="font-display block truncate text-[0.95rem] leading-tight font-semibold hover:underline">
             {e.name}
           </Link>
-          <span className="mt-0.5 line-clamp-2 text-xs text-ink-2" title={e.positionTitle}>
+          <span className="mt-0.5 block truncate text-xs text-ink-2" title={e.positionTitle}>
             {e.positionTitle}
           </span>
           <span className="mt-1.5 inline-flex">
@@ -142,7 +142,9 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
         <Row icon={<PhoneIcon />}>{e.mobile || <span className="text-ink-3">No phone yet</span>}</Row>
       </div>
 
-      <div className="my-3 border-t border-border" />
+      <div className="mt-auto pt-3">
+        <div className="mb-3 border-t border-border" />
+      </div>
 
       <div className="flex items-center gap-2.5 text-xs">
         <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
