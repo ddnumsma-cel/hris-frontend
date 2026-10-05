@@ -31,7 +31,7 @@ export function DocumentChecklist({ employeeId, employeeName }: { employeeId: st
               <button
                 type="button"
                 onClick={() => setOpenId(d.id)}
-                className={clsx("flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors", d.id === openId ? "border-ink bg-surface-2" : "border-border hover:border-ink-3", na && "opacity-60")}
+                className={clsx("flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2 text-left transition-colors", d.id === openId ? "border-ink bg-surface-2" : "border-border hover:border-ink-3", na && "opacity-60")}
               >
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium">{d.type}</span>

@@ -49,25 +49,26 @@ function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }) {
     <Link
       to={`/admin/people/${e.id}`}
       style={{ "--i": index } as React.CSSProperties}
-      className={clsx("rise-in lift flex flex-col items-center rounded-2xl border border-border bg-surface px-4 pt-5 pb-4 text-center shadow-sm hover:border-ink-3", e.status === "Separated" && "opacity-60")}
+      className={clsx("rise-in lift flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 shadow-sm hover:border-ink-3", e.status === "Separated" && "opacity-60")}
     >
-      <Initials initials={e.initials} size="lg" />
-      <span className="font-display mt-3 w-full truncate text-[0.95rem] font-semibold">{e.name}</span>
-      <span className="mt-0.5 w-full truncate text-xs text-ink-2">{e.positionTitle}</span>
-      <span className="w-full truncate text-xs text-ink-3">
-        {e.departmentName} · {e.branchName}
-      </span>
-      <span className="mt-3 flex h-5 items-center">
-        <StatusText tone={statusTone[e.status]}>{e.status}</StatusText>
-        {e.employmentType === "Probationary" && e.status !== "Separated" && <span className="ml-2 text-xs text-ink-3">· Probationary</span>}
-      </span>
-      <span className="mt-3 w-full border-t border-border pt-3 text-left">
-        <span className="mb-1 flex items-center justify-between text-[0.7rem] text-ink-3">
-          <span>201 documents checked</span>
-          {e.documents.needsAction > 0 && <span className="font-medium text-warning">Needs attention</span>}
+      <span className="flex items-center gap-3">
+        <Initials initials={e.initials} size="md" />
+        <span className="min-w-0 flex-1">
+          <span className="font-display block truncate text-[0.95rem] font-semibold">{e.name}</span>
+          <span className="block truncate text-xs text-ink-2">{e.positionTitle}</span>
+          <span className="block truncate text-xs text-ink-3">
+            {e.departmentName} · {e.branchName}
+          </span>
         </span>
-        <DocProgress e={e} wide />
       </span>
+      <span className="flex items-center justify-between gap-2 text-xs">
+        <span className="flex items-center">
+          <StatusText tone={statusTone[e.status]}>{e.status}</StatusText>
+          {e.employmentType === "Probationary" && e.status !== "Separated" && <span className="ml-1.5 text-ink-3">· Probationary</span>}
+        </span>
+        {e.documents.needsAction > 0 && <span className="font-medium text-warning">201 needs attention</span>}
+      </span>
+      <DocProgress e={e} wide />
     </Link>
   );
 }
@@ -196,7 +197,7 @@ export function PeoplePage() {
       {employeesQuery.isLoading ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 8 }, (_, i) => (
-            <Skeleton key={i} className="h-60 w-full" />
+            <Skeleton key={i} className="h-32 w-full" />
           ))}
         </div>
       ) : rows.length === 0 ? (
@@ -226,7 +227,7 @@ export function PeoplePage() {
               <tbody>
                 {shown.map((e) => (
                   <tr key={e.id} onClick={() => navigate(`/admin/people/${e.id}`)} className={clsx("cursor-pointer border-b border-border last:border-0 hover:bg-surface-2/60", e.status === "Separated" && "opacity-60")}>
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2">
                       <span className="flex items-center gap-3">
                         <Initials initials={e.initials} size="sm" />
                         <Link to={`/admin/people/${e.id}`} onClick={(ev) => ev.stopPropagation()} className="font-medium hover:underline">
@@ -234,17 +235,17 @@ export function PeoplePage() {
                         </Link>
                       </span>
                     </td>
-                    <td className="px-4 py-2.5">{e.positionTitle}</td>
-                    <td className="px-4 py-2.5 text-ink-2">{e.departmentName}</td>
-                    <td className="px-4 py-2.5 text-ink-2">{e.branchName}</td>
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2">{e.positionTitle}</td>
+                    <td className="px-4 py-2 text-ink-2">{e.departmentName}</td>
+                    <td className="px-4 py-2 text-ink-2">{e.branchName}</td>
+                    <td className="px-4 py-2">
                       <StatusText tone={statusTone[e.status]}>{e.status}</StatusText>
                     </td>
-                    <td className="px-4 py-2.5">
-                      <span className="block">{formatDate(e.dateHired)}</span>
-                      <span className="block text-xs text-ink-3">{tenure(e.dateHired)}</span>
+                    <td className="px-4 py-2">
+                      {formatDate(e.dateHired)}
+                      <span className="text-xs text-ink-3"> · {tenure(e.dateHired)}</span>
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2 whitespace-nowrap">
                       <DocProgress e={e} />
                     </td>
                   </tr>
