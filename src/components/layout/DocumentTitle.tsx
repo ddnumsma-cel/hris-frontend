@@ -42,6 +42,12 @@ const titles: Record<string, string> = {
   "/admin/leave/requests": "Leave requests",
   "/admin/leave/balances": "Leave balances",
   "/admin/leave/types": "Leave types",
+  "/admin/reports/dashboard": "Dashboard",
+  "/admin/reports/hr": "HR reports",
+  "/admin/reports/attendance": "Attendance reports",
+  "/admin/reports/payroll": "Payroll reports",
+  "/admin/reports/statutory": "Government reports",
+  "/admin/reports/management": "Management reports",
   "/admin/documents": "Documents",
 };
 

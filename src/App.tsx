@@ -32,6 +32,12 @@ const LeaveOverviewPage = lazy(() => import("@/features/admin/leave/LeaveOvervie
 const LeaveRequestsPage = lazy(() => import("@/features/admin/leave/LeaveRequestsPage").then((m) => ({ default: m.LeaveRequestsPage })));
 const BalancesPage = lazy(() => import("@/features/admin/leave/BalancesPage").then((m) => ({ default: m.BalancesPage })));
 const LeaveTypesPage = lazy(() => import("@/features/admin/leave/LeaveTypesPage").then((m) => ({ default: m.LeaveTypesPage })));
+const ReportsDashboard = lazy(() => import("@/features/admin/reports/ReportsDashboard").then((m) => ({ default: m.ReportsDashboard })));
+const HrReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.HrReportsPage })));
+const AttendanceReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.AttendanceReportsPage })));
+const PayrollReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.PayrollReportsPage })));
+const StatutoryReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.StatutoryReportsPage })));
+const ManagementReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.ManagementReportsPage })));
 const TardinessPage = lazy(() => import("@/features/admin/timekeeping/TardinessPage").then((m) => ({ default: m.TardinessPage })));
 const CompanyPage = lazy(() => import("@/features/admin/corehr/CompanyPage").then((m) => ({ default: m.CompanyPage })));
 const DocumentsPage = lazy(() => import("@/features/admin/corehr/DocumentsPage").then((m) => ({ default: m.DocumentsPage })));
@@ -175,6 +181,13 @@ function App() {
               <Route path="leave/requests" element={<LeaveRequestsPage />} />
               <Route path="leave/balances" element={<BalancesPage />} />
               <Route path="leave/types" element={<LeaveTypesPage />} />
+              <Route path="reports" element={<Navigate to="/admin/reports/dashboard" replace />} />
+              <Route path="reports/dashboard" element={<ReportsDashboard />} />
+              <Route path="reports/hr" element={<HrReportsPage />} />
+              <Route path="reports/attendance" element={<AttendanceReportsPage />} />
+              <Route path="reports/payroll" element={<PayrollReportsPage />} />
+              <Route path="reports/statutory" element={<StatutoryReportsPage />} />
+              <Route path="reports/management" element={<ManagementReportsPage />} />
               <Route path="organization" element={<Navigate to="/admin/company" replace />} />
               <Route path="positions" element={<Navigate to="/admin/company" replace />} />
               <Route path="documents" element={<DocumentsPage />} />

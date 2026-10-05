@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
 import { SideNav } from "@/components/layout/SideNav";
-import { BuildingIcon, CalendarIcon, ClockIcon, FolderIcon, GridIcon, UsersIcon } from "@/components/icons";
+import { BarChartIcon, BuildingIcon, CalendarIcon, ClockIcon, FolderIcon, GridIcon, UsersIcon } from "@/components/icons";
 
 export function AdminLayout() {
   return (
@@ -51,6 +51,24 @@ export function AdminLayout() {
                     { label: "Requests", to: "/admin/leave/requests" },
                     { label: "Balances", to: "/admin/leave/balances" },
                     { label: "Leave types", to: "/admin/leave/types" },
+                  ],
+                },
+              ],
+            },
+            {
+              title: "Insights",
+              items: [
+                {
+                  label: "Reports & Analytics",
+                  to: "/admin/reports",
+                  icon: <BarChartIcon />,
+                  children: [
+                    { label: "Dashboard", to: "/admin/reports/dashboard" },
+                    { label: "HR reports", to: "/admin/reports/hr" },
+                    { label: "Attendance", to: "/admin/reports/attendance" },
+                    { label: "Payroll", to: "/admin/reports/payroll" },
+                    { label: "Government", to: "/admin/reports/statutory" },
+                    { label: "Management", to: "/admin/reports/management" },
                   ],
                 },
               ],

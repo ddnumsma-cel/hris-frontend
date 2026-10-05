@@ -48,12 +48,9 @@ function NavItemLink({ item, onNavigate }: { item: SideNavItem; onNavigate?: () 
   );
 }
 
-function NavItemWithChildren({ item, onNavigate }: { item: SideNavItem; onNavigate?: () => void }) {
+function NavItemWithChildren({ item, open, onToggle, onNavigate }: { item: SideNavItem; open: boolean; onToggle: () => void; onNavigate?: () => void }) {
   const { pathname } = useLocation();
   const childActive = isItemActive(item, pathname);
-  const [expanded, setExpanded] = useState(childActive);
-  // Always show the list while one of its pages is open, e.g. after following a link.
-  const open = expanded || childActive;
   const listId = `subnav-${item.to.replace(/\W+/g, "-")}`;
 
   return (
@@ -63,7 +60,7 @@ function NavItemWithChildren({ item, onNavigate }: { item: SideNavItem; onNaviga
         aria-expanded={open}
         aria-controls={listId}
         data-child-active={childActive}
-        onClick={() => setExpanded(!open)}
+        onClick={onToggle}
         className="sidebar-item"
       >
         <span className="sidebar-icon">{item.icon}</span>
@@ -95,7 +92,17 @@ function NavItemWithChildren({ item, onNavigate }: { item: SideNavItem; onNaviga
   );
 }
 
+/** Only one dropdown is open at a time. Opening one closes the others, even one whose page is showing. */
 function NavGroupList({ groups, onNavigate }: { groups: SideNavGroup[]; onNavigate?: () => void }) {
+  const { pathname } = useLocation();
+  const activeParent = groups.flatMap((g) => g.items).find((i) => i.children && isItemActive(i, pathname))?.to ?? null;
+  const [openTo, setOpenTo] = useState(activeParent);
+  // Moving to a page inside another dropdown opens that one instead.
+  const [seenParent, setSeenParent] = useState(activeParent);
+  if (seenParent !== activeParent) {
+    setSeenParent(activeParent);
+    if (activeParent) setOpenTo(activeParent);
+  }
   return (
     <>
       {groups.map((group) => (
@@ -105,7 +112,7 @@ function NavGroupList({ groups, onNavigate }: { groups: SideNavGroup[]; onNaviga
             {group.items.map((item) => (
               <li key={item.label}>
                 {item.children ? (
-                  <NavItemWithChildren item={item} onNavigate={onNavigate} />
+                  <NavItemWithChildren item={item} open={openTo === item.to} onToggle={() => setOpenTo(openTo === item.to ? null : item.to)} onNavigate={onNavigate} />
                 ) : (
                   <NavItemLink item={item} onNavigate={onNavigate} />
                 )}
