@@ -1,28 +1,26 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import clsx from "clsx";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/ToastContext";
-import { adjustBalance, fmtDays, listAdjustments, listBalances, listTypes, type BalanceRow } from "@/lib/leave/api";
-import type { Balance, LeaveType } from "@/lib/leave/types";
+import { adjustCredits, fmtCredits, listAdjustments, listCredits, type CreditRow } from "@/lib/leave/api";
+import { CREDITS_ADJUSTMENT, LEAVE_CREDITS_PER_YEAR } from "@/lib/leave/store";
 import { useOfficeFilter } from "../OfficeFilterContext";
 import { inputClass, useActor } from "../corehr/format";
-import { Drawer, ErrorNote, Field, LoadError } from "../corehr/ui";
-import { Name, SearchBox, SimpleTable, Toolbar, type Col } from "../timekeeping/common";
+import { Drawer, ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
+import { Choice, Name, SearchBox, SimpleTable, Toolbar, type Col } from "../timekeeping/common";
 import { shortDate } from "../timekeeping/format";
 import { FileLeaveDialog } from "./dialogs";
-import { leaveKeys, num, useLeaveRefresh } from "./format";
+import { dateRange, leaveKeys, num, useLeaveRefresh } from "./format";
 
-/** The leave types shown as table columns; the rest are in the drawer. */
-const COLUMNS = ["vl", "sl", "el", "bl"];
-
-function Cell({ b }: { b?: Balance }) {
-  if (!b) return <span className="text-ink-3">—</span>;
-  const total = b.earned + b.carriedOver + b.adjusted;
+/** One dot per leave: filled = used, half-tone = waiting, outline = still free. */
+function Dots({ c }: { c: CreditRow["credits"] }) {
   return (
-    <span className="inline-flex items-baseline gap-1">
-      <span className={b.available <= 0 ? "font-semibold text-critical" : "font-semibold"}>{num(b.available)}</span>
-      <span className="text-xs text-ink-3">of {num(total)}</span>
+    <span className="flex gap-1" aria-hidden="true">
+      {Array.from({ length: c.total }, (_, i) => (
+        <span key={i} className={clsx("h-2.5 w-2.5 rounded-full", i < c.used ? "bg-brand" : i < c.used + c.pending ? "bg-brand/35" : "border border-ink-3/60")} />
+      ))}
     </span>
   );
 }
@@ -36,24 +34,22 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
   );
 }
 
-function BalanceDrawer({ row, types, onClose, onFile }: { row: BalanceRow; types: LeaveType[]; onClose: () => void; onFile: () => void }) {
+function CreditsDrawer({ row, onClose, onFile }: { row: CreditRow; onClose: () => void; onFile: () => void }) {
   const toast = useToast();
   const actor = useActor();
   const refresh = useLeaveRefresh();
-  const withBalance = types.filter((t) => t.active && t.earning.kind !== "unlimited");
-  const [typeId, setTypeId] = useState(withBalance[0]?.id ?? "");
-  const [form, setForm] = useState({ typeId: "vl", days: "", reason: "" });
+  const [form, setForm] = useState({ leaves: "", reason: "" });
   const adjQuery = useQuery({ queryKey: leaveKeys.adjustments(row.person.id), queryFn: () => listAdjustments(row.person.id) });
   const adjust = useMutation({
-    mutationFn: () => adjustBalance({ employeeId: row.person.id, typeId: form.typeId, days: Number(form.days), reason: form.reason }, actor),
+    mutationFn: () => adjustCredits({ employeeId: row.person.id, leaves: Number(form.leaves), reason: form.reason }, actor),
     onSuccess: () => {
       refresh();
-      toast.show("Balance updated.");
-      setForm((f) => ({ ...f, days: "", reason: "" }));
+      toast.show("Leave credits updated.");
+      setForm({ leaves: "", reason: "" });
     },
   });
-  const b = row.balances.find((x) => x.typeId === typeId);
-  const type = types.find((t) => t.id === typeId);
+  const c = row.credits;
+  const changes = (adjQuery.data ?? []).filter((a) => a.typeId === CREDITS_ADJUSTMENT);
 
   return (
     <Drawer
@@ -63,6 +59,7 @@ function BalanceDrawer({ row, types, onClose, onFile }: { row: BalanceRow; types
       subtitle={`${row.person.departmentName} · ${row.person.branch}`}
       footer={
         <Button
+          disabled={c.available < 1}
           onClick={() => {
             onClose();
             onFile();
@@ -73,44 +70,53 @@ function BalanceDrawer({ row, types, onClose, onFile }: { row: BalanceRow; types
       }
     >
       <div className="flex flex-col gap-5">
-        <div>
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {withBalance.map((t) => (
-              <button key={t.id} type="button" onClick={() => setTypeId(t.id)} aria-pressed={typeId === t.id} className={typeId === t.id ? "h-7 rounded-full bg-ink px-2.5 text-xs font-medium text-surface" : "h-7 rounded-full border border-border px-2.5 text-xs font-medium text-ink-2 hover:border-ink-3"}>
-                {t.code}
-              </button>
-            ))}
+        <div className="rounded-xl border border-border p-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <div className="text-sm font-semibold">Leave credits · {new Date().getFullYear()}</div>
+            <Dots c={c} />
           </div>
-          {b && type && (
-            <div className="rounded-xl border border-border p-3">
-              <div className="mb-1 text-sm font-semibold">{type.name}</div>
-              {!b.eligible && <p className="mb-1 text-xs text-ink-3">{b.eligibilityNote}</p>}
-              <Row label={type.earning.kind === "monthly" ? `Earned so far (of ${b.yearTotal} this year)` : "Given this year"} value={num(b.earned)} />
-              {type.carryOverMax > 0 && <Row label="Carried over from last year" value={num(b.carriedOver)} />}
-              <Row label="Changed by HR" value={b.adjusted > 0 ? `+${num(b.adjusted)}` : num(b.adjusted)} />
-              <Row label="Used" value={`− ${num(b.used)}`} />
-              <Row label="Waiting for approval" value={`− ${num(b.pending)}`} />
-              <div className="mt-1 border-t border-border pt-1">
-                <Row label="Available to file" value={fmtDays(b.available)} strong />
-              </div>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="font-display text-3xl font-semibold">{num(c.available)}</span>
+            <span className="text-sm text-ink-2">of {num(c.total)} left</span>
+          </div>
+          <div className="mt-3 border-t border-border pt-2">
+            <Row label="Given this year" value={String(LEAVE_CREDITS_PER_YEAR)} />
+            <Row label="Changed by HR" value={c.adjusted > 0 ? `+${c.adjusted}` : String(c.adjusted)} />
+            <Row label="Used" value={`− ${c.used}`} />
+            <Row label="Waiting for approval" value={`− ${c.pending}`} />
+            <div className="mt-1 border-t border-border pt-1">
+              <Row label="Left to file" value={fmtCredits(c.available)} strong />
             </div>
+          </div>
+          <p className="mt-2 text-xs text-ink-3">Every paid leave uses 1, however many days it covers. Leave without pay doesn't count.</p>
+        </div>
+
+        <div>
+          <h3 className="mb-2 text-sm font-semibold">Leaves this year</h3>
+          {row.leaves.length === 0 ? (
+            <p className="text-sm text-ink-3">No leave filed yet this year.</p>
+          ) : (
+            <ul className="divide-y divide-border rounded-lg border border-border text-sm">
+              {row.leaves.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="min-w-0">
+                    <span className="block font-medium">{r.type.name}</span>
+                    <span className="block text-xs text-ink-3">
+                      {dateRange(r.start, r.end)} · {num(r.days)} {r.days === 1 ? "day" : "days"}
+                    </span>
+                  </span>
+                  <Pill tone={r.status === "approved" ? "good" : "warn"}>{r.status === "approved" ? "Used" : "Waiting"}</Pill>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
 
         <div>
-          <h3 className="mb-2 text-sm font-semibold">Add or remove days</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <Field id="ad-type" label="Leave type">
-              <select id="ad-type" className={inputClass} value={form.typeId} onChange={(e) => setForm({ ...form, typeId: e.target.value })}>
-                {withBalance.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field id="ad-days" label="Days" hint="Use a minus to remove, e.g. -1">
-              <input id="ad-days" type="number" step={0.5} className={inputClass} value={form.days} onChange={(e) => setForm({ ...form, days: e.target.value })} />
+          <h3 className="mb-2 text-sm font-semibold">Add or remove leaves</h3>
+          <div className="grid grid-cols-3 gap-3">
+            <Field id="ad-leaves" label="Leaves" hint="e.g. 1 or -1">
+              <input id="ad-leaves" type="number" step={1} className={inputClass} value={form.leaves} onChange={(e) => setForm({ ...form, leaves: e.target.value })} />
             </Field>
             <Field id="ad-why" label="Reason" required className="col-span-2">
               <input id="ad-why" className={inputClass} placeholder="e.g. Worked during the company outing" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
@@ -126,16 +132,16 @@ function BalanceDrawer({ row, types, onClose, onFile }: { row: BalanceRow; types
 
         <div>
           <h3 className="mb-1 text-sm font-semibold">Past changes</h3>
-          {(adjQuery.data ?? []).length === 0 ? (
+          {changes.length === 0 ? (
             <p className="text-sm text-ink-3">No changes by HR yet.</p>
           ) : (
             <ul className="divide-y divide-border text-sm">
-              {(adjQuery.data ?? []).slice(0, 4).map((a) => (
+              {changes.slice(0, 4).map((a) => (
                 <li key={a.id} className="flex justify-between gap-3 py-1.5">
                   <span>
                     <span className="font-medium">
                       {a.days > 0 ? "+" : ""}
-                      {num(a.days)} {types.find((t) => t.id === a.typeId)?.code}
+                      {fmtCredits(a.days)}
                     </span>{" "}
                     <span className="text-ink-2">{a.reason}</span>
                   </span>
@@ -154,25 +160,38 @@ function BalanceDrawer({ row, types, onClose, onFile }: { row: BalanceRow; types
 
 export function BalancesPage() {
   const { office } = useOfficeFilter();
-  const balancesQuery = useQuery({ queryKey: leaveKeys.balances, queryFn: listBalances });
-  const typesQuery = useQuery({ queryKey: leaveKeys.types, queryFn: listTypes });
+  const creditsQuery = useQuery({ queryKey: leaveKeys.balances, queryFn: listCredits });
   const [query, setQuery] = useState("");
+  const [show, setShow] = useState("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [filingFor, setFilingFor] = useState<string | null>(null);
 
-  if (balancesQuery.isError || typesQuery.isError) return <LoadError onRetry={() => (balancesQuery.refetch(), typesQuery.refetch())} />;
+  if (creditsQuery.isError) return <LoadError onRetry={() => creditsQuery.refetch()} />;
 
-  const types = typesQuery.data ?? [];
   const q = query.trim().toLowerCase();
-  const rows = (balancesQuery.data ?? []).filter((r) => (office === "All offices" || r.person.branch === office) && (!q || r.person.name.toLowerCase().includes(q)));
-  const open = rows.find((r) => r.person.id === openId) ?? (balancesQuery.data ?? []).find((r) => r.person.id === openId);
-  const shown = COLUMNS.map((id) => types.find((t) => t.id === id)).filter((t): t is LeaveType => !!t?.active);
+  const all = creditsQuery.data ?? [];
+  const rows = all
+    .filter((r) => (office === "All offices" || r.person.branch === office) && (!q || r.person.name.toLowerCase().includes(q)))
+    .filter((r) => show === "all" || (show === "none" ? r.credits.available === 0 : r.credits.available > 0 && r.credits.available <= 2));
+  const open = all.find((r) => r.person.id === openId);
 
-  const cols: Col<BalanceRow>[] = [
+  const cols: Col<CreditRow>[] = [
     { header: "Employee", cell: (r) => <Name name={r.person.name} sub={r.person.departmentName} /> },
-    ...shown.map((t) => ({ header: t.name, cell: (r: BalanceRow) => <Cell b={r.balances.find((b) => b.typeId === t.id)} /> })),
-    { header: "Used this year", cell: (r) => num(r.balances.reduce((s, b) => s + b.used, 0)) },
-    { header: "Waiting", cell: (r) => num(r.balances.reduce((s, b) => s + b.pending, 0)) },
+    {
+      header: "Leaves left",
+      cell: (r) => (
+        <span className="flex items-center gap-3">
+          <span className="inline-flex w-14 items-baseline gap-1">
+            <span className={r.credits.available === 0 ? "font-semibold text-critical" : "font-semibold"}>{r.credits.available}</span>
+            <span className="text-xs text-ink-3">of {r.credits.total}</span>
+          </span>
+          <Dots c={r.credits} />
+        </span>
+      ),
+    },
+    { header: "Used", cell: (r) => r.credits.used },
+    { header: "Waiting", cell: (r) => r.credits.pending },
+    { header: "Last leave", cell: (r) => (r.leaves[0] ? <Name name={r.leaves[0].type.name} sub={dateRange(r.leaves[0].start, r.leaves[0].end)} /> : <span className="text-ink-3">None yet</span>) },
     {
       header: "",
       align: "right",
@@ -186,12 +205,22 @@ export function BalancesPage() {
 
   return (
     <>
-      <ContentHead title="Leave balances" subtitle="Days each employee can still file this year. Vacation and sick leave are earned 1.25 days a month." />
+      <ContentHead title="Leave balances" subtitle={`Everyone gets ${LEAVE_CREDITS_PER_YEAR} leaves a year, all given on January 1. Any paid leave uses 1, however many days it covers.`} />
       <Toolbar>
         <SearchBox value={query} onChange={setQuery} />
+        <Choice
+          label="Show"
+          value={show}
+          onChange={setShow}
+          options={[
+            { value: "all", label: "Everyone" },
+            { value: "low", label: "1–2 leaves left" },
+            { value: "none", label: "No leaves left" },
+          ]}
+        />
       </Toolbar>
-      <SimpleTable rows={rows} rowKey={(r) => r.person.id} cols={cols} loading={balancesQuery.isLoading} empty="No employees match." />
-      {open && <BalanceDrawer key={open.person.id} row={open} types={types} onClose={() => setOpenId(null)} onFile={() => setFilingFor(open.person.id)} />}
+      <SimpleTable rows={rows} rowKey={(r) => r.person.id} cols={cols} loading={creditsQuery.isLoading} empty="No employees match." />
+      {open && <CreditsDrawer key={open.person.id} row={open} onClose={() => setOpenId(null)} onFile={() => setFilingFor(open.person.id)} />}
       {filingFor && <FileLeaveDialog employeeId={filingFor} onClose={() => setFilingFor(null)} />}
     </>
   );

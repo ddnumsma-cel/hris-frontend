@@ -12,7 +12,7 @@ import { isoToday } from "@/lib/leave/api";
 import { inputClass } from "../admin/corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../admin/corehr/ui";
 import { SimpleTable, Tabs, type Col } from "../admin/timekeeping/common";
-import { clock, dayStatus, duration, hhmm, shortDate } from "../admin/timekeeping/format";
+import { clock, dayStatus, duration, hhmm, lunchText, shortDate } from "../admin/timekeeping/format";
 
 const KEY = ["ess", "attendance"] as const;
 
@@ -155,7 +155,20 @@ export function EmployeeAttendance() {
     { header: "Date", cell: (d) => <span className="font-medium">{shortDate(d.date)}</span> },
     { header: "Shift", cell: (d) => <span className="text-ink-2">{d.shift && d.kind === "work" ? `${hhmm(d.shift.start)} – ${hhmm(d.shift.end)}` : d.kind === "leave" ? "On leave" : d.holiday ? d.holiday.name : "Day off"}</span> },
     { header: "Time in", cell: (d) => (d.timeIn ? clock(d.timeIn.at) : "—") },
+    {
+      header: "Lunch break",
+      cell: (d) =>
+        d.lunchOut !== undefined ? (
+          <span className="inline-flex items-center gap-1.5">
+            {lunchText(d)}
+            <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[0.65rem] font-semibold text-ink-3">Auto</span>
+          </span>
+        ) : (
+          "—"
+        ),
+    },
     { header: "Time out", cell: (d) => (d.timeOut ? clock(d.timeOut.at) : "—") },
+    { header: "Worked", cell: (d) => (d.workedMinutes ? duration(d.workedMinutes) : "—") },
     {
       header: "Status",
       cell: (d) => {

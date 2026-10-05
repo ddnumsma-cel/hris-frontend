@@ -41,6 +41,7 @@ import {
   Network,
   Pencil,
   Plus,
+  Receipt,
   Search,
   SearchX,
   Settings,
@@ -281,4 +282,8 @@ export function PhoneIcon(props: IconProps) {
 
 export function ListIcon(props: IconProps) {
   return <List strokeWidth={strokeWidth} {...props} />;
+}
+
+export function ReceiptIcon(props: IconProps) {
+  return <Receipt strokeWidth={strokeWidth} {...props} />;
 }

@@ -4,8 +4,9 @@
 
 import { fullName, state as core } from "../corehr/store";
 import { cancelRequest, fileLeave, type FileInput } from "../leave/api";
-import { balanceFor, leave } from "../leave/store";
+import { balanceFor, creditsFor, leave, type Credits } from "../leave/store";
 import { currentEmployee } from "../mockData";
+import { fileClaim, listMyClaims, type ClaimInput } from "../reimbursements/api";
 import { payroll, periodsFor, type PayLine, type Period } from "../reports/api";
 import { addDays } from "../timekeeping/compute";
 import { fileFix, fileRequest, listDays, type DayRow } from "../timekeeping/api";
@@ -30,6 +31,7 @@ export const myName = () => {
 
 export interface MyLeave {
   types: LeaveType[];
+  credits: Credits;
   balances: (Balance & { type: LeaveType })[];
   requests: (LeaveRequest & { type: LeaveType })[];
 }
@@ -44,7 +46,7 @@ export function myLeave(): Promise<MyLeave> {
       return type ? [{ ...r, type }] : [];
     })
     .sort((a, b) => b.filedAt.localeCompare(a.filedAt));
-  return respond({ types, balances, requests });
+  return respond({ types, credits: creditsFor(myId()), balances, requests });
 }
 
 export const fileMyLeave = (input: Omit<FileInput, "employeeId">) => fileLeave({ ...input, employeeId: myId() }, myName());
@@ -100,3 +102,8 @@ export async function updateMyContact(patch: Pick<CoreEmployee["contact"], "mobi
   if (!e) throw new Error("Your employee record wasn't found. Please contact HR.");
   return updateEmployeeSection(myId(), "contact", { ...e.contact, ...patch }, `${myName()} (self-service)`);
 }
+
+// ---- Reimbursements ----
+
+export const myClaims = () => listMyClaims(myId());
+export const fileMyClaim = (input: Omit<ClaimInput, "employeeId">) => fileClaim({ ...input, employeeId: myId() });

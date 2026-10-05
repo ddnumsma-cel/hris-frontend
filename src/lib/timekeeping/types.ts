@@ -10,6 +10,8 @@ export interface ShiftTemplate {
   /** Earlier than or equal to start means the shift ends the next day. */
   end: string;
   breakMinutes: number;
+  /** When the unpaid lunch break starts, "12:00". Lunch out and lunch in are recorded automatically from it. */
+  breakStart: string;
   /** Minutes after the start before someone counts as late. */
   graceMinutes: number;
   /** Days of the week off, 0 = Sunday. */
@@ -74,6 +76,11 @@ export interface DayResult {
   timeOut?: Punch;
   /** Every punch for the day, set-aside ones included. */
   punches: Punch[];
+  /** Automatic lunch out / lunch in (epoch ms), when the person was at work for them. */
+  lunchOut?: number;
+  lunchIn?: number;
+  /** Lunch minutes taken out of the worked time. */
+  lunchMinutes: number;
   workedMinutes: number;
   /** Minutes late past the grace period (what gets deducted). */
   lateMinutes: number;

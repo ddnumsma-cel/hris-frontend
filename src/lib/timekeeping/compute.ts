@@ -49,6 +49,20 @@ export function shiftHours(s: ShiftTemplate) {
 
 const overlap = (a0: number, a1: number, b0: number, b1: number) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
 
+/** Lunch starts halfway through a 9-hour shift unless HR set it: 8 AM shift → 12 PM. */
+export function defaultBreakStart(s: Pick<ShiftTemplate, "start">) {
+  const [h, m] = s.start.split(":").map(Number);
+  return `${String((h! + 4) % 24).padStart(2, "0")}:${String(m!).padStart(2, "0")}`;
+}
+
+/** Lunch break as epoch ms for a shift that starts at `shiftStart`. */
+export function lunchWindow(date: string, shift: ShiftTemplate, shiftStart: number): { start: number; end: number } | undefined {
+  if (shift.breakMinutes <= 0) return undefined;
+  let start = at(date, shift.breakStart || defaultBreakStart(shift));
+  if (start < shiftStart) start += 24 * HOUR;
+  return { start, end: start + shift.breakMinutes * MINUTE };
+}
+
 /** Minutes of [start, end] that fall between 10 PM and 6 AM. */
 export function nightMinutesBetween(start: number, end: number) {
   let total = 0;
@@ -109,11 +123,15 @@ export function computeDay(input: DayInput): DayResult {
 
   let shiftStart: number | undefined;
   let shiftEnd: number | undefined;
+  let lunch: { start: number; end: number } | undefined;
   if (shift) {
     shiftStart = at(input.date, shift.start);
     shiftEnd = at(input.date, shift.end);
     if (shiftEnd <= shiftStart) shiftEnd += 24 * HOUR;
+    lunch = lunchWindow(input.date, shift, shiftStart);
   }
+  /** How much of [a, b] falls in the lunch break, in ms. */
+  const lunchWithin = (a: number, b: number) => (lunch ? overlap(a, b, lunch.start, lunch.end) : 0);
 
   let status: DayStatus;
   let lateRaw = 0;
@@ -123,20 +141,27 @@ export function computeDay(input: DayInput): DayResult {
   let worked = 0;
   let night = 0;
 
+  let lunchMinutes = 0;
   if (tIn !== undefined && tOut !== undefined) {
-    const span = tOut - tIn;
-    const breakMs = shift && span >= 5 * HOUR ? shift.breakMinutes * MINUTE : 0;
-    worked = Math.max(0, Math.round((span - breakMs) / MINUTE));
-    night = nightMinutesBetween(tIn, tOut);
+    // Lunch is unpaid: only the part of it they were clocked in for comes off.
+    const lunchMs = lunchWithin(tIn, tOut);
+    lunchMinutes = Math.round(lunchMs / MINUTE);
+    worked = Math.max(0, Math.round((tOut - tIn - lunchMs) / MINUTE));
+    night = nightMinutesBetween(tIn, tOut) - (lunch && lunchMs ? nightMinutesBetween(Math.max(tIn, lunch.start), Math.min(tOut, lunch.end)) : 0);
   }
+  // Automatic lunch out / in: recorded when they were already in at lunch time.
+  const presentUntil = tIn === undefined ? undefined : (tOut ?? now);
+  const lunchOut = lunch && tIn !== undefined && presentUntil !== undefined && tIn <= lunch.start && presentUntil > lunch.start ? lunch.start : undefined;
+  const lunchBack = lunchOut !== undefined && presentUntil! >= lunch!.end ? lunch!.end : undefined;
 
   if (kind === "work" && shift && shiftStart !== undefined && shiftEnd !== undefined) {
     if (tIn !== undefined) {
-      lateRaw = Math.max(0, Math.round((tIn - shiftStart) / MINUTE));
+      // Arriving after lunch: the lunch hour isn't counted as late.
+      lateRaw = Math.max(0, Math.round((tIn - shiftStart - lunchWithin(shiftStart, tIn)) / MINUTE));
       late = Math.max(0, lateRaw - shift.graceMinutes);
     }
     if (tOut !== undefined) {
-      undertime = Math.max(0, Math.round((shiftEnd - tOut) / MINUTE));
+      undertime = Math.max(0, Math.round((shiftEnd - tOut - lunchWithin(tOut, shiftEnd)) / MINUTE));
       extra = Math.max(0, Math.round((tOut - shiftEnd) / MINUTE));
     }
     if (tIn === undefined) status = now < shiftStart ? "upcoming" : now < shiftEnd ? "not-in" : "absent";
@@ -169,6 +194,9 @@ export function computeDay(input: DayInput): DayResult {
     timeIn,
     timeOut,
     punches,
+    lunchOut,
+    lunchIn: lunchBack,
+    lunchMinutes,
     workedMinutes: worked,
     lateMinutes: late,
     lateRawMinutes: lateRaw,
@@ -250,6 +278,7 @@ export function describeDay(d: DayResult) {
   if (d.shiftStart !== undefined) parts.push(`Scheduled ${t(d.shiftStart)} to ${t(d.shiftEnd)}`);
   if (d.timeIn) parts.push(`in ${t(new Date(d.timeIn.at).getTime())}${d.lateMinutes ? ` (${dur(d.lateMinutes)} late)` : ""}`);
   else parts.push(d.status === "upcoming" ? "not started yet" : "no time-in");
+  if (d.lunchOut !== undefined) parts.push(`lunch ${t(d.lunchOut)}${d.lunchIn !== undefined ? ` to ${t(d.lunchIn)}` : ""}`);
   if (d.timeOut) parts.push(`out ${t(new Date(d.timeOut.at).getTime())}${d.undertimeMinutes ? ` (${dur(d.undertimeMinutes)} early)` : d.extraMinutes ? ` (${dur(d.extraMinutes)} extra)` : ""}`);
   else if (d.timeIn) parts.push(d.status === "working" ? "still working" : "no time-out");
   return parts.join(", ");

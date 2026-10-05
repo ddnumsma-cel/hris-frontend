@@ -9,14 +9,14 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastContext";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { holidayOn } from "@/lib/holidays";
-import { addDays, decideRequest, isoToday, listBalances, listRequests, listTypes, type RequestRow } from "@/lib/leave/api";
+import { addDays, decideRequest, isoToday, listCredits, listRequests, type RequestRow } from "@/lib/leave/api";
+import { LEAVE_CREDITS_PER_YEAR } from "@/lib/leave/store";
 import { useOfficeFilter } from "../OfficeFilterContext";
 import { useActor } from "../corehr/format";
 import { Initials, LoadError, Pill } from "../corehr/ui";
 import { FileLeaveDialog, RequestDialog } from "./dialogs";
 import { dateRange, leaveKeys, num, STATUS, useLeaveRefresh } from "./format";
 
-const CARD_TYPES = ["vl", "sl", "el", "lwop"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const iso = (y: number, m: number, d: number) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -55,8 +55,7 @@ export function LeaveOverviewPage() {
   const { office } = useOfficeFilter();
   const today = isoToday();
   const requestsQuery = useQuery({ queryKey: leaveKeys.requests, queryFn: listRequests });
-  const balancesQuery = useQuery({ queryKey: leaveKeys.balances, queryFn: listBalances });
-  const typesQuery = useQuery({ queryKey: leaveKeys.types, queryFn: listTypes });
+  const balancesQuery = useQuery({ queryKey: leaveKeys.balances, queryFn: listCredits });
   const [month, setMonth] = useState(() => ({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) - 1 }));
   const [picked, setPicked] = useState(today);
   const [filing, setFiling] = useState(false);
@@ -81,16 +80,20 @@ export function LeaveOverviewPage() {
   const weekEnd = addDays(today, 6);
   const away = live.filter((r) => r.status === "approved" && r.start <= weekEnd && r.end >= today).sort((a, b) => a.start.localeCompare(b.start));
 
-  // Company-wide totals per leave type for the cards.
+  // Company-wide use of the yearly leaves for the cards.
   const rows = (balancesQuery.data ?? []).filter((r) => inOffice(r.person.branch));
-  const cards = CARD_TYPES.map((id) => {
-    const type = typesQuery.data?.find((t) => t.id === id);
-    const bs = rows.map((r) => r.balances.find((b) => b.typeId === id)).filter((b) => !!b);
-    const used = bs.reduce((s, b) => s + b.used, 0);
-    const pending = bs.reduce((s, b) => s + b.pending, 0);
-    const total = bs.reduce((s, b) => s + (b.unlimited ? 0 : b.earned + b.carriedOver + b.adjusted), 0);
-    return { id, name: type?.name ?? "", used, pending, total, unlimited: type?.earning.kind === "unlimited" };
-  });
+  const total = rows.reduce((n, r) => n + r.credits.total, 0);
+  const used = rows.reduce((n, r) => n + r.credits.used, 0);
+  const pending = rows.reduce((n, r) => n + r.credits.pending, 0);
+  const left = rows.reduce((n, r) => n + r.credits.available, 0);
+  const noneLeft = rows.filter((r) => r.credits.available === 0).length;
+  const pct = (n: number) => `${total ? Math.min(100, (n / total) * 100) : 0}%`;
+  const cards = [
+    { id: "left", name: "Leaves left", value: num(left), sub: `of ${num(total)} given this year`, bar: pct(left), note: `${LEAVE_CREDITS_PER_YEAR} per employee, given on January 1`, tone: "bg-brand" },
+    { id: "used", name: "Leaves used", value: num(used), sub: `of ${num(total)}`, bar: pct(used), note: "Each paid leave uses 1, however many days", tone: "bg-brand" },
+    { id: "waiting", name: "Waiting for approval", value: num(pending), sub: pending === 1 ? "leave" : "leaves", bar: pct(pending), note: pending ? "Approve or reject below" : "Nothing waiting", tone: "bg-warning" },
+    { id: "none", name: "No leaves left", value: num(noneLeft), sub: noneLeft === 1 ? "employee" : "employees", bar: `${rows.length ? (noneLeft / rows.length) * 100 : 0}%`, note: noneLeft ? "Further leave goes as Leave without pay" : "Everyone still has leaves", tone: "bg-critical" },
+  ];
 
   // Month grid
   const first = new Date(month.y, month.m, 1);
@@ -115,13 +118,13 @@ export function LeaveOverviewPage() {
             ) : (
               <>
                 <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="font-display text-2xl font-semibold">{num(c.used)}</span>
-                  <span className="text-xs text-ink-2">{c.unlimited ? "days taken this year" : `of ${num(c.total)} days used`}</span>
+                  <span className="font-display text-2xl font-semibold">{c.value}</span>
+                  <span className="text-xs text-ink-2">{c.sub}</span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
-                  <div className="h-full rounded-full bg-brand" style={{ width: c.unlimited ? "0%" : `${Math.min(100, c.total ? (c.used / c.total) * 100 : 0)}%` }} />
+                  <div className={clsx("h-full rounded-full", c.tone)} style={{ width: c.bar }} />
                 </div>
-                <div className="mt-1.5 text-xs text-ink-3">{c.pending ? `${num(c.pending)} waiting for approval` : "Nothing waiting"}</div>
+                <div className="mt-1.5 text-xs text-ink-3">{c.note}</div>
               </>
             )}
           </div>

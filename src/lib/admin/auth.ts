@@ -50,7 +50,7 @@ export function recordSignOut(accountId: string | undefined, reason: "manual" | 
 
 export const accountById = (id: string | undefined) => admin.accounts.find((a) => a.id === id);
 
-const FULL: Record<ModuleKey, Access> = { people: "edit", company: "edit", documents: "edit", timekeeping: "approve", leave: "approve", reports: "edit", administration: "edit" };
+const FULL: Record<ModuleKey, Access> = { people: "edit", company: "edit", documents: "edit", timekeeping: "approve", leave: "approve", reimbursements: "approve", reports: "edit", administration: "edit" };
 
 /** What the signed-in account can open in the HR workspace. Older sessions with no account get full access. */
 export function accessFor(accountId: string | undefined): Record<ModuleKey, Access> {

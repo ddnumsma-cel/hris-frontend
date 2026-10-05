@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/ToastContext";
 import { approvalPath } from "@/lib/admin/api";
-import { cancelRequest, decideRequest, fileLeave, fmtDays, isoToday, listTypes, people, previewRequest, type FileInput, type RequestRow } from "@/lib/leave/api";
+import { cancelRequest, decideRequest, fileLeave, fmtCredits, fmtDays, isoToday, listTypes, people, previewRequest, type FileInput, type RequestRow } from "@/lib/leave/api";
 import { inputClass, useActor } from "../corehr/format";
 import { Detail, ErrorNote, Field, Pill } from "../corehr/ui";
 import { shortDate } from "../timekeeping/format";
@@ -33,7 +33,7 @@ export function FileLeaveDialog({ onClose, employeeId = "" }: { onClose: () => v
       onClose();
     },
   });
-  const after = preview.balance && !preview.balance.unlimited ? preview.balance.available - preview.days : null;
+  const after = preview.credits ? preview.credits.available - 1 : null;
   const types = (typesQuery.data ?? []).filter((t) => t.active);
 
   return (
@@ -114,11 +114,11 @@ export function FileLeaveDialog({ onClose, employeeId = "" }: { onClose: () => v
           </div>
           <div>
             <div className="text-xs text-ink-2">Available now</div>
-            <div className="font-semibold">{preview.balance ? fmtDays(preview.balance.available) : "—"}</div>
+            <div className="font-semibold">{preview.credits ? fmtCredits(preview.credits.available) : preview.balance?.unlimited ? "Unpaid" : "—"}</div>
           </div>
           <div>
             <div className="text-xs text-ink-2">Left after this</div>
-            <div className={clsx("font-semibold", after !== null && after < 0 && "text-critical")}>{after === null ? (preview.balance?.unlimited ? "Unpaid" : "—") : fmtDays(after)}</div>
+            <div className={clsx("font-semibold", after !== null && after < 0 && "text-critical")}>{after === null ? (preview.balance?.unlimited ? "Unpaid" : "—") : fmtCredits(after)}</div>
           </div>
           {(preview.notes.length > 0 || (tried && preview.errors.length > 0)) && (
             <ul className="col-span-3 flex flex-col gap-0.5 border-t border-border pt-2 text-xs">

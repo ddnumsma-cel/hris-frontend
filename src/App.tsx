@@ -33,8 +33,8 @@ const UndertimePage = lazy(() => import("@/features/admin/timekeeping/RequestsPa
 const LeaveOverviewPage = lazy(() => import("@/features/admin/leave/LeaveOverviewPage").then((m) => ({ default: m.LeaveOverviewPage })));
 const LeaveRequestsPage = lazy(() => import("@/features/admin/leave/LeaveRequestsPage").then((m) => ({ default: m.LeaveRequestsPage })));
 const BalancesPage = lazy(() => import("@/features/admin/leave/BalancesPage").then((m) => ({ default: m.BalancesPage })));
+const ReimbursementsPage = lazy(() => import("@/features/admin/reimbursements/ReimbursementsPage").then((m) => ({ default: m.ReimbursementsPage })));
 const LeaveTypesPage = lazy(() => import("@/features/admin/leave/LeaveTypesPage").then((m) => ({ default: m.LeaveTypesPage })));
-const ReportsDashboard = lazy(() => import("@/features/admin/reports/ReportsDashboard").then((m) => ({ default: m.ReportsDashboard })));
 const HrReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.HrReportsPage })));
 const AttendanceReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.AttendanceReportsPage })));
 const PayrollReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.PayrollReportsPage })));
@@ -76,6 +76,9 @@ const EmployeeCertificates = lazy(() =>
 );
 const EmployeeBenefitsPage = lazy(() =>
   import("@/features/employee/EmployeeBenefitsPage").then((m) => ({ default: m.EmployeeBenefitsPage })),
+);
+const EmployeeReimbursements = lazy(() =>
+  import("@/features/employee/EmployeeReimbursements").then((m) => ({ default: m.EmployeeReimbursements })),
 );
 const EmployeeTrainings = lazy(() =>
   import("@/features/employee/EmployeeTrainings").then((m) => ({ default: m.EmployeeTrainings })),
@@ -144,6 +147,7 @@ function App() {
               <Route path="certificates" element={<EmployeeCertificates />} />
               <Route path="benefits" element={<EmployeeBenefitsPage />} />
               <Route path="trainings" element={<EmployeeTrainings />} />
+              <Route path="reimbursements" element={<EmployeeReimbursements />} />
             </Route>
 
             <Route
@@ -195,8 +199,9 @@ function App() {
               <Route path="leave/requests" element={<LeaveRequestsPage />} />
               <Route path="leave/balances" element={<BalancesPage />} />
               <Route path="leave/types" element={<LeaveTypesPage />} />
-              <Route path="reports" element={<Navigate to="/admin/reports/dashboard" replace />} />
-              <Route path="reports/dashboard" element={<ReportsDashboard />} />
+              <Route path="reimbursements" element={<ReimbursementsPage />} />
+              <Route path="reports" element={<Navigate to="/admin/reports/hr" replace />} />
+              <Route path="reports/dashboard" element={<Navigate to="/admin/reports/hr" replace />} />
               <Route path="reports/hr" element={<HrReportsPage />} />
               <Route path="reports/attendance" element={<AttendanceReportsPage />} />
               <Route path="reports/payroll" element={<PayrollReportsPage />} />

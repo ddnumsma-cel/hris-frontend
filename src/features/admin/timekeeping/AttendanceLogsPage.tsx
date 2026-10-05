@@ -11,7 +11,7 @@ import { useOfficeFilter } from "../OfficeFilterContext";
 import { inputClass, useActor } from "../corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { Choice, Name, SearchBox, SimpleTable, Toolbar } from "./common";
-import { PERIODS as PERIOD_OPTIONS, clock, dayStatus, duration, hhmm, shortDate, tkKeys } from "./format";
+import { PERIODS as PERIOD_OPTIONS, clock, dayStatus, duration, hhmm, lunchText, shortDate, tkKeys } from "./format";
 
 const SOURCE = { biometric: "Fingerprint", face: "Face recognition", manual: "Added by HR" } as const;
 
@@ -19,6 +19,18 @@ interface Scan {
   punch: Punch;
   day: DayRow;
   problem?: string;
+  /** Recorded automatically from the shift's lunch break, not by a device. */
+  lunch?: "out" | "in";
+}
+
+/** The automatic lunch out / in rows for a day, shaped like scans so they sit in the same log. */
+function lunchScans(d: DayRow): Scan[] {
+  const mk = (kind: "out" | "in", ms: number): Scan => {
+    const t = new Date(ms);
+    const local = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}T${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
+    return { day: d, lunch: kind, punch: { id: `lunch-${d.person.id}-${d.date}-${kind}`, employeeId: d.person.id, workDate: d.date, at: local, kind: kind === "out" ? "out" : "in", source: "manual", device: "Lunch break schedule", deviceRegistered: true } };
+  };
+  return [...(d.lunchOut !== undefined ? [mk("out", d.lunchOut)] : []), ...(d.lunchIn !== undefined ? [mk("in", d.lunchIn)] : [])];
 }
 
 function problemOf(p: Punch, d: DayRow): string | undefined {
@@ -68,7 +80,7 @@ function ReviewDialog({ employeeId, date, onClose }: { employeeId: string; date:
         <p className="text-sm text-ink-3">Loading…</p>
       ) : (
         <div className="flex flex-col gap-5">
-          <dl className="grid grid-cols-2 gap-3 rounded-lg bg-surface-2 px-4 py-3 text-sm sm:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-3 rounded-lg bg-surface-2 px-4 py-3 text-sm sm:grid-cols-5">
             <div>
               <dt className="text-xs text-ink-3">Shift</dt>
               <dd>{d.shift && d.kind === "work" ? `${hhmm(d.shift.start)} – ${hhmm(d.shift.end)}` : "—"}</dd>
@@ -78,6 +90,10 @@ function ReviewDialog({ employeeId, date, onClose }: { employeeId: string; date:
               <dd>
                 {d.timeIn ? clock(d.timeIn.at) : "—"} / {d.timeOut ? clock(d.timeOut.at) : "—"}
               </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-ink-3">Lunch break (auto)</dt>
+              <dd>{lunchText(d)}</dd>
             </div>
             <div>
               <dt className="text-xs text-ink-3">Worked</dt>
@@ -199,7 +215,7 @@ export function AttendanceLogsPage() {
     () =>
       (daysQuery.data ?? [])
         .filter((d) => office === "All offices" || d.person.branch === office)
-        .flatMap((d) => d.punches.map((p) => ({ punch: p, day: d, problem: problemOf(p, d) })))
+        .flatMap((d) => [...d.punches.map((p) => ({ punch: p, day: d, problem: problemOf(p, d) })), ...lunchScans(d)])
         .sort((a, b) => b.punch.at.localeCompare(a.punch.at)),
     [daysQuery.data, office],
   );
@@ -208,7 +224,7 @@ export function AttendanceLogsPage() {
   const q = query.trim().toLowerCase();
   const rows = scans.filter(
     (s) =>
-      (!source || s.punch.source === source) &&
+      (!source || (source === "lunch" ? !!s.lunch : !s.lunch && s.punch.source === source)) &&
       (!show || (show === "review" ? s.problem || missingOut.has(s.punch.id) : s.punch.voided)) &&
       (!q || s.day.person.name.toLowerCase().includes(q)),
   );
@@ -218,7 +234,7 @@ export function AttendanceLogsPage() {
 
   return (
     <>
-      <ContentHead title="Attendance logs" subtitle={`Time-in and time-out records from the fingerprint and face-recognition devices.${toReview ? ` ${toReview} need review.` : ""}`} />
+      <ContentHead title="Attendance logs" subtitle={`Time-in and time-out records from the fingerprint and face-recognition devices, plus the lunch out and lunch in recorded automatically from each shift.${toReview ? ` ${toReview} need review.` : ""}`} />
       <Toolbar>
         <Choice label="Period" value={period} onChange={setPeriod} options={PERIOD_OPTIONS} />
         <Choice
@@ -230,6 +246,7 @@ export function AttendanceLogsPage() {
             { value: "biometric", label: "Fingerprint" },
             { value: "face", label: "Face recognition" },
             { value: "manual", label: "Added by HR" },
+            { value: "lunch", label: "Lunch break (automatic)" },
           ]}
         />
         <Choice
@@ -253,13 +270,13 @@ export function AttendanceLogsPage() {
           { header: "Date", cell: (s) => shortDate(s.punch.at) },
           { header: "Time", cell: (s) => <span className={s.punch.voided ? "text-ink-3 line-through" : "font-medium"}>{clock(s.punch.at)}</span> },
           { header: "Employee", cell: (s) => <Name name={s.day.person.name} sub={s.day.person.departmentName} /> },
-          { header: "Type", cell: (s) => (s.punch.kind === "in" ? "Time-in" : "Time-out") },
-          { header: "Device", cell: (s) => <Name name={SOURCE[s.punch.source]} sub={s.punch.device} /> },
+          { header: "Type", cell: (s) => (s.lunch ? (s.lunch === "out" ? "Lunch out" : "Lunch in") : s.punch.kind === "in" ? "Time-in" : "Time-out") },
+          { header: "Device", cell: (s) => (s.lunch ? <Name name="Automatic" sub="From the shift's lunch break" /> : <Name name={SOURCE[s.punch.source]} sub={s.punch.device} />) },
           { header: "Face match", cell: (s) => (s.punch.match !== undefined ? <span className={s.punch.match < FACE_MATCH_THRESHOLD ? "font-semibold text-critical" : ""}>{s.punch.match}%</span> : "—") },
           {
             header: "Status",
             cell: (s) =>
-              s.punch.voided ? <Pill tone="neutral">Set aside</Pill> : s.problem ? <Pill tone="crit">{s.problem}</Pill> : missingOut.has(s.punch.id) ? <Pill tone="crit">No time-out</Pill> : s.punch.confirmed ? <Pill tone="good">Checked</Pill> : <Pill tone="good">OK</Pill>,
+              s.lunch ? <Pill tone="info">Auto</Pill> : s.punch.voided ? <Pill tone="neutral">Set aside</Pill> : s.problem ? <Pill tone="crit">{s.problem}</Pill> : missingOut.has(s.punch.id) ? <Pill tone="crit">No time-out</Pill> : s.punch.confirmed ? <Pill tone="good">Checked</Pill> : <Pill tone="good">OK</Pill>,
           },
           {
             header: "",

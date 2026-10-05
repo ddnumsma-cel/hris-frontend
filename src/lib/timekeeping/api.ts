@@ -177,6 +177,13 @@ export async function saveShift(input: Omit<ShiftTemplate, "id" | "active"> & { 
   if (!/^\d{2}:\d{2}$/.test(input.start) || !/^\d{2}:\d{2}$/.test(input.end)) return fail("Enter start and end times");
   if (input.start === input.end) return fail("Start and end can't be the same time");
   if (input.breakMinutes < 0 || input.breakMinutes > 120) return fail("Break should be between 0 and 120 minutes");
+  if (input.breakMinutes > 0) {
+    if (!/^d{2}:d{2}$/.test(input.breakStart)) return fail("Enter when lunch starts");
+    const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+    const len = (mins(input.end) - mins(input.start) + 1440) % 1440 || 1440;
+    const into = (mins(input.breakStart) - mins(input.start) + 1440) % 1440;
+    if (into === 0 || into + input.breakMinutes >= len) return fail("Lunch has to start and end within the shift");
+  }
   if (input.graceMinutes < 0 || input.graceMinutes > 30) return fail("Grace period should be between 0 and 30 minutes");
   if (input.restDays.length === 0) return fail("Pick at least one rest day. Everyone is entitled to a rest day each week.");
   if (tk.shifts.some((s) => s.id !== input.id && s.name.toLowerCase() === name.toLowerCase())) return fail("There's already a shift with that name");

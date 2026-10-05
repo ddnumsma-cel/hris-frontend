@@ -11,6 +11,7 @@ export function moduleForPath(pathname: string): ModuleKey | null {
   if (seg === "documents") return "documents";
   if (seg === "timekeeping") return "timekeeping";
   if (seg === "leave") return "leave";
+  if (seg === "reimbursements") return "reimbursements";
   if (seg === "reports") return "reports";
   if (seg === "administration") return "administration";
   return null;

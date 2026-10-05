@@ -13,6 +13,18 @@ export const tkKeys = {
 export const clock = (v: number | string) => new Date(v).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
 /** "08:00" → "8:00 AM" */
 export const hhmm = (t: string) => clock(`2000-01-01T${t}:00`);
+/** "12:00" + 60 → "13:00" */
+export function addMinutes(t: string, minutes: number) {
+  const total = (Number(t.slice(0, 2)) * 60 + Number(t.slice(3)) + minutes) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/** Automatic lunch out–in for a day, e.g. "12:00 – 1:00 PM"; "—" when they weren't in for it. */
+export function lunchText(d: Pick<DayResult, "lunchOut" | "lunchIn">) {
+  if (d.lunchOut === undefined) return "—";
+  return d.lunchIn === undefined ? `Out ${clock(d.lunchOut)}` : `${clock(d.lunchOut)} – ${clock(d.lunchIn)}`;
+}
+
 /** "Fri, Oct 2" */
 export const shortDate = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
 

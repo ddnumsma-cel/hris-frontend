@@ -76,15 +76,10 @@ export function EmployeeOverview() {
   }, [clockedIn]);
 
   const employeeQuery = useQuery({ queryKey: ["employee", "me"], queryFn: fetchCurrentEmployee });
-  // Same balances HR sees in Leave Management.
-  const balancesQuery = useQuery({
+  // The yearly leave credit pool, same as the My leave page.
+  const creditsQuery = useQuery({
     queryKey: ["ess", "leave", "overview"],
-    queryFn: async () =>
-      (await myLeave()).balances
-        .filter((b) => !b.unlimited)
-        .slice(0, 4)
-        // Days waiting for approval count as used, so "available" matches the My leave page.
-        .map((b) => ({ type: b.type.name.replace(/ leave$/, ""), used: b.used + b.pending, entitlement: b.earned + b.carriedOver + b.adjusted })),
+    queryFn: async () => (await myLeave()).credits,
   });
   // Same payslips as the Payslips page (computed by the payroll engine), newest first.
   const payslipsQuery = useQuery({
@@ -388,27 +383,18 @@ export function EmployeeOverview() {
               icon={<CheckIcon className="h-3 w-3" />}
             />
             <StatTile
-              label="Vacation leave available"
+              label="Leave credits left"
               value={
-                balancesQuery.data
-                  ? (() => {
-                      const vl = balancesQuery.data.find((b) => b.type === "Vacation")!;
-                      return (
-                        <>
-                          {vl.entitlement - vl.used}{" "}
-                          <span className="text-sm font-semibold text-ink-3">/ {vl.entitlement} days</span>
-                        </>
-                      );
-                    })()
-                  : (
-                    <Skeleton className="h-7 w-20" />
-                  )
+                creditsQuery.data ? (
+                  <>
+                    {creditsQuery.data.available}{" "}
+                    <span className="text-sm font-semibold text-ink-3">/ {creditsQuery.data.total} leaves</span>
+                  </>
+                ) : (
+                  <Skeleton className="h-7 w-20" />
+                )
               }
-              delta={
-                balancesQuery.data
-                  ? `${balancesQuery.data.find((b) => b.type === "Vacation")!.used} days used or waiting`
-                  : undefined
-              }
+              delta={creditsQuery.data ? `${creditsQuery.data.used + creditsQuery.data.pending} used or waiting` : undefined}
             />
           </KpiStack>
         </BentoArea>
@@ -453,12 +439,17 @@ export function EmployeeOverview() {
         {/* Progress: leave used against each entitlement. */}
         <BentoArea area="leave">
           <Card className="h-full">
-            <CardHeader title="Leave balances" meta="2026 entitlement" />
+            <CardHeader title="Leave credits" meta={`${new Date().getFullYear()}`} />
             <CardBody className="flex flex-col gap-3.5">
-              {balancesQuery.isLoading && <Skeleton className="h-16 w-full" />}
-              {balancesQuery.data?.map((b) => (
-                <LeaveBar key={b.type} label={b.type} used={b.used} entitlement={b.entitlement} />
-              ))}
+              {creditsQuery.isLoading && <Skeleton className="h-16 w-full" />}
+              {creditsQuery.data && (
+                <>
+                  <LeaveBar label="Leaves left" used={creditsQuery.data.used + creditsQuery.data.pending} entitlement={creditsQuery.data.total} />
+                  <p className="text-xs text-ink-2">
+                    {creditsQuery.data.used} used · {creditsQuery.data.pending} waiting for HR. Each leave uses 1, however many days.
+                  </p>
+                </>
+              )}
             </CardBody>
           </Card>
         </BentoArea>

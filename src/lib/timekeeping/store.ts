@@ -4,7 +4,7 @@
 // set-aside punches, requests, audit) is saved.
 
 import { state as core } from "../corehr/store";
-import { addDays, at, isOvernight, toIsoDate, weekday } from "./compute";
+import { addDays, at, defaultBreakStart, isOvernight, toIsoDate, weekday } from "./compute";
 import { HOLIDAYS } from "../holidays";
 import { approvedLeaveSpans } from "../leave/store";
 import type { Punch, ShiftTemplate, TimeAudit, FixRequest, TimeRequest } from "./types";
@@ -34,10 +34,10 @@ export const HISTORY_DAYS = 40;
 export { HOLIDAYS };
 
 const SHIFTS: ShiftTemplate[] = [
-  { id: "sh-day", name: "Day shift", start: "08:00", end: "17:00", breakMinutes: 60, graceMinutes: 10, restDays: [0, 6], active: true },
-  { id: "sh-mid", name: "Mid shift", start: "09:00", end: "18:00", breakMinutes: 60, graceMinutes: 10, restDays: [0, 6], active: true },
-  { id: "sh-night", name: "Night IT support", start: "22:00", end: "06:00", breakMinutes: 60, graceMinutes: 10, restDays: [5, 6], active: true },
-  { id: "sh-weekend", name: "Weekend front desk", start: "08:00", end: "17:00", breakMinutes: 60, graceMinutes: 10, restDays: [1, 2], active: true },
+  { id: "sh-day", name: "Day shift", start: "08:00", end: "17:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 10, restDays: [0, 6], active: true },
+  { id: "sh-mid", name: "Mid shift", start: "09:00", end: "18:00", breakMinutes: 60, breakStart: "13:00", graceMinutes: 10, restDays: [0, 6], active: true },
+  { id: "sh-night", name: "Night IT support", start: "22:00", end: "06:00", breakMinutes: 60, breakStart: "02:00", graceMinutes: 10, restDays: [5, 6], active: true },
+  { id: "sh-weekend", name: "Weekend front desk", start: "08:00", end: "17:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 10, restDays: [1, 2], active: true },
 ];
 
 const DEVICES: Record<string, { biometric: string; face: string }> = {
@@ -64,7 +64,8 @@ function load(): TimekeepingState {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const s = JSON.parse(raw) as TimekeepingState;
-      if (Array.isArray(s.shifts) && s.usualShift) return { ...s, confirmed: s.confirmed ?? {}, fixRequests: s.fixRequests ?? [] };
+      // Shifts saved before lunch times existed get the usual 4 hours after the start.
+      if (Array.isArray(s.shifts) && s.usualShift) return { ...s, shifts: s.shifts.map((x) => ({ ...x, breakStart: x.breakStart ?? defaultBreakStart(x) })), confirmed: s.confirmed ?? {}, fixRequests: s.fixRequests ?? [] };
     }
   } catch {
     // Blocked or corrupt storage: start from the seed.

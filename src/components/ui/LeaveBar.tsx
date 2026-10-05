@@ -24,7 +24,7 @@ export function LeaveBar({
       <span className="font-num w-20 flex-none text-right text-sm">
         {available}
         {" / "}
-        {entitlement}d
+        {entitlement}
       </span>
     </div>
   );

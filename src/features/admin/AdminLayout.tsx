@@ -1,7 +1,7 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
 import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
-import { BarChartIcon, BuildingIcon, CalendarIcon, ClockIcon, FolderIcon, GridIcon, LockIcon, ShieldIcon, UsersIcon } from "@/components/icons";
+import { BarChartIcon, BuildingIcon, CalendarIcon, ClockIcon, FolderIcon, GridIcon, LockIcon, ReceiptIcon, ShieldIcon, UsersIcon } from "@/components/icons";
 import { RailNav } from "@/components/layout/RailNav";
 import { moduleForPath, SUPER_ADMIN_PAGES, useAccess, useIsSuperAdmin } from "./administration/access";
 
@@ -58,6 +58,11 @@ const GROUPS: SideNavGroup[] = [
     ],
   },
   {
+    title: "Expenses",
+    short: "Claims",
+    items: [{ label: "Reimbursements", to: "/admin/reimbursements", icon: <ReceiptIcon /> }],
+  },
+  {
     title: "Insights",
     short: "Reports",
     items: [
@@ -66,7 +71,6 @@ const GROUPS: SideNavGroup[] = [
         to: "/admin/reports",
         icon: <BarChartIcon />,
         children: [
-          { label: "Dashboard", to: "/admin/reports/dashboard" },
           { label: "HR reports", to: "/admin/reports/hr" },
           { label: "Attendance", to: "/admin/reports/attendance" },
           { label: "Payroll", to: "/admin/reports/payroll" },

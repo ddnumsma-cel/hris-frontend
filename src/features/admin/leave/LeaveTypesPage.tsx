@@ -5,19 +5,21 @@ import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/ToastContext";
 import { listTypes, saveType, setTypeActive } from "@/lib/leave/api";
-import type { Earning, Eligibility, LeaveType } from "@/lib/leave/types";
+import { LEAVE_CREDITS_PER_YEAR } from "@/lib/leave/store";
+import type { Eligibility, LeaveType } from "@/lib/leave/types";
 import { inputClass } from "../corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { SimpleTable, type Col } from "../timekeeping/common";
-import { earningText, ELIGIBILITY, leaveKeys, proofText, useLeaveRefresh } from "./format";
+import { ELIGIBILITY, leaveKeys, proofText, useLeaveRefresh } from "./format";
 
-type Draft = Omit<LeaveType, "id" | "active" | "earning"> & { id?: string; earningKind: Earning["kind"]; perMonth: number };
+/** Paid types use one of the yearly leaves; unpaid ones (Leave without pay) have no limit. */
+type Draft = Omit<LeaveType, "id" | "active" | "earning"> & { id?: string; usesCredit: boolean };
 
-const BLANK: Draft = { name: "", code: "", daysPerYear: 5, earningKind: "yearly", perMonth: 1.25, paid: true, carryOverMax: 0, countBy: "workdays", eligibility: "everyone", attachmentOver: null, confidential: false, basis: "Company policy" };
+const BLANK: Draft = { name: "", code: "", daysPerYear: LEAVE_CREDITS_PER_YEAR, usesCredit: true, paid: true, carryOverMax: 0, countBy: "workdays", eligibility: "everyone", attachmentOver: null, confidential: false, basis: "Company policy" };
 
 function toDraft(t: LeaveType): Draft {
   const { earning, active: _active, ...rest } = t;
-  return { ...rest, earningKind: earning.kind, perMonth: earning.kind === "monthly" ? earning.perMonth : 1.25 };
+  return { ...rest, usesCredit: earning.kind !== "unlimited" };
 }
 
 function TypeDialog({ initial, onClose }: { initial: Draft; onClose: () => void }) {
@@ -27,9 +29,8 @@ function TypeDialog({ initial, onClose }: { initial: Draft; onClose: () => void 
   const set = (patch: Partial<Draft>) => setD((x) => ({ ...x, ...patch }));
   const save = useMutation({
     mutationFn: () => {
-      const { earningKind, perMonth, ...rest } = d;
-      const earning: Earning = earningKind === "monthly" ? { kind: "monthly", perMonth } : { kind: earningKind };
-      return saveType({ ...rest, earning, daysPerYear: earningKind === "unlimited" ? 0 : rest.daysPerYear });
+      const { usesCredit, ...rest } = d;
+      return saveType({ ...rest, earning: usesCredit ? { kind: "yearly" } : { kind: "unlimited" }, daysPerYear: usesCredit ? LEAVE_CREDITS_PER_YEAR : 0, carryOverMax: 0 });
     },
     onSuccess: () => {
       refresh();
@@ -63,31 +64,12 @@ function TypeDialog({ initial, onClose }: { initial: Draft; onClose: () => void 
         <Field id="lt-code" label="Short code" required>
           <input id="lt-code" className={inputClass} value={d.code} maxLength={5} placeholder="e.g. BDL" onChange={(e) => set({ code: e.target.value })} />
         </Field>
-        <Field id="lt-earn" label="How it's earned">
-          <select id="lt-earn" className={inputClass} value={d.earningKind} onChange={(e) => set({ earningKind: e.target.value as Earning["kind"] })}>
-            <option value="monthly">A little every month</option>
-            <option value="yearly">All at once every January</option>
-            <option value="per-event">Each time it applies (e.g. a birth)</option>
-            <option value="unlimited">No limit (unpaid)</option>
+        <Field id="lt-earn" label="Uses a leave credit" className="col-span-2" hint={d.usesCredit ? `Each one filed uses 1 of the employee's ${LEAVE_CREDITS_PER_YEAR} leaves a year.` : "Doesn't touch the yearly leaves. Use this for unpaid leave."}>
+          <select id="lt-earn" className={inputClass} value={d.usesCredit ? "yes" : "no"} onChange={(e) => set({ usesCredit: e.target.value === "yes", paid: e.target.value === "yes" ? d.paid : false })}>
+            <option value="yes">Yes, 1 of the {LEAVE_CREDITS_PER_YEAR} a year</option>
+            <option value="no">No limit (unpaid)</option>
           </select>
         </Field>
-        {d.earningKind !== "unlimited" ? (
-          <Field id="lt-days" label="Days a year">
-            <input id="lt-days" type="number" min={0.5} step={0.5} className={inputClass} value={d.daysPerYear} onChange={(e) => set({ daysPerYear: e.target.valueAsNumber })} />
-          </Field>
-        ) : (
-          <div />
-        )}
-        {d.earningKind === "monthly" && (
-          <Field id="lt-month" label="Days earned each month" hint={`Reaches ${d.daysPerYear} after ${Math.ceil(d.daysPerYear / (d.perMonth || 1))} months.`}>
-            <input id="lt-month" type="number" min={0.25} step={0.25} className={inputClass} value={d.perMonth} onChange={(e) => set({ perMonth: e.target.valueAsNumber })} />
-          </Field>
-        )}
-        {d.earningKind === "monthly" || d.earningKind === "yearly" ? (
-          <Field id="lt-carry" label="Unused days kept next year" hint="0 means they expire.">
-            <input id="lt-carry" type="number" min={0} className={inputClass} value={d.carryOverMax} onChange={(e) => set({ carryOverMax: e.target.valueAsNumber || 0 })} />
-          </Field>
-        ) : null}
         <Field id="lt-who" label="Who can use it">
           <select id="lt-who" className={inputClass} value={d.eligibility} onChange={(e) => set({ eligibility: e.target.value as Eligibility })}>
             {Object.entries(ELIGIBILITY).map(([v, l]) => (
@@ -160,8 +142,7 @@ export function LeaveTypesPage() {
         </span>
       ),
     },
-    { header: "How it's earned", cell: (t) => `${earningText(t)}${t.paid ? "" : ", unpaid"}` },
-    { header: "Kept next year", cell: (t) => (t.carryOverMax ? `Up to ${t.carryOverMax}` : "—") },
+    { header: "Uses", cell: (t) => (t.earning.kind === "unlimited" ? "No limit, unpaid" : `1 of the ${LEAVE_CREDITS_PER_YEAR} yearly leaves`) },
     { header: "Who", cell: (t) => ELIGIBILITY[t.eligibility] },
     { header: "Document", cell: (t) => proofText(t.attachmentOver) },
     { header: "Status", cell: (t) => <Pill tone={t.active ? "good" : "neutral"}>{t.active ? "In use" : "Off"}</Pill> },
@@ -183,7 +164,7 @@ export function LeaveTypesPage() {
 
   return (
     <>
-      <ContentHead title="Leave types" subtitle="The kinds of leave employees can file and how the days are earned. Maternity, paternity, solo parent, VAWC and special leave for women follow the law." actions={<Button onClick={() => setEditing(BLANK)}>Add leave type</Button>} />
+      <ContentHead title="Leave types" subtitle={`The kinds of leave employees can file. Every paid type shares the same ${LEAVE_CREDITS_PER_YEAR} leaves a year; filing any of them uses 1.`} actions={<Button onClick={() => setEditing(BLANK)}>Add leave type</Button>} />
       <SimpleTable rows={typesQuery.data ?? []} rowKey={(t) => t.id} cols={cols} loading={typesQuery.isLoading} empty="No leave types yet." />
       {editing && <TypeDialog initial={editing} onClose={() => setEditing(null)} />}
     </>
