@@ -7,7 +7,10 @@ import { filterSearchClass, filterSelectClass } from "../corehr/format";
 export const PAGE_SIZE = 8;
 
 export interface Col<T> {
+  /** Column title; also its key, so keep it unique within a table. */
   header: string;
+  /** Shown instead of the title, e.g. a "select all" checkbox. */
+  label?: ReactNode;
   cell: (row: T) => ReactNode;
   align?: "right";
 }
@@ -33,7 +36,7 @@ export function SimpleTable<T>({ cols, rows, rowKey, empty, loading }: { cols: C
             <tr className="border-b border-border bg-surface-2/60 text-left text-xs text-ink-2">
               {cols.map((c) => (
                 <th key={c.header} scope="col" className={clsx("px-4 py-2.5 font-medium whitespace-nowrap", c.align === "right" && "text-right")}>
-                  {c.header}
+                  {c.label ?? c.header}
                 </th>
               ))}
             </tr>
