@@ -131,13 +131,22 @@ export function computeDay(input: DayInput): DayResult {
   }
 
   if (kind === "work" && shift && shiftStart !== undefined && shiftEnd !== undefined) {
-    if (tIn !== undefined) {
-      lateRaw = Math.max(0, Math.round((tIn - shiftStart) / MINUTE));
-      late = Math.max(0, lateRaw - shift.graceMinutes);
-    }
-    if (tOut !== undefined) {
-      undertime = Math.max(0, Math.round((shiftEnd - tOut) / MINUTE));
-      extra = Math.max(0, Math.round((tOut - shiftEnd) / MINUTE));
+    if (shift.flexible) {
+      // No fixed start: never late. Short or long only against the required hours.
+      const required = (shift.requiredHours ?? 8) * 60;
+      if (tIn !== undefined && tOut !== undefined) {
+        undertime = Math.max(0, required - worked);
+        extra = Math.max(0, worked - required);
+      }
+    } else {
+      if (tIn !== undefined) {
+        lateRaw = Math.max(0, Math.round((tIn - shiftStart) / MINUTE));
+        late = Math.max(0, lateRaw - shift.graceMinutes);
+      }
+      if (tOut !== undefined) {
+        undertime = Math.max(0, Math.round((shiftEnd - tOut) / MINUTE));
+        extra = Math.max(0, Math.round((tOut - shiftEnd) / MINUTE));
+      }
     }
     if (tIn === undefined) status = now < shiftStart ? "upcoming" : now < shiftEnd ? "not-in" : "absent";
     else if (tOut === undefined) {

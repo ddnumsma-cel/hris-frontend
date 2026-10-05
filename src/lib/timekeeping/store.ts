@@ -36,9 +36,19 @@ export { HOLIDAYS };
 const SHIFTS: ShiftTemplate[] = [
   { id: "sh-day", name: "Day shift", start: "08:00", end: "17:00", breakMinutes: 60, graceMinutes: 10, restDays: [0, 6], active: true },
   { id: "sh-mid", name: "Mid shift", start: "09:00", end: "18:00", breakMinutes: 60, graceMinutes: 10, restDays: [0, 6], active: true },
-  { id: "sh-night", name: "Night IT support", start: "22:00", end: "06:00", breakMinutes: 60, graceMinutes: 10, restDays: [5, 6], active: true },
-  { id: "sh-weekend", name: "Weekend front desk", start: "08:00", end: "17:00", breakMinutes: 60, graceMinutes: 10, restDays: [1, 2], active: true },
+  { id: "sh-flex", name: "Flexible time", start: "07:00", end: "19:00", breakMinutes: 60, graceMinutes: 0, restDays: [0, 6], active: true, flexible: true, requiredHours: 8 },
 ];
+
+/** Shifts that were retired; people on them move to the shift given here. */
+const RETIRED: Record<string, string> = { "sh-night": "sh-flex", "sh-weekend": "sh-day" };
+
+/** Brings saved data up to the current set of shifts: Day, Mid and Flexible time. */
+function normalizeShifts(s: TimekeepingState): TimekeepingState {
+  const shifts = [...s.shifts.filter((x) => !RETIRED[x.id]), ...SHIFTS.filter((x) => !s.shifts.some((y) => y.id === x.id))];
+  const usualShift = Object.fromEntries(Object.entries(s.usualShift).map(([id, sh]) => [id, sh && RETIRED[sh] ? RETIRED[sh] : (sh ?? "sh-day")]));
+  const overrides = Object.fromEntries(Object.entries(s.overrides).filter(([, v]) => !RETIRED[v]));
+  return { ...s, shifts, usualShift, overrides };
+}
 
 const DEVICES: Record<string, { biometric: string; face: string }> = {
   "Cebu HQ": { biometric: "Cebu HQ lobby, 8F", face: "Cebu HQ face kiosk" },
@@ -52,11 +62,9 @@ function seed(): TimekeepingState {
   const usualShift: Record<string, string | null> = {};
   for (const e of core.employees) {
     const branch = branchOf(e.job.unitId);
-    usualShift[e.id] = e.id === "MSMA-00812" ? "sh-night" : e.id === "MSMA-00845" ? "sh-weekend" : branch === "Manila" ? "sh-mid" : "sh-day";
+    usualShift[e.id] = e.id === "MSMA-00812" ? "sh-flex" : branch === "Manila" ? "sh-mid" : "sh-day";
   }
-  // Ferdz covers an extra Monday this week: six days in a row, which the roster should flag.
-  const monday = addDays(today(), -((weekday(today()) + 6) % 7));
-  return { shifts: SHIFTS, usualShift, overrides: { [`MSMA-00845|${monday}`]: "sh-weekend" }, corrections: [], voided: {}, confirmed: {}, requests: [], fixRequests: [], audit: [], seededRequests: false };
+  return { shifts: SHIFTS, usualShift, overrides: {}, corrections: [], voided: {}, confirmed: {}, requests: [], fixRequests: [], audit: [], seededRequests: false };
 }
 
 function load(): TimekeepingState {
@@ -64,7 +72,7 @@ function load(): TimekeepingState {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const s = JSON.parse(raw) as TimekeepingState;
-      if (Array.isArray(s.shifts) && s.usualShift) return { ...s, confirmed: s.confirmed ?? {}, fixRequests: s.fixRequests ?? [] };
+      if (Array.isArray(s.shifts) && s.usualShift) return normalizeShifts({ ...s, confirmed: s.confirmed ?? {}, fixRequests: s.fixRequests ?? [] });
     }
   } catch {
     // Blocked or corrupt storage: start from the seed.
@@ -106,7 +114,8 @@ export function shiftFor(employeeId: string, date: string): { kind: "work" | "re
     const s = tk.shifts.find((x) => x.id === o);
     if (s) return { kind: "work", shift: s, override: true };
   }
-  const usual = tk.shifts.find((x) => x.id === tk.usualShift[employeeId]);
+  // Anyone without a usual shift yet (e.g. newly added) works the Day shift.
+  const usual = tk.shifts.find((x) => x.id === (tk.usualShift[employeeId] ?? "sh-day"));
   if (!usual) return { kind: "unscheduled", override: false };
   return usual.restDays.includes(weekday(date)) ? { kind: "rest", shift: usual, override: false } : { kind: "work", shift: usual, override: false };
 }

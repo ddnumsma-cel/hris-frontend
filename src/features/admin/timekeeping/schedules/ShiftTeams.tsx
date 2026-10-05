@@ -11,8 +11,8 @@ import { SearchBox, Toolbar } from "../common";
 import { hhmm } from "../format";
 import { DAYS, useShifts, useWeek } from "./shared";
 
-/** Option E: one column per shift; everyone sits under their usual shift. Move someone with one click. */
-export function ShiftTeams({ switcher }: { switcher: React.ReactNode }) {
+/** One column per shift; everyone sits under their usual shift. Move someone with one click. */
+export function ShiftTeams() {
   const w = useWeek();
   const s = useShifts();
   const toast = useToast();
@@ -29,12 +29,11 @@ export function ShiftTeams({ switcher }: { switcher: React.ReactNode }) {
   });
   if (w.query_.isError) return <LoadError onRetry={() => w.query_.refetch()} />;
   const people = w.rows.map((r) => r.person);
-  const columns = [...s.shifts.map((sh) => ({ id: sh.id as string | null, sh })), { id: null, sh: undefined }];
+  const columns = s.shifts.map((sh) => ({ id: sh.id as string | null, sh }));
 
   return (
     <>
-      {switcher}
-      <ContentHead title="Schedules" subtitle="Everyone's usual shift. Click Move on a person to put them on another shift; one-day changes stay on the attendance logs." />
+      <ContentHead title="Schedules" subtitle="Everyone's usual shift. Click Move on a person to put them on another shift. Flexible time has no fixed start: people work 8 hours any time between 7 AM and 7 PM." />
       <Toolbar>
         <SearchBox value={w.query} onChange={w.setQuery} />
       </Toolbar>
@@ -56,7 +55,7 @@ export function ShiftTeams({ switcher }: { switcher: React.ReactNode }) {
                   </div>
                   {sh && (
                     <div className="mt-1 text-xs text-ink-3">
-                      {hhmm(sh.start)}–{hhmm(sh.end)} · off {sh.restDays.map((d) => DAYS[d]).join(", ") || "none"}
+                      {sh.flexible ? `Any ${sh.requiredHours ?? 8} hours, ${hhmm(sh.start)}–${hhmm(sh.end)}` : `${hhmm(sh.start)}–${hhmm(sh.end)}`} · off {sh.restDays.map((d) => DAYS[d]).join(", ") || "none"}
                     </div>
                   )}
                 </header>

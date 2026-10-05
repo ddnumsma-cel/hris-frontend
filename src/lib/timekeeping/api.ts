@@ -35,7 +35,7 @@ function people(): TkPerson[] {
         departmentName: dept?.name ?? "",
         branch: branchOf(e.job.unitId),
         monthlySalary: e.job.monthlySalary,
-        usualShiftId: e.id in tk.usualShift ? tk.usualShift[e.id]! : null,
+        usualShiftId: tk.usualShift[e.id] ?? "sh-day",
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
