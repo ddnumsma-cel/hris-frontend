@@ -2,14 +2,11 @@ import { useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { HistoryIcon } from "@/components/icons";
 import { documentAlert, getEmployee, listAudit, listDocuments, listEvents, logGovernmentReveal, peso, type EditableSection } from "@/lib/corehr/api";
 import type { EventKind } from "@/lib/corehr/types";
 import { DocumentChecklist } from "./DocumentChecklist";
 import { EditSectionDialog } from "./EditSectionDialog";
-import { RecordChangeDialog } from "./RecordChangeDialog";
 import { formatDate, keys, mask, statusTone, tenure, useActor, type Tone } from "./format";
 import { DetailHeader, DetailPlaceholder, DetailSection, StatusText, TextAction } from "./SplitView";
 import { Detail, detailGrid, Initials, LoadError } from "./ui";
@@ -66,7 +63,6 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
   const auditQuery = useQuery({ queryKey: keys.audit(employeeId), queryFn: () => listAudit(employeeId) });
   const [tab, setTab] = useRecordTab();
   const [editing, setEditing] = useState<EditableSection | null>(null);
-  const [recording, setRecording] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
   const reveal = useMutation({
@@ -111,13 +107,6 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
             </span>
             <span className="font-num text-ink-3">{e.id}</span>
           </span>
-        }
-        actions={
-          !separated && (
-            <Button size="sm" icon={<HistoryIcon className="h-3.5 w-3.5" />} onClick={() => setRecording(true)}>
-              Record job change
-            </Button>
-          )
         }
       />
 
@@ -235,7 +224,7 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
               </dl>
               {!revealed && <p className="mt-1 text-[0.7rem] text-ink-3">Masked. Showing the full numbers is recorded in the audit trail.</p>}
             </DetailSection>
-            <DetailSection title="Job" action={!separated && <TextAction onClick={() => setRecording(true)}>Record change</TextAction>}>
+            <DetailSection title="Job">
               <dl className={detailGrid}>
                 <Detail label="Position">{record.position?.title}</Detail>
                 <Detail label="Level">{record.position?.level}</Detail>
@@ -264,7 +253,7 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
         )}
 
         {tab === "history" && (
-          <DetailSection title="Employment history" action={!separated && <TextAction onClick={() => setRecording(true)}>Record change</TextAction>}>
+          <DetailSection title="Employment history">
             {(eventsQuery.data ?? []).length === 0 ? (
               <p className="py-4 text-sm text-ink-3">Nothing recorded yet.</p>
             ) : (
@@ -340,7 +329,6 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
       </div>
 
       {editing && <EditSectionDialog employee={e} section={editing} onClose={() => setEditing(null)} />}
-      {recording && <RecordChangeDialog record={record} onClose={() => setRecording(false)} />}
     </div>
   );
 }

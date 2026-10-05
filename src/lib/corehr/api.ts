@@ -5,12 +5,10 @@ import { firstIssue, contactSchema, governmentSchema, newEmployeeSchema, persona
 import { commit, fullName, initialsOf, isoDate, newId, reconcile, state, type CoreHrState } from "./store";
 import type {
   AuditEntry,
-  ChangeKind,
   CoreEmployee,
   DocumentType,
   EmployeeDocument,
   EmploymentStatus,
-  FieldChange,
   JobEvent,
   JobLevel,
   OrgUnit,
@@ -518,99 +516,5 @@ export function listEvents(employeeId: string): Promise<JobEvent[]> {
       .filter((e) => e.employeeId === employeeId)
       .sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate) || b.recordedAt.localeCompare(a.recordedAt)),
   );
-}
-
-export interface ChangeInput {
-  employeeId: string;
-  kind: ChangeKind;
-  effectiveDate: string;
-  positionId?: string;
-  teamId?: string;
-  supervisorId?: string;
-  monthlySalary?: number;
-  status?: EmploymentStatus;
-  remarks: string;
-}
-
-/** Applies a promotion, transfer, salary change… to the employee's current job and adds it to their history. */
-export async function recordChange(input: ChangeInput, actor: string): Promise<JobEvent> {
-  const e = employeeById(input.employeeId);
-  if (!e) return fail("That employee no longer exists");
-  if (!isCurrent(e)) return fail("This employee is already separated");
-  if (!input.effectiveDate) return fail("Choose the effective date");
-  if (input.effectiveDate < e.job.dateHired) return fail("The effective date can't be before the date hired");
-  const job = { ...e.job };
-  const changes: FieldChange[] = [];
-  const nameOf = (id?: string) => {
-    const x = employeeById(id);
-    return x ? fullName(x.personal) : "—";
-  };
-
-  switch (input.kind) {
-    case "Promotion":
-    case "Transfer": {
-      const position = positionById(input.positionId);
-      if (!position?.active) return fail("Choose the new position");
-      const team = unitById(input.teamId);
-      const unitId = team && team.parentId === position.departmentId ? team.id : position.departmentId;
-      if (position.id === job.positionId && unitId === job.unitId) return fail(input.kind === "Promotion" ? "Choose a different position" : "Choose a different position or team");
-      if (position.id !== job.positionId && holdersOf(position.id).length >= position.slots) return fail(`${position.title} has no opening. Open the job on the Company page and add room for one more person first.`);
-      if (position.id !== job.positionId) changes.push({ label: "Position", from: positionById(job.positionId)?.title, to: position.title });
-      if (unitId !== job.unitId) changes.push({ label: "Unit", from: unitPathOf(job.unitId, state.units), to: unitPathOf(unitId, state.units) });
-      job.positionId = position.id;
-      job.unitId = unitId;
-      const supervisorId = input.supervisorId || holdersOf(position.reportsToPositionId ?? "").find((h) => h.id !== e.id)?.id;
-      if (supervisorId !== job.supervisorId) changes.push({ label: "Supervisor", from: nameOf(job.supervisorId), to: nameOf(supervisorId) });
-      job.supervisorId = supervisorId;
-      if (input.monthlySalary !== undefined && input.monthlySalary !== job.monthlySalary) {
-        if (input.monthlySalary <= 0) return fail("Enter a valid monthly salary");
-        changes.push({ label: "Monthly salary", from: peso(job.monthlySalary), to: peso(input.monthlySalary) });
-        job.monthlySalary = input.monthlySalary;
-      }
-      break;
-    }
-    case "Salary adjustment":
-      if (!input.monthlySalary || input.monthlySalary <= 0) return fail("Enter the new monthly salary");
-      if (input.monthlySalary === job.monthlySalary) return fail("That's the current salary");
-      changes.push({ label: "Monthly salary", from: peso(job.monthlySalary), to: peso(input.monthlySalary) });
-      job.monthlySalary = input.monthlySalary;
-      break;
-    case "Regularization":
-      if (job.employmentType !== "Probationary") return fail("Only probationary employees can be regularized");
-      changes.push({ label: "Employment type", from: job.employmentType, to: "Regular" });
-      job.employmentType = "Regular";
-      job.regularizationDate = input.effectiveDate;
-      break;
-    case "Supervisor change":
-      if (!input.supervisorId) return fail("Choose the new supervisor");
-      if (input.supervisorId === e.id) return fail("An employee can't supervise themselves");
-      if (input.supervisorId === job.supervisorId) return fail("That's already their supervisor");
-      changes.push({ label: "Supervisor", from: nameOf(job.supervisorId), to: nameOf(input.supervisorId) });
-      job.supervisorId = input.supervisorId;
-      break;
-    case "Status change":
-      if (!input.status || input.status === "Separated") return fail("Choose the new status");
-      if (input.status === job.status) return fail(`They're already ${job.status.toLowerCase()}`);
-      changes.push({ label: "Status", from: job.status, to: input.status });
-      job.status = input.status;
-      break;
-    case "Separation":
-      if (!input.remarks.trim()) return fail("Give the reason for separation");
-      changes.push({ label: "Status", from: job.status, to: "Separated" });
-      job.status = "Separated";
-      job.separationDate = input.effectiveDate;
-      break;
-  }
-
-  const event: JobEvent = { id: newId("ev"), employeeId: e.id, kind: input.kind, effectiveDate: input.effectiveDate, changes, remarks: input.remarks.trim() || undefined, recordedBy: actor, recordedAt: new Date().toISOString() };
-  // People who reported to someone now separated lose that link.
-  const employees = state.employees.map((x) => (x.id === e.id ? { ...x, job } : input.kind === "Separation" && x.job.supervisorId === e.id ? { ...x, job: { ...x.job, supervisorId: undefined } } : x));
-  commit({
-    ...state,
-    employees,
-    events: [event, ...state.events],
-    audit: [audit(e.id, actor, "Recorded", "Employment history", `${input.kind}: ${changes.map((c) => `${c.label} → ${c.to}`).join("; ")}`), ...state.audit],
-  });
-  return respond(event);
 }
 
