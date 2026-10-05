@@ -80,10 +80,10 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
 
   return (
     <article style={{ "--i": index } as React.CSSProperties} className={clsx("rise-in lift relative flex flex-col rounded-2xl border border-border bg-surface px-4 py-3.5 shadow-sm", e.status === "Separated" && "opacity-60")}>
-      <header className="flex items-start gap-3">
+      <header className="flex items-start gap-2.5">
         <Initials initials={e.initials} size="lg" />
         <div className="min-w-0 flex-1 pt-0.5">
-          <Link to={`/admin/people/${e.id}`} className="font-display block truncate text-[0.95rem] leading-tight font-semibold hover:underline">
+          <Link to={`/admin/people/${e.id}`} title={e.name} className="font-display line-clamp-2 text-[0.95rem] leading-tight font-semibold break-words hover:underline">
             {e.name}
           </Link>
           <span className="mt-0.5 block truncate text-xs text-ink-2">{e.positionTitle}</span>
@@ -152,13 +152,13 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
       <div className="my-3 border-t border-border" />
 
       <footer className="flex items-end justify-between gap-2">
-        <span className="text-xs leading-tight text-ink-3">
+        <span className="min-w-0 text-xs leading-tight text-ink-3">
           Hired:
-          <span className="mt-0.5 block text-[0.8rem] text-ink-2">{formatDate(e.dateHired)}</span>
+          <span className="mt-0.5 block text-[0.8rem] whitespace-nowrap text-ink-2">{formatDate(e.dateHired)}</span>
         </span>
-        <span className="flex items-center gap-1.5">
+        <span className="flex flex-none items-center gap-1">
           <Pill tone={statusTone[e.status]}>{e.employmentType === "Probationary" && e.status === "Active" ? "Probationary" : e.status}</Pill>
-          <button type="button" onClick={() => setPreview(true)} className="h-7 rounded-lg border border-brand px-2.5 text-xs font-semibold text-brand hover:bg-brand-tint">
+          <button type="button" onClick={() => setPreview(true)} className="h-7 rounded-lg border border-brand px-2 text-xs font-semibold text-brand hover:bg-brand-tint">
             Preview
           </button>
         </span>

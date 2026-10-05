@@ -14,8 +14,8 @@ import { StatusText } from "./SplitView";
 import { EmployeeCard } from "./EmployeeCard";
 import { Initials, LoadError } from "./ui";
 
-/** People shown per page, in both views. */
-const PAGE_SIZE = 8;
+/** People per page: two full rows of five cards, or 8 table rows. */
+const PAGE_SIZE = { cards: 10, table: 8 } as const;
 
 type View = "cards" | "table";
 type SortKey = "name" | "job" | "department" | "branch" | "status" | "hired" | "documents";
@@ -72,7 +72,7 @@ export function PeoplePage() {
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: "name", asc: true });
   const [page, setPage] = useState(0);
   // A new search, filter or sort starts again from the first page.
-  const filterKey = `${query}|${departmentId}|${sort.key}|${sort.asc}|${office}`;
+  const filterKey = `${query}|${departmentId}|${sort.key}|${sort.asc}|${office}|${view}`;
   const [seenKey, setSeenKey] = useState(filterKey);
   if (seenKey !== filterKey) {
     setSeenKey(filterKey);
@@ -109,9 +109,10 @@ export function PeoplePage() {
       return (sort.asc ? c : -c) || a.name.localeCompare(b.name);
     });
 
-  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const size = PAGE_SIZE[view];
+  const pages = Math.max(1, Math.ceil(rows.length / size));
   const pageNo = Math.min(page, pages - 1);
-  const shown = rows.slice(pageNo * PAGE_SIZE, pageNo * PAGE_SIZE + PAGE_SIZE);
+  const shown = rows.slice(pageNo * size, pageNo * size + size);
 
   const onLeave = current.filter((e) => e.status === "On leave" || e.status === "Suspended").length;
   const needDocs = current.filter((e) => e.documents.needsAction > 0).length;
@@ -167,15 +168,15 @@ export function PeoplePage() {
       </div>
 
       {employeesQuery.isLoading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fill,minmax(16rem,18rem))] lg:grid-cols-[repeat(4,minmax(0,18rem))]">
-          {Array.from({ length: 8 }, (_, i) => (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+          {Array.from({ length: 10 }, (_, i) => (
             <Skeleton key={i} className="h-64 w-full" />
           ))}
         </div>
       ) : rows.length === 0 ? (
         <EmptyState icon={<SearchXIcon />} title="No one matches" description="Try a different search or department." />
       ) : view === "cards" ? (
-        <div key={`cards-${pageNo}`} className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(auto-fill,minmax(16rem,18rem))] lg:grid-cols-[repeat(4,minmax(0,18rem))]">
+        <div key={`cards-${pageNo}`} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           {shown.map((e, i) => (
             <EmployeeCard key={e.id} e={e} index={i} />
           ))}
@@ -230,7 +231,7 @@ export function PeoplePage() {
       {rows.length > 0 && (
         <div className="flex items-center justify-between gap-3 text-xs text-ink-2">
           <span>
-            {pageNo * PAGE_SIZE + 1}–{Math.min(rows.length, pageNo * PAGE_SIZE + PAGE_SIZE)} of {rows.length} employees
+            {pageNo * size + 1}–{Math.min(rows.length, pageNo * size + size)} of {rows.length} employees
           </span>
           <span className="flex items-center gap-1.5">
             <button type="button" onClick={() => setPage(pageNo - 1)} disabled={pageNo === 0} className="h-8 rounded-lg border border-border bg-surface px-3 font-medium enabled:hover:border-ink-3 disabled:opacity-40">
