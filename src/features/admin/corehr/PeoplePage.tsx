@@ -13,6 +13,9 @@ import { filterSearchClass, filterSelectClass, formatDate, keys, statusTone, ten
 import { StatusText } from "./SplitView";
 import { Initials, LoadError } from "./ui";
 
+/** People shown per page, in both views. */
+const PAGE_SIZE = 8;
+
 type View = "cards" | "table";
 type SortKey = "name" | "job" | "department" | "branch" | "status" | "hired" | "documents";
 
@@ -94,6 +97,14 @@ export function PeoplePage() {
   const [departmentId, setDepartmentId] = useState("");
   const [view, setView] = useState<View>(loadView);
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: "name", asc: true });
+  const [page, setPage] = useState(0);
+  // A new search, filter or sort starts again from the first page.
+  const filterKey = `${query}|${departmentId}|${sort.key}|${sort.asc}|${office}`;
+  const [seenKey, setSeenKey] = useState(filterKey);
+  if (seenKey !== filterKey) {
+    setSeenKey(filterKey);
+    setPage(0);
+  }
 
   function changeView(v: View) {
     setView(v);
@@ -124,6 +135,10 @@ export function PeoplePage() {
       const c = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y));
       return (sort.asc ? c : -c) || a.name.localeCompare(b.name);
     });
+
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const pageNo = Math.min(page, pages - 1);
+  const shown = rows.slice(pageNo * PAGE_SIZE, pageNo * PAGE_SIZE + PAGE_SIZE);
 
   const onLeave = current.filter((e) => e.status === "On leave" || e.status === "Suspended").length;
   const needDocs = current.filter((e) => e.documents.needsAction > 0).length;
@@ -179,16 +194,16 @@ export function PeoplePage() {
       </div>
 
       {employeesQuery.isLoading ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-          {Array.from({ length: 10 }, (_, i) => (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 8 }, (_, i) => (
             <Skeleton key={i} className="h-60 w-full" />
           ))}
         </div>
       ) : rows.length === 0 ? (
         <EmptyState icon={<SearchXIcon />} title="No one matches" description="Try a different search or department." />
       ) : view === "cards" ? (
-        <div key="cards" className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-          {rows.map((e, i) => (
+        <div key={`cards-${pageNo}`} className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {shown.map((e, i) => (
             <EmployeeCard key={e.id} e={e} index={i} />
           ))}
         </div>
@@ -209,7 +224,7 @@ export function PeoplePage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((e) => (
+                {shown.map((e) => (
                   <tr key={e.id} onClick={() => navigate(`/admin/people/${e.id}`)} className={clsx("cursor-pointer border-b border-border last:border-0 hover:bg-surface-2/60", e.status === "Separated" && "opacity-60")}>
                     <td className="px-4 py-2.5">
                       <span className="flex items-center gap-3">
@@ -240,9 +255,22 @@ export function PeoplePage() {
         </div>
       )}
       {rows.length > 0 && (
-        <p className="text-xs text-ink-3">
-          Showing {rows.length} of {current.length}
-        </p>
+        <div className="flex items-center justify-between gap-3 text-xs text-ink-2">
+          <span>
+            {pageNo * PAGE_SIZE + 1}–{Math.min(rows.length, pageNo * PAGE_SIZE + PAGE_SIZE)} of {rows.length} employees
+          </span>
+          <span className="flex items-center gap-1.5">
+            <button type="button" onClick={() => setPage(pageNo - 1)} disabled={pageNo === 0} className="h-8 rounded-lg border border-border bg-surface px-3 font-medium enabled:hover:border-ink-3 disabled:opacity-40">
+              Previous
+            </button>
+            <span className="px-1 text-ink-3">
+              Page {pageNo + 1} of {pages}
+            </span>
+            <button type="button" onClick={() => setPage(pageNo + 1)} disabled={pageNo >= pages - 1} className="h-8 rounded-lg border border-border bg-surface px-3 font-medium enabled:hover:border-ink-3 disabled:opacity-40">
+              Next
+            </button>
+          </span>
+        </div>
       )}
     </>
   );

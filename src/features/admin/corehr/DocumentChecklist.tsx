@@ -7,46 +7,51 @@ import { DocumentDrawer } from "./DocumentDrawer";
 import { documentState, formatDate, keys } from "./format";
 import { StatusText } from "./SplitView";
 
-/** One employee's 201 documents. Clicking a row opens what can be done with it, right above the list. */
+/**
+ * One employee's 201 documents as a compact two-column grid, so the whole file
+ * fits without scrolling. Clicking one opens what can be done with it in a side panel.
+ */
 export function DocumentChecklist({ employeeId, employeeName }: { employeeId: string; employeeName: string }) {
   const documentsQuery = useQuery({ queryKey: [...keys.documents, employeeId], queryFn: () => listDocuments(employeeId) });
   const [openId, setOpenId] = useState<string | null>(null);
-  const docs = documentsQuery.data ?? [];
+  // Documents that don't apply go last.
+  const docs = [...(documentsQuery.data ?? [])].sort((a, b) => Number(a.status === "Not applicable") - Number(b.status === "Not applicable"));
   const open = docs.find((d) => d.id === openId);
 
   if (documentsQuery.isLoading) return <Skeleton className="h-48 w-full" />;
   return (
-    <div className="flex flex-col gap-4">
-      {open && <DocumentDrawer key={open.id + open.status} inline document={open} employeeName={employeeName} onClose={() => setOpenId(null)} />}
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-xs text-ink-3">
-            <th className="pb-2 font-medium">Document</th>
-            <th className="pb-2 font-medium">Where it stands</th>
-            <th className="hidden pb-2 text-right font-medium sm:table-cell">Expires</th>
-          </tr>
-        </thead>
-        <tbody>
-          {docs.map((d) => {
-            const state = documentState(d);
-            const alert = documentAlert(d);
-            return (
-              <tr key={d.id} onClick={() => setOpenId(d.id)} className={clsx("cursor-pointer border-t border-border hover:bg-surface-2/60", d.id === openId && "bg-surface-2")}>
-                <td className={clsx("py-2.5 pr-3", d.status === "Not applicable" && "text-ink-3")}>
-                  <button type="button" className="text-left hover:underline" onClick={() => setOpenId(d.id)}>
-                    {d.type}
-                  </button>
-                </td>
-                <td className="py-2.5 pr-3">
-                  <StatusText tone={state.tone}>{state.label}</StatusText>
-                </td>
-                <td className={clsx("hidden py-2.5 text-right sm:table-cell", alert === "expired" ? "text-critical" : alert === "expiring" ? "text-warning" : "text-ink-3")}>{d.expiresOn ? formatDate(d.expiresOn) : "—"}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div className="flex flex-col gap-3">
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {docs.map((d) => {
+          const state = documentState(d);
+          const alert = documentAlert(d);
+          const na = d.status === "Not applicable";
+          return (
+            <li key={d.id}>
+              <button
+                type="button"
+                onClick={() => setOpenId(d.id)}
+                className={clsx("flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors", d.id === openId ? "border-ink bg-surface-2" : "border-border hover:border-ink-3", na && "opacity-60")}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium">{d.type}</span>
+                  <span className="block text-xs">
+                    <StatusText tone={state.tone}>{state.label}</StatusText>
+                  </span>
+                </span>
+                {d.expiresOn && (
+                  <span className={clsx("flex-none text-right text-xs", alert === "expired" ? "font-medium text-critical" : alert === "expiring" ? "font-medium text-warning" : "text-ink-3")}>
+                    {alert === "expired" ? "Expired" : "Expires"}
+                    <span className="block">{formatDate(d.expiresOn)}</span>
+                  </span>
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
       <p className="text-xs text-ink-3">Click a document to upload it, check it against the original, or send it back.</p>
+      {open && <DocumentDrawer key={open.id + open.status} document={open} employeeName={employeeName} onClose={() => setOpenId(null)} />}
     </div>
   );
 }

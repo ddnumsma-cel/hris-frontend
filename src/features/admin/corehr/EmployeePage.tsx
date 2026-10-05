@@ -11,9 +11,7 @@ export function EmployeePage() {
         <ArrowRightIcon className="h-4 w-4 rotate-180" />
         Back to People
       </Link>
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-        <EmployeeRecord key={employeeId} employeeId={employeeId} />
-      </div>
+      <EmployeeRecord key={employeeId} employeeId={employeeId} />
     </>
   );
 }

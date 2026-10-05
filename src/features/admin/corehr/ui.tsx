@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { CheckIcon, XIcon } from "@/components/icons";
 import type { Tone } from "./format";
@@ -132,7 +133,8 @@ export function Drawer({
     };
   }, [open]);
   if (!open) return null;
-  return (
+  // Drawn on <body> so a transformed or clipped parent can't trap it.
+  return createPortal(
     <div className="overlay-enter fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
       <div
         ref={panel}
@@ -155,7 +157,8 @@ export function Drawer({
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
         {footer && <div className="flex flex-none justify-end gap-2 border-t border-border px-5 py-3">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
