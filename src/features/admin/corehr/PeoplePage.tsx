@@ -44,31 +44,32 @@ function DocProgress({ e, wide }: { e: EmployeeSummary; wide?: boolean }) {
   );
 }
 
+/** A compact, fixed-width contact card. */
 function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }) {
+  const pct = e.documents.required ? Math.round((e.documents.verified / e.documents.required) * 100) : 100;
   return (
     <Link
       to={`/admin/people/${e.id}`}
       style={{ "--i": index } as React.CSSProperties}
-      className={clsx("rise-in lift flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 shadow-sm hover:border-ink-3", e.status === "Separated" && "opacity-60")}
+      className={clsx("rise-in lift flex flex-col items-center rounded-2xl border border-border bg-surface px-4 pt-4 pb-3.5 text-center shadow-sm hover:border-ink-3", e.status === "Separated" && "opacity-60")}
     >
-      <span className="flex items-center gap-3">
-        <Initials initials={e.initials} size="md" />
-        <span className="min-w-0 flex-1">
-          <span className="font-display block truncate text-[0.95rem] font-semibold">{e.name}</span>
-          <span className="block truncate text-xs text-ink-2">{e.positionTitle}</span>
-          <span className="block truncate text-xs text-ink-3">
-            {e.departmentName} · {e.branchName}
+      <Initials initials={e.initials} size="md" />
+      <span className="font-display mt-2.5 w-full truncate text-[0.95rem] font-semibold">{e.name}</span>
+      <span className="w-full truncate text-xs text-ink-2">{e.positionTitle}</span>
+      <span className="w-full truncate text-xs text-ink-3">
+        {e.departmentName} · {e.branchName}
+      </span>
+      <span className="mt-3 w-full border-t border-border pt-2.5">
+        <span className="flex items-center justify-between gap-2 text-xs">
+          <StatusText tone={statusTone[e.status]}>{e.employmentType === "Probationary" && e.status === "Active" ? "Probationary" : e.status}</StatusText>
+          <span className={clsx(e.documents.needsAction > 0 ? "font-medium text-warning" : "text-ink-3")} title="201 file documents verified">
+            201 · {e.documents.verified}/{e.documents.required}
           </span>
         </span>
-      </span>
-      <span className="flex items-center justify-between gap-2 text-xs">
-        <span className="flex items-center">
-          <StatusText tone={statusTone[e.status]}>{e.status}</StatusText>
-          {e.employmentType === "Probationary" && e.status !== "Separated" && <span className="ml-1.5 text-ink-3">· Probationary</span>}
+        <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-surface-2">
+          <span className={clsx("grow-x block h-full rounded-full", pct === 100 ? "bg-good" : "bg-ink")} style={{ width: `${pct}%` }} />
         </span>
-        {e.documents.needsAction > 0 && <span className="font-medium text-warning">201 needs attention</span>}
       </span>
-      <DocProgress e={e} wide />
     </Link>
   );
 }
@@ -195,15 +196,15 @@ export function PeoplePage() {
       </div>
 
       {employeesQuery.isLoading ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-[repeat(auto-fill,15.5rem)] lg:grid-cols-[repeat(4,15.5rem)]">
           {Array.from({ length: 8 }, (_, i) => (
-            <Skeleton key={i} className="h-32 w-full" />
+            <Skeleton key={i} className="h-44 w-full" />
           ))}
         </div>
       ) : rows.length === 0 ? (
         <EmptyState icon={<SearchXIcon />} title="No one matches" description="Try a different search or department." />
       ) : view === "cards" ? (
-        <div key={`cards-${pageNo}`} className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div key={`cards-${pageNo}`} className="grid grid-cols-2 gap-4 sm:grid-cols-[repeat(auto-fill,15.5rem)] lg:grid-cols-[repeat(4,15.5rem)]">
           {shown.map((e, i) => (
             <EmployeeCard key={e.id} e={e} index={i} />
           ))}
