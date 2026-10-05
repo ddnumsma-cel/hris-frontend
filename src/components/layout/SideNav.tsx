@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { ChevronDownIcon, MenuIcon, XIcon } from "@/components/icons";
 import { useAuth } from "@/features/auth/AuthContext";
 import { BrandName, WorkspaceLabel } from "./Brand";
+import { isItemActive } from "./navItems";
 
 export interface SideNavItem {
   label: string;
@@ -17,13 +18,11 @@ export interface SideNavItem {
 export interface SideNavGroup {
   title: string;
   items: SideNavItem[];
+  /** Short name for tight places, e.g. the icon rail. */
+  short?: string;
+  icon?: ReactNode;
 }
 
-function isItemActive(item: SideNavItem, pathname: string): boolean {
-  if (item.children) return item.children.some((child) => isItemActive(child, pathname));
-  if (item.end) return pathname === item.to;
-  return pathname === item.to || pathname.startsWith(`${item.to}/`);
-}
 
 /** Lime "›" marker shown on the selected item. Styling is in index.css (.sidebar-*). */
 function ActiveChevron() {
@@ -125,7 +124,8 @@ function NavGroupList({ groups, onNavigate }: { groups: SideNavGroup[]; onNaviga
   );
 }
 
-export function SideNav({ groups }: { groups: SideNavGroup[] }) {
+/** Pass desktop={false} when another component draws the desktop sidebar; the phone menu still comes from here. */
+export function SideNav({ groups, desktop = true }: { groups: SideNavGroup[]; desktop?: boolean }) {
   const { user } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -177,8 +177,9 @@ export function SideNav({ groups }: { groups: SideNavGroup[] }) {
         </>
       )}
 
-      {/* Desktop: full-height sticky sidebar. It's pulled up beside the top bar,
-          which leaves this column free (see .sidebar-desktop in index.css). */}
+      {desktop && (
+      /* Desktop: full-height sticky sidebar. It's pulled up beside the top bar,
+          which leaves this column free (see .sidebar-desktop in index.css). */
       <aside
         data-tour="sidenav"
         className={clsx(
@@ -195,6 +196,7 @@ export function SideNav({ groups }: { groups: SideNavGroup[] }) {
         )}
         <NavGroupList groups={groups} />
       </aside>
+      )}
     </>
   );
 }

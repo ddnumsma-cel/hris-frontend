@@ -718,12 +718,20 @@ body {
   }
 }
 
+/* Desktop sidebar width; the HR workspace uses the narrow icon rail. */
+:root {
+  --sidenav-w: 15rem;
+}
+body:has(.sidebar-rail) {
+  --sidenav-w: 5rem;
+}
+
 /* With the desktop sidebar on screen (sm and up), it runs the full page height
    and carries the brand, so the top bar starts beside it and drops its copy.
    Unlayered on purpose, so it overrides the utilities on those elements. */
 @media (width >= 40rem) {
   body:has(.sidebar-desktop) .topbar {
-    margin-left: 15rem;
+    margin-left: var(--sidenav-w);
   }
 
   body:has(.sidebar-desktop) .topbar-sidebar-dup {

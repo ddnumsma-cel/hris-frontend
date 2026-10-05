@@ -2,15 +2,18 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
 import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
 import { BarChartIcon, BuildingIcon, CalendarIcon, ClockIcon, FolderIcon, GridIcon, LockIcon, ShieldIcon, UsersIcon } from "@/components/icons";
+import { RailNav } from "@/components/layout/RailNav";
 import { moduleForPath, useAccess } from "./administration/access";
 
 const GROUPS: SideNavGroup[] = [
   {
     title: "Organization",
+    short: "Home",
     items: [{ label: "Overview", to: "/admin", end: true, icon: <GridIcon /> }],
   },
   {
     title: "Core HR",
+    short: "Core HR",
     items: [
       { label: "People", to: "/admin/people", icon: <UsersIcon /> },
       { label: "Company", to: "/admin/company", icon: <BuildingIcon /> },
@@ -19,6 +22,7 @@ const GROUPS: SideNavGroup[] = [
   },
   {
     title: "Time & Attendance",
+    short: "Time",
     items: [
       {
         label: "Timekeeping & Attendance",
@@ -37,6 +41,7 @@ const GROUPS: SideNavGroup[] = [
   },
   {
     title: "Leave",
+    short: "Leave",
     items: [
       {
         label: "Leave Management",
@@ -53,6 +58,7 @@ const GROUPS: SideNavGroup[] = [
   },
   {
     title: "Insights",
+    short: "Reports",
     items: [
       {
         label: "Reports & Analytics",
@@ -71,6 +77,7 @@ const GROUPS: SideNavGroup[] = [
   },
   {
     title: "System",
+    short: "Admin",
     items: [
       {
         label: "Administration & Security",
@@ -111,7 +118,15 @@ export function AdminLayout() {
   const groups = GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => allowed(i.to)) })).filter((g) => g.items.length > 0);
 
   return (
-    <RolePage sidenav={<SideNav groups={groups} />}>
+    <RolePage
+      sidenav={
+        <>
+          {/* Phones get the slide-in menu; desktop gets the icon rail. */}
+          <SideNav groups={groups} desktop={false} />
+          <RailNav groups={groups} />
+        </>
+      }
+    >
       {allowed(pathname) ? <Outlet /> : <NoAccess />}
     </RolePage>
   );
