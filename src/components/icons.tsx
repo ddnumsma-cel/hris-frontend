@@ -43,7 +43,9 @@ import {
   Plus,
   Search,
   SearchX,
+  Pin,
   Settings,
+  SlidersHorizontal,
   UserCheck,
   ShieldCheck,
   Sun,
@@ -281,4 +283,12 @@ export function PhoneIcon(props: IconProps) {
 
 export function ListIcon(props: IconProps) {
   return <List strokeWidth={strokeWidth} {...props} />;
+}
+
+export function PinIcon(props: IconProps) {
+  return <Pin strokeWidth={strokeWidth} {...props} />;
+}
+
+export function SlidersIcon(props: IconProps) {
+  return <SlidersHorizontal strokeWidth={strokeWidth} {...props} />;
 }

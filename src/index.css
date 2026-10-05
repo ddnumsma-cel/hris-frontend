@@ -7,7 +7,7 @@
   --font-body: var(--font-sans);
   --font-num: var(--font-sans);
 
-  --color-bg: #f4f6f2;
+  --color-bg: #ffffff;
   --color-surface: #ffffff;
   --color-surface-2: #eceee7;
   --color-border: #dde1d6;
@@ -377,13 +377,13 @@ body {
     0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
-/* Ambient app background: a pale base gradient with soft blue and lime glows.
-   Fixed to the viewport (not the page) and sits behind all normal-flow
-   content via z-index; the frosted sidebar blurs whatever is behind it. */
+/* App background. Light mode is plain white; dark mode keeps a soft navy
+   gradient. Fixed to the viewport (not the page) and sits behind all
+   normal-flow content via z-index. */
 .app-background {
-  --app-bg-base: linear-gradient(160deg, #eef1fa 0%, #f4f5f9 55%, #eef3dd 100%);
-  --app-bg-glow-blue: rgba(47, 99, 214, 0.14);
-  --app-bg-glow-lime: rgba(200, 230, 34, 0.22);
+  --app-bg-base: linear-gradient(#ffffff, #ffffff);
+  --app-bg-glow-blue: transparent;
+  --app-bg-glow-lime: transparent;
   position: fixed;
   inset: 0;
   z-index: -1;

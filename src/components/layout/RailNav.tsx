@@ -6,14 +6,23 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { NavLink, useLocation } from "react-router-dom";
 import clsx from "clsx";
+import { useAuth } from "@/features/auth/AuthContext";
+import { PinIcon, SlidersIcon } from "@/components/icons";
+import { CustomizeNavDialog } from "./CustomizeNavDialog";
 import { isItemActive, toSections, type NavSection } from "./navItems";
+import { ordered, pinned, useNavPrefs } from "./navPrefs";
 import type { SideNavGroup } from "./SideNav";
 
 const sectionActive = (s: NavSection, pathname: string) => s.pages.some((p) => isItemActive(p, pathname));
 
 export function RailNav({ groups }: { groups: SideNavGroup[] }) {
   const { pathname } = useLocation();
-  const sections = toSections(groups);
+  const { user } = useAuth();
+  const [prefs, setPrefs] = useNavPrefs(user?.accountId ?? user?.role ?? "guest");
+  const [customizing, setCustomizing] = useState(false);
+  const all = toSections(groups);
+  const sections = ordered(all, prefs.order);
+  const pins = pinned(all, prefs.pins);
   const current = sections.find((s) => sectionActive(s, pathname));
   const [open, setOpen] = useState<{ key: string; top: number } | null>(null);
   const closeTimer = useRef(0);
@@ -48,6 +57,29 @@ export function RailNav({ groups }: { groups: SideNavGroup[] }) {
       <div className="flex w-full flex-none justify-center border-b border-[var(--sb-border)] px-2 pt-5 pb-4">
         <img src="/brand/heyhr-wordmark.svg" alt="HeyHR" className="brand-wordmark !h-[19px]" />
       </div>
+      {pins.length > 0 && (
+        <nav aria-label="Pinned" className="flex w-full flex-none flex-col items-center gap-0.5 border-b border-[var(--sb-border)] py-2">
+          <span className="flex items-center gap-1 text-[9.5px] font-semibold tracking-wide text-[var(--sb-muted)] uppercase">
+            <PinIcon className="h-2.5 w-2.5" />
+            Pinned
+          </span>
+          {pins.map(({ section, page }) => (
+            <NavLink key={page.to} to={page.to} end={page.end} title={`${section.label} › ${page.label}`} className="group flex w-16 flex-col items-center gap-0.5 rounded-xl py-1">
+              {({ isActive }) => (
+                <>
+                  <span
+                    className={clsx("flex h-8 w-8 items-center justify-center rounded-lg transition-colors [&>svg]:h-4 [&>svg]:w-4", isActive ? "text-[var(--sb-lime)]" : "bg-[var(--sb-hover)] text-[var(--sb-text)] group-hover:text-[var(--sb-text)]")}
+                    style={isActive ? { background: "var(--sb-active-bg)" } : undefined}
+                  >
+                    {section.icon}
+                  </span>
+                  <span className={clsx("w-full truncate px-0.5 text-center text-[10px] leading-tight", isActive ? "font-semibold text-[var(--sb-text)]" : "text-[var(--sb-muted)]")}>{page.label}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+      )}
       <nav aria-label="Modules" className="flex flex-col items-center gap-1 py-3">
         {sections.map((s) => {
           const active = s.key === current?.key;
@@ -83,6 +115,16 @@ export function RailNav({ groups }: { groups: SideNavGroup[] }) {
           );
         })}
       </nav>
+
+      <div className="mt-auto flex w-full flex-none justify-center border-t border-[var(--sb-border)] py-2.5">
+        <button type="button" onClick={() => setCustomizing(true)} title="Pin your daily pages and reorder the menu" className="group flex w-16 flex-col items-center gap-1 rounded-xl py-1">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--sb-muted)] transition-colors group-hover:bg-[var(--sb-hover)] group-hover:text-[var(--sb-text)] [&>svg]:h-[18px] [&>svg]:w-[18px]">
+            <SlidersIcon />
+          </span>
+          <span className="text-[10.5px] leading-tight text-[var(--sb-muted)]">Customize</span>
+        </button>
+      </div>
+      {customizing && <CustomizeNavDialog sections={all} prefs={prefs} onSave={setPrefs} onClose={() => setCustomizing(false)} />}
 
       {/* In a portal: the sidebar's backdrop blur would otherwise trap the fixed panel inside it. */}
       {openSection &&
