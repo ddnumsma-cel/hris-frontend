@@ -75,8 +75,9 @@ function seed(): LeaveState {
       reason,
       status,
       filedBy: e ? fullName(e.personal) : "Employee",
-      filedAt: `${addDays(start, -7)}T09:00:00`,
-      ...(status === "approved" || status === "rejected" ? { decidedBy: "Dinah Marquez", decidedAt: `${addDays(start, -5)}T10:00:00` } : {}),
+      // Sample requests were filed a week ahead, but never later than a couple of days ago.
+      filedAt: `${earlier(addDays(start, -7), addDays(isoToday(), -2))}T09:00:00`,
+      ...(status === "approved" || status === "rejected" ? { decidedBy: "Dinah Marquez", decidedAt: `${earlier(addDays(start, -5), addDays(isoToday(), -1))}T10:00:00` } : {}),
       ...extra,
     };
   };
@@ -113,12 +114,21 @@ function seed(): LeaveState {
   return { types: DEFAULT_TYPES, requests, adjustments: [], carryOver };
 }
 
+const earlier = (a: string, b: string) => (a < b ? a : b);
+
+/** Sample data saved before dates were capped could say a request was filed in the future. */
+function notInFuture(s: LeaveState): LeaveState {
+  const now = new Date().toISOString();
+  const cap = (at?: string) => (at && at > now ? now : at);
+  return { ...s, requests: s.requests.map((r) => ({ ...r, filedAt: cap(r.filedAt)!, decidedAt: cap(r.decidedAt) })) };
+}
+
 function load(): LeaveState {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const s = JSON.parse(raw) as LeaveState;
-      if (Array.isArray(s.types) && Array.isArray(s.requests)) return s;
+      if (Array.isArray(s.types) && Array.isArray(s.requests)) return notInFuture(s);
     }
   } catch {
     // Blocked or corrupt storage: start from the seed.

@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/ToastContext";
+import { approvalPath } from "@/lib/admin/api";
 import { cancelRequest, decideRequest, fileLeave, fmtDays, isoToday, listTypes, people, previewRequest, type FileInput, type RequestRow } from "@/lib/leave/api";
 import { inputClass, useActor } from "../corehr/format";
 import { Detail, ErrorNote, Field, Pill } from "../corehr/ui";
@@ -218,6 +219,11 @@ export function RequestDialog({ r, onClose, startWith }: { r: RequestRow; onClos
             </Detail>
           )}
           {r.note && <Detail label="Note">{r.note}</Detail>}
+          <Detail label="Approval steps" wide>
+            {approvalPath("leave", r.employeeId, r.days)
+              .map((p) => `${p.step}: ${p.who}`)
+              .join(" → ") || "HR"}
+          </Detail>
         </div>
       ) : (
         <div className="flex flex-col gap-3">

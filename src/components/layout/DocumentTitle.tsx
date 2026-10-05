@@ -48,6 +48,11 @@ const titles: Record<string, string> = {
   "/admin/reports/payroll": "Payroll reports",
   "/admin/reports/statutory": "Government reports",
   "/admin/reports/management": "Management reports",
+  "/admin/administration/users": "Users",
+  "/admin/administration/roles": "Roles & access",
+  "/admin/administration/workflows": "Approval workflows",
+  "/admin/administration/audit": "Audit trail",
+  "/admin/administration/settings": "System settings",
   "/admin/documents": "Documents",
 };
 

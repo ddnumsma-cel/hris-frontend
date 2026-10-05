@@ -3,7 +3,8 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { CalendarIcon, FingerprintIcon, LockIcon, OrgChartIcon, PersonIcon, ShieldIcon } from "@/components/icons";
-import { findCredential, getCredentials } from "@/lib/credentials";
+import { endedForInactivity, idleMinutes, signIn } from "@/lib/admin/auth";
+import { getCredentials } from "@/lib/credentials";
 import { useAuth } from "./AuthContext";
 
 const RegisterDialog = lazy(() => import("./RegisterDialog").then((m) => ({ default: m.RegisterDialog })));
@@ -20,20 +21,20 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => (endedForInactivity() ? `You were signed out after ${idleMinutes()} minutes without activity. Please sign in again.` : null));
   const [registerOpen, setRegisterOpen] = useState(false);
 
   // Already signed in (e.g. a remembered session) — skip the form entirely.
   if (user) return <Navigate to={`/${user.role}`} replace />;
 
   function attemptLogin(u: string, p: string) {
-    const credential = findCredential(u, p);
-    if (!credential) {
-      setError("Incorrect username or password.");
+    const result = signIn(u, p);
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
-    login(credential.role);
-    navigate(`/${credential.role}`, { replace: true });
+    login(result.workspace, result.account);
+    navigate(`/${result.workspace}`, { replace: true });
   }
 
   function handleSubmit(e: FormEvent) {

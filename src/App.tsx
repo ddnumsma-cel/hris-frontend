@@ -38,6 +38,11 @@ const AttendanceReportsPage = lazy(() => import("@/features/admin/reports/Report
 const PayrollReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.PayrollReportsPage })));
 const StatutoryReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.StatutoryReportsPage })));
 const ManagementReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.ManagementReportsPage })));
+const UsersPage = lazy(() => import("@/features/admin/administration/UsersPage").then((m) => ({ default: m.UsersPage })));
+const RolesPage = lazy(() => import("@/features/admin/administration/RolesPage").then((m) => ({ default: m.RolesPage })));
+const WorkflowsPage = lazy(() => import("@/features/admin/administration/WorkflowsPage").then((m) => ({ default: m.WorkflowsPage })));
+const AuditTrailPage = lazy(() => import("@/features/admin/administration/AuditTrailPage").then((m) => ({ default: m.AuditTrailPage })));
+const SystemSettingsPage = lazy(() => import("@/features/admin/administration/SystemSettingsPage").then((m) => ({ default: m.SystemSettingsPage })));
 const TardinessPage = lazy(() => import("@/features/admin/timekeeping/TardinessPage").then((m) => ({ default: m.TardinessPage })));
 const CompanyPage = lazy(() => import("@/features/admin/corehr/CompanyPage").then((m) => ({ default: m.CompanyPage })));
 const DocumentsPage = lazy(() => import("@/features/admin/corehr/DocumentsPage").then((m) => ({ default: m.DocumentsPage })));
@@ -188,6 +193,12 @@ function App() {
               <Route path="reports/payroll" element={<PayrollReportsPage />} />
               <Route path="reports/statutory" element={<StatutoryReportsPage />} />
               <Route path="reports/management" element={<ManagementReportsPage />} />
+              <Route path="administration" element={<Navigate to="/admin/administration/users" replace />} />
+              <Route path="administration/users" element={<UsersPage />} />
+              <Route path="administration/roles" element={<RolesPage />} />
+              <Route path="administration/workflows" element={<WorkflowsPage />} />
+              <Route path="administration/audit" element={<AuditTrailPage />} />
+              <Route path="administration/settings" element={<SystemSettingsPage />} />
               <Route path="organization" element={<Navigate to="/admin/company" replace />} />
               <Route path="positions" element={<Navigate to="/admin/company" replace />} />
               <Route path="documents" element={<DocumentsPage />} />

@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { DownloadIcon } from "@/components/icons";
 import { downloadTextFile, toCsv } from "@/lib/download";
 import { escapeHtml, openPrintDocument } from "@/lib/printDocument";
+import { admin } from "@/lib/admin/store";
 import { periodsFor, REPORTS, type Category, type ReportDef, type ReportResult } from "@/lib/reports/api";
 import { useOfficeFilter } from "../OfficeFilterContext";
 import { FilterChip, LoadError } from "../corehr/ui";
@@ -28,7 +29,7 @@ function printReport(def: ReportDef, periodLabel: string, office: string, result
   const meta = result.summary.map((s) => `<div><span class="meta-label">${escapeHtml(s.label)}</span><span class="meta-value">${escapeHtml(formatValue(s.value, s.kind))}</span></div>`).join("");
   openPrintDocument(
     def.name,
-    `<div class="doc-header"><div class="doc-brand">HeyHR</div><div class="doc-title"><h1>${escapeHtml(def.name)}</h1><p>${escapeHtml(periodLabel)} · ${escapeHtml(office)}</p></div></div>
+    `<div class="doc-header"><div class="doc-brand">${escapeHtml(admin.settings.companyName)}</div><div class="doc-title"><h1>${escapeHtml(def.name)}</h1><p>${escapeHtml(periodLabel)} · ${escapeHtml(office)}</p></div></div>
      <div class="meta-grid">${meta}</div>
      <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
      ${result.note ? `<p class="doc-footer">${escapeHtml(result.note)}</p>` : ""}
