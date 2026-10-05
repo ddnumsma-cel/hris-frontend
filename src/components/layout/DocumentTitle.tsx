@@ -4,7 +4,8 @@ import { useLocation } from "react-router-dom";
 const titles: Record<string, string> = {
   "/login": "Sign in",
   "/employee": "Overview",
-  "/employee/leave-dtr": "Leave & DTR",
+  "/employee/leave": "My leave",
+  "/employee/attendance": "My attendance",
   "/employee/payslips": "Payslips",
   "/employee/201-file": "201 File",
   "/employee/certificates": "Certificates",
@@ -38,6 +39,7 @@ const titles: Record<string, string> = {
   "/admin/timekeeping/overtime": "Overtime",
   "/admin/timekeeping/undertime": "Undertime",
   "/admin/timekeeping/tardiness": "Tardiness",
+  "/admin/timekeeping/corrections": "Time corrections",
   "/admin/leave/overview": "Leave",
   "/admin/leave/requests": "Leave requests",
   "/admin/leave/balances": "Leave balances",

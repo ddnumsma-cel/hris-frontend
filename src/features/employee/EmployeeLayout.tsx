@@ -4,6 +4,7 @@ import { RailNav } from "@/components/layout/RailNav";
 import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
 import {
   CalendarIcon,
+  ClockIcon,
   FileIcon,
   FolderIcon,
   GraduationCapIcon,
@@ -17,7 +18,8 @@ const GROUPS: SideNavGroup[] = [
     title: "My workspace",
     items: [
       { label: "Overview", short: "Home", to: "/employee", end: true, icon: <GridIcon /> },
-      { label: "Leave & DTR", short: "Leave", to: "/employee/leave-dtr", icon: <CalendarIcon /> },
+      { label: "My leave", short: "Leave", to: "/employee/leave", icon: <CalendarIcon /> },
+      { label: "My attendance", short: "Time", to: "/employee/attendance", icon: <ClockIcon /> },
       { label: "Payslips", to: "/employee/payslips", icon: <WalletIcon /> },
       { label: "201 File", to: "/employee/201-file", icon: <FolderIcon /> },
       { label: "Trainings", to: "/employee/trainings", icon: <GraduationCapIcon /> },

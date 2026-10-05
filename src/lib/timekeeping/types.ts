@@ -104,6 +104,24 @@ export interface TimeRequest {
   note?: string;
 }
 
+/** An employee asking HR to add a time-in or time-out they missed. */
+export interface FixRequest {
+  id: string;
+  employeeId: string;
+  workDate: string;
+  kind: "in" | "out";
+  /** "HH:MM" */
+  time: string;
+  nextDay?: boolean;
+  reason: string;
+  status: "pending" | "approved" | "declined";
+  filedBy: string;
+  filedAt: string;
+  decidedBy?: string;
+  decidedAt?: string;
+  note?: string;
+}
+
 export interface TimeAudit {
   id: string;
   employeeId: string;

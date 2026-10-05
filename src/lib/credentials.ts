@@ -12,13 +12,15 @@ export interface DemoCredential {
   label: string;
 }
 
+// Strong, unique passwords on purpose: simple ones like "admin1" are in public
+// leaked-password lists, which makes Chrome show a "Change your password" warning.
 // Demo-only fixed accounts — this prototype has no real backend/user store,
 // so each built-in role is reachable with one username/password pair.
 const defaultCredentials: DemoCredential[] = [
-  { key: "superadmin", username: "superadmin", password: "superadmin", role: "admin", label: "Super Admin" },
-  { key: "admin", username: "admin", password: "admin", role: "admin", label: "Admin" },
-  { key: "hr", username: "admin1", password: "admin1", role: "admin", label: "HR" },
-  { key: "employee", username: "admin2", password: "admin2", role: "employee", label: "Employee" },
+  { key: "superadmin", username: "superadmin", password: "Heyhr-Super-2026!", role: "admin", label: "Super Admin" },
+  { key: "admin", username: "admin", password: "Heyhr-Admin-2026!", role: "admin", label: "Admin" },
+  { key: "hr", username: "admin1", password: "Heyhr-HR-2026!", role: "admin", label: "HR" },
+  { key: "employee", username: "admin2", password: "Heyhr-Staff-2026!", role: "employee", label: "Employee" },
 ];
 
 const CREDENTIALS_KEY = "msma-hris-credentials-v2";
@@ -36,7 +38,8 @@ function loadOverrides(): CredentialOverrides {
     const old = localStorage.getItem(OLD_KEY);
     if (old) {
       const o = JSON.parse(old) as Partial<Record<"admin" | "employee", { username: string; password: string }>>;
-      return { ...(o.admin ? { hr: o.admin } : {}), ...(o.employee ? { employee: o.employee } : {}) };
+      const changed = (v?: { username: string; password: string }, weak?: string) => v && v.password !== weak;
+      return { ...(changed(o.admin, "admin1") ? { hr: o.admin } : {}), ...(changed(o.employee, "admin2") ? { employee: o.employee } : {}) };
     }
   } catch {
     // Storage blocked or corrupt — fall back to the seed accounts.

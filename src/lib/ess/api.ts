@@ -1,0 +1,102 @@
+// Employee Self-Service: the signed-in employee's own view of the same data HR
+// works with. Leave they file shows up in HR's Leave requests, time requests in
+// Timekeeping, and payslips use the same payroll engine as the Payroll register.
+
+import { fullName, state as core } from "../corehr/store";
+import { cancelRequest, fileLeave, type FileInput } from "../leave/api";
+import { balanceFor, leave } from "../leave/store";
+import { currentEmployee } from "../mockData";
+import { payroll, periodsFor, type PayLine, type Period } from "../reports/api";
+import { addDays } from "../timekeeping/compute";
+import { fileFix, fileRequest, listDays, type DayRow } from "../timekeeping/api";
+import { tk, todayIso } from "../timekeeping/store";
+import type { FixRequest, TimeRequest } from "../timekeeping/types";
+import { updateEmployeeSection } from "../corehr/api";
+import type { CoreEmployee } from "../corehr/types";
+import type { Balance, LeaveRequest, LeaveType } from "../leave/types";
+
+const DELAY = 200;
+const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
+
+/** The signed-in employee. */
+export const myId = () => currentEmployee.id;
+const me = () => core.employees.find((e) => e.id === myId());
+export const myName = () => {
+  const e = me();
+  return e ? fullName(e.personal) : currentEmployee.name;
+};
+
+// ---- Leave ----
+
+export interface MyLeave {
+  types: LeaveType[];
+  balances: (Balance & { type: LeaveType })[];
+  requests: (LeaveRequest & { type: LeaveType })[];
+}
+
+export function myLeave(): Promise<MyLeave> {
+  const types = leave.types.filter((t) => t.active);
+  const balances = types.map((t) => ({ ...balanceFor(myId(), t), type: t })).filter((b) => b.eligible || b.used > 0 || b.pending > 0);
+  const requests = leave.requests
+    .filter((r) => r.employeeId === myId())
+    .flatMap((r) => {
+      const type = leave.types.find((t) => t.id === r.typeId);
+      return type ? [{ ...r, type }] : [];
+    })
+    .sort((a, b) => b.filedAt.localeCompare(a.filedAt));
+  return respond({ types, balances, requests });
+}
+
+export const fileMyLeave = (input: Omit<FileInput, "employeeId">) => fileLeave({ ...input, employeeId: myId() }, myName());
+export const withdrawMyLeave = (id: string) => cancelRequest(id, "Withdrawn by the employee", myName());
+
+// ---- Attendance ----
+
+export interface MyAttendance {
+  days: DayRow[];
+  requests: TimeRequest[];
+  fixes: FixRequest[];
+}
+
+export async function myAttendance(): Promise<MyAttendance> {
+  const today = todayIso();
+  const days = (await listDays(addDays(today, -13), today)).filter((d) => d.person.id === myId()).sort((a, b) => b.date.localeCompare(a.date));
+  return respond({
+    days,
+    requests: tk.requests.filter((r) => r.employeeId === myId()).sort((a, b) => b.filedAt.localeCompare(a.filedAt)),
+    fixes: tk.fixRequests.filter((r) => r.employeeId === myId()),
+  });
+}
+
+export const fileMyTimeRequest = (input: { date: string; type: TimeRequest["type"]; minutes: number; reason: string }) => fileRequest({ ...input, employeeId: myId() }, myName());
+export const fileMyFix = (input: { workDate: string; kind: "in" | "out"; time: string; nextDay?: boolean; reason: string }) => fileFix({ ...input, employeeId: myId() }, myName());
+
+// ---- Payslips ----
+
+export interface MyPayslip {
+  period: Period;
+  line: PayLine;
+  /** The cut-off has ended and pay is released. */
+  released: boolean;
+}
+
+export async function myPayslips(): Promise<MyPayslip[]> {
+  const today = todayIso();
+  const out: MyPayslip[] = [];
+  for (const period of periodsFor("cutoff")) {
+    const line = (await payroll(period, "All offices")).find((l) => l.person.id === myId());
+    if (line) out.push({ period, line, released: period.to < today });
+  }
+  return out;
+}
+
+// ---- Profile ----
+
+export const myContact = () => respond(me()?.contact ?? null);
+
+/** Employees can update how to reach them; the change is logged in their record. */
+export async function updateMyContact(patch: Pick<CoreEmployee["contact"], "mobile" | "personalEmail" | "address" | "city" | "province" | "emergencyName" | "emergencyRelationship" | "emergencyPhone">) {
+  const e = me();
+  if (!e) throw new Error("Your employee record wasn't found. Please contact HR.");
+  return updateEmployeeSection(myId(), "contact", { ...e.contact, ...patch }, `${myName()} (self-service)`);
+}

@@ -84,3 +84,25 @@ export function hasHrAccess(accountId: string | undefined) {
   const access = accessFor(accountId);
   return (Object.keys(access) as ModuleKey[]).some((k) => k !== "administration" && access[k] !== "none");
 }
+
+const SIGNED_IN_FLAG = "heyhr-just-signed-in";
+
+/** Marks a fresh sign-in so the welcome message shows once. */
+export function markSignedIn() {
+  try {
+    sessionStorage.setItem(SIGNED_IN_FLAG, "1");
+  } catch {
+    // No message this time; nothing else depends on it.
+  }
+}
+
+/** True once, right after signing in. */
+export function consumeSignInFlag() {
+  try {
+    const set = sessionStorage.getItem(SIGNED_IN_FLAG) === "1";
+    sessionStorage.removeItem(SIGNED_IN_FLAG);
+    return set;
+  } catch {
+    return false;
+  }
+}

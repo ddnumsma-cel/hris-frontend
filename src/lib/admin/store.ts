@@ -135,7 +135,7 @@ function seed(): AdminState {
       { id: "ua-admin", name: "Office Administrator", username: "admin", demo: "admin", roleId: "admin", status: "active", failedAttempts: 0, createdAt: at },
       { id: "ua-hr", name: "Dinah Marquez", username: "admin1", demo: "hr", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
       { id: "ua-employee", name: "Employee (demo)", username: "admin2", demo: "employee", roleId: "employee", status: "active", failedAttempts: 0, createdAt: at },
-      { id: "ua-officer", name: "Joel Nierves", username: "hrofficer", password: "officer2026", employeeId: "MSMA-00812", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-officer", name: "Joel Nierves", username: "hrofficer", password: "Heyhr-Officer-2026!", employeeId: "MSMA-00812", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
     ],
     workflows: DEFAULT_WORKFLOWS,
     settings: DEFAULT_SETTINGS,

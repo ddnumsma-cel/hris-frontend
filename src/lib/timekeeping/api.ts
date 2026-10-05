@@ -3,7 +3,7 @@
 import { fullName, initialsOf, newId, state as core } from "../corehr/store";
 import { addDays, computeDay, longRuns, weekday } from "./compute";
 import { HISTORY_DAYS, HOLIDAYS, branchOf, departmentOf, isOnLeave, leaveSpans, punchesFor, save, shiftFor, tk, todayIso, type LeaveSpan } from "./store";
-import type { DayResult, Punch, ShiftTemplate, TimeRequest } from "./types";
+import type { DayResult, Punch, ShiftTemplate, TimeRequest, FixRequest } from "./types";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -305,4 +305,38 @@ export async function fileRequest(input: { employeeId: string; date: string; typ
   const req: TimeRequest = { id: newId("rq"), ...input, reason: input.reason.trim(), status: "pending", filedBy: actor, filedAt: new Date().toISOString() };
   save({ ...tk, requests: [req, ...tk.requests], audit: [audit(input.employeeId, input.date, actor, `Filed ${input.type}`, `${input.minutes} min: ${input.reason.trim()}`), ...tk.audit] });
   return respond(req);
+}
+
+// ---- Missed time-in / time-out requests ----
+
+export function listFixes() {
+  return respond([...tk.fixRequests].sort((a, b) => b.filedAt.localeCompare(a.filedAt)));
+}
+
+export async function fileFix(input: { employeeId: string; workDate: string; kind: "in" | "out"; time: string; nextDay?: boolean; reason: string }, actor: string): Promise<FixRequest> {
+  if (!/^\d{2}:\d{2}$/.test(input.time)) return fail("Enter the time");
+  if (!input.reason.trim()) return fail("Say what happened, for example \"forgot to tap out\"");
+  const at = `${input.nextDay ? addDays(input.workDate, 1) : input.workDate}T${input.time}`;
+  if (new Date(at).getTime() > Date.now()) return fail("That time hasn't happened yet");
+  if (input.workDate < addDays(todayIso(), -30)) return fail("Requests can only go back 30 days. Talk to HR for older records.");
+  if (tk.fixRequests.some((r) => r.employeeId === input.employeeId && r.workDate === input.workDate && r.kind === input.kind && r.status === "pending")) return fail(`You already asked to fix the time-${input.kind} for that day`);
+  const req: FixRequest = { id: newId("fx"), ...input, reason: input.reason.trim(), status: "pending", filedBy: actor, filedAt: new Date().toISOString() };
+  save({ ...tk, fixRequests: [req, ...tk.fixRequests], audit: [audit(input.employeeId, input.workDate, actor, `Asked to fix time-${input.kind}`, `${input.time}${input.nextDay ? " (next day)" : ""}: ${req.reason}`), ...tk.audit] });
+  return respond(req);
+}
+
+/** Approving adds the punch to the record, exactly as if HR had added it. */
+export async function decideFix(id: string, approve: boolean, note: string, actor: string): Promise<FixRequest> {
+  const r = tk.fixRequests.find((x) => x.id === id);
+  if (!r) return fail("That request no longer exists");
+  if (r.status !== "pending") return fail("This request was already decided");
+  if (!approve && !note.trim()) return fail("Add a short note so the employee knows why");
+  if (approve) await addCorrection({ employeeId: r.employeeId, workDate: r.workDate, kind: r.kind, time: r.time, nextDay: r.nextDay, reason: `Employee request: ${r.reason}` }, actor);
+  const next: FixRequest = { ...r, status: approve ? "approved" : "declined", decidedBy: actor, decidedAt: new Date().toISOString(), note: note.trim() || undefined };
+  save({
+    ...tk,
+    fixRequests: tk.fixRequests.map((x) => (x.id === id ? next : x)),
+    audit: approve ? tk.audit : [audit(r.employeeId, r.workDate, actor, `Declined time-${r.kind} fix`, note.trim()), ...tk.audit],
+  });
+  return respond(next);
 }

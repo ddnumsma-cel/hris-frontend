@@ -250,12 +250,63 @@ body {
   animation: page-in 0.2s ease-out;
 }
 
+/* Sign-in success card: drops in, the check pops, a thin bar counts down. */
+@keyframes welcome-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes welcome-pop {
+  0% {
+    transform: scale(0.4);
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes welcome-timer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.welcome-enter {
+  animation: welcome-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.welcome-badge {
+  animation: welcome-pop 0.42s 0.08s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-good) 16%, transparent);
+}
+
+.welcome-timer {
+  animation-name: welcome-timer;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  opacity: 0.55;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .page-enter,
   .panel-enter,
   .overlay-enter,
   .toast-enter,
-  .toast-leave {
+  .toast-leave,
+  .welcome-enter,
+  .welcome-badge {
     animation: none;
   }
 }

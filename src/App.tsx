@@ -8,6 +8,7 @@ import { NotFoundPage } from "@/components/layout/NotFoundPage";
 import { PageLoadingFallback } from "@/components/layout/PageLoadingFallback";
 import { useAuth } from "@/features/auth/AuthContext";
 import { hasHrAccess } from "@/lib/admin/auth";
+import { SignInWelcome } from "@/features/auth/SignInWelcome";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { OfficeFilterProvider } from "@/features/admin/OfficeFilterContext";
 import { FirstLoginTour } from "@/components/shared/FirstLoginTour";
@@ -44,6 +45,7 @@ const RolesPage = lazy(() => import("@/features/admin/administration/RolesPage")
 const WorkflowsPage = lazy(() => import("@/features/admin/administration/WorkflowsPage").then((m) => ({ default: m.WorkflowsPage })));
 const AuditTrailPage = lazy(() => import("@/features/admin/administration/AuditTrailPage").then((m) => ({ default: m.AuditTrailPage })));
 const SystemSettingsPage = lazy(() => import("@/features/admin/administration/SystemSettingsPage").then((m) => ({ default: m.SystemSettingsPage })));
+const CorrectionsPage = lazy(() => import("@/features/admin/timekeeping/CorrectionsPage").then((m) => ({ default: m.CorrectionsPage })));
 const TardinessPage = lazy(() => import("@/features/admin/timekeeping/TardinessPage").then((m) => ({ default: m.TardinessPage })));
 const CompanyPage = lazy(() => import("@/features/admin/corehr/CompanyPage").then((m) => ({ default: m.CompanyPage })));
 const DocumentsPage = lazy(() => import("@/features/admin/corehr/DocumentsPage").then((m) => ({ default: m.DocumentsPage })));
@@ -57,8 +59,11 @@ const EmployeeLayout = lazy(() =>
 const EmployeeOverview = lazy(() =>
   import("@/features/employee/EmployeeOverview").then((m) => ({ default: m.EmployeeOverview })),
 );
-const EmployeeLeaveDtr = lazy(() =>
-  import("@/features/employee/EmployeeLeaveDtr").then((m) => ({ default: m.EmployeeLeaveDtr })),
+const EmployeeLeave = lazy(() =>
+  import("@/features/employee/EmployeeLeave").then((m) => ({ default: m.EmployeeLeave })),
+);
+const EmployeeAttendance = lazy(() =>
+  import("@/features/employee/EmployeeAttendance").then((m) => ({ default: m.EmployeeAttendance })),
 );
 const EmployeePayslips = lazy(() =>
   import("@/features/employee/EmployeePayslips").then((m) => ({ default: m.EmployeePayslips })),
@@ -131,7 +136,9 @@ function App() {
               }
             >
               <Route index element={<EmployeeOverview />} />
-              <Route path="leave-dtr" element={<EmployeeLeaveDtr />} />
+              <Route path="leave" element={<EmployeeLeave />} />
+              <Route path="attendance" element={<EmployeeAttendance />} />
+              <Route path="leave-dtr" element={<Navigate to="/employee/leave" replace />} />
               <Route path="payslips" element={<EmployeePayslips />} />
               <Route path="201-file" element={<Employee201File />} />
               <Route path="certificates" element={<EmployeeCertificates />} />
@@ -182,6 +189,7 @@ function App() {
               <Route path="timekeeping/overtime" element={<OvertimePage />} />
               <Route path="timekeeping/undertime" element={<UndertimePage />} />
               <Route path="timekeeping/tardiness" element={<TardinessPage />} />
+              <Route path="timekeeping/corrections" element={<CorrectionsPage />} />
               <Route path="leave" element={<Navigate to="/admin/leave/overview" replace />} />
               <Route path="leave/overview" element={<LeaveOverviewPage />} />
               <Route path="leave/requests" element={<LeaveRequestsPage />} />
@@ -217,6 +225,7 @@ function App() {
           </Suspense>
         )}
         {user && <FirstLoginTour />}
+        {user && <SignInWelcome key={user.accountId ?? user.role} />}
       </div>
     </OfficeFilterProvider>
   );

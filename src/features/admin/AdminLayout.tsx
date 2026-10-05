@@ -35,6 +35,7 @@ const GROUPS: SideNavGroup[] = [
           { label: "Overtime", to: "/admin/timekeeping/overtime" },
           { label: "Undertime", to: "/admin/timekeeping/undertime" },
           { label: "Tardiness", to: "/admin/timekeeping/tardiness" },
+          { label: "Time corrections", to: "/admin/timekeeping/corrections" },
         ],
       },
     ],

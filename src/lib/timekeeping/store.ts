@@ -7,7 +7,7 @@ import { state as core } from "../corehr/store";
 import { addDays, at, isOvernight, toIsoDate, weekday } from "./compute";
 import { HOLIDAYS } from "../holidays";
 import { approvedLeaveSpans } from "../leave/store";
-import type { Punch, ShiftTemplate, TimeAudit, TimeRequest } from "./types";
+import type { Punch, ShiftTemplate, TimeAudit, FixRequest, TimeRequest } from "./types";
 
 export interface TimekeepingState {
   shifts: ShiftTemplate[];
@@ -21,6 +21,8 @@ export interface TimekeepingState {
   voided: Record<string, NonNullable<Punch["voided"]>>;
   confirmed: Record<string, NonNullable<Punch["confirmed"]>>;
   requests: TimeRequest[];
+  /** Missed time-in/out that employees asked HR to add. */
+  fixRequests: FixRequest[];
   audit: TimeAudit[];
   seededRequests: boolean;
 }
@@ -54,7 +56,7 @@ function seed(): TimekeepingState {
   }
   // Ferdz covers an extra Monday this week: six days in a row, which the roster should flag.
   const monday = addDays(today(), -((weekday(today()) + 6) % 7));
-  return { shifts: SHIFTS, usualShift, overrides: { [`MSMA-00845|${monday}`]: "sh-weekend" }, corrections: [], voided: {}, confirmed: {}, requests: [], audit: [], seededRequests: false };
+  return { shifts: SHIFTS, usualShift, overrides: { [`MSMA-00845|${monday}`]: "sh-weekend" }, corrections: [], voided: {}, confirmed: {}, requests: [], fixRequests: [], audit: [], seededRequests: false };
 }
 
 function load(): TimekeepingState {
@@ -62,7 +64,7 @@ function load(): TimekeepingState {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const s = JSON.parse(raw) as TimekeepingState;
-      if (Array.isArray(s.shifts) && s.usualShift) return { ...s, confirmed: s.confirmed ?? {} };
+      if (Array.isArray(s.shifts) && s.usualShift) return { ...s, confirmed: s.confirmed ?? {}, fixRequests: s.fixRequests ?? [] };
     }
   } catch {
     // Blocked or corrupt storage: start from the seed.

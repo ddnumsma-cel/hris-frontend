@@ -22,14 +22,11 @@ import {
   fetchAnnouncements,
   fetchCurrentEmployee,
   fetchEmployeeBenefits,
-  fetchEmployeeDtrSummary,
   fetchEmployeeThirteenthMonth,
-  fetchLeaveBalances,
   fetchMyLeaveRequests,
   fetchMyPersonnelChecklist,
   fetchMyProfessionalLicense,
   fetchMyTrainingRecords,
-  fetchPayslips,
 } from "@/lib/api";
 import { getCpdStatus, isTrainingOverdue } from "@/lib/automation";
 import { formatElapsed, formatPHP, formatToday } from "@/lib/format";
@@ -52,9 +49,11 @@ import {
 import { AttentionPanel, type AttentionItem } from "@/components/shared/AttentionPanel";
 import { BenefitsCard } from "./BenefitsCard";
 import { FaceScanDialog } from "./FaceScanDialog";
-import { LeaveRequestDialog } from "./LeaveRequestDialog";
+import { FileMyLeaveDialog } from "./EmployeeLeave";
+import { myAttendance, myLeave, myPayslips } from "@/lib/ess/api";
 import { RequestCertificateDialog } from "./RequestCertificateDialog";
 import { printPayslip } from "./printTemplates";
+import type { Payslip } from "@/lib/types";
 
 type WorkLocation = "Onsite" | "Remote";
 
@@ -77,10 +76,49 @@ export function EmployeeOverview() {
   }, [clockedIn]);
 
   const employeeQuery = useQuery({ queryKey: ["employee", "me"], queryFn: fetchCurrentEmployee });
-  const balancesQuery = useQuery({ queryKey: ["employee", "leave-balances"], queryFn: fetchLeaveBalances });
-  const payslipsQuery = useQuery({ queryKey: ["employee", "payslips"], queryFn: fetchPayslips });
+  // Same balances HR sees in Leave Management.
+  const balancesQuery = useQuery({
+    queryKey: ["ess", "leave", "overview"],
+    queryFn: async () =>
+      (await myLeave()).balances
+        .filter((b) => !b.unlimited)
+        .slice(0, 4)
+        // Days waiting for approval count as used, so "available" matches the My leave page.
+        .map((b) => ({ type: b.type.name.replace(/ leave$/, ""), used: b.used + b.pending, entitlement: b.earned + b.carriedOver + b.adjusted })),
+  });
+  // Same payslips as the Payslips page (computed by the payroll engine), newest first.
+  const payslipsQuery = useQuery({
+    queryKey: ["ess", "payslips", "overview"],
+    queryFn: async (): Promise<Payslip[]> =>
+      (await myPayslips()).map((s) => ({
+        id: s.period.id,
+        cutoffLabel: s.period.label,
+        gross: s.line.gross,
+        deductions: Math.round((s.line.gross - s.line.net) * 100) / 100,
+        net: s.line.net,
+        status: s.released ? "Paid" : "Processing",
+        breakdown: [
+          { label: "Basic pay", amount: s.line.basic, kind: "earning" },
+          ...(s.line.overtime ? [{ label: "Overtime", amount: s.line.overtime, kind: "earning" as const }] : []),
+          ...(s.line.premiums ? [{ label: "Holiday and night pay", amount: s.line.premiums, kind: "earning" as const }] : []),
+          ...(s.line.deductions ? [{ label: "Absences and lates", amount: s.line.deductions, kind: "deduction" as const }] : []),
+          { label: "SSS", amount: s.line.sssEe, kind: "deduction" },
+          { label: "PhilHealth", amount: s.line.phEe, kind: "deduction" },
+          { label: "Pag-IBIG", amount: s.line.piEe, kind: "deduction" },
+          { label: "Withholding tax", amount: s.line.tax, kind: "deduction" },
+        ],
+      })),
+  });
   const announcementsQuery = useQuery({ queryKey: ["employee", "announcements"], queryFn: fetchAnnouncements });
-  const dtrQuery = useQuery({ queryKey: ["employee", "dtr"], queryFn: fetchEmployeeDtrSummary });
+  // From the time clock, last 2 weeks.
+  const dtrQuery = useQuery({
+    queryKey: ["ess", "attendance", "overview"],
+    queryFn: async () => {
+      const { days } = await myAttendance();
+      const worked = days.filter((d) => d.timeIn);
+      return { onTimeRatePercent: worked.length ? Math.round((worked.filter((d) => d.lateMinutes === 0).length / worked.length) * 100) : 100, lateCount: days.filter((d) => d.lateMinutes > 0).length, absentCount: days.filter((d) => d.status === "absent").length };
+    },
+  });
   const thirteenthMonthQuery = useQuery({
     queryKey: ["employee", "thirteenth-month"],
     queryFn: fetchEmployeeThirteenthMonth,
@@ -98,7 +136,8 @@ export function EmployeeOverview() {
   });
 
   const employee = employeeQuery.data;
-  const latestPayslip = payslipsQuery.data?.[0];
+  // The hero shows the last released cut-off; the running one is still a preview.
+  const latestPayslip = payslipsQuery.data?.find((p) => p.status === "Paid") ?? payslipsQuery.data?.[0];
 
   const attentionItems: AttentionItem[] = [];
   if (employee && !employee.faceEnrolled) {
@@ -143,7 +182,7 @@ export function EmployeeOverview() {
         title: `Your ${r.type} request was declined`,
         detail: r.detail,
         tone: "info",
-        action: { label: "View", onClick: () => navigate("/employee/leave-dtr") },
+        action: { label: "View", onClick: () => navigate("/employee/leave") },
       });
     }
   }
@@ -294,9 +333,9 @@ export function EmployeeOverview() {
         {/* Hero: this cutoff's net pay, with recent payslips as amount rows. */}
         <BentoArea area="hero">
           <BentoHero
-            title="Net pay · this cutoff"
+            title="Take-home pay · last cut-off"
             value={latestPayslip ? formatPHP(latestPayslip.net) : <Skeleton className="h-10 w-44" />}
-            label={<span className="text-good">Sept 16–30, releases Oct 5</span>}
+            label={<span className="text-good">{latestPayslip?.cutoffLabel ?? ""}</span>}
             action={
               <button
                 type="button"
@@ -340,7 +379,7 @@ export function EmployeeOverview() {
               delta={thirteenthMonthQuery.data ? `as of ${thirteenthMonthQuery.data.asOfLabel}` : undefined}
             />
             <StatTile
-              label="On-time rate this month"
+              label="On-time rate, last 2 weeks"
               value={dtrQuery.data ? `${dtrQuery.data.onTimeRatePercent}%` : <Skeleton className="h-7 w-14" />}
               delta={
                 dtrQuery.data ? `${dtrQuery.data.lateCount} late, ${dtrQuery.data.absentCount} absences` : undefined
@@ -367,7 +406,7 @@ export function EmployeeOverview() {
               }
               delta={
                 balancesQuery.data
-                  ? `${balancesQuery.data.find((b) => b.type === "Vacation")!.used} days used YTD`
+                  ? `${balancesQuery.data.find((b) => b.type === "Vacation")!.used} days used or waiting`
                   : undefined
               }
             />
@@ -453,11 +492,7 @@ export function EmployeeOverview() {
 
       <AttentionPanel items={attentionItems} />
 
-      <LeaveRequestDialog
-        open={leaveDialogOpen}
-        onClose={() => setLeaveDialogOpen(false)}
-        onSubmitted={() => toast.show("Your leave request was submitted and is now pending your manager's approval.")}
-      />
+      {leaveDialogOpen && <FileMyLeaveDialog onClose={() => setLeaveDialogOpen(false)} />}
 
       <RequestCertificateDialog
         open={certDialogOpen}
