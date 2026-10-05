@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { NavSection } from "./navItems";
+import { isHome, type NavSection } from "./navItems";
 
 /** How one user has arranged their sidebar: pages pinned to the top, and module order. */
 export interface NavPrefs {
@@ -55,7 +55,8 @@ export function ordered(sections: NavSection[], order: string[]) {
 
 /** Pinned pages that still exist (and the user can still open), with the module they belong to. */
 export function pinned(sections: NavSection[], pins: string[]) {
-  return pins.flatMap((to) => {
+  const home = new Set(sections.filter(isHome).map((s) => s.pages[0]!.to));
+  return pins.filter((to) => !home.has(to)).flatMap((to) => {
     const section = sections.find((s) => s.pages.some((p) => p.to === to));
     const page = section?.pages.find((p) => p.to === to);
     return section && page ? [{ section, page }] : [];

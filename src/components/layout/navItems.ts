@@ -7,6 +7,9 @@ export function isItemActive(item: SideNavItem, pathname: string): boolean {
   return pathname === item.to || pathname.startsWith(`${item.to}/`);
 }
 
+/** The workspace home (Overview): a single page ending exactly at the workspace root. */
+export const isHome = (s: NavSection) => s.pages.length === 1 && !!s.pages[0]!.end;
+
 export interface NavSection {
   key: string;
   label: string;

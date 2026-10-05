@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { ChevronDownIcon, PinIcon } from "@/components/icons";
-import type { NavSection } from "./navItems";
+import { isHome, type NavSection } from "./navItems";
 import { MAX_PINS, ordered, type NavPrefs } from "./navPrefs";
 
 /** Let someone pin the pages they use every day and put their most-used modules first. */
@@ -11,7 +11,8 @@ export function CustomizeNavDialog({ sections, prefs, onSave, onClose }: { secti
   const [order, setOrder] = useState(() => ordered(sections, prefs.order).map((s) => s.key));
   const [pins, setPins] = useState(prefs.pins);
   const [style, setStyle] = useState(prefs.style);
-  const list = order.map((k) => sections.find((s) => s.key === k)!).filter(Boolean);
+  // Home (Overview) is always first, so it isn't moved or pinned here.
+  const list = order.map((k) => sections.find((s) => s.key === k)!).filter((s) => s && !isHome(s));
   const move = (i: number, by: number) => {
     const next = [...order];
     [next[i], next[i + by]] = [next[i + by]!, next[i]!];
@@ -75,7 +76,7 @@ export function CustomizeNavDialog({ sections, prefs, onSave, onClose }: { secti
           </div>
         </div>
         <p className="text-sm text-ink-2">
-          <span className="font-medium text-ink">Pin</span> up to {MAX_PINS} pages you use every day; they appear at the top of your sidebar (as Bookmarks in the full sidebar). Use the arrows to put the modules you use most first. Only you see these changes.
+          <span className="font-medium text-ink">Pin</span> up to {MAX_PINS} pages you use every day; they appear at the top of your sidebar (as Bookmarks in the full sidebar). Use the arrows to put the modules you use most first. Overview always stays at the top. Only you see these changes.
         </p>
         <div className="flex items-center gap-2 text-xs text-ink-2">
           <PinIcon className="h-3.5 w-3.5" />

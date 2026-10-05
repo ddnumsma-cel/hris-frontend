@@ -8,7 +8,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import clsx from "clsx";
 import { PinIcon, SlidersIcon } from "@/components/icons";
 import { CustomizeNavDialog } from "./CustomizeNavDialog";
-import { isItemActive, toSections, type NavSection } from "./navItems";
+import { isHome, isItemActive, toSections, type NavSection } from "./navItems";
 import { ordered, pinned, type NavPrefs } from "./navPrefs";
 import type { SideNavGroup } from "./SideNav";
 
@@ -18,7 +18,9 @@ export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
   const { pathname } = useLocation();
   const [customizing, setCustomizing] = useState(false);
   const all = toSections(groups);
-  const sections = ordered(all, prefs.order);
+  // Home always comes first; the rest follow the user's order.
+  const home = all.filter(isHome);
+  const sections = [...home, ...ordered(all.filter((s) => !isHome(s)), prefs.order)];
   const pins = pinned(all, prefs.pins);
   const current = sections.find((s) => sectionActive(s, pathname));
   const [open, setOpen] = useState<{ key: string; top: number } | null>(null);
@@ -44,41 +46,7 @@ export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
     closeTimer.current = window.setTimeout(() => setOpen(null), 180);
   };
   const keep = () => window.clearTimeout(closeTimer.current);
-  const openSection = sections.find((s) => s.key === open?.key);
-
-  return (
-    <aside
-      data-tour="sidenav"
-      className="sidebar sidebar-desktop sidebar-rail no-scrollbar hidden sm:sticky sm:top-0 sm:-mt-[var(--topbar-h)] sm:flex sm:h-dvh sm:w-[var(--sidenav-w)] sm:flex-none sm:flex-col sm:items-center sm:self-start sm:overflow-y-auto sm:border-r sm:border-[var(--sb-border)]"
-    >
-      <div className="flex w-full flex-none justify-center border-b border-[var(--sb-border)] px-2 pt-5 pb-4">
-        <img src="/brand/heyhr-wordmark.svg" alt="HeyHR" className="brand-wordmark !h-[19px]" />
-      </div>
-      {pins.length > 0 && (
-        <nav aria-label="Pinned" className="flex w-full flex-none flex-col items-center gap-0.5 border-b border-[var(--sb-border)] py-2">
-          <span className="flex items-center gap-1 text-[9.5px] font-semibold tracking-wide text-[var(--sb-muted)] uppercase">
-            <PinIcon className="h-2.5 w-2.5" />
-            Pinned
-          </span>
-          {pins.map(({ section, page }) => (
-            <NavLink key={page.to} to={page.to} end={page.end} title={`${section.label} › ${page.label}`} className="group flex w-16 flex-col items-center gap-0.5 rounded-xl py-1">
-              {({ isActive }) => (
-                <>
-                  <span
-                    className={clsx("flex h-8 w-8 items-center justify-center rounded-lg transition-colors [&>svg]:h-4 [&>svg]:w-4", isActive ? "text-[var(--sb-lime)]" : "bg-[var(--sb-hover)] text-[var(--sb-text)] group-hover:text-[var(--sb-text)]")}
-                    style={isActive ? { background: "var(--sb-active-bg)" } : undefined}
-                  >
-                    {section.icon}
-                  </span>
-                  <span className={clsx("w-full truncate px-0.5 text-center text-[10px] leading-tight", isActive ? "font-semibold text-[var(--sb-text)]" : "text-[var(--sb-muted)]")}>{page.label}</span>
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-      )}
-      <nav aria-label="Modules" className="flex flex-col items-center gap-1 py-3">
-        {sections.map((s) => {
+  const renderModule = (s: NavSection) => {
           const active = s.key === current?.key;
           const isOpen = s.key === open?.key;
           // A module with a single page needs no pop-out: the icon goes straight there.
@@ -110,7 +78,43 @@ export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
               <span className={clsx("w-full truncate px-0.5 text-center text-[10.5px] leading-tight", active ? "font-semibold text-[var(--sb-text)]" : "text-[var(--sb-muted)]")}>{s.short}</span>
             </NavLink>
           );
-        })}
+  };
+  const openSection = sections.find((s) => s.key === open?.key);
+
+  return (
+    <aside
+      data-tour="sidenav"
+      className="sidebar sidebar-desktop sidebar-rail no-scrollbar hidden sm:sticky sm:top-0 sm:-mt-[var(--topbar-h)] sm:flex sm:h-dvh sm:w-[var(--sidenav-w)] sm:flex-none sm:flex-col sm:items-center sm:self-start sm:overflow-y-auto sm:border-r sm:border-[var(--sb-border)]"
+    >
+      <div className="flex w-full flex-none justify-center border-b border-[var(--sb-border)] px-2 pt-5 pb-4">
+        <img src="/brand/heyhr-wordmark.svg" alt="HeyHR" className="brand-wordmark !h-[19px]" />
+      </div>
+      {home.length > 0 && <nav aria-label="Home" className="flex flex-none flex-col items-center gap-1 pt-3">{home.map(renderModule)}</nav>}
+      {pins.length > 0 && (
+        <nav aria-label="Pinned" className="flex w-full flex-none flex-col items-center gap-0.5 border-b border-[var(--sb-border)] py-2">
+          <span className="flex items-center gap-1 text-[9.5px] font-semibold tracking-wide text-[var(--sb-muted)] uppercase">
+            <PinIcon className="h-2.5 w-2.5" />
+            Pinned
+          </span>
+          {pins.map(({ section, page }) => (
+            <NavLink key={page.to} to={page.to} end={page.end} title={`${section.label} › ${page.label}`} className="group flex w-16 flex-col items-center gap-0.5 rounded-xl py-1">
+              {({ isActive }) => (
+                <>
+                  <span
+                    className={clsx("flex h-8 w-8 items-center justify-center rounded-lg transition-colors [&>svg]:h-4 [&>svg]:w-4", isActive ? "text-[var(--sb-lime)]" : "bg-[var(--sb-hover)] text-[var(--sb-text)] group-hover:text-[var(--sb-text)]")}
+                    style={isActive ? { background: "var(--sb-active-bg)" } : undefined}
+                  >
+                    {section.icon}
+                  </span>
+                  <span className={clsx("w-full truncate px-0.5 text-center text-[10px] leading-tight", isActive ? "font-semibold text-[var(--sb-text)]" : "text-[var(--sb-muted)]")}>{page.label}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+      )}
+      <nav aria-label="Modules" className="flex flex-col items-center gap-1 py-3">
+        {sections.filter((s) => !isHome(s)).map(renderModule)}
       </nav>
 
       <div className="mt-auto flex w-full flex-none justify-center border-t border-[var(--sb-border)] py-2.5">

@@ -11,6 +11,9 @@ import { ChevronDownIcon, ChevronRightIcon, EditIcon, PinIcon, SlidersIcon } fro
 import { BrandName, WorkspaceLabel } from "./Brand";
 import { CustomizeNavDialog } from "./CustomizeNavDialog";
 import { isItemActive, toSections } from "./navItems";
+
+/** The workspace home (Overview) is the item that ends exactly at the workspace root. */
+const isHomeItem = (i: SideNavItem) => !!i.end && !i.children;
 import { ordered, pinned, type NavPrefs } from "./navPrefs";
 import type { SideNavGroup, SideNavItem } from "./SideNav";
 
@@ -52,7 +55,12 @@ export function FullNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
     const i = keys.indexOf(k ?? "");
     return i < 0 ? 99 : i;
   };
-  const sorted = [...groups].sort((a, b) => rank(a) - rank(b));
+  // Home (Overview) always sits at the very top, above Bookmarks; groups left empty are dropped.
+  const homeItems = groups.flatMap((g) => g.items.filter(isHomeItem));
+  const sorted = [...groups]
+    .map((g) => ({ ...g, items: g.items.filter((i) => !isHomeItem(i)) }))
+    .filter((g) => g.items.length > 0)
+    .sort((a, b) => rank(a) - rank(b));
   const isCollapsed = (t: string) => prefs.collapsed.includes(t);
   const toggle = (t: string) => setPrefs({ ...prefs, collapsed: isCollapsed(t) ? prefs.collapsed.filter((x) => x !== t) : [...prefs.collapsed, t] });
 
@@ -78,6 +86,27 @@ export function FullNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
       )}
 
       <div className="flex-1 px-2 pb-2">
+        {homeItems.length > 0 && (
+          <ul className="flex flex-col gap-0.5 pt-3">
+            {homeItems.map((item) => (
+              <li key={item.to}>
+                <NavLink to={item.to} end={item.end} className="sidebar-item !py-1.5">
+                  {({ isActive }) => (
+                    <>
+                      <span className="sidebar-icon">{item.icon}</span>
+                      <span className="truncate">{item.label}</span>
+                      {isActive && (
+                        <span className="sidebar-active-chevron" aria-hidden="true">
+                          ›
+                        </span>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        )}
         <Heading title="Bookmarks" open={!isCollapsed("Bookmarks")} onToggle={() => toggle("Bookmarks")} onEdit={() => setCustomizing(true)} />
         {!isCollapsed("Bookmarks") && (
           <ul className="flex flex-col gap-0.5">
