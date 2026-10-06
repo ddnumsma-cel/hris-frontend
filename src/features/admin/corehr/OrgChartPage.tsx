@@ -53,7 +53,9 @@ export function OrgChartPage() {
               aria-label="Layout to try"
               className="flex items-center gap-1 rounded-full border border-border bg-surface p-1"
             >
-              <span className="px-2 text-xs whitespace-nowrap text-ink-3">Try a layout:</span>
+              <span className="px-2 text-xs whitespace-nowrap text-ink-3">
+                Try a layout:
+              </span>
               {LAYOUTS.map((l) => (
                 <button
                   key={l.value}
@@ -92,7 +94,7 @@ export function OrgChartPage() {
           </div>
         }
       />
-      {org.data && !org.head && org.canEdit && (
+      {org.data && !org.head && org.canEdit && !org.partnersLead && (
         <div className="flex justify-center">
           <ChooseHead chart={org.data} />
         </div>

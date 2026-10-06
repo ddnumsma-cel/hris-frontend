@@ -24,6 +24,11 @@ export function useOrg() {
     tree,
     head,
     roots,
+    // No single head: the partners run the firm together, one cluster each.
+    partnersLead:
+      !head &&
+      roots.length > 1 &&
+      roots.every((p) => p.positionTitle === "Partner"),
     canEdit: access.company === "edit" || access.company === "approve",
     open: data?.people.find((p) => p.id === openId),
     openPerson: (p: Person | string) =>

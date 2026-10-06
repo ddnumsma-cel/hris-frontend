@@ -176,6 +176,10 @@ export function setComplianceCalendar(next: ComplianceItem[]) {
 }
 
 export let employeeDirectory: Employee[] = [
+  // The three partners. Each cluster is named after its partner's initials.
+  { id: "MSMA-00001", name: "Antonio Dandan Sanchez Jr.", initials: "AS", position: "Partner", department: "Partners", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "antonio.sanchez@msma.ph", phone: "+63 917 100 0001", reportsToId: "admin" },
+  { id: "MSMA-00002", name: "Rheneir Paran Mora", initials: "RM", position: "Partner", department: "Partners", office: "Cebu HQ", cluster: "RPM", status: "Active", email: "rheneir.mora@msma.ph", phone: "+63 917 100 0002", reportsToId: "admin" },
+  { id: "MSMA-00003", name: "Victoria Cabalida Meñoza", initials: "VM", position: "Partner", department: "Partners", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "victoria.menoza@msma.ph", phone: "+63 917 100 0003", reportsToId: "admin" },
   { id: "MSMA-00482", name: "Angela Dela Cruz", initials: "AD", position: "Experienced Associate", department: "Tax Advisory", office: "Cebu HQ", cluster: "RPM", status: "Active", email: "angela.delacruz@msma.ph", phone: "+63 917 123 4567", reportsToId: "admin" },
   { id: "MSMA-00317", name: "Rafael Ortiz", initials: "RO", position: "Associate Director", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "rafael.ortiz@msma.ph", phone: "+63 917 555 0142", reportsToId: "admin" },
   { id: "MSMA-00560", name: "Bea Santos", initials: "BS", position: "Junior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "On leave", email: "bea.santos@msma.ph", phone: "+63 921 660 3720", reportsToId: "MSMA-00317" },
@@ -352,6 +356,9 @@ export let payrollEntries: PayrollEntry[] = [
   { employeeId: "MSMA-00611", monthlyBasic: 45000, allowance: 3000, overtimeHours: 4, otherDeductions: 500, status: "Draft" },
   { employeeId: "MSMA-00098", monthlyBasic: 26000, allowance: 1500, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
   { employeeId: "MSMA-00203", monthlyBasic: 48000, allowance: 3000, overtimeHours: 8, otherDeductions: 0, status: "Draft" },
+  { employeeId: "MSMA-00001", monthlyBasic: 250000, allowance: 20000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
+  { employeeId: "MSMA-00002", monthlyBasic: 250000, allowance: 20000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
+  { employeeId: "MSMA-00003", monthlyBasic: 250000, allowance: 20000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
   { employeeId: "MSMA-00276", monthlyBasic: 28000, allowance: 2000, overtimeHours: 2.5, otherDeductions: 0, status: "Draft" },
   { employeeId: "MSMA-00341", monthlyBasic: 28000, allowance: 2000, overtimeHours: 0, otherDeductions: 1000, status: "Draft" },
   { employeeId: "MSMA-00398", monthlyBasic: 32000, allowance: 2000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
@@ -598,6 +605,9 @@ export let personnelProfiles: PersonnelProfile[] = [
     ],
   },
   { employeeId: "MSMA-00733", birthDate: "1996-03-25", civilStatus: "Single", dependents: [] },
+  { employeeId: "MSMA-00001", birthDate: "1965-04-12", civilStatus: "Married", dependents: [] },
+  { employeeId: "MSMA-00002", birthDate: "1970-09-03", civilStatus: "Married", dependents: [] },
+  { employeeId: "MSMA-00003", birthDate: "1972-01-27", civilStatus: "Married", dependents: [] },
   {
     employeeId: "MSMA-00812",
     birthDate: "1992-12-14",
@@ -732,6 +742,9 @@ export let personnelDocuments: PersonnelDocument[] = [
   ...buildPersonnelDocuments("MSMA-00733"),
   ...buildPersonnelDocuments("MSMA-00812"),
   ...buildPersonnelDocuments("MSMA-00845"),
+  ...buildPersonnelDocuments("MSMA-00001"),
+  ...buildPersonnelDocuments("MSMA-00002"),
+  ...buildPersonnelDocuments("MSMA-00003"),
 ];
 
 export function setPersonnelDocuments(next: PersonnelDocument[]) {

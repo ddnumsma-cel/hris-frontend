@@ -140,7 +140,9 @@ export function OutlineView({ org }: { org: Org }) {
                   ? "Head of the company"
                   : chain.length
                     ? `Reports to ${chain[chain.length - 1]!.name}`
-                    : "Reports to no one yet"}
+                    : selected.positionTitle === "Partner"
+                      ? "Partner of the firm"
+                      : "Reports to no one yet"}
               </p>
             </div>
             <span className="flex gap-2">
