@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { saveFile } from "@/lib/fileStore";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -109,6 +110,7 @@ export function Employee201File() {
   async function handleUpload(doc: PersonnelDocumentChecklistItem, files: FileList | null) {
     const file = files?.[0];
     if (!file) return;
+    await saveFile(doc.id, file);
     uploadMutation.mutate({ id: doc.id, fileName: file.name });
     if (doc.type === "Application Form / Resume" && file.type.startsWith("image/")) {
       const dataUrl = await readAsDataUrl(file);

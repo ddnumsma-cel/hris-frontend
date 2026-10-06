@@ -39,7 +39,7 @@ const SHIFTS: ShiftTemplate[] = [
   { id: "sh-day", name: "Busy season", start: "08:30", end: "17:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0, 6], active: true },
   { id: "sh-peak", name: "Peak season", start: "08:30", end: "17:30", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0, 6], active: true },
   { id: "sh-mid", name: "Mid shift", start: "09:00", end: "18:00", breakMinutes: 60, breakStart: "13:00", graceMinutes: 5, restDays: [0, 6], active: true },
-  { id: "sh-flex", name: "Flexible time", start: "07:00", end: "19:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 0, restDays: [0, 6], active: true, flexible: true, requiredHours: 8 },
+  { id: "sh-flex", name: "Flexible time", start: "08:30", end: "19:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 0, restDays: [0, 6], active: true, flexible: true, requiredHours: 8 },
 ];
 
 /** Shifts that were retired; people on them move to the shift given here. */
@@ -47,7 +47,9 @@ const RETIRED: Record<string, string> = { "sh-night": "sh-flex", "sh-weekend": "
 
 /** Brings saved data up to the current set of shifts: Busy season, Peak season, Mid and Flexible time. */
 function normalizeShifts(s: TimekeepingState): TimekeepingState {
-  const shifts = [...s.shifts.filter((x) => !RETIRED[x.id]), ...SHIFTS.filter((x) => !s.shifts.some((y) => y.id === x.id))].map((x) => ({ ...x, breakStart: x.breakStart ?? defaultBreakStart(x) }));
+  const shifts = [...s.shifts.filter((x) => !RETIRED[x.id]), ...SHIFTS.filter((x) => !s.shifts.some((y) => y.id === x.id))].map((x) => ({ ...x, breakStart: x.breakStart ?? defaultBreakStart(x) }))
+    // Flexible time now opens at 8:30 AM like the other shifts (it used to be 7:00 AM).
+    .map((x) => (x.id === "sh-flex" && x.start === "07:00" ? { ...x, start: "08:30" } : x));
   const usualShift = Object.fromEntries(Object.entries(s.usualShift).map(([id, sh]) => [id, sh && RETIRED[sh] ? RETIRED[sh] : (sh ?? "sh-day")]));
   const overrides = Object.fromEntries(Object.entries(s.overrides).filter(([, v]) => !RETIRED[v]));
   return { ...s, shifts: s.seasonShifts ? shifts : toSeasonShifts(shifts), seasonShifts: true, usualShift, overrides };
