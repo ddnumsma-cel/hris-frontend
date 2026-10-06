@@ -8,7 +8,7 @@ import { GoogleButton } from "@/components/ui/GoogleButton";
 import { useToast } from "@/components/ui/ToastContext";
 import { ArrowRightIcon, CheckIcon, ChevronDownIcon, LoaderIcon, XIcon } from "@/components/icons";
 import { registerEmployee } from "@/lib/api";
-import { clusterDescriptions, clusterOptions, officeOptions, registerSchema, type RegisterFormValues } from "@/lib/schemas";
+import { clusterOptions, officeOptions, POSITION_TITLES, registerSchema, type RegisterFormValues } from "@/lib/schemas";
 
 const inputClass =
   "w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-brand [&:is(input):read-only]:bg-surface-2";
@@ -213,13 +213,14 @@ export function RegisterDialog({ open, onClose }: { open: boolean; onClose: () =
                   <label htmlFor="reg-position" className={labelClass}>
                     Position you're joining as
                   </label>
-                  <input
-                    id="reg-position"
-                    className={inputClass}
-                    placeholder="Audit Associate"
-                    autoComplete="organization-title"
-                    {...register("position")}
-                  />
+                  <select id="reg-position" className={inputClass} {...register("position")}>
+                    <option value="">Choose your position</option>
+                    {POSITION_TITLES.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
                   {errors.position && <p className={errorClass}>{errors.position.message}</p>}
                 </div>
 
@@ -304,7 +305,6 @@ export function RegisterDialog({ open, onClose }: { open: boolean; onClose: () =
                         </span>
                         <span className="min-w-0">
                           <span className="block text-sm font-semibold">{cluster}</span>
-                          <span className="block text-xs leading-snug text-ink-2">{clusterDescriptions[cluster]}</span>
                         </span>
                       </label>
                     );

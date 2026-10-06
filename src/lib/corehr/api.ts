@@ -57,7 +57,7 @@ function subtree(id: string): Set<string> {
 
 const holdersOf = (positionId: string) => state.employees.filter((e) => isCurrent(e) && e.job.positionId === positionId);
 
-/** "Cebu HQ › Audit & Assurance › VCM client group" */
+/** "Cebu HQ › Audit & Assurance › VCM" */
 export function unitPathOf(unitId: string | undefined, units: OrgUnit[]): string {
   const parts: string[] = [];
   let u = units.find((x) => x.id === unitId);

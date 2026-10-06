@@ -32,7 +32,8 @@ export interface CoreHrState {
   audit: AuditEntry[];
 }
 
-const STORAGE_KEY = "heyhr-corehr-v1";
+// v2: the seven job titles, and clusters RPM / VCM / ADS only.
+const STORAGE_KEY = "heyhr-corehr-v2";
 const SEED_ACTOR = "HR & People Operations";
 
 export function newId(prefix: string) {
@@ -72,9 +73,9 @@ const DEPARTMENT_CODES: Record<string, string> = {
 const TEAMED_DEPARTMENTS = new Set(["Audit & Assurance", "Tax Advisory"]);
 
 function levelFor(title: string): JobLevel {
+  if (/^partner$/i.test(title)) return "Executive";
+  if (/director/i.test(title)) return "Manager";
   if (/lead|supervisor/i.test(title)) return "Supervisor";
-  if (/manager|head/i.test(title)) return "Manager";
-  if (/^senior/i.test(title)) return "Supervisor";
   return "Rank and file";
 }
 
@@ -116,7 +117,7 @@ function seed(): CoreHrState {
   };
   const addTeam = (office: string, dept: string, cluster: string) => {
     const id = teamId(office, dept, cluster);
-    if (!units.some((u) => u.id === id)) units.push({ id, type: "team", name: `${cluster} client group`, code: cluster.slice(0, 3).toUpperCase(), parentId: deptId(office, dept), active: true });
+    if (!units.some((u) => u.id === id)) units.push({ id, type: "team", name: cluster, code: cluster.slice(0, 3).toUpperCase(), parentId: deptId(office, dept), active: true });
     return id;
   };
 
@@ -140,7 +141,7 @@ function seed(): CoreHrState {
   const events: JobEvent[] = [];
   for (const e of employeeDirectory) {
     const position = positionFor(e);
-    const unitId = TEAMED_DEPARTMENTS.has(e.department) && e.cluster !== "Admin & Support" ? addTeam(e.office, e.department, e.cluster) : position.departmentId;
+    const unitId = TEAMED_DEPARTMENTS.has(e.department) && e.department !== "Admin & Support" ? addTeam(e.office, e.department, e.cluster) : position.departmentId;
     const records = buildEmployeeFileRecords(e);
     const profile = personnelProfiles.find((p) => p.employeeId === e.id);
     const gov = (agency: string) => records.government.find((g) => g.agency === agency)?.number ?? "";
@@ -187,7 +188,8 @@ function seed(): CoreHrState {
 
   // Some headroom: a couple of open slots, and one budgeted role nobody holds yet.
   for (const p of positions) if (p.level === "Rank and file" && p.slots >= 2) p.slots++;
-  positions.push({ id: "ps-cebu-hq-human-resources-hr-associate", title: "HR Associate", code: "HRA", departmentId: "dp-cebu-hq-human-resources", level: "Rank and file", employmentType: "Probationary", slots: 2, active: true, description: "Recruitment, onboarding and 201 file upkeep." });
+  positions.push({ id: "ps-cebu-hq-human-resources-experienced-admin-assistant", title: "Experienced Admin Assistant", code: "EAA", departmentId: "dp-cebu-hq-human-resources", level: "Rank and file", employmentType: "Probationary", slots: 2, active: true, description: "Recruitment, onboarding and 201 file upkeep." });
+  positions.push({ id: "ps-cebu-hq-audit-assurance-partner", title: "Partner", code: "P", departmentId: "dp-cebu-hq-audit-assurance", level: "Executive", employmentType: "Regular", slots: 1, active: true, description: "Leads the firm's client engagements." });
 
   // Rank-and-file report to their department's supervisory position.
   for (const p of positions) {
@@ -263,7 +265,7 @@ function syncShared() {
       const prev = byId.get(c.id);
       const position = state.positions.find((p) => p.id === c.job.positionId);
       const team = ancestor(c.job.unitId, "team");
-      const cluster = (["RPM", "VCM", "ADS"].includes(team?.code ?? "") ? team!.code : (prev?.cluster ?? "Admin & Support")) as Employee["cluster"];
+      const cluster = (["RPM", "VCM", "ADS"].includes(team?.code ?? "") ? team!.code : (prev?.cluster ?? "ADS")) as Employee["cluster"];
       return {
         ...prev,
         id: c.id,

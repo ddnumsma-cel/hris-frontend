@@ -36,7 +36,7 @@ export let currentEmployee: Employee = {
   id: "MSMA-00482",
   name: "Angela Dela Cruz",
   initials: "AD",
-  position: "Senior Tax Associate",
+  position: "Experienced Associate",
   department: "Tax Advisory",
   office: "Cebu HQ",
   cluster: "RPM",
@@ -101,11 +101,11 @@ export function setAnnouncements(next: Announcement[]) {
 }
 
 export let leaveRequests: LeaveRequest[] = [
-  { id: "lr-1", employeeName: "Bea Santos", employeeInitials: "BS", employeeRole: "Audit Associate", type: "Vacation", detail: "Oct 6–8 · 3 days", status: "Pending", requestedOn: "2026-09-21" },
-  { id: "lr-2", employeeName: "Miguel Reyes", employeeInitials: "MR", employeeRole: "Audit Associate", type: "Overtime", detail: "Sept 24 · 2.5 hrs", status: "Pending", requestedOn: "2026-09-24" },
-  { id: "lr-3", employeeName: "Carla Uy", employeeInitials: "CU", employeeRole: "Senior Associate", type: "Sick", detail: "Sept 22 · 1 day", status: "Pending", requestedOn: "2026-09-22" },
-  { id: "lr-4", employeeName: "Jon Ababa", employeeInitials: "JA", employeeRole: "Associate", type: "Certificate of Employment", detail: "Requested Sept 23", status: "Pending", requestedOn: "2026-09-23" },
-  { id: "lr-5", employeeName: "Dennis Lim", employeeInitials: "DL", employeeRole: "Associate", type: "Emergency", detail: "Sept 25 · 1 day", status: "Pending", requestedOn: "2026-09-25" },
+  { id: "lr-1", employeeName: "Bea Santos", employeeInitials: "BS", employeeRole: "Junior Associate", type: "Vacation", detail: "Oct 6–8 · 3 days", status: "Pending", requestedOn: "2026-09-21" },
+  { id: "lr-2", employeeName: "Miguel Reyes", employeeInitials: "MR", employeeRole: "Junior Associate", type: "Overtime", detail: "Sept 24 · 2.5 hrs", status: "Pending", requestedOn: "2026-09-24" },
+  { id: "lr-3", employeeName: "Carla Uy", employeeInitials: "CU", employeeRole: "Experienced Associate", type: "Sick", detail: "Sept 22 · 1 day", status: "Pending", requestedOn: "2026-09-22" },
+  { id: "lr-4", employeeName: "Jon Ababa", employeeInitials: "JA", employeeRole: "Junior Associate", type: "Certificate of Employment", detail: "Requested Sept 23", status: "Pending", requestedOn: "2026-09-23" },
+  { id: "lr-5", employeeName: "Dennis Lim", employeeInitials: "DL", employeeRole: "Junior Associate", type: "Emergency", detail: "Sept 25 · 1 day", status: "Pending", requestedOn: "2026-09-25" },
 ];
 
 export function setLeaveRequests(next: LeaveRequest[]) {
@@ -176,20 +176,20 @@ export function setComplianceCalendar(next: ComplianceItem[]) {
 }
 
 export let employeeDirectory: Employee[] = [
-  { id: "MSMA-00482", name: "Angela Dela Cruz", initials: "AD", position: "Senior Tax Associate", department: "Tax Advisory", office: "Cebu HQ", cluster: "RPM", status: "Active", email: "angela.delacruz@msma.ph", phone: "+63 917 123 4567", reportsToId: "admin" },
-  { id: "MSMA-00317", name: "Rafael Ortiz", initials: "RO", position: "Team Lead", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "rafael.ortiz@msma.ph", phone: "+63 917 555 0142", reportsToId: "admin" },
-  { id: "MSMA-00560", name: "Bea Santos", initials: "BS", position: "Audit Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "On leave", email: "bea.santos@msma.ph", phone: "+63 921 660 3720", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00611", name: "Miguel Reyes", initials: "MR", position: "Legal Associate", department: "Corporate Legal", office: "Manila", cluster: "ADS", status: "Active", email: "miguel.reyes@msma.ph", phone: "+63 921 711 5607", reportsToId: "admin" },
-  { id: "MSMA-00098", name: "Lourdes Vitug", initials: "LV", position: "Bookkeeper", department: "Bookkeeping", office: "Davao", cluster: "RPM", status: "Active", email: "lourdes.vitug@msma.ph", phone: "+63 921 198 4626", reportsToId: "admin" },
-  { id: "MSMA-00203", name: "Carla Uy", initials: "CU", position: "Senior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "carla.uy@msma.ph", phone: "+63 921 303 8511", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00276", name: "Jon Ababa", initials: "JA", position: "Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "jon.ababa@msma.ph", phone: "+63 917 376 2212", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00341", name: "Dennis Lim", initials: "DL", position: "Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "RPM", status: "On leave", email: "dennis.lim@msma.ph", phone: "+63 921 441 4617", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00398", name: "Grace Tan", initials: "GT", position: "Audit Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "On leave", email: "grace.tan@msma.ph", phone: "+63 921 498 6726", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00623", name: "Paolo Cruz", initials: "PC", position: "Tax Associate", department: "Tax Advisory", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "paolo.cruz@msma.ph", phone: "+63 921 723 6051", reportsToId: "MSMA-00482" },
-  { id: "MSMA-00701", name: "Ramon Bautista", initials: "RB", position: "Bookkeeper", department: "Bookkeeping", office: "Davao", cluster: "RPM", status: "Active", email: "ramon.bautista@msma.ph", phone: "+63 921 801 8937", reportsToId: "admin" },
-  { id: "MSMA-00733", name: "Michelle Aquino", initials: "MA", position: "Paralegal", department: "Corporate Legal", office: "Manila", cluster: "ADS", status: "Active", email: "michelle.aquino@msma.ph", phone: "+63 919 833 1121", reportsToId: "admin" },
-  { id: "MSMA-00812", name: "Joel Nierves", initials: "JN", position: "IT Support Associate", department: "Admin & Support", office: "Cebu HQ", cluster: "Admin & Support", status: "Active", email: "joel.nierves@msma.ph", phone: "+63 921 912 4044", reportsToId: "admin" },
-  { id: "MSMA-00845", name: "Ferdz Salazar", initials: "FS", position: "Liaison Officer", department: "Admin & Support", office: "Cebu HQ", cluster: "Admin & Support", status: "Active", email: "ferdz.salazar@msma.ph", phone: "+63 921 945 5265", reportsToId: "admin" },
+  { id: "MSMA-00482", name: "Angela Dela Cruz", initials: "AD", position: "Experienced Associate", department: "Tax Advisory", office: "Cebu HQ", cluster: "RPM", status: "Active", email: "angela.delacruz@msma.ph", phone: "+63 917 123 4567", reportsToId: "admin" },
+  { id: "MSMA-00317", name: "Rafael Ortiz", initials: "RO", position: "Associate Director", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "rafael.ortiz@msma.ph", phone: "+63 917 555 0142", reportsToId: "admin" },
+  { id: "MSMA-00560", name: "Bea Santos", initials: "BS", position: "Junior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "On leave", email: "bea.santos@msma.ph", phone: "+63 921 660 3720", reportsToId: "MSMA-00317" },
+  { id: "MSMA-00611", name: "Miguel Reyes", initials: "MR", position: "Experienced Associate", department: "Corporate Legal", office: "Manila", cluster: "ADS", status: "Active", email: "miguel.reyes@msma.ph", phone: "+63 921 711 5607", reportsToId: "admin" },
+  { id: "MSMA-00098", name: "Lourdes Vitug", initials: "LV", position: "Experienced Associate", department: "Bookkeeping", office: "Davao", cluster: "RPM", status: "Active", email: "lourdes.vitug@msma.ph", phone: "+63 921 198 4626", reportsToId: "admin" },
+  { id: "MSMA-00203", name: "Carla Uy", initials: "CU", position: "Experienced Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "carla.uy@msma.ph", phone: "+63 921 303 8511", reportsToId: "MSMA-00317" },
+  { id: "MSMA-00276", name: "Jon Ababa", initials: "JA", position: "Junior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "jon.ababa@msma.ph", phone: "+63 917 376 2212", reportsToId: "MSMA-00317" },
+  { id: "MSMA-00341", name: "Dennis Lim", initials: "DL", position: "Junior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "RPM", status: "On leave", email: "dennis.lim@msma.ph", phone: "+63 921 441 4617", reportsToId: "MSMA-00317" },
+  { id: "MSMA-00398", name: "Grace Tan", initials: "GT", position: "Junior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "On leave", email: "grace.tan@msma.ph", phone: "+63 921 498 6726", reportsToId: "MSMA-00317" },
+  { id: "MSMA-00623", name: "Paolo Cruz", initials: "PC", position: "Junior Associate", department: "Tax Advisory", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "paolo.cruz@msma.ph", phone: "+63 921 723 6051", reportsToId: "MSMA-00482" },
+  { id: "MSMA-00701", name: "Ramon Bautista", initials: "RB", position: "Experienced Associate", department: "Bookkeeping", office: "Davao", cluster: "RPM", status: "Active", email: "ramon.bautista@msma.ph", phone: "+63 921 801 8937", reportsToId: "admin" },
+  { id: "MSMA-00733", name: "Michelle Aquino", initials: "MA", position: "Executive Assistant / Secretary", department: "Corporate Legal", office: "Manila", cluster: "ADS", status: "Active", email: "michelle.aquino@msma.ph", phone: "+63 919 833 1121", reportsToId: "admin" },
+  { id: "MSMA-00812", name: "Joel Nierves", initials: "JN", position: "BSS Team Leader", department: "Admin & Support", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "joel.nierves@msma.ph", phone: "+63 921 912 4044", reportsToId: "admin" },
+  { id: "MSMA-00845", name: "Ferdz Salazar", initials: "FS", position: "Experienced Admin Assistant", department: "Admin & Support", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "ferdz.salazar@msma.ph", phone: "+63 921 945 5265", reportsToId: "admin" },
 ];
 
 export function setEmployeeDirectory(next: Employee[]) {
@@ -254,19 +254,19 @@ export function setEmployeeBenefits(next: EmployeeBenefit[]) {
 }
 
 export const teamRoster: TeamRosterMember[] = [
-  { id: "MSMA-00560", name: "Bea Santos", initials: "BS", position: "Audit Associate", tenureLabel: "2 yrs 3 mos", email: "bea.santos@msma.ph", status: "On leave" },
-  { id: "MSMA-00591", name: "Miguel Reyes", initials: "MR", position: "Audit Associate", tenureLabel: "1 yr 8 mos", email: "miguel.reyes@msma.ph", status: "Active" },
-  { id: "MSMA-00602", name: "Carla Uy", initials: "CU", position: "Senior Associate", tenureLabel: "3 yrs 1 mo", email: "carla.uy@msma.ph", status: "Active" },
-  { id: "MSMA-00614", name: "Jon Ababa", initials: "JA", position: "Associate", tenureLabel: "11 mos", email: "jon.ababa@msma.ph", status: "Active" },
-  { id: "MSMA-00625", name: "Dennis Lim", initials: "DL", position: "Associate", tenureLabel: "9 mos", email: "dennis.lim@msma.ph", status: "On leave" },
-  { id: "MSMA-00398", name: "Grace Tan", initials: "GT", position: "Audit Associate", tenureLabel: "1 yr 4 mos", email: "grace.tan@msma.ph", status: "On leave" },
+  { id: "MSMA-00560", name: "Bea Santos", initials: "BS", position: "Junior Associate", tenureLabel: "2 yrs 3 mos", email: "bea.santos@msma.ph", status: "On leave" },
+  { id: "MSMA-00591", name: "Miguel Reyes", initials: "MR", position: "Junior Associate", tenureLabel: "1 yr 8 mos", email: "miguel.reyes@msma.ph", status: "Active" },
+  { id: "MSMA-00602", name: "Carla Uy", initials: "CU", position: "Experienced Associate", tenureLabel: "3 yrs 1 mo", email: "carla.uy@msma.ph", status: "Active" },
+  { id: "MSMA-00614", name: "Jon Ababa", initials: "JA", position: "Junior Associate", tenureLabel: "11 mos", email: "jon.ababa@msma.ph", status: "Active" },
+  { id: "MSMA-00625", name: "Dennis Lim", initials: "DL", position: "Junior Associate", tenureLabel: "9 mos", email: "dennis.lim@msma.ph", status: "On leave" },
+  { id: "MSMA-00398", name: "Grace Tan", initials: "GT", position: "Junior Associate", tenureLabel: "1 yr 4 mos", email: "grace.tan@msma.ph", status: "On leave" },
 ];
 
 export const jobRequisitions: JobRequisition[] = [
-  { id: "jr-1", title: "Audit Associate", department: "Audit & Assurance", openings: 3, applicants: 21, stage: "Interviewing" },
-  { id: "jr-2", title: "Tax Associate", department: "Tax Advisory", openings: 4, applicants: 14, stage: "Sourcing" },
-  { id: "jr-3", title: "Corporate Lawyer", department: "Corporate Legal", openings: 2, applicants: 6, stage: "Offer extended" },
-  { id: "jr-4", title: "Bookkeeper", department: "Bookkeeping", openings: 1, applicants: 9, stage: "Sourcing" },
+  { id: "jr-1", title: "Junior Associate", department: "Audit & Assurance", openings: 3, applicants: 21, stage: "Interviewing" },
+  { id: "jr-2", title: "Junior Associate", department: "Tax Advisory", openings: 4, applicants: 14, stage: "Sourcing" },
+  { id: "jr-3", title: "Experienced Associate", department: "Corporate Legal", openings: 2, applicants: 6, stage: "Offer extended" },
+  { id: "jr-4", title: "Experienced Associate", department: "Bookkeeping", openings: 1, applicants: 9, stage: "Sourcing" },
 ];
 
 export const managerTeamStats = {
@@ -291,7 +291,7 @@ export function setPerformanceReviewStatuses(next: Record<string, "Submitted" | 
 const defaultManagerProfile: PartnerProfile = {
   name: "Rafael Ortiz",
   initials: "RO",
-  title: "Audit & Assurance Team Lead",
+  title: "Associate Director",
   email: "rafael.ortiz@msma.ph",
   phone: "+63 917 555 0142",
   office: "Cebu HQ",
@@ -325,12 +325,12 @@ export function setCurrentManager(next: PartnerProfile) {
 }
 
 export let attendanceRequests: AttendanceRequest[] = [
-  { id: "ar-1", employeeName: "Bea Santos", employeeInitials: "BS", employeeRole: "Audit Associate", kind: "Missed clock-out", date: "Sept 24, 2026", recordedTime: "In 8:52 AM · Out —", requestedTime: "Out 6:15 PM", reason: "Left straight from the client site in Mandaue; scanner was not reachable.", status: "Pending", filedOn: "2026-09-25" },
-  { id: "ar-2", employeeName: "Carla Uy", employeeInitials: "CU", employeeRole: "Senior Associate", kind: "Late justification", date: "Sept 25, 2026", recordedTime: "In 9:32 AM", requestedTime: "In 9:32 AM (excused)", reason: "Flooding along Banilad; team lead was informed by 8:30 AM.", status: "Pending", filedOn: "2026-09-25" },
-  { id: "ar-3", employeeName: "Jon Ababa", employeeInitials: "JA", employeeRole: "Associate", kind: "Remote work", date: "Sept 26, 2026", recordedTime: "No scan", requestedTime: "WFH 9:00 AM – 6:00 PM", reason: "Working remotely on the Q3 inventory count report.", status: "Pending", filedOn: "2026-09-26" },
-  { id: "ar-4", employeeName: "Miguel Reyes", employeeInitials: "MR", employeeRole: "Audit Associate", kind: "Time correction", date: "Sept 23, 2026", recordedTime: "In 10:04 AM", requestedTime: "In 8:56 AM", reason: "Fingerprint scanner failed to read; security logbook shows 8:56 AM.", status: "Pending", filedOn: "2026-09-24" },
-  { id: "ar-5", employeeName: "Grace Tan", employeeInitials: "GT", employeeRole: "Audit Associate", kind: "Missed clock-in", date: "Sept 22, 2026", recordedTime: "In — · Out 6:02 PM", requestedTime: "In 8:48 AM", reason: "Forgot to scan in after the morning client call.", status: "Approved", filedOn: "2026-09-22" },
-  { id: "ar-6", employeeName: "Dennis Lim", employeeInitials: "DL", employeeRole: "Associate", kind: "Late justification", date: "Sept 19, 2026", recordedTime: "In 10:40 AM", requestedTime: "In 10:40 AM (excused)", reason: "Overslept.", status: "Declined", filedOn: "2026-09-19" },
+  { id: "ar-1", employeeName: "Bea Santos", employeeInitials: "BS", employeeRole: "Junior Associate", kind: "Missed clock-out", date: "Sept 24, 2026", recordedTime: "In 8:52 AM · Out —", requestedTime: "Out 6:15 PM", reason: "Left straight from the client site in Mandaue; scanner was not reachable.", status: "Pending", filedOn: "2026-09-25" },
+  { id: "ar-2", employeeName: "Carla Uy", employeeInitials: "CU", employeeRole: "Experienced Associate", kind: "Late justification", date: "Sept 25, 2026", recordedTime: "In 9:32 AM", requestedTime: "In 9:32 AM (excused)", reason: "Flooding along Banilad; team lead was informed by 8:30 AM.", status: "Pending", filedOn: "2026-09-25" },
+  { id: "ar-3", employeeName: "Jon Ababa", employeeInitials: "JA", employeeRole: "Junior Associate", kind: "Remote work", date: "Sept 26, 2026", recordedTime: "No scan", requestedTime: "WFH 9:00 AM – 6:00 PM", reason: "Working remotely on the Q3 inventory count report.", status: "Pending", filedOn: "2026-09-26" },
+  { id: "ar-4", employeeName: "Miguel Reyes", employeeInitials: "MR", employeeRole: "Junior Associate", kind: "Time correction", date: "Sept 23, 2026", recordedTime: "In 10:04 AM", requestedTime: "In 8:56 AM", reason: "Fingerprint scanner failed to read; security logbook shows 8:56 AM.", status: "Pending", filedOn: "2026-09-24" },
+  { id: "ar-5", employeeName: "Grace Tan", employeeInitials: "GT", employeeRole: "Junior Associate", kind: "Missed clock-in", date: "Sept 22, 2026", recordedTime: "In — · Out 6:02 PM", requestedTime: "In 8:48 AM", reason: "Forgot to scan in after the morning client call.", status: "Approved", filedOn: "2026-09-22" },
+  { id: "ar-6", employeeName: "Dennis Lim", employeeInitials: "DL", employeeRole: "Junior Associate", kind: "Late justification", date: "Sept 19, 2026", recordedTime: "In 10:40 AM", requestedTime: "In 10:40 AM (excused)", reason: "Overslept.", status: "Declined", filedOn: "2026-09-19" },
 ];
 
 export function setAttendanceRequests(next: AttendanceRequest[]) {

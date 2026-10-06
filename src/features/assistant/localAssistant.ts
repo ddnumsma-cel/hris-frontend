@@ -63,7 +63,7 @@ export function answerLocally(question: string, ctx: AssistantData): string {
     if (/\bdepartment|position|office|cluster|employee id\b/.test(q)) {
       const e = ctx.employee;
       if (!e) return "I don't have your profile loaded yet.";
-      return `${e.position}, ${e.department} (${e.cluster} cluster), ${e.office}. Employee ID ${e.id}.`;
+      return `${e.position}, ${e.department} (${e.cluster}), ${e.office}. Employee ID ${e.id}.`;
     }
   }
 

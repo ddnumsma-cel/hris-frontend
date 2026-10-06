@@ -1,6 +1,6 @@
 export type Role = "employee" | "manager" | "admin";
 
-export type Cluster = "RPM" | "VCM" | "ADS" | "Admin & Support";
+export type Cluster = "RPM" | "VCM" | "ADS";
 
 export interface Employee {
   id: string;

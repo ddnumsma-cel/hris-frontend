@@ -11,8 +11,8 @@ import { createEmployee } from "@/lib/api";
 import { idTypeOptions, scanIdImage, type ScannedIdFields, type ScanProgress } from "@/lib/idScan";
 import {
   addEmployeeSchema,
-  clusterDescriptions,
   clusterOptions,
+  POSITION_TITLES,
   departmentsByCluster,
   fromAssignment,
   officeOptions,
@@ -445,7 +445,14 @@ export function AddEmployeeDialog({
                 <Label htmlFor="emp-position" fromId={autoFilled.has("position")}>
                   Position
                 </Label>
-                <input id="emp-position" className={inputClass} placeholder="Audit Associate" {...field("position")} />
+                <select id="emp-position" className={inputClass} {...field("position")}>
+                  <option value="">Choose a position</option>
+                  {POSITION_TITLES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
                 {errors.position && <p className={errorClass}>{errors.position.message}</p>}
               </div>
               <div>
@@ -455,7 +462,7 @@ export function AddEmployeeDialog({
                 <select id="emp-assignment" className={inputClass} {...field("assignment")}>
                   <option value="">Select department…</option>
                   {clusterOptions.map((cluster) => (
-                    <optgroup key={cluster} label={`${cluster} — ${clusterDescriptions[cluster]}`}>
+                    <optgroup key={cluster} label={cluster}>
                       {departmentsByCluster[cluster].map((department) => (
                         <option key={department} value={toAssignment(cluster, department)}>
                           {department} · {cluster}

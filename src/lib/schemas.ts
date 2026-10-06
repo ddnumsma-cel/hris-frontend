@@ -35,15 +35,17 @@ export type CertificateRequestFormValues = z.infer<typeof certificateRequestSche
 
 export const officeOptions = ["Cebu HQ", "Manila", "Davao"] as const;
 
-export const clusterOptions = ["RPM", "VCM", "ADS", "Admin & Support"] as const;
+export const clusterOptions = ["RPM", "VCM", "ADS"] as const;
+
+/** The only job titles used across the company. */
+export const POSITION_TITLES = ["Executive Assistant / Secretary", "Junior Associate", "Experienced Associate", "Experienced Admin Assistant", "BSS Team Leader", "Associate Director", "Partner"] as const;
 
 // Department and cluster are picked together as one "Department · Cluster"
 // assignment; each cluster only offers the departments it actually staffs.
 export const departmentsByCluster: Record<(typeof clusterOptions)[number], string[]> = {
   RPM: ["Audit & Assurance", "Tax Advisory", "Bookkeeping"],
   VCM: ["Audit & Assurance", "Tax Advisory", "Bookkeeping"],
-  ADS: ["Audit & Assurance", "Tax Advisory", "Corporate Legal"],
-  "Admin & Support": ["Admin & Support", "Human Resources", "IT", "Front Desk", "Liaison"],
+  ADS: ["Audit & Assurance", "Tax Advisory", "Corporate Legal", "Admin & Support"],
 };
 
 const ASSIGNMENT_SEPARATOR = "::";
@@ -77,13 +79,6 @@ export const addEmployeeSchema = z.object({
 });
 
 export type AddEmployeeFormValues = z.infer<typeof addEmployeeSchema>;
-
-export const clusterDescriptions: Record<(typeof clusterOptions)[number], string> = {
-  RPM: "Accountants — RPM client group",
-  VCM: "Accountants — VCM client group",
-  ADS: "Accountants — ADS client group",
-  "Admin & Support": "IT, Admin Associates, Front Desk, HR and Liaison Officers",
-};
 
 export const registerSchema = z.object({
   name: z.string().min(1, "Full name is required"),
