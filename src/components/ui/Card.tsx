@@ -7,7 +7,7 @@ export function Card({
   ...rest
 }: { children: ReactNode; className?: string; ref?: Ref<HTMLDivElement> } & HTMLAttributes<HTMLDivElement>) {
   return (
-    <div data-slot="card" className={clsx("rounded-xl border border-border bg-surface shadow-sm", className)} {...rest}>
+    <div data-slot="card" className={clsx("rounded-[var(--radius-card)] border border-[var(--card-border)] bg-surface", className)} {...rest}>
       {children}
     </div>
   );
@@ -24,7 +24,7 @@ export function CardHeader({
 }) {
   return (
     <div data-slot="card-header" className="flex flex-wrap items-center justify-between gap-2.5 border-b border-border px-4 py-3.5">
-      <h2 className="font-display text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>
+      <h2 className="font-display text-sm font-semibold tracking-[-0.01em]">{title}</h2>
       {action ?? (meta && <span className="text-xs text-ink-2">{meta}</span>)}
     </div>
   );

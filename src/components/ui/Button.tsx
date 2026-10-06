@@ -11,13 +11,13 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<Variant, string> = {
-  primary: "bg-brand font-semibold text-white hover:bg-brand-ink",
-  ghost: "bg-surface font-medium text-ink border border-border hover:border-brand",
-  danger: "bg-critical font-semibold text-white hover:bg-critical/85",
+  primary: "btn-primary font-semibold",
+  ghost: "btn-secondary font-medium",
+  danger: "btn-danger font-semibold",
 };
 
 const sizeClasses: Record<Size, string> = {
-  md: "px-4 py-2 text-[0.82rem]",
+  md: "px-4 py-2 text-[13px]",
   sm: "px-3 py-1.5 text-xs",
 };
 
@@ -33,7 +33,7 @@ export function Button({
     <button
       data-variant={variant}
       className={clsx(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-cat-1)] disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100",
+        "btn inline-flex items-center gap-1.5 whitespace-nowrap",
         variantClasses[variant],
         sizeClasses[size],
         className,

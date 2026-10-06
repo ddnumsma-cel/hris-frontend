@@ -44,10 +44,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto flex w-full max-w-sm items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold shadow-lg ${
+            className={`glass-surface pointer-events-auto flex w-full max-w-sm items-center gap-2 rounded-[var(--radius-dropdown)] px-4 py-3 text-sm font-semibold ${
               t.leaving ? "toast-leave" : "toast-enter"
             } ${
-              t.tone === "good" ? "border-good/30 bg-good-tint text-good" : "border-critical/30 bg-critical-tint text-critical"
+              t.tone === "good" ? "text-good" : "text-critical"
             }`}
           >
             {t.tone === "good" ? (

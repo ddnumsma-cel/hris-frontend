@@ -35,12 +35,12 @@ function Card({ p, reports, onOpen, top }: { p: Person; reports: number; onOpen:
     <button
       type="button"
       onClick={onOpen}
-      className={clsx("lift flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left", top ? "border-transparent bg-ink text-surface" : "border-border bg-surface hover:border-ink-3")}
+      className={clsx("lift flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left", top ? "border-transparent bg-ink text-bg" : "border-border bg-surface hover:border-ink-3")}
     >
       <Initials initials={p.initials} size={top ? "md" : "sm"} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold">{p.name}</span>
-        <span className={clsx("block truncate text-xs", top ? "text-surface/70" : "text-ink-2")}>{p.positionTitle}</span>
+        <span className={clsx("block truncate text-xs", top ? "text-bg/70" : "text-ink-2")}>{p.positionTitle}</span>
         {!top && <span className="block truncate text-[0.7rem] text-ink-3">{p.departmentName}</span>}
       </span>
       {reports > 0 && <span className={clsx("flex-none rounded-full px-1.5 text-[0.7rem] font-semibold", top ? "bg-surface/15" : "bg-surface-2 text-ink-2")}>{reports}</span>}

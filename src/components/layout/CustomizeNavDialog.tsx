@@ -107,7 +107,7 @@ export function CustomizeNavDialog({ sections, prefs, onSave, onClose }: { secti
                       aria-pressed={on}
                       disabled={!on && full}
                       onClick={() => toggle(p.to)}
-                      className={clsx("flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-40", on ? "border-ink bg-ink text-surface" : "border-border text-ink-2 hover:border-ink-3 hover:text-ink")}
+                      className={clsx("flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-40", on ? "border-ink bg-ink text-bg" : "border-border text-ink-2 hover:border-ink-3 hover:text-ink")}
                     >
                       <PinIcon className={clsx("h-3 w-3", !on && "opacity-50")} />
                       {p.label}

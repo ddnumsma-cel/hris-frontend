@@ -34,12 +34,17 @@ export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
   }
   useEffect(() => () => window.clearTimeout(closeTimer.current), []);
 
+  // The drawer opens beside the hovered module: its 48px title band lines up with the module's
+  // row (the icon's centre sits 24px down, as does the band's), moved up only to stay on screen.
   const show = (s: NavSection, el: HTMLElement) => {
     window.clearTimeout(closeTimer.current);
     const r = el.getBoundingClientRect();
-    const height = 44 + s.pages.length * 38;
-    setOpen({ key: s.key, top: Math.max(8, Math.min(r.top, window.innerHeight - height - 8)) });
+    // 48px title band + 8px padding above and below + 40px rows 4px apart (+2px border).
+    const height = 62 + s.pages.length * 44;
+    // -1 for the drawer's top border, so the band's centre meets the icon's exactly.
+    setOpen({ key: s.key, top: Math.max(8, Math.min(r.top - 1, window.innerHeight - height - 8)) });
   };
+
   // A short delay lets the pointer travel from the icon to the panel.
   const hide = () => {
     window.clearTimeout(closeTimer.current);
@@ -68,8 +73,8 @@ export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
             >
               <span
                 className={clsx(
-                  "flex h-9 w-9 items-center justify-center rounded-xl transition-colors [&>svg]:h-[18px] [&>svg]:w-[18px]",
-                  active ? "text-[var(--sb-lime)] shadow-[0_6px_16px_-6px_var(--sb-active-glow)]" : isOpen ? "bg-[var(--sb-hover)] text-[var(--sb-text)]" : "text-[var(--sb-muted)] group-hover:bg-[var(--sb-hover)] group-hover:text-[var(--sb-text)]",
+                  "flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] transition-colors [&>svg]:h-[18px] [&>svg]:w-[18px]",
+                  active ? "text-[var(--nav-active-icon)] shadow-[var(--shadow-logo)]" : isOpen ? "bg-[var(--sb-hover)] text-[var(--sb-text)]" : "text-[var(--sb-muted)] group-hover:bg-[var(--sb-hover)] group-hover:text-[var(--sb-text)]",
                 )}
                 style={active ? { background: "var(--sb-active-bg)" } : undefined}
               >
@@ -92,7 +97,7 @@ export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
       {home.length > 0 && <nav aria-label="Home" className="flex flex-none flex-col items-center gap-1 pt-3">{home.map(renderModule)}</nav>}
       {pins.length > 0 && (
         <nav aria-label="Pinned" className="flex w-full flex-none flex-col items-center gap-0.5 border-b border-[var(--sb-border)] py-2">
-          <span className="flex items-center gap-1 text-[9.5px] font-semibold tracking-wide text-[var(--sb-muted)] uppercase">
+          <span className="flex items-center gap-1 text-[10px] font-semibold tracking-[0.1em] text-[var(--nav-label)] uppercase">
             <PinIcon className="h-2.5 w-2.5" />
             Pinned
           </span>
@@ -101,7 +106,7 @@ export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
               {({ isActive }) => (
                 <>
                   <span
-                    className={clsx("flex h-8 w-8 items-center justify-center rounded-lg transition-colors [&>svg]:h-4 [&>svg]:w-4", isActive ? "text-[var(--sb-lime)]" : "bg-[var(--sb-hover)] text-[var(--sb-text)] group-hover:text-[var(--sb-text)]")}
+                    className={clsx("flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)] transition-colors [&>svg]:h-4 [&>svg]:w-4", isActive ? "text-[var(--nav-active-icon)] shadow-[var(--shadow-logo)]" : "bg-[var(--sb-hover)] text-[var(--sb-text)] group-hover:text-[var(--sb-text)]")}
                     style={isActive ? { background: "var(--sb-active-bg)" } : undefined}
                   >
                     {section.icon}
@@ -119,7 +124,7 @@ export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
 
       <div className="mt-auto flex w-full flex-none justify-center border-t border-[var(--sb-border)] py-2.5">
         <button type="button" onClick={() => setCustomizing(true)} title="Pin your daily pages and reorder the menu" className="group flex w-16 flex-col items-center gap-1 rounded-xl py-1">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--sb-muted)] transition-colors group-hover:bg-[var(--sb-hover)] group-hover:text-[var(--sb-text)] [&>svg]:h-[18px] [&>svg]:w-[18px]">
+          <span className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] text-[var(--sb-muted)] transition-colors group-hover:bg-[var(--sb-hover)] group-hover:text-[var(--sb-text)] [&>svg]:h-[18px] [&>svg]:w-[18px]">
             <SlidersIcon />
           </span>
           <span className="text-[10.5px] leading-tight text-[var(--sb-muted)]">Customize</span>
@@ -138,24 +143,23 @@ export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
             onFocus={keep}
             onBlur={hide}
             onKeyDown={(e) => e.key === "Escape" && setOpen(null)}
-            className="sidebar fixed z-50 flex w-56 flex-col gap-0.5 rounded-xl border border-[var(--sb-border)] !bg-surface p-2 shadow-xl"
-            style={{ top: open!.top, left: "calc(var(--sidenav-w) + 0.5rem)" }}
+            className="sidebar glass-surface fixed left-[var(--sidenav-w)] z-50 flex max-h-[calc(100dvh-1rem)] w-max max-w-80 min-w-60 flex-col overflow-y-auto rounded-r-[var(--radius-dropdown)] !border-l-0 !bg-transparent !shadow-[var(--shadow-drawer)] !backdrop-filter-none"
+            style={{ top: open!.top }}
           >
-            <div className="mb-1 px-2 pt-1 text-xs font-semibold text-[var(--sb-muted)]">{openSection.label}</div>
-            {openSection.pages.map((p) => (
-              <NavLink key={p.to} to={p.to} end={p.end} role="menuitem" className="sidebar-item">
-                {({ isActive }) => (
-                  <>
-                    <span className="truncate">{p.label}</span>
-                    {isActive && (
-                      <span className="sidebar-active-chevron" aria-hidden="true">
-                        ›
-                      </span>
-                    )}
-                  </>
-                )}
-              </NavLink>
-            ))}
+            {/* Drawer attached to the rail beside the hovered module, as tall as its pages. */}
+            <div className="flex h-12 flex-none items-center border-b border-[var(--sb-border)] px-5 text-[15px] leading-5 font-semibold text-[var(--text)]">
+              {/* One line, so the band stays 48px; the drawer widens to fit (up to 320px). */}
+              <span className="truncate whitespace-nowrap" title={openSection.label}>
+                {openSection.label}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1 p-2">
+              {openSection.pages.map((p) => (
+                <NavLink key={p.to} to={p.to} end={p.end} role="menuitem" className="sidebar-item min-h-10 text-[13.5px]">
+                  <span className="truncate">{p.label}</span>
+                </NavLink>
+              ))}
+            </div>
           </div>,
           document.body,
         )}

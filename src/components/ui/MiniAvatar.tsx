@@ -9,7 +9,7 @@ export function MiniAvatar({ initials, photoUrl }: { initials: string; photoUrl?
     );
   }
   return (
-    <span className="flex h-6.5 w-6.5 flex-none items-center justify-center rounded-full bg-surface-2 text-[0.65rem] font-semibold text-ink-2">
+    <span className="flex h-6.5 w-6.5 flex-none items-center justify-center rounded-full bg-[image:var(--grad-avatar)] text-[0.65rem] font-semibold text-[var(--on-accent)]">
       {initials}
     </span>
   );

@@ -138,7 +138,7 @@ export function ManagerOverview() {
             value={`${managerTeamStats.attendanceRate}%`}
             label="Attendance rate · on-time rate per day"
             legend={[
-              { color: "var(--dash-accent)", label: "Latest day" },
+              { color: "var(--grad-chart)", label: "Latest day" },
               { color: "var(--dash-bar-idle)", label: "Earlier days" },
             ]}
           >
@@ -224,11 +224,13 @@ export function ManagerOverview() {
         </BentoArea>
       </div>
 
-      <AttentionPanel items={attentionItems} />
+      {/* Two short lists side by side on wide screens, so their actions sit next to the text. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <AttentionPanel items={attentionItems} />
+        <WorkforceAlerts />
+      </div>
 
       <TeamRoster />
-
-      <WorkforceAlerts />
     </div>
   );
 }

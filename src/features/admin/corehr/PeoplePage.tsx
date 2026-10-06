@@ -159,7 +159,7 @@ export function PeoplePage() {
               ["table", "Table", ListIcon],
             ] as const
           ).map(([id, label, Icon]) => (
-            <button key={id} type="button" aria-pressed={view === id} onClick={() => changeView(id)} className={clsx("flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors", view === id ? "bg-ink text-surface" : "text-ink-2 hover:text-ink")}>
+            <button key={id} type="button" aria-pressed={view === id} onClick={() => changeView(id)} className={clsx("flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors", view === id ? "bg-ink text-bg" : "text-ink-2 hover:text-ink")}>
               <Icon className="h-3.5 w-3.5" />
               {label}
             </button>
