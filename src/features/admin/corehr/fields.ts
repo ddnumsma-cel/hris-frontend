@@ -23,15 +23,15 @@ export const PERSONAL_FIELDS: FieldSpec[] = [
 ];
 
 export const CONTACT_FIELDS: FieldSpec[] = [
-  { name: "workEmail", label: "Work email", type: "email" },
-  { name: "personalEmail", label: "Personal email", type: "email" },
-  { name: "mobile", label: "Mobile", type: "tel", placeholder: "0917 123 4567" },
-  { name: "address", label: "Home address", placeholder: "House no., street, barangay", wide: true },
-  { name: "city", label: "City / municipality" },
-  { name: "province", label: "Province" },
-  { name: "emergencyName", label: "Emergency contact" },
-  { name: "emergencyRelationship", label: "Relationship", placeholder: "Spouse, parent…" },
-  { name: "emergencyPhone", label: "Emergency phone", type: "tel" },
+  { name: "workEmail", label: "Work email", type: "email", required: true },
+  { name: "personalEmail", label: "Personal email", type: "email", required: true },
+  { name: "mobile", label: "Mobile", type: "tel", placeholder: "0917 123 4567", required: true },
+  { name: "address", label: "Home address", placeholder: "House no., street, barangay", wide: true, required: true },
+  { name: "city", label: "City / municipality", required: true },
+  { name: "province", label: "Province", required: true },
+  { name: "emergencyName", label: "Emergency contact", required: true },
+  { name: "emergencyRelationship", label: "Relationship", placeholder: "Spouse, parent…", required: true },
+  { name: "emergencyPhone", label: "Emergency phone", type: "tel", required: true },
 ];
 
 export const GOVERNMENT_FIELDS: FieldSpec[] = [
