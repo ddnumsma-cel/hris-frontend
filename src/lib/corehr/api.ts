@@ -192,8 +192,14 @@ export async function createEmployee(values: NewEmployeeValues, actor: string, s
   const position = positionById(v.job.positionId);
   if (!position?.active) return fail("That position isn't available");
   if (holdersOf(position.id).length >= position.slots) return fail(`${position.title} has no opening. Open the job on the Company page and add room for one more person first.`);
-  const team = unitById(v.job.teamId);
-  const unitId = team && team.parentId === position.departmentId ? team.id : position.departmentId;
+  // The cluster (RPM / VCM / ADS) is a team inside the position's department; add it if that department has none yet.
+  let units = state.units;
+  let team = units.find((u) => u.type === "team" && u.parentId === position.departmentId && u.code === v.job.cluster);
+  if (!team) {
+    team = { id: newId("tm"), type: "team", name: v.job.cluster, code: v.job.cluster, parentId: position.departmentId, active: true };
+    units = [...units, team];
+  }
+  const unitId = team.id;
 
   const id = nextEmployeeId(state);
   const employee: CoreEmployee = {
@@ -229,7 +235,7 @@ export async function createEmployee(values: NewEmployeeValues, actor: string, s
     kind: "Hired",
     effectiveDate: v.job.dateHired,
     changes: [
-      { label: "Position", to: `${position.title} · ${unitPathOf(unitId, state.units)}` },
+      { label: "Position", to: `${position.title} · ${unitPathOf(unitId, units)}` },
       { label: "Employment type", to: v.job.employmentType },
       { label: "Monthly salary", to: peso(v.job.monthlySalary) },
     ],
@@ -238,6 +244,7 @@ export async function createEmployee(values: NewEmployeeValues, actor: string, s
   };
   commit({
     ...state,
+    units,
     employees: [...state.employees, employee],
     documents: [...state.documents, ...documents],
     events: [event, ...state.events],
