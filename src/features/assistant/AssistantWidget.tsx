@@ -54,13 +54,13 @@ export function AssistantWidget() {
         data-tour="assistant-button"
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Close AI assistant" : "Open AI assistant"}
-        className="fixed bottom-5 right-5 z-90 flex h-13 w-13 items-center justify-center rounded-full bg-brand text-white shadow-lg transition-transform active:scale-95"
+        className="fixed bottom-5 right-5 z-90 flex h-13 w-13 items-center justify-center accent-fill rounded-full shadow-[var(--shadow-primary)] transition-transform active:scale-95"
       >
         {open ? <XIcon className="h-5 w-5" /> : <SparkleIcon className="h-5.5 w-5.5" />}
       </button>
 
       {open && (
-        <div className="panel-enter fixed bottom-21 right-5 z-90 flex h-[min(560px,70vh)] w-[min(380px,92vw)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-lg">
+        <div className="panel-enter fixed bottom-21 right-5 z-90 flex h-[min(560px,70vh)] w-[min(380px,92vw)] glass-surface flex-col overflow-hidden rounded-[var(--radius-modal)]">
           <div className="flex items-center gap-2 border-b border-border bg-brand-dark px-4 py-3 text-white">
             <SparkleIcon className="h-4 w-4 text-[#8fc93f]" />
             <div>
@@ -84,7 +84,7 @@ export function AssistantWidget() {
                   key={i}
                   className={clsx(
                     "max-w-[85%] whitespace-pre-line rounded-xl px-3 py-2 text-sm",
-                    m.role === "user" ? "self-end bg-brand text-white" : "self-start bg-surface-2 text-ink",
+                    m.role === "user" ? "self-end accent-fill" : "self-start bg-surface-2 text-ink",
                   )}
                 >
                   {m.content}
@@ -119,7 +119,7 @@ export function AssistantWidget() {
               type="submit"
               disabled={!input.trim() || thinking}
               aria-label="Send message"
-              className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-brand text-white disabled:opacity-50"
+              className="flex h-9 w-9 flex-none items-center justify-center accent-fill rounded-full disabled:opacity-50"
             >
               <ArrowRightIcon className="h-4 w-4" />
             </button>

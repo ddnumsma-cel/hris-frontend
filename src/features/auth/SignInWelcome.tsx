@@ -34,9 +34,9 @@ export function SignInWelcome() {
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-16 z-100 flex justify-end px-4 sm:pr-6">
-      <div role="status" aria-live="polite" className={`welcome-card pointer-events-auto relative w-full max-w-md overflow-hidden rounded-2xl border border-border bg-surface shadow-xl ${leaving ? "toast-leave" : "welcome-enter"}`}>
+      <div role="status" aria-live="polite" className={`welcome-card glass-surface pointer-events-auto relative w-full max-w-md overflow-hidden rounded-[var(--radius-modal)] ${leaving ? "toast-leave" : "welcome-enter"}`}>
         <div className="flex items-start gap-3.5 p-4 pr-11">
-          <span className="welcome-badge flex h-10 w-10 flex-none items-center justify-center rounded-full bg-good text-white">
+          <span className="welcome-badge flex h-10 w-10 flex-none items-center justify-center rounded-full bg-[var(--success)] text-[var(--on-accent)]">
             <CheckIcon className="h-5 w-5" strokeWidth={2.6} />
           </span>
           <div className="min-w-0">

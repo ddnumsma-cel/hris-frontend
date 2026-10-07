@@ -32,7 +32,9 @@ export interface CoreHrState {
   audit: AuditEntry[];
 }
 
-const STORAGE_KEY = "heyhr-corehr-v1";
+// v2: the seven job titles, and clusters RPM / VCM / ADS only.
+// v3: the three partners, each heading the cluster named after their initials.
+const STORAGE_KEY = "heyhr-corehr-v3";
 const SEED_ACTOR = "HR & People Operations";
 
 export function newId(prefix: string) {
@@ -66,24 +68,30 @@ const DEPARTMENT_CODES: Record<string, string> = {
   "Corporate Legal": "LEG",
   "Admin & Support": "ADM",
   "Human Resources": "HRD",
+  Partners: "PTR",
 };
 
 /** Accounting departments are split into client-group teams; support departments aren't. */
 const TEAMED_DEPARTMENTS = new Set(["Audit & Assurance", "Tax Advisory"]);
 
 function levelFor(title: string): JobLevel {
+  if (/^partner$/i.test(title)) return "Executive";
+  if (/director/i.test(title)) return "Manager";
   if (/lead|supervisor/i.test(title)) return "Supervisor";
-  if (/manager|head/i.test(title)) return "Manager";
-  if (/^senior/i.test(title)) return "Supervisor";
   return "Rank and file";
 }
 
+/** "Antonio Dandan Sanchez Jr." → first Antonio, middle Dandan, last Sanchez, suffix Jr. */
 function splitName(name: string) {
-  const words = name.split(/\s+/);
+  const words = name.trim().split(/\s+/);
+  const suffix = words.length > 2 && /^(jr\.?|sr\.?|ii|iii|iv)$/i.test(words[words.length - 1]!) ? words.pop()! : "";
   const particles = new Set(["dela", "de", "del", "san", "santa", "delos"]);
   let lastStart = words.length - 1;
   while (lastStart > 1 && particles.has(words[lastStart - 1]!.toLowerCase())) lastStart--;
-  return { firstName: words.slice(0, lastStart).join(" "), lastName: words.slice(lastStart).join(" ") };
+  // Three or more words left: the one before the surname is the middle name.
+  const middleName = lastStart >= 2 ? words[lastStart - 1]! : "";
+  const firstName = words.slice(0, middleName ? lastStart - 1 : lastStart).join(" ");
+  return { firstName, middleName, lastName: words.slice(lastStart).join(" "), suffix };
 }
 
 function documentFromShared(d: PersonnelDocument): EmployeeDocument {
@@ -116,7 +124,7 @@ function seed(): CoreHrState {
   };
   const addTeam = (office: string, dept: string, cluster: string) => {
     const id = teamId(office, dept, cluster);
-    if (!units.some((u) => u.id === id)) units.push({ id, type: "team", name: `${cluster} client group`, code: cluster.slice(0, 3).toUpperCase(), parentId: deptId(office, dept), active: true });
+    if (!units.some((u) => u.id === id)) units.push({ id, type: "team", name: cluster, code: cluster.slice(0, 3).toUpperCase(), parentId: deptId(office, dept), active: true });
     return id;
   };
 
@@ -140,15 +148,15 @@ function seed(): CoreHrState {
   const events: JobEvent[] = [];
   for (const e of employeeDirectory) {
     const position = positionFor(e);
-    const unitId = TEAMED_DEPARTMENTS.has(e.department) && e.cluster !== "Admin & Support" ? addTeam(e.office, e.department, e.cluster) : position.departmentId;
+    const unitId = TEAMED_DEPARTMENTS.has(e.department) && e.department !== "Admin & Support" ? addTeam(e.office, e.department, e.cluster) : position.departmentId;
     const records = buildEmployeeFileRecords(e);
     const profile = personnelProfiles.find((p) => p.employeeId === e.id);
     const gov = (agency: string) => records.government.find((g) => g.agency === agency)?.number ?? "";
-    const { firstName, lastName } = splitName(e.name);
+    const { firstName, middleName, lastName, suffix } = splitName(e.name);
     const dateHired = toIso(records.employment.dateHired);
     employees.push({
       id: e.id,
-      personal: { firstName, middleName: "", lastName, suffix: "", birthDate: profile?.birthDate ?? "", sex: "", civilStatus: profile?.civilStatus ?? "", nationality: "Filipino" },
+      personal: { firstName, middleName, lastName, suffix, birthDate: profile?.birthDate ?? "", sex: "", civilStatus: profile?.civilStatus ?? "", nationality: "Filipino" },
       contact: {
         workEmail: e.email ?? "",
         personalEmail: "",
@@ -187,7 +195,19 @@ function seed(): CoreHrState {
 
   // Some headroom: a couple of open slots, and one budgeted role nobody holds yet.
   for (const p of positions) if (p.level === "Rank and file" && p.slots >= 2) p.slots++;
-  positions.push({ id: "ps-cebu-hq-human-resources-hr-associate", title: "HR Associate", code: "HRA", departmentId: "dp-cebu-hq-human-resources", level: "Rank and file", employmentType: "Probationary", slots: 2, active: true, description: "Recruitment, onboarding and 201 file upkeep." });
+  positions.push({ id: "ps-cebu-hq-human-resources-experienced-admin-assistant", title: "Experienced Admin Assistant", code: "EAA", departmentId: "dp-cebu-hq-human-resources", level: "Rank and file", employmentType: "Probationary", slots: 2, active: true, description: "Recruitment, onboarding and 201 file upkeep." });
+
+  // Everyone sits under the partner whose initials name their cluster (ADS, RPM, VCM),
+  // unless they already report to someone in that same cluster.
+  const clusterOf = new Map(employeeDirectory.map((e) => [e.id, e.cluster]));
+  const partnerOf = new Map(employeeDirectory.filter((e) => e.position === "Partner").map((e) => [e.cluster, e.id]));
+  for (const c of employees) {
+    const cluster = clusterOf.get(c.id);
+    const partner = cluster && partnerOf.get(cluster);
+    if (!partner || partner === c.id) continue;
+    const sup = c.job.supervisorId;
+    if (!sup || clusterOf.get(sup) !== cluster) c.job.supervisorId = partner;
+  }
 
   // Rank-and-file report to their department's supervisory position.
   for (const p of positions) {
@@ -263,7 +283,7 @@ function syncShared() {
       const prev = byId.get(c.id);
       const position = state.positions.find((p) => p.id === c.job.positionId);
       const team = ancestor(c.job.unitId, "team");
-      const cluster = (["RPM", "VCM", "ADS"].includes(team?.code ?? "") ? team!.code : (prev?.cluster ?? "Admin & Support")) as Employee["cluster"];
+      const cluster = (["RPM", "VCM", "ADS"].includes(team?.code ?? "") ? team!.code : (prev?.cluster ?? "ADS")) as Employee["cluster"];
       return {
         ...prev,
         id: c.id,
@@ -309,12 +329,12 @@ export function reconcile() {
     changed = true;
     const dept = next.units.find((u) => u.type === "department" && u.name === e.department && next.units.find((b) => b.id === u.parentId)?.name === e.office);
     const position = next.positions.find((p) => p.departmentId === dept?.id && p.title.toLowerCase() === e.position.toLowerCase());
-    const { firstName, lastName } = splitName(e.name);
+    const { firstName, middleName, lastName, suffix } = splitName(e.name);
     const today = isoDate();
     const profile = personnelProfiles.find((p) => p.employeeId === e.id);
     const employee: CoreEmployee = {
       id: e.id,
-      personal: { firstName, middleName: "", lastName, suffix: "", birthDate: profile?.birthDate ?? "", sex: "", civilStatus: "", nationality: "Filipino" },
+      personal: { firstName, middleName, lastName, suffix, birthDate: profile?.birthDate ?? "", sex: "", civilStatus: "", nationality: "Filipino" },
       contact: { workEmail: e.email ?? "", personalEmail: "", mobile: e.phone ?? "", address: "", city: "", province: "", emergencyName: "", emergencyRelationship: "", emergencyPhone: "" },
       government: { sss: "", philhealth: "", pagibig: "", tin: "" },
       job: { positionId: position?.id ?? "", unitId: dept?.id ?? "", employmentType: "Probationary", status: "Active", dateHired: today, monthlySalary: 0, workSchedule: "Mon–Fri, 8:30 AM – 5:00 PM" },

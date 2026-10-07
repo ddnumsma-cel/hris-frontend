@@ -83,7 +83,7 @@ export function TopBar() {
                 className="fixed inset-0 z-40 cursor-default"
                 onClick={() => setOfficeMenuOpen(false)}
               />
-              <div className="panel-enter absolute left-0 top-full z-50 mt-1.5 w-44 rounded-lg border border-border bg-surface p-1 text-ink shadow-lg">
+              <div className="glass-surface panel-enter absolute left-0 top-full z-50 mt-1.5 w-44 rounded-[var(--radius-dropdown)] p-1">
                 {offices.map((o) => (
                   <button
                     key={o}
@@ -93,7 +93,7 @@ export function TopBar() {
                       setOfficeMenuOpen(false);
                     }}
                     className={clsx(
-                      "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-surface-2",
+                      "flex w-full items-center justify-between rounded-[var(--radius-control)] px-2.5 py-1.5 text-left text-sm hover:bg-[var(--nav-hover-bg)]",
                       o === office && "font-semibold text-brand-ink",
                     )}
                   >
@@ -109,9 +109,9 @@ export function TopBar() {
 
       <WorkspaceLabel role={user.role} className="topbar-sidebar-dup mx-auto" />
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
         {user.role === "admin" && hr && (
-          <div className="topbar-field hidden min-w-37.5 sm:flex">
+          <div className="topbar-field mr-1 hidden sm:flex sm:w-52 md:w-64 lg:w-72">
             <SearchIcon className="h-3.5 w-3.5" />
             <input
               type="text"
@@ -120,12 +120,12 @@ export function TopBar() {
               onKeyDown={handleSearchKeyDown}
               placeholder="Search employee directory"
               aria-label="Search employee directory"
-              className="w-full bg-transparent font-normal focus:outline-none"
+              className="w-full min-w-0 bg-transparent font-normal focus:outline-none"
             />
           </div>
         )}
 
-        <ThemeToggle className="topbar-icon-button [&_svg]:h-[17px] [&_svg]:w-[17px]" />
+        <ThemeToggle className="topbar-icon-button !h-9 !w-9 [&_svg]:h-[17px] [&_svg]:w-[17px]" />
 
         <div className="relative">
           <button
@@ -137,11 +137,11 @@ export function TopBar() {
               setNotifOpen((v) => !v);
               setOfficeMenuOpen(false);
             }}
-            className="topbar-icon-button relative flex h-8 w-8 items-center justify-center rounded-lg"
+            className="topbar-icon-button relative flex h-9 w-9 items-center justify-center"
           >
             <BellIcon className="h-[17px] w-[17px]" />
             {notifications.length > 0 && (
-              <span className="topbar-dot absolute right-1.5 top-1.5 h-2 w-2 rounded-full" />
+              <span className="topbar-dot absolute right-2 top-2 h-2 w-2 rounded-full" />
             )}
           </button>
           {notifOpen && (
@@ -152,8 +152,8 @@ export function TopBar() {
                 className="fixed inset-0 z-40 cursor-default"
                 onClick={() => setNotifOpen(false)}
               />
-              <div className="panel-enter absolute right-0 top-full z-50 mt-1.5 w-72 rounded-lg border border-border bg-surface text-ink shadow-lg">
-                <div className="border-b border-border px-3.5 py-2.5 text-xs font-medium tracking-[0.01em] text-ink-3">
+              <div className="glass-surface panel-enter absolute right-0 top-full z-50 mt-1.5 w-72 rounded-[var(--radius-dropdown)]">
+                <div className="border-b border-[var(--line)] px-3.5 py-2.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-2">
                   Notifications
                 </div>
                 <div className="flex max-h-72 flex-col overflow-y-auto">
@@ -172,17 +172,20 @@ export function TopBar() {
           )}
         </div>
 
+        {/* Divider between the tool buttons and the signed-in person. */}
+        <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-[var(--line-strong)] sm:block" />
+
         <ProfileChip linked={user.role === "employee"}>
           {photoQuery.data ? (
-            <img src={photoQuery.data} alt="" className="h-7.5 w-7.5 flex-none rounded-full object-cover" />
+            <img src={photoQuery.data} alt="" className="h-7 w-7 flex-none rounded-full object-cover" />
           ) : (
-            <div className="topbar-avatar flex h-7.5 w-7.5 items-center justify-center rounded-full">
+            <div className="topbar-avatar flex h-7 w-7 flex-none items-center justify-center rounded-full">
               {user.initials}
             </div>
           )}
-          <div className="hidden leading-tight sm:block">
-            <div className="topbar-name">{user.name}</div>
-            <div className="topbar-secondary">{user.title}</div>
+          <div className="hidden min-w-0 max-w-48 leading-tight sm:block">
+            <div className="topbar-name truncate">{user.name}</div>
+            <div className="topbar-secondary truncate">{user.title}</div>
           </div>
         </ProfileChip>
 
@@ -190,7 +193,7 @@ export function TopBar() {
           type="button"
           aria-label="Log out"
           onClick={handleLogout}
-          className="topbar-icon-button flex h-8 w-8 items-center justify-center rounded-lg"
+          className="topbar-icon-button flex h-9 w-9 items-center justify-center"
         >
           <LogOutIcon className="h-[17px] w-[17px]" />
         </button>
@@ -201,9 +204,9 @@ export function TopBar() {
 
 /** The signed-in person. For employees it links to their 201 File. */
 function ProfileChip({ linked, children }: { linked: boolean; children: ReactNode }) {
-  if (!linked) return <div className="flex items-center gap-2">{children}</div>;
+  if (!linked) return <div className="topbar-user flex items-center gap-2.5">{children}</div>;
   return (
-    <Link to="/employee/201-file" title="Open my 201 File" className="topbar-icon-button flex items-center gap-2 rounded-lg px-1.5 py-1 text-left">
+    <Link to="/employee/201-file" title="Open my 201 File" className="topbar-user topbar-icon-button flex items-center gap-2.5 rounded-lg px-1.5 py-1 text-left">
       {children}
     </Link>
   );

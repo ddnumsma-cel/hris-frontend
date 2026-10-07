@@ -1,7 +1,7 @@
 import { Bar, BarChart, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { OfficeHeadcount } from "@/lib/types";
 
-const officeColors = ["var(--color-cat-1)", "var(--color-cat-2)", "var(--color-cat-3)"];
+const officeColors = ["var(--chart-bar)"];
 
 export function HeadcountChart({ data }: { data: OfficeHeadcount[] }) {
   return (
@@ -18,14 +18,19 @@ export function HeadcountChart({ data }: { data: OfficeHeadcount[] }) {
             tickLine={false}
           />
           <Tooltip
-            cursor={{ fill: "var(--color-surface-2)" }}
+            cursor={{ fill: "var(--nav-hover-bg)" }}
             formatter={(value) => [value, "Employees"]}
             contentStyle={{
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              borderRadius: 8,
+              background: "var(--panel)",
+              border: "1px solid var(--panel-border)",
+              borderRadius: "var(--radius-dropdown)",
+              boxShadow: "var(--shadow-panel)",
+              backdropFilter: "var(--blur-panel)",
+              WebkitBackdropFilter: "var(--blur-panel)",
               fontSize: 12,
             }}
+            labelStyle={{ color: "var(--color-ink-2)", fontWeight: 500 }}
+            itemStyle={{ color: "var(--color-ink)", fontVariantNumeric: "tabular-nums" }}
           />
           <Bar dataKey="count" radius={[0, 5, 5, 0]}>
             {data.map((entry, i) => (

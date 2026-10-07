@@ -11,8 +11,8 @@ import { createEmployee } from "@/lib/api";
 import { idTypeOptions, scanIdImage, type ScannedIdFields, type ScanProgress } from "@/lib/idScan";
 import {
   addEmployeeSchema,
-  clusterDescriptions,
   clusterOptions,
+  POSITION_TITLES,
   departmentsByCluster,
   fromAssignment,
   officeOptions,
@@ -22,8 +22,8 @@ import {
 } from "@/lib/schemas";
 
 const inputClass =
-  "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand";
-const labelClass = "mb-1 flex items-center gap-1.5 text-xs font-semibold text-ink-2";
+  "field w-full px-3 py-2 text-sm";
+const labelClass = "mb-1 flex items-center gap-1.5 text-xs font-medium text-ink";
 const errorClass = "mt-1 text-xs font-medium text-critical";
 
 const suffixOptions = ["Jr.", "Sr.", "II", "III", "IV", "V"];
@@ -445,7 +445,14 @@ export function AddEmployeeDialog({
                 <Label htmlFor="emp-position" fromId={autoFilled.has("position")}>
                   Position
                 </Label>
-                <input id="emp-position" className={inputClass} placeholder="Audit Associate" {...field("position")} />
+                <select id="emp-position" className={inputClass} {...field("position")}>
+                  <option value="">Choose a position</option>
+                  {POSITION_TITLES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
                 {errors.position && <p className={errorClass}>{errors.position.message}</p>}
               </div>
               <div>
@@ -455,7 +462,7 @@ export function AddEmployeeDialog({
                 <select id="emp-assignment" className={inputClass} {...field("assignment")}>
                   <option value="">Select department…</option>
                   {clusterOptions.map((cluster) => (
-                    <optgroup key={cluster} label={`${cluster} — ${clusterDescriptions[cluster]}`}>
+                    <optgroup key={cluster} label={cluster}>
                       {departmentsByCluster[cluster].map((department) => (
                         <option key={department} value={toAssignment(cluster, department)}>
                           {department} · {cluster}

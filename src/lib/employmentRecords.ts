@@ -157,8 +157,8 @@ function hireDateFor(employee: Employee) {
 
 /** The job someone was likely hired into, stepping down one level from today's title. */
 function entryPosition(position: string) {
-  if (position === "Team Lead") return "Audit Associate";
-  if (position.startsWith("Senior ")) return position.replace("Senior ", "");
+  if (position === "Associate Director") return "Junior Associate";
+  if (position === "Experienced Associate") return "Junior Associate";
   return position;
 }
 
@@ -211,11 +211,11 @@ function buildEmployment(employee: Employee, hired: Date, rand: () => number): E
   if (!isNew) {
     movements.push({ date: formatDate(regularized), action: "Regularized", detail: "Completed 6-month probation", reference: ref(2, regularized) });
     const entry = entryPosition(employee.position);
-    if (employee.position === "Team Lead") {
+    if (employee.position === "Associate Director") {
       const senior = addMonths(hired, 30);
-      movements.push({ date: formatDate(senior), action: "Promoted", detail: `${entry} → Senior Associate`, reference: ref(3, senior) });
+      movements.push({ date: formatDate(senior), action: "Promoted", detail: `${entry} → Experienced Associate`, reference: ref(3, senior) });
       const lead = addMonths(hired, 60);
-      movements.push({ date: formatDate(lead), action: "Promoted", detail: "Senior Associate → Team Lead", reference: ref(4, lead) });
+      movements.push({ date: formatDate(lead), action: "Promoted", detail: "Experienced Associate → Associate Director", reference: ref(4, lead) });
     } else if (entry !== employee.position) {
       const promoted = addMonths(hired, 26);
       movements.push({ date: formatDate(promoted), action: "Promoted", detail: `${entry} → ${employee.position}`, reference: ref(3, promoted) });

@@ -1,4 +1,4 @@
-import { useForm, type FieldValues, type Path } from "react-hook-form";
+import { useForm, useWatch, type FieldValues, type Path } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ZodType } from "zod";
@@ -12,6 +12,7 @@ import type { CoreEmployee } from "@/lib/corehr/types";
 import { CONTACT_FIELDS, GOVERNMENT_FIELDS, PERSONAL_FIELDS, type FieldSpec } from "./fields";
 import { inputClass, useActor } from "./format";
 import { ErrorNote, Field } from "./ui";
+import { PlaceFields } from "./PlaceFields";
 
 const CONFIG = {
   personal: { title: "Edit personal information", fields: PERSONAL_FIELDS, schema: personalSchema },
@@ -79,6 +80,8 @@ export function EditSectionDialog({ employee, section, onClose }: { employee: Co
   const {
     register,
     handleSubmit,
+    setValue,
+    control,
     formState: { errors, isDirty },
   } = useForm<FieldValues>({ resolver: zodResolver(config.schema as ZodType<FieldValues, FieldValues>), defaultValues: employee[section] as FieldValues });
   const mutation = useMutation({
@@ -91,6 +94,8 @@ export function EditSectionDialog({ employee, section, onClose }: { employee: Co
     },
   });
   const submit = handleSubmit((v) => mutation.mutate(v));
+  const province = useWatch({ control, name: "province" }) as string | undefined;
+  const city = useWatch({ control, name: "city" }) as string | undefined;
   return (
     <Dialog
       open
@@ -111,7 +116,25 @@ export function EditSectionDialog({ employee, section, onClose }: { employee: Co
     >
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         {section === "government" && <p className="text-xs text-ink-2">Changes to these numbers are recorded in the audit trail. The numbers themselves are never written into it.</p>}
-        <SpecFields fields={config.fields} register={register} errors={errors as Record<string, { message?: string }>} />
+        {section === "contact" ? (
+          <>
+            <SpecFields fields={config.fields.filter((f) => ["workEmail", "personalEmail", "mobile", "address"].includes(f.name))} register={register} errors={errors as Record<string, { message?: string }>} />
+            <div className="grid gap-x-4 gap-y-3.5 sm:grid-cols-2">
+              <PlaceFields
+                province={register("province")}
+                city={register("city")}
+                provinceValue={String(province ?? "")}
+                cityValue={String(city ?? "")}
+                errors={{ province: errors.province?.message as string | undefined, city: errors.city?.message as string | undefined }}
+                inputClassName={inputClass}
+                onProvinceChange={() => setValue("city", "", { shouldDirty: true })}
+              />
+            </div>
+            <SpecFields fields={config.fields.filter((f) => f.name.startsWith("emergency"))} register={register} errors={errors as Record<string, { message?: string }>} />
+          </>
+        ) : (
+          <SpecFields fields={config.fields} register={register} errors={errors as Record<string, { message?: string }>} />
+        )}
         <ErrorNote error={mutation.error} />
         <button type="submit" hidden />
       </form>

@@ -76,7 +76,7 @@ export function print201File(employee: Employee) {
 export function printCertificate(employee: Employee, request: CertificateRequest) {
   const bodyText =
     request.type === "Certificate of Employment"
-      ? `This is to certify that <strong>${escapeHtml(employee.name)}</strong> (Employee ID ${escapeHtml(employee.id)}) is an employee of MSMA Group in ${escapeHtml(employee.status).toLowerCase()} status, holding the position of <strong>${escapeHtml(employee.position)}</strong> under the ${escapeHtml(employee.department)} department, ${escapeHtml(employee.cluster)} cluster, ${escapeHtml(employee.office)} office.`
+      ? `This is to certify that <strong>${escapeHtml(employee.name)}</strong> (Employee ID ${escapeHtml(employee.id)}) is an employee of MSMA Group in ${escapeHtml(employee.status).toLowerCase()} status, holding the position of <strong>${escapeHtml(employee.position)}</strong> under the ${escapeHtml(employee.department)} department, ${escapeHtml(employee.cluster)}, ${escapeHtml(employee.office)} office.`
       : request.type === "Certificate of Tax Withheld (2316)"
         ? `This certifies that BIR Form 2316 for <strong>${escapeHtml(employee.name)}</strong> (Employee ID ${escapeHtml(employee.id)}) has been prepared and released by MSMA Group for the applicable taxable year.`
         : `This is to certify that <strong>${escapeHtml(employee.name)}</strong> (Employee ID ${escapeHtml(employee.id)}) is employed with MSMA Group as <strong>${escapeHtml(employee.position)}</strong>, ${escapeHtml(employee.department)} department.`;

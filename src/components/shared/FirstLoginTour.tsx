@@ -111,7 +111,7 @@ export function FirstLoginTour() {
         type="button"
         aria-label="Skip walkthrough"
         onClick={finish}
-        className="fixed inset-0 z-95 bg-black/30"
+        className="overlay-backdrop fixed inset-0 z-95"
       />
       <div
         aria-hidden="true"
@@ -125,7 +125,7 @@ export function FirstLoginTour() {
         }}
       />
       <div
-        className="panel-enter fixed z-96 rounded-2xl border border-border bg-surface p-4 shadow-lg"
+        className="glass-surface panel-enter fixed z-96 rounded-[var(--radius-modal)] p-4"
         style={{ top, left, width: cardWidth }}
       >
         <div className="text-sm font-semibold">{step.title}</div>

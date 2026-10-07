@@ -91,7 +91,7 @@ export function FileMyLeaveDialog({ onClose }: { onClose: () => void }) {
                 ["pm", "Afternoon only"],
               ] as const
             ).map(([v, label]) => (
-              <button key={label} type="button" role="radio" aria-checked={form.halfDay === v} onClick={() => set({ halfDay: v })} className={clsx("h-8 rounded-full border px-3 font-medium", form.halfDay === v ? "border-ink bg-ink text-surface" : "border-border text-ink-2 hover:border-ink-3")}>
+              <button key={label} type="button" role="radio" aria-checked={form.halfDay === v} onClick={() => set({ halfDay: v })} className={clsx("h-8 rounded-full border px-3 font-medium", form.halfDay === v ? "border-ink bg-ink text-bg" : "border-border text-ink-2 hover:border-ink-3")}>
                 {label}
               </button>
             ))}
@@ -166,7 +166,7 @@ function CreditsCard({ data }: { data: MyLeave }) {
               className={clsx(
                 "flex h-[4.5rem] min-w-0 flex-col justify-between rounded-xl border px-2.5 py-2",
                 !r && "border-dashed border-border bg-surface",
-                r?.status === "approved" && "border-brand bg-brand text-white",
+                r?.status === "approved" && "border-brand accent-fill",
                 r?.status === "pending" && "border-warning/40 bg-warning-tint",
               )}
             >

@@ -3,17 +3,17 @@ import { documentAlert } from "@/lib/corehr/api";
 import type { DocumentStatus, EmployeeDocument, EmploymentStatus } from "@/lib/corehr/types";
 
 export const inputClass =
-  "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-brand focus-visible:ring-2 focus-visible:ring-brand/25 aria-[invalid=true]:border-critical disabled:bg-surface-2 disabled:text-ink-3";
+  "field w-full px-3 py-2 text-sm";
 
 /** Roomier, softer inputs for long forms like Add employee: filled, borderless until focused. */
 export const softInputClass =
-  "h-11 w-full rounded-xl border border-transparent bg-surface-2 px-3.5 text-sm text-ink outline-none transition-colors placeholder:text-ink-3 hover:border-border focus:border-brand focus:bg-surface focus-visible:ring-4 focus-visible:ring-brand/15 aria-[invalid=true]:border-critical aria-[invalid=true]:bg-critical-tint/40";
+  "field h-11 w-full px-3.5 text-sm aria-[invalid=true]:bg-critical-tint/40";
 
 /** Compact pill-shaped controls for filter toolbars, sized to their content. */
 export const filterSelectClass =
-  "h-8 max-w-[12rem] flex-none cursor-pointer truncate rounded-full border border-border bg-surface pr-7 pl-3 text-xs font-medium text-ink-2 outline-none transition-colors hover:border-ink-3 focus-visible:border-brand";
+  "chip-filter h-8 max-w-[12rem] flex-none cursor-pointer truncate pr-7 pl-3 text-xs font-medium";
 export const filterSearchClass =
-  "h-8 w-full rounded-full border border-border bg-surface pr-3 pl-8 text-xs text-ink outline-none transition-colors placeholder:text-ink-3 hover:border-ink-3 focus:border-brand";
+  "chip-filter h-8 w-full pr-3 pl-8 text-xs";
 
 export function formatDate(iso?: string) {
   if (!iso) return "—";

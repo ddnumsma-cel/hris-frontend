@@ -42,7 +42,7 @@ export function Dialog({
   return createPortal(
     <div
       className={clsx(
-        "overlay-enter fixed inset-0 z-50 flex justify-center bg-black/40 p-4",
+        "overlay-backdrop overlay-enter fixed inset-0 z-50 flex justify-center p-4",
         large ? "items-center" : "items-start pt-[min(7rem,10dvh)]",
       )}
       onClick={dismissOnBackdrop ? onClose : undefined}
@@ -53,7 +53,7 @@ export function Dialog({
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
         className={clsx(
-          "panel-enter w-full rounded-xl border border-border bg-surface shadow-lg",
+          "glass-surface panel-enter w-full rounded-[var(--radius-modal)]",
           // Title and buttons stay put; only the middle scrolls on short screens.
           "flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden",
           large ? "max-w-3xl" : "max-h-[calc(100dvh-min(7rem,10dvh)-1rem)] max-w-md",
@@ -65,7 +65,7 @@ export function Dialog({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-2 hover:bg-surface-2"
+            className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-control)] text-ink-2 hover:bg-[var(--nav-hover-bg)]"
           >
             <XIcon className="h-4 w-4" />
           </button>

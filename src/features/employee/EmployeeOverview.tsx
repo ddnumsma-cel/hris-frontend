@@ -343,7 +343,7 @@ export function EmployeeOverview() {
         <BentoArea area="tip">
           <Card className="h-full">
             <CardBody className="flex h-full flex-col gap-3">
-              <span className="dash-row-leading" style={{ background: "var(--dash-accent)", color: "#021850" }}>
+              <span className="dash-row-leading" style={{ background: "var(--grad-primary)", color: "var(--on-accent)" }}>
                 <WalletIcon />
               </span>
               <p className="text-[13px] text-ink-2">

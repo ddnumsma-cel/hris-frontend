@@ -7,8 +7,11 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/ToastContext";
 import { ArrowRightIcon, CheckIcon } from "@/components/icons";
+import { listShifts, setUsualShift } from "@/lib/timekeeping/api";
+import type { ShiftTemplate } from "@/lib/timekeeping/types";
+import { hhmm } from "../timekeeping/format";
 import { createEmployee, listEmployees, listPositions, listUnits, peso, unitPathOf } from "@/lib/corehr/api";
-import { newEmployeeSchema, type NewEmployeeValues } from "@/lib/corehr/schemas";
+import { CLUSTERS, newEmployeeSchema, type NewEmployeeValues } from "@/lib/corehr/schemas";
 import { isoDate } from "@/lib/corehr/store";
 import { EMPLOYMENT_TYPES } from "@/lib/corehr/types";
 import { SpecFields } from "./EditSectionDialog";
@@ -16,7 +19,8 @@ import { CONTACT_FIELDS, GOVERNMENT_FIELDS, PERSONAL_FIELDS, type FieldSpec } fr
 import { formatDate, keys, mask, softInputClass, useActor } from "./format";
 import type { ScannedIdFields } from "@/lib/idScan";
 import { IdScanCard } from "./IdScanCard";
-import { ErrorNote, Field, Stepper } from "./ui";
+import { PlaceFields } from "./PlaceFields";
+import { ErrorNote, Field, Initials, Stepper } from "./ui";
 
 const SCANNABLE = ["firstName", "middleName", "lastName", "suffix", "birthDate", "sex"] as const;
 
@@ -24,34 +28,44 @@ const empty: NewEmployeeValues = {
   personal: { firstName: "", middleName: "", lastName: "", suffix: "", birthDate: "", sex: "", civilStatus: "", nationality: "Filipino" },
   contact: { workEmail: "", personalEmail: "", mobile: "", address: "", city: "", province: "", emergencyName: "", emergencyRelationship: "", emergencyPhone: "" },
   government: { sss: "", philhealth: "", pagibig: "", tin: "" },
-  job: { positionId: "", teamId: "", supervisorId: "", employmentType: "Probationary", dateHired: isoDate(), monthlySalary: Number.NaN, workSchedule: "Mon–Fri, 8:30 AM – 5:00 PM" },
+  job: { cluster: "", positionId: "", teamId: "", supervisorId: "", employmentType: "Probationary", dateHired: isoDate(), monthlySalary: Number.NaN, workSchedule: "", shiftId: "" },
 };
 
 const STEPS = [
   { key: "personal", label: "Personal details", title: "Who are you adding?", description: "Use their name exactly as it reads on their PSA birth certificate." },
-  { key: "contact", label: "Contact", title: "How do we reach them?", description: "The work email is required and becomes their sign-in." },
-  { key: "government", label: "Government IDs", title: "Government numbers", description: "Optional for now. Payroll needs them before the first cutoff." },
-  { key: "job", label: "Job placement", title: "Where will they work?", description: "Only positions with an open slot can be filled." },
-  { key: "review", label: "Review and create", title: "Review and create", description: "Check everything once. You can still edit any of it later from their 201 file." },
+  { key: "contact", label: "Contact", title: "How do we reach them?", description: "All fields are required. The work email becomes their sign-in." },
+  { key: "government", label: "Government IDs", title: "Government numbers", description: "Enter at least one now; payroll needs all four before the first cut-off." },
+  { key: "job", label: "Job placement", title: "Where will they work?", description: "Choose their cluster, position and the shift they will work." },
+  { key: "review", label: "Review", title: "Review and create", description: "Check the details below, then create the employee. Everything can still be edited later." },
 ] as const;
 type SectionKey = Exclude<(typeof STEPS)[number]["key"], "review">;
 
-const WORK_EMAIL_REQUIRED: FieldSpec[] = CONTACT_FIELDS.map((f) => (f.name === "workEmail" ? { ...f, required: true } : f));
+const ALL_REQUIRED: FieldSpec[] = CONTACT_FIELDS.map((f) => ({ ...f, required: true }));
+const CONTACT_TOP = ALL_REQUIRED.filter((f) => ["workEmail", "personalEmail", "mobile", "address"].includes(f.name));
+const CONTACT_EMERGENCY = ALL_REQUIRED.filter((f) => f.name.startsWith("emergency"));
+
+const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/** "Busy season · Mon–Fri, 8:30 AM – 5:00 PM" */
+function scheduleLabel(s: ShiftTemplate) {
+  const work = [1, 2, 3, 4, 5, 6, 0].filter((d) => !s.restDays.includes(d));
+  const days = work.length && work.every((d, i) => i === 0 || d === (work[i - 1]! + 1) % 7) ? `${DAY[work[0]!]}–${DAY[work[work.length - 1]!]}` : work.map((d) => DAY[d]).join(", ");
+  return `${s.name} · ${days}, ${hhmm(s.start)} – ${hhmm(s.end)}`;
+}
 
 function ReviewGroup({ title, onEdit, rows }: { title: string; onEdit: () => void; rows: [string, ReactNode][] }) {
   return (
     <section className="rounded-xl border border-border">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        <button type="button" onClick={onEdit} className="text-xs font-medium text-ink-2 underline-offset-2 hover:text-ink hover:underline">
+      <div className="flex items-center justify-between px-4 pt-3 pb-1">
+        <h3 className="text-xs font-semibold tracking-wide text-ink-3 uppercase">{title}</h3>
+        <button type="button" onClick={onEdit} className="rounded-full px-2 py-0.5 text-xs font-medium text-brand hover:bg-surface-2">
           Edit
         </button>
       </div>
-      <dl className="grid gap-x-6 px-4 py-2 sm:grid-cols-2">
+      <dl className="px-4 pb-3">
         {rows.map(([label, value]) => (
-          <div key={label} className="flex justify-between gap-3 py-1.5 text-sm sm:block">
-            <dt className="text-xs text-ink-3">{label}</dt>
-            <dd className={clsx("text-right sm:text-left", !value && "text-ink-3 italic")}>{value || "Not provided"}</dd>
+          <div key={label} className="flex justify-between gap-4 border-b border-border/60 py-1.5 text-sm last:border-0">
+            <dt className="flex-none text-ink-2">{label}</dt>
+            <dd className={clsx("min-w-0 text-right font-medium break-words", !value && "font-normal text-ink-3")}>{value || "—"}</dd>
           </div>
         ))}
       </dl>
@@ -70,6 +84,8 @@ export function NewEmployeePage() {
   const unitsQuery = useQuery({ queryKey: keys.units, queryFn: listUnits });
   const positionsQuery = useQuery({ queryKey: keys.positions, queryFn: listPositions });
   const employeesQuery = useQuery({ queryKey: keys.employees, queryFn: listEmployees });
+  const shiftsQuery = useQuery({ queryKey: ["timekeeping", "shifts"], queryFn: listShifts });
+  const shifts = (shiftsQuery.data ?? []).filter((s) => s.active);
   const units = unitsQuery.data ?? [];
   const [step, setStep] = useState(0);
   const [furthest, setFurthest] = useState(0);
@@ -77,7 +93,6 @@ export function NewEmployeePage() {
   const [scannedId, setScannedId] = useState<{ idType: string; idNumber?: string; idExpiry?: string; fileName: string } | null>(null);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [branchId, setBranchId] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
 
   const {
     register: baseRegister,
@@ -103,16 +118,22 @@ export function NewEmployeePage() {
       },
     });
   const positionId = useWatch({ control, name: "job.positionId" });
+  const province = useWatch({ control, name: "contact.province" });
+  const city = useWatch({ control, name: "contact.city" });
   const position = positionsQuery.data?.find((p) => p.id === positionId);
   const branches = units.filter((u) => u.type === "branch" && u.active);
-  const departments = units.filter((u) => u.type === "department" && u.active && (!branchId || u.parentId === branchId));
-  const positions = (positionsQuery.data ?? []).filter((p) => p.active && (!departmentId ? !branchId || p.branchId === branchId : p.departmentId === departmentId));
-  const teams = units.filter((u) => u.type === "team" && u.active && u.parentId === position?.departmentId);
+  const positions = (positionsQuery.data ?? []).filter((p) => p.active && (!branchId || p.branchId === branchId));
   const people = (employeesQuery.data ?? []).filter((e) => e.status !== "Separated");
 
   const mutation = useMutation({
-    mutationFn: (v: NewEmployeeValues) => createEmployee(v, actor, scannedId ?? undefined),
+    mutationFn: async (v: NewEmployeeValues) => {
+      const e = await createEmployee(v, actor, scannedId ?? undefined);
+      // Timekeeping starts using their shift right away.
+      if (v.job.shiftId) await setUsualShift([e.id], v.job.shiftId, actor);
+      return e;
+    },
     onSuccess: (e) => {
+      queryClient.invalidateQueries({ queryKey: ["timekeeping"] });
       queryClient.invalidateQueries({ queryKey: ["corehr"] });
       queryClient.invalidateQueries({ queryKey: ["admin"] });
       toast.show(`${e.personal.firstName} ${e.personal.lastName} added as ${e.id}.`);
@@ -166,7 +187,7 @@ export function NewEmployeePage() {
           People
         </Link>
         <h1 className="font-display mt-2 text-2xl font-semibold tracking-[-0.02em]">Add employee</h1>
-        <p className="mt-0.5 text-[0.85rem] text-ink-2">Creates their 201 file, an empty document checklist, and a Hired entry in their history.</p>
+        <p className="mt-0.5 text-[0.85rem] text-ink-2">Five short steps. Fields marked with * are required.</p>
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
@@ -201,7 +222,23 @@ export function NewEmployeePage() {
                 <SpecFields<NewEmployeeValues> fields={PERSONAL_FIELDS} prefix="personal" register={register} errors={sectionErrors("personal")} inputClassName={softInputClass} tagged={fromId} />
               </div>
             )}
-            {current.key === "contact" && <SpecFields<NewEmployeeValues> fields={WORK_EMAIL_REQUIRED} prefix="contact" register={register} errors={sectionErrors("contact")} inputClassName={softInputClass} />}
+            {current.key === "contact" && (
+              <div className="flex flex-col gap-3.5">
+                <SpecFields<NewEmployeeValues> fields={CONTACT_TOP} prefix="contact" register={register} errors={sectionErrors("contact")} inputClassName={softInputClass} />
+                <div className="grid gap-x-4 gap-y-3.5 sm:grid-cols-2">
+                  <PlaceFields
+                    province={register("contact.province")}
+                    city={register("contact.city")}
+                    provinceValue={province}
+                    cityValue={city}
+                    errors={{ province: errors.contact?.province?.message, city: errors.contact?.city?.message }}
+                    inputClassName={softInputClass}
+                    onProvinceChange={() => setValue("contact.city", "")}
+                  />
+                </div>
+                <SpecFields<NewEmployeeValues> fields={CONTACT_EMERGENCY} prefix="contact" register={register} errors={sectionErrors("contact")} inputClassName={softInputClass} />
+              </div>
+            )}
             {current.key === "government" && <SpecFields<NewEmployeeValues> fields={GOVERNMENT_FIELDS} prefix="government" register={register} errors={sectionErrors("government")} inputClassName={softInputClass} />}
 
             {current.key === "job" && (
@@ -213,7 +250,6 @@ export function NewEmployeePage() {
                     value={branchId}
                     onChange={(e) => {
                       setBranchId(e.target.value);
-                      setDepartmentId("");
                       setValue("job.positionId", "");
                       setValue("job.teamId", "");
                     }}
@@ -226,21 +262,12 @@ export function NewEmployeePage() {
                     ))}
                   </select>
                 </Field>
-                <Field id="nj-dept" label="Department">
-                  <select
-                    id="nj-dept"
-                    className={softInputClass}
-                    value={departmentId}
-                    onChange={(e) => {
-                      setDepartmentId(e.target.value);
-                      setValue("job.positionId", "");
-                      setValue("job.teamId", "");
-                    }}
-                  >
-                    <option value="">Any department</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {branchId ? d.name : unitPathOf(d.id, units)}
+                <Field id="f-job-cluster" label="Department" required error={errors.job?.cluster?.message}>
+                  <select id="f-job-cluster" className={softInputClass} aria-invalid={errors.job?.cluster ? true : undefined} {...register("job.cluster")}>
+                    <option value="">Select an option</option>
+                    {CLUSTERS.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
                       </option>
                     ))}
                   </select>
@@ -258,7 +285,7 @@ export function NewEmployeePage() {
                       },
                     })}
                   >
-                    <option value="">Choose a position</option>
+                    <option value="">Select an option</option>
                     {positions.map((p) => (
                       <option key={p.id} value={p.id} disabled={p.open === 0}>
                         {p.title} · {unitPathOf(p.departmentId, units)} {p.open === 0 ? "(full)" : `(${p.open} open)`}
@@ -266,18 +293,6 @@ export function NewEmployeePage() {
                     ))}
                   </select>
                 </Field>
-                {teams.length > 0 && (
-                  <Field id="f-job-teamId" label="Team">
-                    <select id="f-job-teamId" className={softInputClass} {...register("job.teamId")}>
-                      <option value="">Department only, no team</option>
-                      {teams.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                )}
                 <Field id="f-job-supervisorId" label="Supervisor" hint="Blank uses whoever holds the position it reports to">
                   <select id="f-job-supervisorId" className={softInputClass} {...register("job.supervisorId")}>
                     <option value="">Automatic</option>
@@ -301,57 +316,93 @@ export function NewEmployeePage() {
                 <Field id="f-job-monthlySalary" label="Monthly salary (₱)" required error={errors.job?.monthlySalary?.message}>
                   <input id="f-job-monthlySalary" type="number" inputMode="numeric" min={1} step={500} className={softInputClass} aria-invalid={errors.job?.monthlySalary ? true : undefined} {...register("job.monthlySalary", { valueAsNumber: true })} />
                 </Field>
-                <Field id="f-job-workSchedule" label="Work schedule" required error={errors.job?.workSchedule?.message}>
-                  <input id="f-job-workSchedule" className={softInputClass} {...register("job.workSchedule")} />
+                <Field id="f-job-workSchedule" label="Work schedule" required error={errors.job?.workSchedule?.message} hint="The shifts set up in Timekeeping › Shifts">
+                  <select
+                    id="f-job-workSchedule"
+                    className={softInputClass}
+                    aria-invalid={errors.job?.workSchedule ? true : undefined}
+                    {...register("job.workSchedule", {
+                      onChange: (e) => setValue("job.shiftId", shifts.find((s) => scheduleLabel(s) === e.target.value)?.id ?? ""),
+                    })}
+                  >
+                    <option value="">Select an option</option>
+                    {shifts.map((s) => (
+                      <option key={s.id} value={scheduleLabel(s)}>
+                        {scheduleLabel(s)}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
               </div>
             )}
 
             {current.key === "review" && (
-              <div className="flex flex-col gap-3">
-                <ReviewGroup
-                  title="Personal details"
-                  onEdit={() => goTo(0)}
-                  rows={[
-                    ["Full name", name],
-                    ["Birth date", v.personal.birthDate && formatDate(v.personal.birthDate)],
-                    ["Sex", v.personal.sex],
-                    ["Civil status", v.personal.civilStatus],
-                  ]}
-                />
-                <ReviewGroup
-                  title="Contact"
-                  onEdit={() => goTo(1)}
-                  rows={[
-                    ["Work email", v.contact.workEmail],
-                    ["Mobile", v.contact.mobile],
-                    ["Address", [v.contact.address, v.contact.city, v.contact.province].filter(Boolean).join(", ")],
-                    ["Emergency contact", [v.contact.emergencyName, v.contact.emergencyPhone].filter(Boolean).join(" · ")],
-                  ]}
-                />
-                <ReviewGroup
-                  title="Government IDs"
-                  onEdit={() => goTo(2)}
-                  rows={[
-                    ["Scanned ID", scannedId && [scannedId.idType, scannedId.idNumber && mask(scannedId.idNumber)].filter(Boolean).join(" · ")],
-                    ["SSS", mask(v.government.sss)],
-                    ["PhilHealth", mask(v.government.philhealth)],
-                    ["Pag-IBIG", mask(v.government.pagibig)],
-                    ["TIN", mask(v.government.tin)],
-                  ]}
-                />
-                <ReviewGroup
-                  title="Job placement"
-                  onEdit={() => goTo(3)}
-                  rows={[
-                    ["Position", position && `${position.title} · ${unitPathOf(position.departmentId, units)}`],
-                    ["Team", units.find((u) => u.id === v.job.teamId)?.name],
-                    ["Employment type", v.job.employmentType],
-                    ["Date hired", formatDate(v.job.dateHired)],
-                    ["Monthly salary", Number.isFinite(v.job.monthlySalary) ? peso(v.job.monthlySalary) : ""],
-                    ["Supervisor", people.find((e) => e.id === v.job.supervisorId)?.name ?? (v.job.supervisorId ? "" : "Automatic")],
-                  ]}
-                />
+              <div className="flex flex-col gap-4">
+                {/* Who: the person at a glance */}
+                <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-surface-2 p-5">
+                  <Initials initials={[v.personal.firstName, v.personal.lastName].map((s) => s.trim()[0] ?? "").join("").toUpperCase()} size="lg" />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-display text-xl font-semibold">{name || "New employee"}</div>
+                    <div className="text-sm text-ink-2">
+                      {position?.title ?? "No position"} · {v.job.cluster || "No department"}
+                      {position && ` · ${position.branchName}`}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+                      <span className="rounded-full bg-surface px-2.5 py-1 font-medium">{v.job.employmentType}</span>
+                      <span className="rounded-full bg-surface px-2.5 py-1 font-medium">Starts {formatDate(v.job.dateHired)}</span>
+                      {Number.isFinite(v.job.monthlySalary) && <span className="rounded-full bg-surface px-2.5 py-1 font-medium">{peso(v.job.monthlySalary)} / month</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <ReviewGroup
+                    title="Personal"
+                    onEdit={() => goTo(0)}
+                    rows={[
+                      ["Birth date", v.personal.birthDate && formatDate(v.personal.birthDate)],
+                      ["Sex", v.personal.sex],
+                      ["Civil status", v.personal.civilStatus],
+                      ["Nationality", v.personal.nationality],
+                    ]}
+                  />
+                  <ReviewGroup
+                    title="Contact"
+                    onEdit={() => goTo(1)}
+                    rows={[
+                      ["Work email", v.contact.workEmail],
+                      ["Personal email", v.contact.personalEmail],
+                      ["Mobile", v.contact.mobile],
+                      ["Address", [v.contact.address, v.contact.city, v.contact.province].filter(Boolean).join(", ")],
+                      ["Emergency", [v.contact.emergencyName, v.contact.emergencyRelationship && `(${v.contact.emergencyRelationship})`, v.contact.emergencyPhone].filter(Boolean).join(" ")],
+                    ]}
+                  />
+                  <ReviewGroup
+                    title="Government IDs"
+                    onEdit={() => goTo(2)}
+                    rows={[
+                      ["SSS", mask(v.government.sss)],
+                      ["PhilHealth", mask(v.government.philhealth)],
+                      ["Pag-IBIG", mask(v.government.pagibig)],
+                      ["TIN", mask(v.government.tin)],
+                      ...(scannedId ? ([["Scanned ID", [scannedId.idType, scannedId.idNumber && mask(scannedId.idNumber)].filter(Boolean).join(" · ")]] as [string, ReactNode][]) : []),
+                    ]}
+                  />
+                  <ReviewGroup
+                    title="Job"
+                    onEdit={() => goTo(3)}
+                    rows={[
+                      ["Position", position?.title],
+                      ["Department", v.job.cluster],
+                      ["Work schedule", v.job.workSchedule],
+                      ["Reports to", people.find((e) => e.id === v.job.supervisorId)?.name ?? (v.job.supervisorId ? "" : "Set automatically")],
+                    ]}
+                  />
+                </div>
+
+                <div className="rounded-xl border border-dashed border-border px-4 py-3 text-sm text-ink-2">
+                  <span className="font-medium text-ink">When you create the employee:</span> they get an employee ID and a 201 document checklist, appear in People and Timekeeping, and can sign in with their work email.
+                </div>
                 <ErrorNote error={mutation.error} />
               </div>
             )}
@@ -382,7 +433,7 @@ export function NewEmployeePage() {
               </>
             ) : (
               <Button type="submit" className="ml-auto sm:ml-3" disabled={mutation.isPending} icon={isLast ? <CheckIcon className="h-4 w-4" /> : undefined}>
-                {isLast ? (mutation.isPending ? "Creating…" : "Create 201 file") : "Continue"}
+                {isLast ? (mutation.isPending ? "Creating…" : "Create employee") : "Continue"}
               </Button>
             )}
           </div>

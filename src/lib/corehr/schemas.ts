@@ -33,32 +33,48 @@ const phone = z
   .trim()
   .refine((s) => !s || /^(\+?63|0)?9\d{9}$/.test(s.replace(/[\s-]/g, "")), "Use a PH mobile number, e.g. 0917 123 4567");
 
+const required = (label: string) => z.string().trim().min(1, `${label} is required`);
+const requiredPhone = (label: string) => phone.refine((s) => s.length > 0, `${label} is required`);
+
+/** A new hire must have full contact details; existing records may still have gaps. */
+/** Every contact detail is required, both when hiring and when editing later. */
 export const contactSchema = z.object({
-  workEmail: z.union([z.string().trim().email("Enter a valid email"), z.literal("")]),
-  personalEmail: z.union([z.string().trim().email("Enter a valid email"), z.literal("")]),
-  mobile: phone,
-  address: z.string().trim(),
-  city: z.string().trim(),
-  province: z.string().trim(),
-  emergencyName: z.string().trim(),
-  emergencyRelationship: z.string().trim(),
-  emergencyPhone: phone,
+  workEmail: z.string().trim().min(1, "Work email is required").email("Enter a valid email"),
+  personalEmail: z.string().trim().min(1, "Personal email is required").email("Enter a valid email"),
+  mobile: requiredPhone("Mobile number"),
+  address: required("Home address"),
+  city: required("City / municipality"),
+  province: required("Province"),
+  emergencyName: required("Emergency contact"),
+  emergencyRelationship: required("Relationship"),
+  emergencyPhone: requiredPhone("Emergency phone"),
+});
+export const newHireContactSchema = contactSchema;
+
+/** At least one government number, so payroll and remittances can start. */
+export const newHireGovernmentSchema = governmentSchema.superRefine((g, ctx) => {
+  if (!g.sss && !g.philhealth && !g.pagibig && !g.tin) ctx.addIssue({ code: "custom", path: ["sss"], message: "Enter at least one: SSS, PhilHealth, Pag-IBIG or TIN" });
 });
 
+export const CLUSTERS = ["RPM", "VCM", "ADS"] as const;
+
 export const newHireJobSchema = z.object({
+  cluster: z.string().refine((s) => (CLUSTERS as readonly string[]).includes(s), "Choose RPM, VCM or ADS"),
   positionId: z.string().min(1, "Choose a position"),
   teamId: z.string(),
   supervisorId: z.string(),
   employmentType: z.enum(EMPLOYMENT_TYPES),
   dateHired: z.string().min(1, "Date hired is required"),
   monthlySalary: z.number({ error: "Enter the monthly salary" }).positive("Enter the monthly salary"),
-  workSchedule: z.string().trim().min(1, "Enter the work schedule"),
+  workSchedule: z.string().trim().min(1, "Choose the work schedule"),
+  /** The Timekeeping shift behind the schedule, so attendance uses it from day one. */
+  shiftId: z.string(),
 });
 
 export const newEmployeeSchema = z.object({
   personal: personalSchema,
-  contact: contactSchema.extend({ workEmail: z.string().trim().min(1, "Work email is required").email("Enter a valid email") }),
-  government: governmentSchema,
+  contact: newHireContactSchema,
+  government: newHireGovernmentSchema,
   job: newHireJobSchema,
 });
 

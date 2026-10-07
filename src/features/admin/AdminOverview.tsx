@@ -6,8 +6,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Chip, type ChipVariant } from "@/components/ui/Chip";
 import { StatTile } from "@/components/ui/StatTile";
 import { Button } from "@/components/ui/Button";
-import { MiniAvatar } from "@/components/ui/MiniAvatar";
-import { Skeleton, SkeletonRows } from "@/components/ui/Skeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   BentoArea,
   BentoHero,
@@ -425,7 +424,11 @@ export function AdminOverview() {
         </BentoArea>
       </div>
 
-      <AttentionPanel items={attentionItems} />
+      {/* Two short lists side by side on wide screens, so their actions sit next to the text. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <AttentionPanel items={attentionItems} />
+        <RecruitmentPipeline />
+      </div>
 
       <Card>
         <CardHeader
@@ -440,55 +443,53 @@ export function AdminOverview() {
             </button>
           }
         />
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[0.82rem]">
-            <thead>
-              <tr>
-                {["Employee", "Department", "Office", "Status", "201 file"].map((h) => (
-                  <th
-                    key={h}
-                    className="border-b border-border px-4 py-2.5 text-left text-xs font-medium tracking-[0.01em] text-ink-3"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {directoryQuery.isLoading && <SkeletonRows columns={5} />}
-              {directoryQuery.data?.map((emp) => (
-                <tr key={emp.id}>
-                  <td className="border-b border-border px-4 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <MiniAvatar initials={emp.initials} />
-                      <div>
-                        <div>{emp.name}</div>
-                        <div className="text-xs text-ink-2">{emp.id}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="border-b border-border px-4 py-2.5">{emp.department}</td>
-                  <td className="border-b border-border px-4 py-2.5">{emp.office}</td>
-                  <td className="border-b border-border px-4 py-2.5">
-                    <Chip variant={employeeStatusVariant[emp.status]}>{emp.status}</Chip>
-                  </td>
-                  <td className="border-b border-border px-4 py-2.5">
-                    <button
-                      type="button"
-                      onClick={() => setProfileEmployee(emp)}
-                      className="font-semibold text-brand-ink"
-                    >
-                      Open
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {/* One card per person: fills wide screens instead of a sparse table. */}
+        <ul className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+          {directoryQuery.isLoading &&
+            Array.from({ length: 3 }, (_, i) => (
+              <li key={i} className="flex flex-col gap-3 rounded-xl border border-border p-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-10 w-10 flex-none rounded-full" />
+                  <div className="flex flex-1 flex-col gap-1.5">
+                    <Skeleton className="h-3.5 w-2/3" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+                <Skeleton className="h-3 w-full" />
+              </li>
+            ))}
+          {directoryQuery.data?.map((emp) => (
+            <li
+              key={emp.id}
+              className="flex flex-col rounded-xl border border-border p-4 transition-colors hover:bg-surface-2/60"
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-surface-2 text-xs font-semibold text-ink-2">
+                  {emp.initials}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold">{emp.name}</div>
+                  <div className="font-num truncate text-xs text-ink-2">{emp.id}</div>
+                </div>
+                <Chip variant={employeeStatusVariant[emp.status]}>{emp.status}</Chip>
+              </div>
+              <dl className="mt-3.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[13px]">
+                <dt className="text-ink-2">Department</dt>
+                <dd className="truncate">{emp.department}</dd>
+                <dt className="text-ink-2">Office</dt>
+                <dd className="truncate">{emp.office}</dd>
+              </dl>
+              <button
+                type="button"
+                onClick={() => setProfileEmployee(emp)}
+                className="mt-4 self-start rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-brand-ink hover:bg-surface-2"
+              >
+                Open 201 file
+              </button>
+            </li>
+          ))}
+        </ul>
       </Card>
-
-      <RecruitmentPipeline />
 
       <AddEmployeeDialog
         open={addEmployeeOpen}

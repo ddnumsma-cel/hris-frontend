@@ -24,11 +24,16 @@ export function PayrollCostChart({ data }: { data: PayrollCostSegment[] }) {
             <Tooltip
               formatter={(value, name) => [`${value}%`, name]}
               contentStyle={{
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-                borderRadius: 8,
+                background: "var(--panel)",
+                border: "1px solid var(--panel-border)",
+                borderRadius: "var(--radius-dropdown)",
+                boxShadow: "var(--shadow-panel)",
+                backdropFilter: "var(--blur-panel)",
+                WebkitBackdropFilter: "var(--blur-panel)",
                 fontSize: 12,
               }}
+              labelStyle={{ color: "var(--color-ink-2)", fontWeight: 500 }}
+              itemStyle={{ color: "var(--color-ink)", fontVariantNumeric: "tabular-nums" }}
             />
             {data.map((segment, i) => (
               <Bar

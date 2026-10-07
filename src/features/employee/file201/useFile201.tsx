@@ -15,6 +15,7 @@ import {
   uploadMyPersonnelDocument,
 } from "@/lib/api";
 import { getCpdStatus } from "@/lib/automation";
+import { saveFile } from "@/lib/fileStore";
 import type { CpdStatus, PersonnelDocumentChecklistItem } from "@/lib/types";
 import { EditProfileDialog } from "../EditProfileDialog";
 import { FaceScanDialog } from "../FaceScanDialog";
@@ -114,6 +115,8 @@ export function useFile201() {
   async function pickFile(row: DocRow, files: FileList | null) {
     const file = files?.[0];
     if (!file) return;
+    // Keep the file itself so HR can open it later.
+    await saveFile(row.item.id, file);
     upload.mutate({ id: row.item.id, fileName: file.name });
     if (row.item.type === "Application Form / Resume" && file.type.startsWith("image/")) photo.mutate(await readAsDataUrl(file));
   }

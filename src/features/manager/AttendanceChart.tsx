@@ -11,6 +11,12 @@ export function AttendanceChart({ data, variant = "area" }: { data: AttendancePo
       <div className="h-56 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 0, left: 0, bottom: 0 }} barCategoryGap="18%">
+            <defs>
+              <linearGradient id="attendanceHighlight" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--chart-highlight-top)" />
+                <stop offset="100%" stopColor="var(--chart-highlight-bottom)" />
+              </linearGradient>
+            </defs>
             <XAxis
               dataKey="date"
               tick={{ fontSize: 11, fill: "var(--color-ink-2)" }}
@@ -28,13 +34,15 @@ export function AttendanceChart({ data, variant = "area" }: { data: AttendancePo
               width={40}
             />
             <Tooltip
-              cursor={{ fill: "var(--color-surface-2)", radius: 8 }}
+              cursor={{ fill: "var(--nav-hover-bg)", radius: 8 }}
               formatter={(value) => [`${value}%`, "On-time rate"]}
               contentStyle={{
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-                borderRadius: 10,
-                boxShadow: "0 8px 24px -12px rgba(2, 24, 80, 0.35)",
+                background: "var(--panel)",
+                border: "1px solid var(--panel-border)",
+                borderRadius: "var(--radius-dropdown)",
+                boxShadow: "var(--shadow-panel)",
+                backdropFilter: "var(--blur-panel)",
+                WebkitBackdropFilter: "var(--blur-panel)",
                 fontSize: 12,
               }}
               labelStyle={{ color: "var(--color-ink-2)", fontWeight: 500 }}
@@ -44,7 +52,8 @@ export function AttendanceChart({ data, variant = "area" }: { data: AttendancePo
               {data.map((point, i) => (
                 <Cell
                   key={point.date}
-                  fill={i === data.length - 1 ? "var(--dash-accent, var(--color-brand))" : "var(--dash-bar-idle, var(--color-surface-2))"}
+                  fill={i === data.length - 1 ? "url(#attendanceHighlight)" : "var(--chart-bar)"}
+                  style={i === data.length - 1 ? { filter: "var(--chart-highlight-glow)" } : undefined}
                 />
               ))}
             </Bar>
@@ -60,11 +69,15 @@ export function AttendanceChart({ data, variant = "area" }: { data: AttendancePo
         <AreaChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="attendanceFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--color-brand)" stopOpacity={0.18} />
-              <stop offset="100%" stopColor="var(--color-brand)" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--chart-bar)" stopOpacity={0.18} />
+              <stop offset="100%" stopColor="var(--chart-bar)" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="attendanceDot" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--chart-highlight-top)" />
+              <stop offset="100%" stopColor="var(--chart-highlight-bottom)" />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke="var(--color-border)" vertical={false} />
+          <CartesianGrid stroke="var(--line)" vertical={false} />
           <XAxis
             dataKey="date"
             tick={{ fontSize: 11, fill: "var(--color-ink-3)" }}
@@ -84,17 +97,21 @@ export function AttendanceChart({ data, variant = "area" }: { data: AttendancePo
           <Tooltip
             formatter={(value) => [`${value}%`, "On-time rate"]}
             contentStyle={{
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              borderRadius: 8,
+              background: "var(--panel)",
+              border: "1px solid var(--panel-border)",
+              borderRadius: "var(--radius-dropdown)",
+              boxShadow: "var(--shadow-panel)",
+              backdropFilter: "var(--blur-panel)",
+              WebkitBackdropFilter: "var(--blur-panel)",
               fontSize: 12,
             }}
             labelStyle={{ color: "var(--color-ink-2)", fontWeight: 600 }}
+            itemStyle={{ color: "var(--color-ink)", fontVariantNumeric: "tabular-nums" }}
           />
           <Area
             type="monotone"
             dataKey="rate"
-            stroke="var(--color-brand)"
+            stroke="var(--chart-bar)"
             strokeWidth={2.5}
             fill="url(#attendanceFill)"
             activeDot={{ r: 4.5 }}
@@ -103,7 +120,7 @@ export function AttendanceChart({ data, variant = "area" }: { data: AttendancePo
               if (index !== data.length - 1 || cx === undefined || cy === undefined) {
                 return <g key={`dot-${index}`} />;
               }
-              return <circle key={`dot-${index}`} cx={cx} cy={cy} r={4.5} fill="var(--color-brand)" />;
+              return <circle key={`dot-${index}`} cx={cx} cy={cy} r={4.5} fill="url(#attendanceDot)" style={{ filter: "var(--chart-highlight-glow)" }} />;
             }}
           />
         </AreaChart>

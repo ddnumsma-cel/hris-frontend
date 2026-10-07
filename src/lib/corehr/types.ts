@@ -26,7 +26,7 @@ export interface OrgUnit {
 export const JOB_LEVELS = ["Rank and file", "Supervisor", "Manager", "Executive"] as const;
 export type JobLevel = (typeof JOB_LEVELS)[number];
 
-export const EMPLOYMENT_TYPES = ["Probationary", "Regular", "Project-based", "Fixed-term", "Part-time"] as const;
+export const EMPLOYMENT_TYPES = ["Probationary", "Regular", "Project-based", "Fixed-term", "Part-time", "Intern"] as const;
 export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
 
 export interface Position {

@@ -171,7 +171,7 @@ export function LeaveOverviewPage() {
                   aria-pressed={picked === d}
                   aria-label={`${d}: ${list.length} away${hol ? `, ${hol.name}` : ""}`}
                   title={hol?.name}
-                  className={clsx("flex min-h-10 flex-col items-center justify-center gap-1 rounded-lg text-sm", picked === d ? "bg-ink text-surface" : d === today ? "bg-brand-tint font-semibold" : "hover:bg-surface-2", weekend && picked !== d && "text-ink-3")}
+                  className={clsx("flex min-h-10 flex-col items-center justify-center gap-1 rounded-lg text-sm", picked === d ? "bg-ink text-bg" : d === today ? "bg-brand-tint font-semibold" : "hover:bg-surface-2", weekend && picked !== d && "text-ink-3")}
                 >
                   {Number(d.slice(8))}
                   <span className="flex h-1.5 gap-0.5">

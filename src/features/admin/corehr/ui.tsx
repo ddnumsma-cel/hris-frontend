@@ -90,7 +90,7 @@ export function FilterChip({ active, onClick, children, count }: { active: boole
       onClick={onClick}
       className={clsx(
         "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
-        active ? "border-ink bg-ink text-surface" : "border-border bg-surface text-ink-2 hover:border-ink-3 hover:text-ink",
+        active ? "border-ink bg-ink text-bg" : "border-border bg-surface text-ink-2 hover:border-ink-3 hover:text-ink",
       )}
     >
       {children}
@@ -135,7 +135,7 @@ export function Drawer({
   if (!open) return null;
   // Drawn on <body> so a transformed or clipped parent can't trap it.
   return createPortal(
-    <div className="overlay-enter fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
+    <div className="overlay-backdrop overlay-enter fixed inset-0 z-50 flex justify-end" onClick={onClose}>
       <div
         ref={panel}
         tabIndex={-1}
@@ -143,7 +143,7 @@ export function Drawer({
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className="drawer-enter flex h-full w-full max-w-lg flex-col border-l border-border bg-surface shadow-xl outline-none"
+        className="glass-surface drawer-enter flex h-full w-full max-w-lg flex-col outline-none"
       >
         <div className="flex flex-none items-start gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0 flex-1">
@@ -222,7 +222,7 @@ export function Stepper({ steps, current, furthest = current, onSelect }: { step
                   className={clsx(
                     "flex h-5 w-5 flex-none items-center justify-center rounded-full border-2 transition-[background-color,border-color,transform] enabled:hover:scale-110",
                     active && "step-pop border-ink bg-surface",
-                    done && "border-ink bg-ink text-surface",
+                    done && "border-ink bg-ink text-bg",
                     reachable && !done && "border-ink bg-surface",
                     !active && !reachable && "border-border bg-surface",
                   )}

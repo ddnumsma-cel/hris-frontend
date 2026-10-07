@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { saveFile } from "@/lib/fileStore";
+import { FileViewer } from "./FileViewer";
 import clsx from "clsx";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
@@ -46,8 +48,13 @@ export function DocumentDrawer({ document: d, employeeName, onClose, inline }: {
   const tracksExpiry = EXPIRING_TYPES.includes(d.type);
   const alert = documentAlert(d);
 
+  const [viewing, setViewing] = useState(false);
   const mutation = useMutation({
-    mutationFn: (action: DocumentAction) => updateDocument(d.id, action, actor),
+    mutationFn: async (action: DocumentAction) => {
+      // Keep the file itself so it can be viewed later, not just its name.
+      if (action.kind === "upload" && file) await saveFile(d.id, file);
+      return updateDocument(d.id, action, actor);
+    },
     onSuccess: (_, action) => {
       queryClient.invalidateQueries({ queryKey: ["corehr"] });
       queryClient.invalidateQueries({ queryKey: ["personnel"] });
@@ -125,16 +132,18 @@ export function DocumentDrawer({ document: d, employeeName, onClose, inline }: {
         {d.note && d.status === "Missing" && <p className="rounded-lg bg-warning-tint px-3 py-2 text-sm text-warning">Returned: {d.note}</p>}
 
         {d.fileName && (
-          <div className="flex items-center gap-3 rounded-xl border border-border p-3">
+          <button type="button" onClick={() => setViewing(true)} title="View this file" className="flex w-full items-center gap-3 rounded-xl border border-border p-3 text-left transition-colors hover:border-ink-3 hover:bg-surface-2/50">
             <span className="flex h-10 w-10 flex-none items-center justify-center rounded-lg bg-surface-2 text-ink-2">
               <FileIcon className="h-5 w-5" />
             </span>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{d.fileName}</p>
               <p className="text-xs text-ink-3">Uploaded {formatDate(d.uploadedAt)}</p>
             </div>
-          </div>
+            <span className="flex-none rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold">View</span>
+          </button>
         )}
+        {viewing && d.fileName && <FileViewer documentId={d.id} fileName={d.fileName} title={d.type} ownerName={employeeName} uploadedAt={d.uploadedAt} onClose={() => setViewing(false)} />}
 
         {mode === "view" && d.status !== "Missing" && (
           <dl className="divide-y divide-border">

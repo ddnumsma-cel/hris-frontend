@@ -33,7 +33,7 @@ export function ShiftTeams() {
 
   return (
     <>
-      <ContentHead title="Schedules" subtitle="Everyone's usual shift. Click Move on a person to put them on another shift. Flexible time has no fixed start: people work 8 hours any time between 7 AM and 7 PM." />
+      <ContentHead title="Schedules" subtitle="Everyone's usual shift. Click Move on a person to put them on another shift. Flexible time has no fixed start: people work 8 hours any time between 8:30 AM and 7 PM." />
       <Toolbar>
         <SearchBox value={w.query} onChange={w.setQuery} />
       </Toolbar>
