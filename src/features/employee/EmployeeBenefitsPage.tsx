@@ -11,6 +11,7 @@ import { confirmBenefitEnrollment, fetchEmployeeBenefits, removeEmployeeBenefit 
 import { formatToday } from "@/lib/format";
 import type { BenefitStatus, EmployeeBenefit } from "@/lib/types";
 import { AddBenefitDialog } from "./AddBenefitDialog";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 const statusVariant: Record<BenefitStatus, ChipVariant> = {
   Active: "good",
@@ -22,6 +23,7 @@ export function EmployeeBenefitsPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
+  useCreateParam("benefit", () => setAddOpen(true));
   const [removingBenefit, setRemovingBenefit] = useState<EmployeeBenefit | null>(null);
   const benefitsQuery = useQuery({ queryKey: ["employee", "benefits"], queryFn: fetchEmployeeBenefits });
 

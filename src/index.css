@@ -19,6 +19,13 @@
   --grad-chart: linear-gradient(180deg, #7cc4f5 0%, #2563eb 100%);
   --grad-avatar: linear-gradient(135deg, #2775d3 0%, #5458e8 100%);
   --on-accent: #ffffff;
+  /* Text on the danger red stays white in both modes. */
+  --on-danger: #ffffff;
+  /* Chart series colours (dark mode swaps in lighter ones that read on steel). */
+  --cat-1: #1d4ed8;
+  --cat-2: #5ab0f0;
+  --cat-3: #6366f1;
+  --cat-4: #3cc6d6;
 
   /* Status base colors (icons, dots, solid fills) */
   --success: #1e8e5a;
@@ -106,92 +113,130 @@
 /* Dark mode: OS preference (unless a manual light override is set), or an explicit manual toggle. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0b1220;
-    --panel: rgba(23, 33, 53, 0.5);
-    --panel-border: rgba(255, 255, 255, 0.1);
-    --card: rgba(36, 50, 78, 0.45);
-    --card-hover: rgba(36, 50, 78, 0.65);
-    --card-border: rgba(255, 255, 255, 0.09);
-    --text: #e6edf7;
-    --text-muted: #9aa8bc;
-    --line: rgba(255, 255, 255, 0.07);
-    --line-strong: rgba(255, 255, 255, 0.14);
-    --tint: rgba(255, 255, 255, 0.06);
-    --surface-raised: #152036;
-    --field-bg: #1b2842;
-    --line-hover: rgba(255, 255, 255, 0.26);
-    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 12 12%27 fill=%27none%27 stroke=%27%239aa8bc%27 stroke-width=%271.6%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M3 4.5 6 7.5 9 4.5%27/%3E%3C/svg%3E");
-    --sidebar: rgba(6, 10, 20, 0.55);
-    --nav-text: #9aa6ba;
-    --nav-label: #8794ab; /* spec #6B7891; lightened to pass 4.5:1 */
-    --nav-hover-bg: rgba(255, 255, 255, 0.07);
-    --nav-hover-text: #e6edf7;
-    --nav-active-bg: #1b2842;
-    --nav-active-text: #e6edf7;
-    --nav-active-icon: #ffffff;
-    --nav-active-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-    --user-card-bg: rgba(255, 255, 255, 0.05);
-    --user-card-border: rgba(255, 255, 255, 0.08);
-    --chart-bar: rgba(80, 98, 132, 0.75);
+    /* Dark mode: Steel & Ice (palette 07C). Soft steel greys, pale ice for the highlight. */
+    --bg: #1a212b;
+    --panel: rgba(35, 44, 56, 0.6);
+    --panel-border: #333e4c;
+    --card: #232c38;
+    --card-hover: #2a3441;
+    --card-border: #333e4c;
+    --surface-raised: #263040;
+    --surface-strong: #141a22;
+    --field-bg: #1a212b;
+    --tint: #2a3441;
+    --text: #e9eef3;
+    --text-muted: #a0aab7;
+    --line: rgba(233, 238, 243, 0.07);
+    --line-strong: #333e4c;
+    --line-hover: #4a5768;
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 12 12%27 fill=%27none%27 stroke=%27%23a0aab7%27 stroke-width=%271.6%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M3 4.5 6 7.5 9 4.5%27/%3E%3C/svg%3E");
+    --sidebar: #232c38;
+    --nav-text: #a0aab7;
+    --nav-label: #939dab;
+    --nav-hover-bg: rgba(233, 238, 243, 0.06);
+    --nav-hover-text: #e9eef3;
+    --nav-active-bg: #333e4c;
+    --nav-active-text: #e9eef3;
+    --nav-active-icon: #1a212b;
+    --nav-active-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --user-card-bg: rgba(233, 238, 243, 0.05);
+    --user-card-border: #333e4c;
+    --accent: #9cd3f7;
+    --accent-tint: rgba(156, 211, 247, 0.14);
+    --grad-primary: linear-gradient(135deg, #b5def9 0%, #9cd3f7 100%);
+    --grad-avatar: linear-gradient(135deg, #9cd3f7 0%, #b4c2f8 100%);
+    --grad-sky: linear-gradient(135deg, #9cd3f7 0%, #5ab0f0 100%);
+    --on-accent: #1a212b;
+    --border-on-accent: rgba(255, 255, 255, 0.35);
+    --shadow-logo: 0 4px 12px rgba(156, 211, 247, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    --shadow-primary: 0 6px 16px rgba(156, 211, 247, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    --shadow-primary-hover: 0 8px 20px rgba(156, 211, 247, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    --focus-ring: rgba(156, 211, 247, 0.75);
+    --focus-field: #9cd3f7;
+    --focus-field-ring: 0 0 0 3px rgba(156, 211, 247, 0.25);
+    --chart-bar: rgba(160, 170, 183, 0.45);
+    --grad-chart: linear-gradient(180deg, #cbe9fc 0%, #7cc4f5 100%);
+    --chart-highlight-top: #cbe9fc;
+    --chart-highlight-bottom: #7cc4f5;
+    --chart-highlight-glow: drop-shadow(0 6px 18px rgba(156, 211, 247, 0.35));
+    --cat-1: #9cd3f7;
+    --cat-2: #5ab0f0;
+    --cat-3: #a5b4fc;
+    --cat-4: #5eead4;
     --shadow-panel: 0 24px 60px rgba(0, 0, 0, 0.45);
     --shadow-drawer: 12px 0 32px rgba(0, 0, 0, 0.4);
-    --focus-ring: rgba(154, 208, 247, 0.75);
-    --backdrop: rgba(0, 0, 0, 0.5);
-    --accent: #5ab0f0;
-    --accent-tint: rgba(90, 176, 240, 0.16);
-    --surface-strong: #111b2e;
+    --backdrop: rgba(10, 13, 18, 0.6);
     --success-text: #6fd3a0;
-    --success-bg: #12382a;
+    --success-bg: #1b3a2d;
     --warning-text: #f0c066;
-    --warning-bg: #3a2c12;
+    --warning-bg: #3b2f1a;
     --danger-text: #f58c86;
-    --danger-bg: #3d1a1c;
-    --info: #5ab0f0;
+    --danger-bg: #3f2327;
+    --info: #9cd3f7;
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #0b1220;
-  --panel: rgba(23, 33, 53, 0.5);
-  --panel-border: rgba(255, 255, 255, 0.1);
-  --card: rgba(36, 50, 78, 0.45);
-  --card-hover: rgba(36, 50, 78, 0.65);
-  --card-border: rgba(255, 255, 255, 0.09);
-  --text: #e6edf7;
-  --text-muted: #9aa8bc;
-  --line: rgba(255, 255, 255, 0.07);
-  --line-strong: rgba(255, 255, 255, 0.14);
-  --tint: rgba(255, 255, 255, 0.06);
-  --surface-raised: #152036;
-  --field-bg: #1b2842;
-  --line-hover: rgba(255, 255, 255, 0.26);
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 12 12%27 fill=%27none%27 stroke=%27%239aa8bc%27 stroke-width=%271.6%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M3 4.5 6 7.5 9 4.5%27/%3E%3C/svg%3E");
-  --sidebar: rgba(6, 10, 20, 0.55);
-  --nav-text: #9aa6ba;
-  --nav-label: #8794ab; /* spec #6B7891; lightened to pass 4.5:1 */
-  --nav-hover-bg: rgba(255, 255, 255, 0.07);
-  --nav-hover-text: #e6edf7;
-  --nav-active-bg: #1b2842;
-  --nav-active-text: #e6edf7;
-  --nav-active-icon: #ffffff;
-  --nav-active-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  --user-card-bg: rgba(255, 255, 255, 0.05);
-  --user-card-border: rgba(255, 255, 255, 0.08);
-  --chart-bar: rgba(80, 98, 132, 0.75);
+  /* Dark mode: Steel & Ice (palette 07C). Soft steel greys, pale ice for the highlight. */
+  --bg: #1a212b;
+  --panel: rgba(35, 44, 56, 0.6);
+  --panel-border: #333e4c;
+  --card: #232c38;
+  --card-hover: #2a3441;
+  --card-border: #333e4c;
+  --surface-raised: #263040;
+  --surface-strong: #141a22;
+  --field-bg: #1a212b;
+  --tint: #2a3441;
+  --text: #e9eef3;
+  --text-muted: #a0aab7;
+  --line: rgba(233, 238, 243, 0.07);
+  --line-strong: #333e4c;
+  --line-hover: #4a5768;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 12 12%27 fill=%27none%27 stroke=%27%23a0aab7%27 stroke-width=%271.6%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M3 4.5 6 7.5 9 4.5%27/%3E%3C/svg%3E");
+  --sidebar: #232c38;
+  --nav-text: #a0aab7;
+  --nav-label: #939dab;
+  --nav-hover-bg: rgba(233, 238, 243, 0.06);
+  --nav-hover-text: #e9eef3;
+  --nav-active-bg: #333e4c;
+  --nav-active-text: #e9eef3;
+  --nav-active-icon: #1a212b;
+  --nav-active-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --user-card-bg: rgba(233, 238, 243, 0.05);
+  --user-card-border: #333e4c;
+  --accent: #9cd3f7;
+  --accent-tint: rgba(156, 211, 247, 0.14);
+  --grad-primary: linear-gradient(135deg, #b5def9 0%, #9cd3f7 100%);
+  --grad-avatar: linear-gradient(135deg, #9cd3f7 0%, #b4c2f8 100%);
+  --grad-sky: linear-gradient(135deg, #9cd3f7 0%, #5ab0f0 100%);
+  --on-accent: #1a212b;
+  --border-on-accent: rgba(255, 255, 255, 0.35);
+  --shadow-logo: 0 4px 12px rgba(156, 211, 247, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --shadow-primary: 0 6px 16px rgba(156, 211, 247, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  --shadow-primary-hover: 0 8px 20px rgba(156, 211, 247, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  --focus-ring: rgba(156, 211, 247, 0.75);
+  --focus-field: #9cd3f7;
+  --focus-field-ring: 0 0 0 3px rgba(156, 211, 247, 0.25);
+  --chart-bar: rgba(160, 170, 183, 0.45);
+  --grad-chart: linear-gradient(180deg, #cbe9fc 0%, #7cc4f5 100%);
+  --chart-highlight-top: #cbe9fc;
+  --chart-highlight-bottom: #7cc4f5;
+  --chart-highlight-glow: drop-shadow(0 6px 18px rgba(156, 211, 247, 0.35));
+  --cat-1: #9cd3f7;
+  --cat-2: #5ab0f0;
+  --cat-3: #a5b4fc;
+  --cat-4: #5eead4;
   --shadow-panel: 0 24px 60px rgba(0, 0, 0, 0.45);
   --shadow-drawer: 12px 0 32px rgba(0, 0, 0, 0.4);
-  --focus-ring: rgba(154, 208, 247, 0.75);
-  --backdrop: rgba(0, 0, 0, 0.5);
-  --accent: #5ab0f0;
-  --accent-tint: rgba(90, 176, 240, 0.16);
-  --surface-strong: #111b2e;
+  --backdrop: rgba(10, 13, 18, 0.6);
   --success-text: #6fd3a0;
-  --success-bg: #12382a;
+  --success-bg: #1b3a2d;
   --warning-text: #f0c066;
-  --warning-bg: #3a2c12;
+  --warning-bg: #3b2f1a;
   --danger-text: #f58c86;
-  --danger-bg: #3d1a1c;
-  --info: #5ab0f0;
+  --danger-bg: #3f2327;
+  --info: #9cd3f7;
 }
 
 /* Browsers without backdrop-filter: glass becomes nearly opaque so text stays readable. */
@@ -204,16 +249,16 @@
 
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --panel: rgba(23, 33, 53, 0.94);
-      --card: rgba(36, 50, 78, 0.94);
-      --sidebar: rgba(6, 10, 20, 0.94);
+      --panel: rgba(35, 44, 56, 0.94);
+      --card: #232c38;
+      --sidebar: #232c38;
     }
   }
 
   :root[data-theme="dark"] {
-    --panel: rgba(23, 33, 53, 0.94);
-    --card: rgba(36, 50, 78, 0.94);
-    --sidebar: rgba(6, 10, 20, 0.94);
+    --panel: rgba(35, 44, 56, 0.94);
+    --card: #232c38;
+    --sidebar: #232c38;
   }
 }
 
@@ -240,10 +285,10 @@
   --color-gold: var(--warning);
   --color-gold-tint: var(--warning-bg);
 
-  --color-cat-1: var(--deep-blue);
-  --color-cat-2: var(--sky);
-  --color-cat-3: var(--indigo);
-  --color-cat-4: var(--aqua);
+  --color-cat-1: var(--cat-1);
+  --color-cat-2: var(--cat-2);
+  --color-cat-3: var(--cat-3);
+  --color-cat-4: var(--cat-4);
 
   --color-good: var(--success-text);
   --color-good-tint: var(--success-bg);
@@ -643,8 +688,8 @@ body {
   }
 
   .sidebar-icon > svg {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     stroke-width: 2;
   }
 
@@ -690,22 +735,18 @@ body {
   }
 
   /* The active page's icon sits in a small gradient tile, like the dashboard's action tiles.
-     The negative margin keeps the label lined up with the other rows. */
-  .sidebar-item[aria-current="page"] .sidebar-icon {
-    width: 24px;
-    height: 24px;
+     The negative margin keeps the label lined up with the other rows. The icon stays 20px. */
+  .sidebar-item[aria-current="page"] .sidebar-icon,
+  .sidebar-collapsed .sidebar-item[data-child-active="true"] .sidebar-icon {
+    width: 32px;
+    height: 32px;
     align-items: center;
     justify-content: center;
-    margin-inline: -4px;
+    margin-inline: -6px;
     border-radius: var(--radius-logo);
     background: var(--grad-primary);
     box-shadow: var(--shadow-logo);
     color: var(--nav-active-icon);
-  }
-
-  .sidebar-item[aria-current="page"] .sidebar-icon > svg {
-    width: 14px;
-    height: 14px;
   }
 
   /* Rows with no icon (sub-pages, the rail's pop-out list) have no tile to mark them,
@@ -950,7 +991,7 @@ body {
   .btn-danger {
     border-color: var(--border-on-accent);
     background: var(--danger);
-    color: var(--on-accent);
+    color: var(--on-danger);
   }
 
   .btn-danger:hover:not(:disabled) {
@@ -1100,12 +1141,74 @@ tbody tr:hover {
   }
 }
 
-/* Desktop sidebar width; the HR workspace uses the narrow icon rail. */
-:root {
-  --sidenav-w: 15rem;
+/* Desktop sidebar width: a 260px drawer, or a 72px icon rail when collapsed. Registered as a
+   length so the sidebar, the content column beside it (push layout) and the top bar's offset
+   all move together. The transition only exists while data-sidebar-anim is set (by the toggle),
+   so the saved state appears on first render without animating. */
+@property --sidenav-w {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 260px;
 }
+
+:root {
+  --sidenav-w: 260px;
+  --sidebar-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+body:has(.sidebar-collapsed) {
+  --sidenav-w: 72px;
+}
+/* The compact rail (HR/Employee collapsed state) keeps a label under each icon, so it's a bit wider. */
 body:has(.sidebar-rail) {
-  --sidenav-w: 5rem;
+  --sidenav-w: 80px;
+}
+body[data-sidebar-anim] {
+  transition: --sidenav-w 220ms var(--sidebar-ease);
+}
+
+/* Collapsed rail: icons centred, labels hidden visually but kept for screen readers (tooltips
+   show them on hover/focus), fold arrows hidden. A module whose page is open keeps the active
+   highlight, since its pages aren't listed in the rail. */
+.sidebar-collapsed .sidebar-item {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
+}
+
+.sidebar-collapsed .sidebar-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.sidebar-collapsed .sidebar-chevron {
+  display: none;
+}
+
+.sidebar-collapsed .sidebar-item[data-child-active="true"] {
+  background: var(--nav-active-bg);
+  box-shadow: var(--nav-active-shadow);
+  color: var(--nav-active-text);
+}
+
+/* Opening: labels fade and slide in after the width starts moving, staggered ~30ms per row
+   from 90ms (--i is each row's position). Closing hides them at once, so nothing wraps. */
+@keyframes sidebar-label-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-label, .sidebar-heading, .sidebar-section-label, .sidebar-chevron, .brand-wordmark, .brand-caption) {
+  animation: sidebar-label-in 220ms var(--sidebar-ease) calc(90ms + min(var(--i, 0), 12) * 30ms) both;
 }
 
 /* With the desktop sidebar on screen (sm and up), it runs the full page height

@@ -1,14 +1,14 @@
 import { Outlet } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
 import { AppNav } from "@/components/layout/AppNav";
-import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
+import { SideNav, type CreateGroup, type SideNavGroup } from "@/components/layout/SideNav";
 import {
   CalendarIcon,
   ClockIcon,
   FileIcon,
   FolderIcon,
   GraduationCapIcon,
-  GridIcon,
+  HomeIcon,
   ReceiptIcon,
   UsersIcon,
   WalletIcon,
@@ -18,9 +18,9 @@ const GROUPS: SideNavGroup[] = [
   {
     title: "My workspace",
     items: [
-      { label: "Overview", short: "Home", to: "/employee", end: true, icon: <GridIcon /> },
+      { label: "Home", to: "/employee", end: true, icon: <HomeIcon /> },
       { label: "My leave", short: "Leave", to: "/employee/leave", icon: <CalendarIcon /> },
-      { label: "My attendance", short: "Time", to: "/employee/attendance", icon: <ClockIcon /> },
+      { label: "My attendance", short: "Attendance", to: "/employee/attendance", icon: <ClockIcon /> },
       { label: "Payslips", to: "/employee/payslips", icon: <WalletIcon /> },
       { label: "201 File", to: "/employee/201-file", icon: <FolderIcon /> },
       { label: "Trainings", to: "/employee/trainings", icon: <GraduationCapIcon /> },
@@ -38,6 +38,40 @@ const GROUPS: SideNavGroup[] = [
   },
 ];
 
+/** The sidebar's Create menu. Links with ?create=… open that page's form (see useCreateParam). */
+const CREATE: CreateGroup[] = [
+  {
+    title: "Leave & time",
+    items: [
+      { label: "File leave", to: "/employee/leave?create=leave" },
+      { label: "View leave balance", to: "/employee/leave" },
+      { label: "Request attendance fix", to: "/employee/attendance" },
+    ],
+  },
+  {
+    title: "Requests",
+    items: [
+      { label: "Request certificate", to: "/employee/certificates?create=certificate" },
+      { label: "Submit reimbursement", to: "/employee/reimbursements?create=claim" },
+    ],
+  },
+  {
+    title: "My records",
+    items: [
+      { label: "Update my details", to: "/employee/201-file?create=details" },
+      { label: "Add benefit or dependent", to: "/employee/benefits?create=benefit" },
+      { label: "Log CPD units", to: "/employee/201-file?create=cpd" },
+    ],
+  },
+  {
+    title: "Pay & learning",
+    items: [
+      { label: "View payslips", to: "/employee/payslips" },
+      { label: "View trainings", to: "/employee/trainings" },
+    ],
+  },
+];
+
 export function EmployeeLayout() {
   return (
     <RolePage
@@ -45,7 +79,7 @@ export function EmployeeLayout() {
         <>
           {/* Phones get the slide-in menu; desktop gets the sidebar style chosen in Menu settings. */}
           <SideNav groups={GROUPS} desktop={false} />
-          <AppNav groups={GROUPS} />
+          <AppNav groups={GROUPS} create={CREATE} />
         </>
       }
     >

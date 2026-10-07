@@ -11,6 +11,7 @@ import { canChange, useAccess } from "../administration/access";
 import { inputClass, useActor } from "../corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { SimpleTable, Tabs } from "../timekeeping/common";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 const today = () => {
   const d = new Date();
@@ -204,6 +205,7 @@ export function ContributionsPage() {
   const [agency, setAgency] = useState<Agency>("sss");
   const [salary, setSalary] = useState(30000);
   const [adding, setAdding] = useState(false);
+  useCreateParam("contribution-rates", () => setAdding(true));
   const versions = useQuery({ queryKey: ["payroll", "contributions", agency], queryFn: () => listVersions(agency) });
   const remove = useMutation({
     mutationFn: (v: RateVersion) => deleteVersion(agency, v.id, actor),

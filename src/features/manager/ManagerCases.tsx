@@ -16,6 +16,7 @@ import { formatToday } from "@/lib/format";
 import { currentManager } from "@/lib/mockData";
 import type { CaseStatus, EmployeeCase } from "@/lib/types";
 import { FileCaseDialog } from "./FileCaseDialog";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 const statusVariant: Record<CaseStatus, ChipVariant> = {
   Open: "warn",
@@ -27,6 +28,7 @@ export function ManagerCases() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
+  useCreateParam("case", () => setDialogOpen(true));
   const [editingCase, setEditingCase] = useState<EmployeeCase | null>(null);
   const [deletingCase, setDeletingCase] = useState<EmployeeCase | null>(null);
   const casesQuery = useQuery({ queryKey: ["cases"], queryFn: fetchEmployeeCases });

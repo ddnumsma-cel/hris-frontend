@@ -20,6 +20,7 @@ import type { CpdStatus, PersonnelDocumentChecklistItem } from "@/lib/types";
 import { EditProfileDialog } from "../EditProfileDialog";
 import { FaceScanDialog } from "../FaceScanDialog";
 import { print201File } from "../printTemplates";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 /** One required document, worded for the employee. */
 export interface DocRow {
@@ -76,6 +77,8 @@ export function useFile201() {
   const [editOpen, setEditOpen] = useState(false);
   const [faceOpen, setFaceOpen] = useState(false);
   const [cpdOpen, setCpdOpen] = useState(false);
+  useCreateParam("cpd", () => setCpdOpen(true));
+  useCreateParam("details", () => setEditOpen(true));
   const employeeQuery = useQuery({ queryKey: ["employee", "me"], queryFn: fetchCurrentEmployee });
   const assetsQuery = useQuery({ queryKey: ["employee", "my-assets"], queryFn: fetchMyAssets });
   const licenseQuery = useQuery({ queryKey: ["employee", "professional-license"], queryFn: fetchMyProfessionalLicense });

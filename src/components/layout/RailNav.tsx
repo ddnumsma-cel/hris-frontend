@@ -1,20 +1,34 @@
-// Icon rail: one icon per module, always short enough to fit the screen.
-// Hovering (or focusing) a module shows its pages in a panel beside the rail;
-// clicking the icon opens the module's first page.
+// Icon rail: the collapsed state of the sidebar. One icon per module with its name underneath;
+// hovering (or focusing) a module shows its pages in a drawer beside the rail, and clicking the
+// icon opens the module's first page. The toggle under the logo mark expands to the full sidebar.
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { NavLink, useLocation } from "react-router-dom";
 import clsx from "clsx";
-import { PinIcon, SlidersIcon } from "@/components/icons";
+import { PinIcon, SidebarExpandIcon, SlidersIcon } from "@/components/icons";
+import { CreateMenu } from "./CreateMenu";
 import { CustomizeNavDialog } from "./CustomizeNavDialog";
 import { isHome, isItemActive, toSections, type NavSection } from "./navItems";
 import { ordered, pinned, type NavPrefs } from "./navPrefs";
-import type { SideNavGroup } from "./SideNav";
+import type { CreateGroup, SideNavGroup } from "./SideNav";
 
 const sectionActive = (s: NavSection, pathname: string) => s.pages.some((p) => isItemActive(p, pathname));
 
-export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; prefs: NavPrefs; setPrefs: (p: NavPrefs) => void }) {
+export function RailNav({
+  groups,
+  create,
+  prefs,
+  setPrefs,
+  onExpand,
+}: {
+  groups: SideNavGroup[];
+  create?: CreateGroup[];
+  prefs: NavPrefs;
+  setPrefs: (p: NavPrefs) => void;
+  /** Switches to the full sidebar. */
+  onExpand: () => void;
+}) {
   const { pathname } = useLocation();
   const [customizing, setCustomizing] = useState(false);
   const all = toSections(groups);
@@ -69,7 +83,7 @@ export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
               onFocus={(e) => (single ? hide() : show(s, e.currentTarget))}
               onBlur={hide}
               onKeyDown={(e) => e.key === "Escape" && setOpen(null)}
-              className="group flex w-16 flex-col items-center gap-1 rounded-xl py-1.5"
+              className="group flex w-18 flex-col items-center gap-1 rounded-xl py-1.5"
             >
               <span
                 className={clsx(
@@ -89,11 +103,21 @@ export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
   return (
     <aside
       data-tour="sidenav"
-      className="sidebar sidebar-desktop sidebar-rail no-scrollbar hidden sm:sticky sm:top-0 sm:-mt-[var(--topbar-h)] sm:flex sm:h-dvh sm:w-[var(--sidenav-w)] sm:flex-none sm:flex-col sm:items-center sm:self-start sm:overflow-y-auto sm:border-r sm:border-[var(--sb-border)]"
+      className="sidebar sidebar-desktop sidebar-rail sidebar-collapsed no-scrollbar hidden sm:sticky sm:top-0 sm:-mt-[var(--topbar-h)] sm:flex sm:h-dvh sm:w-[var(--sidenav-w)] sm:flex-none sm:flex-col sm:items-center sm:self-start sm:overflow-y-auto sm:border-r sm:border-[var(--sb-border)]"
     >
-      <div className="flex w-full flex-none justify-center border-b border-[var(--sb-border)] px-2 pt-5 pb-4">
-        <img src="/brand/heyhr-wordmark.svg" alt="HeyHR" className="brand-wordmark !h-[19px]" />
+      {/* Logo mark and the expand toggle, in an 80px block like the full sidebar's, so the line
+          under it stays put when switching. */}
+      <div className="flex h-20 w-full flex-none flex-col items-center justify-center gap-2 border-b border-[var(--sb-border)]">
+        <img src="/favicon.svg" alt="HeyHR" className="h-7 w-7" />
+        <button type="button" aria-label="Expand sidebar" aria-expanded={false} title="Expand sidebar" onClick={onExpand} className="sidebar-button h-7 w-7">
+          <SidebarExpandIcon className="h-4 w-4" />
+        </button>
       </div>
+      {create && create.length > 0 && (
+        <div className="flex w-full flex-none justify-center pt-3">
+          <CreateMenu groups={create} variant="rail" onOpen={() => setOpen(null)} />
+        </div>
+      )}
       {home.length > 0 && <nav aria-label="Home" className="flex flex-none flex-col items-center gap-1 pt-3">{home.map(renderModule)}</nav>}
       {pins.length > 0 && (
         <nav aria-label="Pinned" className="flex w-full flex-none flex-col items-center gap-0.5 border-b border-[var(--sb-border)] py-2">
@@ -102,7 +126,7 @@ export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
             Pinned
           </span>
           {pins.map(({ section, page }) => (
-            <NavLink key={page.to} to={page.to} end={page.end} title={`${section.label} › ${page.label}`} className="group flex w-16 flex-col items-center gap-0.5 rounded-xl py-1">
+            <NavLink key={page.to} to={page.to} end={page.end} title={`${section.label} › ${page.label}`} className="group flex w-18 flex-col items-center gap-0.5 rounded-xl py-1">
               {({ isActive }) => (
                 <>
                   <span
@@ -123,7 +147,7 @@ export function RailNav({ groups, prefs, setPrefs }: { groups: SideNavGroup[]; p
       </nav>
 
       <div className="mt-auto flex w-full flex-none justify-center border-t border-[var(--sb-border)] py-2.5">
-        <button type="button" onClick={() => setCustomizing(true)} title="Pin your daily pages and reorder the menu" className="group flex w-16 flex-col items-center gap-1 rounded-xl py-1">
+        <button type="button" onClick={() => setCustomizing(true)} title="Pin your daily pages and reorder the menu" className="group flex w-18 flex-col items-center gap-1 rounded-xl py-1">
           <span className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] text-[var(--sb-muted)] transition-colors group-hover:bg-[var(--sb-hover)] group-hover:text-[var(--sb-text)] [&>svg]:h-[18px] [&>svg]:w-[18px]">
             <SlidersIcon />
           </span>

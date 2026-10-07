@@ -13,6 +13,7 @@ import { Choice, Name, SearchBox, SimpleTable, Tabs, Toolbar, type Col } from ".
 import { shortDate } from "../timekeeping/format";
 import { FileLeaveDialog, RequestDialog } from "./dialogs";
 import { dateRange, leaveKeys, num, STATUS, useLeaveRefresh } from "./format";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 type Tab = RequestStatus | "all";
 
@@ -28,6 +29,7 @@ export function LeaveRequestsPage() {
   const [query, setQuery] = useState("");
   const [typeId, setTypeId] = useState("all");
   const [filing, setFiling] = useState(params.get("file") === "1");
+  useCreateParam("leave", () => setFiling(true));
   const [open, setOpen] = useState<{ r: RequestRow; reject?: boolean } | null>(null);
   const approve = useMutation({
     mutationFn: (r: RequestRow) => decideRequest(r.id, true, "", actor),

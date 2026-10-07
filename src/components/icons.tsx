@@ -28,6 +28,8 @@ import {
   IdCard,
   Inbox,
   LayoutGrid,
+  PanelLeftClose,
+  PanelLeftOpen,
   List,
   Loader2,
   Lock,
@@ -129,6 +131,16 @@ export function ChevronLeftIcon(props: IconProps) {
 
 export function ChevronRightIcon(props: IconProps) {
   return <ChevronRight strokeWidth={strokeWidth} {...props} />;
+}
+
+/** Sidebar toggle: shown while the sidebar is collapsed (opens it). */
+export function SidebarExpandIcon(props: IconProps) {
+  return <PanelLeftOpen strokeWidth={strokeWidth} {...props} />;
+}
+
+/** Sidebar toggle: shown while the sidebar is expanded (collapses it). */
+export function SidebarCollapseIcon(props: IconProps) {
+  return <PanelLeftClose strokeWidth={strokeWidth} {...props} />;
 }
 
 export function CheckIcon(props: IconProps) {

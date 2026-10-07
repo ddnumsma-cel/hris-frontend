@@ -14,6 +14,7 @@ import { canChange, useAccess } from "../administration/access";
 import { inputClass, useActor } from "../corehr/format";
 import { Drawer, ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { SimpleTable } from "../timekeeping/common";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 const KEY = ["payroll", "runs"] as const;
 const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -84,6 +85,7 @@ export function PayrollRunsPage() {
   const canEdit = canChange(useAccess().payroll);
   const runs = useQuery({ queryKey: KEY, queryFn: listRuns, staleTime: 0 });
   const [adding, setAdding] = useState(false);
+  useCreateParam("payroll-run", () => setAdding(true));
   if (runs.isError) return <LoadError onRetry={() => runs.refetch()} />;
   return (
     <>

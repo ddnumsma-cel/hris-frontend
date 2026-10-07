@@ -13,6 +13,7 @@ import { inputClass } from "../corehr/format";
 import { ErrorNote, Field, LoadError } from "../corehr/ui";
 import { SimpleTable } from "./common";
 import { addMinutes, hhmm, tkKeys } from "./format";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -97,6 +98,7 @@ export function ShiftsPage() {
   const shiftsQuery = useQuery({ queryKey: tkKeys.shifts, queryFn: listShifts });
   const peopleQuery = useQuery({ queryKey: tkKeys.people, queryFn: listPeople });
   const [editing, setEditing] = useState<ShiftTemplate | "new" | null>(null);
+  useCreateParam("shift", () => setEditing("new"));
   const users = (id: string) => (peopleQuery.data ?? []).filter((p) => p.usualShiftId === id).length;
 
   if (shiftsQuery.isError) return <LoadError onRetry={() => shiftsQuery.refetch()} />;

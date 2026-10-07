@@ -1,6 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
-import { SideNav } from "@/components/layout/SideNav";
+import { SideNav, type CreateGroup } from "@/components/layout/SideNav";
 import { reportDefinitions } from "./reports/reportDefinitions";
 import {
   AlertTriangleIcon,
@@ -10,22 +10,52 @@ import {
   ClockIcon,
   FlagIcon,
   GraduationCapIcon,
-  GridIcon,
+  HomeIcon,
   SettingsIcon,
   UsersIcon,
   WalletIcon,
 } from "@/components/icons";
+
+/** The sidebar's Create menu. Links with ?create=… open that page's form (see useCreateParam). */
+const CREATE: CreateGroup[] = [
+  {
+    title: "Team",
+    items: [
+      { label: "Approve leave", to: "/manager/approvals" },
+      { label: "Approve attendance", to: "/manager/attendance-approvals" },
+      { label: "Check team attendance", to: "/manager/attendance" },
+      { label: "View team calendar", to: "/manager/calendar" },
+    ],
+  },
+  {
+    title: "Development",
+    items: [
+      { label: "Assign training", to: "/manager/trainings?create=training" },
+      { label: "Review performance", to: "/manager/performance" },
+      { label: "File a case", to: "/manager/cases?create=case" },
+    ],
+  },
+  {
+    title: "Company",
+    items: [
+      { label: "Review payroll", to: "/manager/payroll" },
+      { label: "View workforce alerts", to: "/manager/workforce" },
+      { label: "View reports", to: "/manager/reports" },
+    ],
+  },
+];
 
 export function ManagerLayout() {
   return (
     <RolePage
       sidenav={
         <SideNav
+          create={CREATE}
           groups={[
             {
               title: "Team",
               items: [
-                { label: "Overview", to: "/manager", end: true, icon: <GridIcon /> },
+                { label: "Home", to: "/manager", end: true, icon: <HomeIcon /> },
                 { label: "Approvals", to: "/manager/approvals", icon: <CheckSquareIcon /> },
                 { label: "Team Calendar", to: "/manager/calendar", icon: <CalendarIcon /> },
                 {

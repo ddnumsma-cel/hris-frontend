@@ -11,6 +11,7 @@ import { inputClass, useActor } from "../corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { Choice, Name, SearchBox, SimpleTable, Toolbar, type Col } from "../timekeeping/common";
 import { shortDate } from "../timekeeping/format";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 const KEYS = { accounts: ["admin", "accounts"] as const, roles: ["admin", "roles"] as const };
 
@@ -182,6 +183,7 @@ export function UsersPage() {
   const [query, setQuery] = useState("");
   const [roleId, setRoleId] = useState("all");
   const [adding, setAdding] = useState(false);
+  useCreateParam("user", () => setAdding(true));
   const [open, setOpen] = useState<AccountRow | null>(null);
 
   if (accounts.isError) return <LoadError onRetry={() => accounts.refetch()} />;

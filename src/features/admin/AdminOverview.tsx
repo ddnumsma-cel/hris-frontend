@@ -40,6 +40,7 @@ import {
   fetchCertificateRequestsForReview,
   fetchComplianceCalendar,
   fetchEmployeeDirectory,
+  fetchEmployeeHireDates,
   fetchHeadcountByOffice,
   fetchOnboardingPipeline,
   fetchAllPersonnelDocuments,
@@ -63,11 +64,12 @@ import { currentAdmin } from "@/lib/mockData";
 import type { Employee } from "@/lib/types";
 import { useAccess } from "./administration/access";
 import { AddEmployeeDialog } from "./AddEmployeeDialog";
-import { HeadcountChart } from "./HeadcountChart";
+import { HeadcountChart, RecentlyJoined } from "./HeadcountChart";
 import { PayrollCostChart } from "./PayrollCostChart";
 import { PostAnnouncementDialog } from "./PostAnnouncementDialog";
 import { RecruitmentPipeline } from "./RecruitmentPipeline";
 import { tkKeys } from "./timekeeping/format";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 const complianceVariant: Record<string, ChipVariant> = {
   Filed: "good",
@@ -86,6 +88,7 @@ export function AdminOverview() {
   const toast = useToast();
   const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
+  useCreateParam("announcement", () => setAnnouncementOpen(true));
   const [profileEmployee, setProfileEmployee] = useState<Employee | null>(null);
 
   const statsQuery = useQuery({ queryKey: ["admin", "overview-stats"], queryFn: fetchAdminOverviewStats });
@@ -94,6 +97,7 @@ export function AdminOverview() {
   const costQuery = useQuery({ queryKey: ["admin", "payroll-cost"], queryFn: fetchPayrollCostBreakdown });
   const complianceQuery = useQuery({ queryKey: ["admin", "compliance-calendar"], queryFn: fetchComplianceCalendar });
   const directoryQuery = useQuery({ queryKey: ["admin", "employee-directory"], queryFn: fetchEmployeeDirectory });
+  const hireDatesQuery = useQuery({ queryKey: ["admin", "employee-hire-dates"], queryFn: fetchEmployeeHireDates });
   const onboardingQuery = useQuery({ queryKey: ["admin", "onboarding-pipeline"], queryFn: fetchOnboardingPipeline });
   const certificatesQuery = useQuery({
     queryKey: ["admin", "certificate-requests"],
@@ -257,22 +261,29 @@ export function AdminOverview() {
       />
 
       <div className="bento bento-admin">
-        {/* Hero: total headcount, split by office. */}
+        {/* Hero: total employees, growth this month, and where they work. */}
         <BentoArea area="hero">
           <BentoHero
-            title="Headcount by office"
+            title="Total employees"
             value={stats?.totalHeadcount ?? <Skeleton className="h-10 w-24" />}
             label={
               stats ? (
-                <span className="text-good">+{stats.newHiresThisMonth} this month</span>
+                <span className="inline-flex rounded-[var(--radius-pill)] bg-good-tint px-2.5 py-[3px] text-[11px] font-medium text-good">
+                  +{stats.newHiresThisMonth} this month
+                </span>
+              ) : undefined
+            }
+            action={
+              directoryQuery.data && hireDatesQuery.data ? (
+                <RecentlyJoined employees={directoryQuery.data} hireDates={hireDatesQuery.data} />
               ) : undefined
             }
           >
-            <div className="flex h-full flex-col justify-end">
+            <div className="h-full">
               {headcountQuery.data ? (
                 <HeadcountChart data={headcountQuery.data} />
               ) : (
-                <Skeleton className="h-36 w-full" />
+                <Skeleton className="h-full min-h-36 w-full" />
               )}
             </div>
           </BentoHero>

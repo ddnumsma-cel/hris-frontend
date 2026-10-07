@@ -11,6 +11,7 @@ import { inputClass } from "../corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { SimpleTable, type Col } from "../timekeeping/common";
 import { ELIGIBILITY, leaveKeys, proofText, useLeaveRefresh } from "./format";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 /** Paid types use one of the yearly leaves; unpaid ones (Leave without pay) have no limit. */
 type Draft = Omit<LeaveType, "id" | "active" | "earning"> & { id?: string; usesCredit: boolean };
@@ -118,6 +119,7 @@ export function LeaveTypesPage() {
   const refresh = useLeaveRefresh();
   const typesQuery = useQuery({ queryKey: leaveKeys.types, queryFn: listTypes });
   const [editing, setEditing] = useState<Draft | null>(null);
+  useCreateParam("leave-type", () => setEditing(BLANK));
   const toggle = useMutation({
     mutationFn: (t: LeaveType) => setTypeActive(t.id, !t.active),
     onSuccess: (_, t) => {

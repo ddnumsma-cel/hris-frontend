@@ -11,6 +11,7 @@ import { MODULES, type Access, type ModuleKey } from "@/lib/admin/store";
 import { inputClass, useActor } from "../corehr/format";
 import { ErrorNote, Field, LoadError } from "../corehr/ui";
 import { Name, SimpleTable, type Col } from "../timekeeping/common";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 const LEVELS: Access[] = ["none", "view", "edit", "approve"];
 const WORKSPACE = { admin: "HR workspace", manager: "Partner workspace", employee: "Employee self-service" } as const;
@@ -121,6 +122,7 @@ export function RolesPage() {
   const queryClient = useQueryClient();
   const roles = useQuery({ queryKey: ["admin", "roles"], queryFn: listRoles });
   const [editing, setEditing] = useState<Draft | null>(null);
+  useCreateParam("role", () => setEditing(blank));
   const remove = useMutation({
     mutationFn: (r: RoleRow) => deleteRole(r.id, actor, user?.accountId),
     onSuccess: () => {

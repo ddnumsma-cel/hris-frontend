@@ -14,6 +14,7 @@ import { inputClass } from "../admin/corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../admin/corehr/ui";
 import { SimpleTable, type Col } from "../admin/timekeeping/common";
 import { shortDate } from "../admin/timekeeping/format";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 const KEY = ["ess", "leave"] as const;
 type MyRequest = MyLeave["requests"][number];
@@ -170,13 +171,13 @@ function CreditsCard({ data }: { data: MyLeave }) {
                 r?.status === "pending" && "border-warning/40 bg-warning-tint",
               )}
             >
-              <span className={clsx("font-num text-[0.7rem] font-semibold", r?.status === "approved" ? "text-white/70" : "text-ink-3")}>{i + 1}</span>
+              <span className={clsx("font-num text-[0.7rem] font-semibold", r?.status === "approved" ? "text-[var(--on-accent)] opacity-80" : "text-ink-3")}>{i + 1}</span>
               {r ? (
                 <span className="min-w-0">
                   <span className={clsx("block truncate text-xs font-semibold", r.status === "pending" && "text-warning")}>
                     {r.type.name.replace(/ leave$/, "")}
                   </span>
-                  <span className={clsx("block truncate text-[0.7rem]", r.status === "approved" ? "text-white/75" : "text-ink-2")}>
+                  <span className={clsx("block truncate text-[0.7rem]", r.status === "approved" ? "text-[var(--on-accent)] opacity-80" : "text-ink-2")}>
                     {r.status === "pending" ? "Waiting" : dateRange(r.start, r.end)}
                   </span>
                 </span>
@@ -209,6 +210,7 @@ export function EmployeeLeave() {
   const queryClient = useQueryClient();
   const data = useQuery({ queryKey: KEY, queryFn: myLeave, staleTime: 0 });
   const [filing, setFiling] = useState(false);
+  useCreateParam("leave", () => setFiling(true));
   const [withdrawing, setWithdrawing] = useState<MyRequest | null>(null);
   const withdraw = useMutation({
     mutationFn: (r: MyRequest) => withdrawMyLeave(r.id),

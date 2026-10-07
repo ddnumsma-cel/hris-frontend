@@ -14,6 +14,7 @@ import { formatToday } from "@/lib/format";
 import type { CertificateRequest, CertificateRequestStatus } from "@/lib/types";
 import { RequestCertificateDialog } from "./RequestCertificateDialog";
 import { printCertificate } from "./printTemplates";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 const statusVariant: Record<CertificateRequestStatus, ChipVariant> = {
   Pending: "warn",
@@ -25,6 +26,7 @@ export function EmployeeCertificates() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
+  useCreateParam("certificate", () => setDialogOpen(true));
   const [cancellingRequest, setCancellingRequest] = useState<CertificateRequest | null>(null);
   const requestsQuery = useQuery({ queryKey: ["employee", "certificate-requests"], queryFn: fetchCertificateRequests });
   const employeeQuery = useQuery({ queryKey: ["employee", "me"], queryFn: fetchCurrentEmployee });

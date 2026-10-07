@@ -16,6 +16,7 @@ import { deleteTrainingRecord, fetchTeamTrainingRecords } from "@/lib/api";
 import { formatToday } from "@/lib/format";
 import { teamRoster } from "@/lib/mockData";
 import type { TrainingRecord, TrainingStatus } from "@/lib/types";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 const statusVariant: Record<TrainingStatus, ChipVariant> = {
   "Not started": "neutral",
@@ -28,6 +29,7 @@ export function ManagerTrainings() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [assignOpen, setAssignOpen] = useState(false);
+  useCreateParam("training", () => setAssignOpen(true));
   const [deletingRecord, setDeletingRecord] = useState<TrainingRecord | null>(null);
   const trainingsQuery = useQuery({ queryKey: ["manager", "team-trainings"], queryFn: fetchTeamTrainingRecords });
   const records = useMemo(() => trainingsQuery.data ?? [], [trainingsQuery.data]);

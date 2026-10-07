@@ -1,7 +1,19 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
-import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
-import { BarChartIcon, CalendarIcon, ClockIcon, FolderIcon, GridIcon, LockIcon, OrgChartIcon, ReceiptIcon, ShieldIcon, UsersIcon, WalletIcon } from "@/components/icons";
+import { SideNav, type CreateGroup, type SideNavGroup } from "@/components/layout/SideNav";
+import {
+  BarChartIcon,
+  CalendarIcon,
+  ClockIcon,
+  FolderIcon,
+  HomeIcon,
+  LockIcon,
+  OrgChartIcon,
+  ReceiptIcon,
+  ShieldIcon,
+  UsersIcon,
+  WalletIcon,
+} from "@/components/icons";
 import { AppNav } from "@/components/layout/AppNav";
 import { NON_HR_MODULES, type ModuleKey } from "@/lib/admin/store";
 import { canChange, EDIT_PAGES, moduleForPath, SUPER_ADMIN_PAGES, useAccess, useIsSuperAdmin } from "./administration/access";
@@ -10,7 +22,7 @@ const GROUPS: SideNavGroup[] = [
   {
     title: "Organization",
     short: "Home",
-    items: [{ label: "Overview", to: "/admin", end: true, icon: <GridIcon /> }],
+    items: [{ label: "Home", to: "/admin", end: true, icon: <HomeIcon /> }],
   },
   {
     title: "Core HR",
@@ -23,7 +35,7 @@ const GROUPS: SideNavGroup[] = [
   },
   {
     title: "Time & Attendance",
-    short: "Time",
+    short: "Attendance",
     items: [
       {
         label: "Timekeeping & Attendance",
@@ -117,6 +129,64 @@ const GROUPS: SideNavGroup[] = [
   },
 ];
 
+/**
+ * The rail's Create menu, laid out like an accounting app's "+ New": a column per area, each
+ * item an action ("Add employee", "Run payroll"). Blank forms carry ?create=… (read by useCreateParam, which opens the form);
+ * the rest go to the page where that task is done.
+ */
+const CREATE: CreateGroup[] = [
+  {
+    title: "People",
+    items: [
+      { label: "Add employee", to: "/admin/people/new" },
+      { label: "Post announcement", to: "/admin?create=announcement" },
+      { label: "Update reporting lines", to: "/admin/org-chart" },
+      { label: "Review documents", to: "/admin/documents" },
+    ],
+  },
+  {
+    title: "Time & attendance",
+    items: [
+      { label: "Add shift", to: "/admin/timekeeping/shifts?create=shift" },
+      { label: "Assign schedules", to: "/admin/timekeeping/schedules" },
+      { label: "Declare remote work day", to: "/admin/timekeeping/remote?create=remote-day" },
+      { label: "Add missing time", to: "/admin/timekeeping/logs" },
+      { label: "Review time adjustments", to: "/admin/timekeeping/corrections" },
+      { label: "Approve overtime", to: "/admin/timekeeping/overtime" },
+      { label: "Send lateness notice", to: "/admin/timekeeping/tardiness" },
+    ],
+  },
+  {
+    title: "Leave & expenses",
+    items: [
+      { label: "File leave", to: "/admin/leave/requests?create=leave" },
+      { label: "Add leave type", to: "/admin/leave/types?create=leave-type" },
+      { label: "Adjust leave balances", to: "/admin/leave/balances" },
+      { label: "Approve leave", to: "/admin/leave/requests" },
+      { label: "Review reimbursements", to: "/admin/reimbursements" },
+    ],
+  },
+  {
+    title: "Payroll",
+    items: [
+      { label: "Run payroll", to: "/admin/payroll/runs?create=payroll-run" },
+      { label: "Update contribution rates", to: "/admin/payroll/contributions?create=contribution-rates" },
+      { label: "View payroll report", to: "/admin/reports/payroll" },
+      { label: "View government reports", to: "/admin/reports/statutory" },
+    ],
+  },
+  {
+    title: "Other",
+    items: [
+      { label: "Add user", to: "/admin/administration/users?create=user" },
+      { label: "Add role", to: "/admin/administration/roles?create=role" },
+      { label: "Edit approval workflows", to: "/admin/administration/workflows" },
+      { label: "View HR report", to: "/admin/reports/hr" },
+      { label: "View attendance report", to: "/admin/reports/attendance" },
+    ],
+  },
+];
+
 function NoAccess() {
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface px-6 py-16 text-center">
@@ -147,6 +217,8 @@ export function AdminLayout() {
     ...g,
     items: g.items.filter((i) => allowed(i.to)).map((i) => (i.children ? { ...i, children: i.children.filter((c) => allowed(c.to)) } : i)),
   })).filter((g) => g.items.length > 0);
+  // Only the create actions whose page this person can open.
+  const create = CREATE.map((g) => ({ ...g, items: g.items.filter((i) => allowed(i.to.split("?")[0]!)) })).filter((g) => g.items.length > 0);
 
   return (
     <RolePage
@@ -154,7 +226,7 @@ export function AdminLayout() {
         <>
           {/* Phones get the slide-in menu; desktop gets the sidebar style chosen in Menu settings. */}
           <SideNav groups={groups} desktop={false} />
-          <AppNav groups={groups} />
+          <AppNav groups={groups} create={create} />
         </>
       }
     >

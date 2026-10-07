@@ -15,6 +15,7 @@ import { inputClass } from "../admin/corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../admin/corehr/ui";
 import { peso, receiptDate, STATUS, useClaimsRefresh } from "../admin/reimbursements/format";
 import { ReceiptThumb, ReceiptViewer } from "../admin/reimbursements/receipt";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 const KEY = ["ess", "claims"] as const;
 type Draft = Omit<ClaimInput, "employeeId" | "amount"> & { amount: string };
@@ -202,6 +203,7 @@ function Summary({ claims }: { claims: Claim[] }) {
 export function EmployeeReimbursements() {
   const data = useQuery({ queryKey: KEY, queryFn: myClaims, staleTime: 0 });
   const [creating, setCreating] = useState(false);
+  useCreateParam("claim", () => setCreating(true));
   const [viewing, setViewing] = useState<Claim | null>(null);
 
   if (data.isError) return <LoadError onRetry={() => data.refetch()} />;

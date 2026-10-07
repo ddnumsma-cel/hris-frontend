@@ -13,6 +13,7 @@ import { inputClass, useActor } from "../corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { Name, SimpleTable } from "./common";
 import { shortDate } from "./format";
+import { useCreateParam } from "@/lib/useCreateParam";
 
 const OFFICES = ["Cebu HQ", "Manila", "Davao"];
 const KEY = ["timekeeping", "remote-days"] as const;
@@ -94,6 +95,7 @@ export function RemoteDaysPage() {
   const days = useQuery({ queryKey: KEY, queryFn: listRemoteDays, staleTime: 0 });
   const today = useQuery({ queryKey: [...KEY, "today"], queryFn: remoteAttendanceToday, staleTime: 0 });
   const [declaring, setDeclaring] = useState(false);
+  useCreateParam("remote-day", () => setDeclaring(true));
   const cancel = useMutation({
     mutationFn: (d: RemoteDay) => cancelRemoteDay(d.id),
     onSuccess: () => (queryClient.invalidateQueries(), toast.show("Remote work day cancelled. The office scanners count again.")),
