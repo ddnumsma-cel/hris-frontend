@@ -4,7 +4,7 @@
 import type { DemoKey } from "../credentials";
 import type { Role } from "../types";
 
-export type ModuleKey = "people" | "company" | "documents" | "timekeeping" | "leave" | "reimbursements" | "reports" | "administration";
+export type ModuleKey = "people" | "company" | "documents" | "timekeeping" | "leave" | "reimbursements" | "reports" | "payroll" | "administration";
 export type Access = "none" | "view" | "edit" | "approve";
 
 export const MODULES: { key: ModuleKey; label: string; approvable?: boolean }[] = [
@@ -15,6 +15,7 @@ export const MODULES: { key: ModuleKey; label: string; approvable?: boolean }[] 
   { key: "leave", label: "Leave Management", approvable: true },
   { key: "reimbursements", label: "Reimbursements", approvable: true },
   { key: "reports", label: "Reports & Analytics" },
+  { key: "payroll", label: "Payroll & contributions" },
   { key: "administration", label: "Administration & Security" },
 ];
 
@@ -83,7 +84,7 @@ export interface AdminLog {
   id: string;
   at: string;
   actor: string;
-  module: "Administration" | "Sign-in";
+  module: "Administration" | "Sign-in" | "Payroll";
   action: string;
   target: string;
   detail: string;
@@ -99,12 +100,12 @@ export interface AdminState {
 
 const KEY = "heyhr-admin-v3";
 
-const all = (a: Access): Record<ModuleKey, Access> => ({ people: a, company: a, documents: a, timekeeping: a, leave: a, reimbursements: a, reports: a, administration: a });
+const all = (a: Access): Record<ModuleKey, Access> => ({ people: a, company: a, documents: a, timekeeping: a, leave: a, reimbursements: a, reports: a, payroll: a, administration: a });
 
 export const DEFAULT_ROLES: SystemRole[] = [
-  { id: "super-admin", name: "Super Admin", description: "Runs the system: users, roles, approval workflows, audit trail and settings. No access to employee data.", workspace: "admin", builtIn: true, superAdmin: true, access: { ...all("none"), administration: "edit" } },
-  { id: "admin", name: "Admin", description: "Runs HR: every HR module, company setup and approvals.", workspace: "admin", builtIn: true, access: { ...all("edit"), timekeeping: "approve", leave: "approve", reimbursements: "approve", administration: "none" } },
-  { id: "hr", name: "HR", description: "Day-to-day HR: employee records, attendance, leave and reports. Approves leave, overtime and undertime.", workspace: "admin", builtIn: true, access: { people: "edit", company: "view", documents: "edit", timekeeping: "approve", leave: "approve", reimbursements: "approve", reports: "view", administration: "none" } },
+  { id: "super-admin", name: "Super Admin", description: "Runs the system and payroll: users, roles, approval workflows, audit trail, settings, payroll and government contributions.", workspace: "admin", builtIn: true, superAdmin: true, access: { ...all("none"), payroll: "edit", administration: "edit" } },
+  { id: "admin", name: "Admin", description: "Runs HR: every HR module, company setup and approvals.", workspace: "admin", builtIn: true, access: { ...all("edit"), timekeeping: "approve", leave: "approve", reimbursements: "approve", administration: "none", payroll: "none" } },
+  { id: "hr", name: "HR", description: "Day-to-day HR: employee records, attendance, leave and reports. Approves leave, overtime and undertime.", workspace: "admin", builtIn: true, access: { people: "edit", company: "view", documents: "edit", timekeeping: "approve", leave: "approve", reimbursements: "approve", reports: "view", payroll: "view", administration: "none" } },
   { id: "employee", name: "Employee", description: "Self-service: own leave, time, payslips and 201 file.", workspace: "employee", builtIn: true, access: all("none") },
 ];
 
@@ -181,3 +182,6 @@ export function logAdmin(entry: Omit<AdminLog, "id" | "at">) {
 export const roleOf = (account: UserAccount | undefined) => admin.roles.find((r) => r.id === account?.roleId);
 
 export const isSuperAdmin = (accountId: string | undefined) => !!roleOf(admin.accounts.find((a) => a.id === accountId))?.superAdmin;
+
+/** Modules that don't open the HR workspace by themselves: system setup and payroll (the CEO runs both). */
+export const NON_HR_MODULES: ModuleKey[] = ["administration", "payroll"];

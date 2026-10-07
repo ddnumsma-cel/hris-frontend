@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/ToastContext";
 import { MailIcon, PhoneIcon } from "@/components/icons";
 import { documentAlert, getEmployee, getOrgChart, listAudit, listDocuments, listEvents, logGovernmentReveal, peso, setReportsTo, type EditableSection, type EmployeeRecord as Rec } from "@/lib/corehr/api";
 import type { EventKind } from "@/lib/corehr/types";
-import { useAccess } from "../administration/access";
+import { canChange, useAccess } from "../administration/access";
 import { DocumentChecklist } from "./DocumentChecklist";
 import { EditSectionDialog } from "./EditSectionDialog";
 import { formatDate, inputClass, keys, mask, statusTone, tenure, useActor, type Tone } from "./format";
@@ -151,8 +151,7 @@ function ReportsToDialog({ record, onClose }: { record: Rec; onClose: () => void
 export function EmployeeRecord({ employeeId }: { employeeId: string }) {
   const actor = useActor();
   const queryClient = useQueryClient();
-  const access = useAccess();
-  const canEdit = access.people === "edit" || access.people === "approve";
+  const canEdit = canChange(useAccess().people);
   const recordQuery = useQuery({ queryKey: keys.employee(employeeId), queryFn: () => getEmployee(employeeId) });
   const documentsQuery = useQuery({ queryKey: [...keys.documents, employeeId], queryFn: () => listDocuments(employeeId) });
   const eventsQuery = useQuery({ queryKey: keys.events(employeeId), queryFn: () => listEvents(employeeId) });

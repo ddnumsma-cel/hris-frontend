@@ -1,3 +1,4 @@
+import { pagibig as pagibigShare, philhealth as philhealthShare, sss as sssShare, withholding } from "./reports/statutory";
 import type { PayrollEntry } from "./types";
 
 /**
@@ -5,10 +6,8 @@ import type { PayrollEntry } from "./types";
  *
  * Simplified Philippine rules — good enough for the prototype, but the real
  * figures should come from the payroll backend:
- * - SSS: 5% employee share of the monthly salary credit (₱5,000–₱35,000)
- * - PhilHealth: 2.5% employee share of basic pay (floor ₱10,000, cap ₱100,000)
- * - Pag-IBIG: 2% of basic pay, capped at ₱200/month
- * - Withholding tax: BIR semi-monthly table (TRAIN, 2023 onward)
+ * - SSS, PhilHealth, Pag-IBIG and the BIR semi-monthly tax table: the rates in
+ *   force today, maintained on the Government contributions page (reports/statutory.ts)
  * - Overtime: 125% of the hourly rate (22 working days × 8 hours)
  * - Allowances are treated as non-taxable de minimis.
  * Monthly contributions are split evenly across both cutoffs.
@@ -21,22 +20,7 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-function clamp(n: number, min: number, max: number) {
-  return Math.min(Math.max(n, min), max);
-}
-
-const semiMonthlyTaxBrackets = [
-  { over: 333_333, base: 91_770.7, rate: 0.35 },
-  { over: 83_333, base: 16_770.7, rate: 0.3 },
-  { over: 33_333, base: 4_270.7, rate: 0.25 },
-  { over: 16_667, base: 937.5, rate: 0.2 },
-  { over: 10_417, base: 0, rate: 0.15 },
-];
-
-function semiMonthlyWithholdingTax(taxable: number) {
-  const bracket = semiMonthlyTaxBrackets.find((b) => taxable > b.over);
-  return bracket ? bracket.base + (taxable - bracket.over) * bracket.rate : 0;
-}
+const semiMonthlyWithholdingTax = (taxable: number) => withholding(taxable, "semi-monthly");
 
 export interface PayrollComputation {
   basicPay: number;
@@ -59,9 +43,10 @@ export function computePayroll(entry: Pick<PayrollEntry, "monthlyBasic" | "allow
   const allowance = Math.max(0, entry.allowance);
   const gross = basicPay + overtimePay + allowance;
 
-  const sss = monthly > 0 ? (clamp(monthly, 5_000, 35_000) * 0.05) / 2 : 0;
-  const philHealth = monthly > 0 ? (clamp(monthly, 10_000, 100_000) * 0.025) / 2 : 0;
-  const pagIbig = (Math.min(monthly * 0.02, 200)) / 2;
+  // Employee shares from the Government contributions page, split across both cutoffs.
+  const sss = sssShare(monthly).ee / 2;
+  const philHealth = philhealthShare(monthly).ee / 2;
+  const pagIbig = pagibigShare(monthly).ee / 2;
   const statutory = sss + philHealth + pagIbig;
 
   const withholdingTax = semiMonthlyWithholdingTax(Math.max(0, basicPay + overtimePay - statutory));

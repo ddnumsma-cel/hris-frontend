@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { useAuth } from "@/features/auth/AuthContext";
@@ -39,7 +39,6 @@ export function TopBar() {
     queryFn: fetchMyPhoto,
     enabled: user?.role === "employee",
   });
-
   function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" && searchValue.trim()) {
       navigate(`/admin/people?q=${encodeURIComponent(searchValue.trim())}`);
@@ -173,7 +172,7 @@ export function TopBar() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <ProfileChip linked={user.role === "employee"}>
           {photoQuery.data ? (
             <img src={photoQuery.data} alt="" className="h-7.5 w-7.5 flex-none rounded-full object-cover" />
           ) : (
@@ -185,7 +184,7 @@ export function TopBar() {
             <div className="topbar-name">{user.name}</div>
             <div className="topbar-secondary">{user.title}</div>
           </div>
-        </div>
+        </ProfileChip>
 
         <button
           type="button"
@@ -197,5 +196,15 @@ export function TopBar() {
         </button>
       </div>
     </header>
+  );
+}
+
+/** The signed-in person. For employees it links to their 201 File. */
+function ProfileChip({ linked, children }: { linked: boolean; children: ReactNode }) {
+  if (!linked) return <div className="flex items-center gap-2">{children}</div>;
+  return (
+    <Link to="/employee/201-file" title="Open my 201 File" className="topbar-icon-button flex items-center gap-2 rounded-lg px-1.5 py-1 text-left">
+      {children}
+    </Link>
   );
 }

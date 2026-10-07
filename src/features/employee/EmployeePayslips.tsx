@@ -18,8 +18,8 @@ function timeLines(p: MyPayslip): [string, string][] {
   return [
     ["Days present", String(t.present)],
     ["Hours worked", t.workedMinutes ? duration(t.workedMinutes) : "—"],
-    ["Lunch breaks (unpaid, automatic)", t.lunchBreaks ? `${t.lunchBreaks} · ${duration(t.lunchMinutes)}` : "—"],
-    ["Late", t.lateMinutes ? duration(t.lateMinutes) : "None"],
+    ["Lunch (unpaid)", t.lunchBreaks ? `${t.lunchBreaks} · ${duration(t.lunchMinutes)}` : "—"],
+    ["Late (not deducted)", t.lateMinutes ? duration(t.lateMinutes) : "None"],
     ["Undertime", t.undertimeMinutes ? duration(t.undertimeMinutes) : "None"],
     ["Absences", t.absent ? String(t.absent) : "None"],
     ...(t.overtimeMinutes ? [["Approved overtime", duration(t.overtimeMinutes)] as [string, string]] : []),
@@ -33,7 +33,7 @@ function lines(p: MyPayslip) {
       ["Basic pay", l.basic],
       ...(l.overtime ? [["Overtime", l.overtime] as const] : []),
       ...(l.premiums ? [["Holiday and night pay", l.premiums] as const] : []),
-      ...(l.deductions ? [["Less absences, lates and undertime", -l.deductions] as const] : []),
+      ...(l.deductions ? [["Less absences and undertime", -l.deductions] as const] : []),
     ] as [string, number][],
     deductions: [
       ["SSS", l.sssEe],
@@ -44,19 +44,112 @@ function lines(p: MyPayslip) {
   };
 }
 
+/** The printed payslip, in the app's look: navy header, brand green, Lexend. One page. */
+const SLIP_STYLES = `
+  @page { size: A4; margin: 0; }
+  body { padding: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #fff; }
+  .slip { max-width: 760px; margin: 0 auto; padding: 36px 40px 28px; }
+  .hero { background: #0e1835; color: #fff; border-radius: 18px; padding: 24px 26px; display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; }
+  .co { display: flex; gap: 14px; align-items: center; }
+  .co { gap: 16px; }
+  .co img { height: 44px; width: auto; display: block; }
+  .co-text { border-left: 1px solid rgba(255,255,255,.18); padding-left: 16px; }
+  .co-name { font-size: 18px; font-weight: 700; }
+  .co-sub { font-size: 10.5px; color: #b9bfd2; margin-top: 2px; }
+  .tag { display: inline-block; background: #bfe36b; color: #0e1835; font-size: 10px; font-weight: 700; letter-spacing: .14em; padding: 4px 10px; border-radius: 999px; }
+  .period { text-align: right; }
+  .period-label { font-size: 16px; font-weight: 600; margin-top: 8px; }
+  .period-sub { font-size: 10.5px; color: #b9bfd2; margin-top: 2px; }
+  .who { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 18px 2px 0; }
+  .label { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: #7d8496; font-weight: 600; }
+  .value { font-size: 12.5px; font-weight: 600; margin-top: 3px; }
+  .net { margin-top: 18px; display: grid; grid-template-columns: 1.3fr 1fr 1fr; border: 1px solid #dde1d6; border-radius: 16px; overflow: hidden; }
+  .net > div { padding: 16px 18px; }
+  .net .main { background: #eef4dc; }
+  .net .main .amt { font-size: 28px; font-weight: 700; color: #3f6212; letter-spacing: -.01em; }
+  .net .amt { font-size: 17px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .net > div + div { border-left: 1px solid #dde1d6; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  .card { border: 1px solid #dde1d6; border-radius: 16px; padding: 14px 16px 10px; }
+  .card h2 { margin: 0 0 6px; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+  .card table { margin: 0; }
+  .card td { font-size: 12px; padding: 7px 0; border-bottom: 1px solid #eceee7; }
+  .card tr:last-child td { border-bottom: 0; }
+  .card .tot td { font-weight: 700; border-top: 2px solid #12172a; border-bottom: 0; padding-top: 9px; }
+  .minus { color: #a82c2c; }
+  .time { margin-top: 18px; border: 1px solid #dde1d6; border-radius: 16px; padding: 14px 16px; }
+  .time h2 { margin: 0 0 10px; font-size: 12px; font-weight: 700; }
+  .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .chip { background: #f4f5f0; border-radius: 10px; padding: 9px 11px; }
+  .chip .value { font-size: 13px; }
+  .er { margin-top: 14px; font-size: 10.5px; color: #4c5568; }
+  .foot { margin-top: 22px; padding-top: 12px; border-top: 1px solid #dde1d6; display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #7d8496; gap: 16px; }
+  .foot img { height: 16px; }
+`;
+
 function printSlip(p: MyPayslip) {
   const { earnings, deductions } = lines(p);
-  const row = ([k, v]: [string, number]) => `<tr><td>${escapeHtml(k)}</td><td class="num">${escapeHtml(formatPHP(v))}</td></tr>`;
+  const l = p.line;
+  const s = admin.settings;
+  const origin = window.location.origin;
+  const money = (v: number) => escapeHtml(v < 0 ? `−${formatPHP(-v)}` : formatPHP(v));
+  const row = ([k, v]: [string, number]) => `<tr><td>${escapeHtml(k)}</td><td class="num${v < 0 ? " minus" : ""}">${money(v)}</td></tr>`;
   const totalDed = deductions.reduce((n, [, v]) => n + v, 0);
+  const employerShare = l.sssEr + l.ec + l.phEr + l.piEr;
+  const coSub = [s.address, s.tin && `TIN ${s.tin}`].filter(Boolean).join(" · ");
   openPrintDocument(
-    `Payslip ${p.period.label}`,
-    `<div class="doc-header"><div class="doc-brand">${escapeHtml(admin.settings.companyName)}</div><div class="doc-title"><h1>Payslip</h1><p>${escapeHtml(p.period.label)}</p></div></div>
-     <div class="meta-grid"><div><span class="meta-label">Employee</span><span class="meta-value">${escapeHtml(myName())}</span></div><div><span class="meta-label">Department</span><span class="meta-value">${escapeHtml(p.line.person.department)}</span></div></div>
-     <table><thead><tr><th>Earnings</th><th class="num">Amount</th></tr></thead><tbody>${earnings.map(row).join("")}<tr class="total-row"><td>Gross pay</td><td class="num">${escapeHtml(formatPHP(p.line.gross))}</td></tr></tbody></table>
-     <table style="margin-top:20px"><thead><tr><th>Deductions</th><th class="num">Amount</th></tr></thead><tbody>${deductions.map(row).join("")}<tr class="total-row"><td>Total deductions</td><td class="num">${escapeHtml(formatPHP(totalDed))}</td></tr></tbody></table>
-     <table style="margin-top:20px"><thead><tr><th>Time &amp; attendance</th><th class="num"></th></tr></thead><tbody>${timeLines(p).map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td class="num">${escapeHtml(v)}</td></tr>`).join("")}</tbody></table>
-     <table style="margin-top:20px"><tbody><tr class="total-row"><td>Take-home pay</td><td class="num">${escapeHtml(formatPHP(p.line.net))}</td></tr></tbody></table>
-     <p class="doc-footer">${p.released ? "Released" : "Preview: this cut-off hasn't ended, so the final amount may change."} Generated ${escapeHtml(new Date().toLocaleString("en-PH"))}.</p>`,
+    `Payslip ${p.period.label} · ${myName()}`,
+    `<style>${SLIP_STYLES}</style>
+     <div class="slip">
+       <div class="hero">
+         <div class="co">
+           <img src="${origin}/brand/msma-mark.png" alt="">
+           <div class="co-text"><div class="co-name">${escapeHtml(s.companyName)}</div>${coSub ? `<div class="co-sub">${escapeHtml(coSub)}</div>` : ""}</div>
+         </div>
+         <div class="period">
+           <span class="tag">PAYSLIP</span>
+           <div class="period-label">${escapeHtml(p.period.label)}</div>
+           <div class="period-sub">${p.released ? "Released" : "Preview · may still change"}</div>
+         </div>
+       </div>
+
+       <div class="who">
+         <div><div class="label">Employee</div><div class="value">${escapeHtml(myName())}</div></div>
+         <div><div class="label">Employee ID</div><div class="value">${escapeHtml(l.person.id)}</div></div>
+         <div><div class="label">Position</div><div class="value">${escapeHtml(l.person.position || "—")}</div></div>
+         <div><div class="label">Department</div><div class="value">${escapeHtml(l.person.department)}</div></div>
+       </div>
+
+       <div class="net">
+         <div class="main"><div class="label">Take-home pay</div><div class="amt">${money(l.net)}</div></div>
+         <div><div class="label">Gross pay</div><div class="amt">${money(l.gross)}</div></div>
+         <div><div class="label">Total deductions</div><div class="amt">${money(totalDed)}</div></div>
+       </div>
+
+       <div class="cols">
+         <div class="card">
+           <h2><span class="dot" style="background:#4d7c0f"></span>Earnings</h2>
+           <table><tbody>${earnings.map(row).join("")}<tr class="tot"><td>Gross pay</td><td class="num">${money(l.gross)}</td></tr></tbody></table>
+         </div>
+         <div class="card">
+           <h2><span class="dot" style="background:#d03b3b"></span>Deductions</h2>
+           <table><tbody>${deductions.map(row).join("")}<tr class="tot"><td>Total deductions</td><td class="num">${money(totalDed)}</td></tr></tbody></table>
+         </div>
+       </div>
+
+       <div class="time">
+         <h2>Time &amp; attendance</h2>
+         <div class="chips">${timeLines(p).map(([k, v]) => `<div class="chip"><div class="label">${escapeHtml(k)}</div><div class="value">${escapeHtml(v)}</div></div>`).join("")}</div>
+       </div>
+
+       ${employerShare > 0 ? `<p class="er">Your employer also paid ${money(employerShare)} for you this cut-off: SSS ${money(l.sssEr + l.ec)}, PhilHealth ${money(l.phEr)}, Pag-IBIG ${money(l.piEr)}.</p>` : ""}
+
+       <div class="foot">
+         <span>System-generated payslip, no signature needed. Questions about your pay? ${escapeHtml(s.contactEmail ? `Email ${s.contactEmail}.` : "Ask HR.")}<br>Printed ${escapeHtml(new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" }))}</span>
+         <img src="${origin}/brand/heyhr-wordmark.svg" alt="heyhr">
+       </div>
+     </div>`,
   );
 }
 
@@ -134,7 +227,7 @@ export function EmployeePayslips() {
       {slips.isLoading ? (
         <Skeleton className="h-96 w-full" />
       ) : list.length === 0 ? (
-        <p className="text-sm text-ink-3">No payslips yet.</p>
+        <p className="text-sm text-ink-3">No payslips yet. They appear here once payroll for a cutoff is approved.</p>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
           <ul className="flex flex-col gap-2" aria-label="Cut-offs">

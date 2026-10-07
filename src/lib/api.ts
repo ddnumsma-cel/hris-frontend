@@ -88,6 +88,7 @@ import type {
   TrainingRecord,
   TrainingStatus,
 } from "./types";
+import { getExpiringPersonnelFields } from "./automation";
 import { getCredential, getCredentials, setCredential } from "./credentials";
 import { buildEmployeeFileRecords } from "./employmentRecords";
 import { teamReports, type ReportId } from "./reportsData";
@@ -332,7 +333,8 @@ export function fetchAuditLog(employeeId: string) {
 // --- 201 File: employee-side (checklist only, no sensitive fields) ---
 
 function toChecklistItem(doc: PersonnelDocument): PersonnelDocumentChecklistItem {
-  return { id: doc.id, type: doc.type, status: doc.status };
+  const [expiry] = getExpiringPersonnelFields(doc);
+  return { id: doc.id, type: doc.type, status: doc.status, uploadedOn: doc.uploadedOn, ...(expiry ? { expiry: { status: expiry.status, note: expiry.note } } : {}) };
 }
 
 export function fetchMyPersonnelChecklist() {

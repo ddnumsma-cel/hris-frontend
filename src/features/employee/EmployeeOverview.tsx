@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
@@ -29,33 +29,28 @@ import {
   fetchMyTrainingRecords,
 } from "@/lib/api";
 import { getCpdStatus, isTrainingOverdue } from "@/lib/automation";
-import { formatElapsed, formatPHP, formatToday } from "@/lib/format";
+import { formatPHP, formatToday } from "@/lib/format";
 import {
   BellIcon,
-  BuildingIcon,
   CalendarIcon,
   CameraIcon,
   CheckIcon,
-  ClockIcon,
   DownloadIcon,
   FileIcon,
   FolderIcon,
   GraduationCapIcon,
-  HomeIcon,
-  LoaderIcon,
   ShieldIcon,
   WalletIcon,
 } from "@/components/icons";
 import { AttentionPanel, type AttentionItem } from "@/components/shared/AttentionPanel";
 import { BenefitsCard } from "./BenefitsCard";
-import { FaceScanDialog } from "./FaceScanDialog";
+import { AttendanceClock } from "@/components/shared/AttendanceClock";
 import { FileMyLeaveDialog } from "./EmployeeLeave";
 import { myAttendance, myLeave, myPayslips } from "@/lib/ess/api";
 import { RequestCertificateDialog } from "./RequestCertificateDialog";
 import { printPayslip } from "./printTemplates";
 import type { Payslip } from "@/lib/types";
 
-type WorkLocation = "Onsite" | "Remote";
 
 export function EmployeeOverview() {
   const navigate = useNavigate();
@@ -63,18 +58,6 @@ export function EmployeeOverview() {
   const toast = useToast();
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [certDialogOpen, setCertDialogOpen] = useState(false);
-  const [clockedIn, setClockedIn] = useState<Date | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const [workLocation, setWorkLocation] = useState<WorkLocation>("Onsite");
-  const [faceScanOpen, setFaceScanOpen] = useState(false);
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    if (!clockedIn) return;
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, [clockedIn]);
-
   const employeeQuery = useQuery({ queryKey: ["employee", "me"], queryFn: fetchCurrentEmployee });
   // The yearly leave credit pool, same as the My leave page.
   const creditsQuery = useQuery({
@@ -96,7 +79,7 @@ export function EmployeeOverview() {
           { label: "Basic pay", amount: s.line.basic, kind: "earning" },
           ...(s.line.overtime ? [{ label: "Overtime", amount: s.line.overtime, kind: "earning" as const }] : []),
           ...(s.line.premiums ? [{ label: "Holiday and night pay", amount: s.line.premiums, kind: "earning" as const }] : []),
-          ...(s.line.deductions ? [{ label: "Absences and lates", amount: s.line.deductions, kind: "deduction" as const }] : []),
+          ...(s.line.deductions ? [{ label: "Absences and undertime", amount: s.line.deductions, kind: "deduction" as const }] : []),
           { label: "SSS", amount: s.line.sssEe, kind: "deduction" },
           { label: "PhilHealth", amount: s.line.phEe, kind: "deduction" },
           { label: "Pag-IBIG", amount: s.line.piEe, kind: "deduction" },
@@ -206,52 +189,6 @@ export function EmployeeOverview() {
     });
   }
 
-  function handleClockOut() {
-    setScanning(true);
-    setTimeout(() => {
-      setScanning(false);
-      setClockedIn(null);
-      toast.show(`Clocked out — have a good evening, ${employee?.name.split(" ")[0] ?? ""}!`);
-    }, 900);
-  }
-
-  function handleClockIn() {
-    if (workLocation === "Remote") {
-      if (!employee?.faceEnrolled) {
-        toast.show("Enroll your Face ID under 201 File before clocking in remotely.", "critical");
-        return;
-      }
-      setFaceScanOpen(true);
-      return;
-    }
-    // Onsite attendance is verified by the office's physical fingerprint scanner (a
-    // separate device), not by this laptop/browser — this just confirms that log with
-    // the system, so there's no fingerprint capture step here.
-    setScanning(true);
-    setTimeout(() => {
-      setScanning(false);
-      const clockInTime = new Date();
-      setClockedIn(clockInTime);
-      setNow(clockInTime);
-      const time = clockInTime.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
-      toast.show(`Clocked in at ${time} (Onsite) — confirmed by the office biometric scanner.`);
-    }, 900);
-  }
-
-  function handleClockToggle() {
-    if (clockedIn) handleClockOut();
-    else handleClockIn();
-  }
-
-  function handleFaceScanSuccess() {
-    setFaceScanOpen(false);
-    const clockInTime = new Date();
-    setClockedIn(clockInTime);
-    setNow(clockInTime);
-    const time = clockInTime.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
-    toast.show(`Face verified. Clocked in at ${time} (Remote).`);
-  }
-
   function handleDownloadPayslip() {
     if (!latestPayslip) return;
     printPayslip(employee, latestPayslip);
@@ -264,59 +201,7 @@ export function EmployeeOverview() {
         subtitle={`${formatToday()} · ${employee?.department ?? "…"}, ${employee?.office ?? ""} · ID ${employee?.id ?? ""}`}
         actions={
           <>
-            {!clockedIn && (
-              <div className="flex rounded-lg border border-border bg-surface p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setWorkLocation("Onsite")}
-                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold ${
-                    workLocation === "Onsite" ? "bg-brand-tint text-brand-ink" : "text-ink-2"
-                  }`}
-                >
-                  <BuildingIcon className="h-3.5 w-3.5" />
-                  Office
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWorkLocation("Remote")}
-                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold ${
-                    workLocation === "Remote" ? "bg-brand-tint text-brand-ink" : "text-ink-2"
-                  }`}
-                >
-                  <HomeIcon className="h-3.5 w-3.5" />
-                  Remote
-                </button>
-              </div>
-            )}
-            {clockedIn && (
-              <span className="flex items-center gap-1.5 rounded-lg border border-good/30 bg-good-tint px-2.5 py-1.5 text-xs font-semibold text-good">
-                <ClockIcon className="h-3.5 w-3.5" />
-                Clocked in at {clockedIn.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })} ·{" "}
-                {formatElapsed(now.getTime() - clockedIn.getTime())}
-              </span>
-            )}
-            <Button
-              variant="ghost"
-              icon={
-                scanning ? (
-                  <LoaderIcon className="h-3.75 w-3.75 animate-spin" />
-                ) : (
-                  <ClockIcon className="h-3.75 w-3.75" />
-                )
-              }
-              onClick={handleClockToggle}
-              disabled={scanning}
-            >
-              {scanning
-                ? clockedIn
-                  ? "Clocking out…"
-                  : "Confirming with office scanner…"
-                : clockedIn
-                  ? "Clock Out"
-                  : workLocation === "Remote"
-                    ? "Clock In (Face Scan)"
-                    : "Clock In"}
-            </Button>
+            <AttendanceClock employeeId={employee?.id} personName={employee?.name.split(" ")[0]} actor={employee?.name ?? "Employee"} needsEnrollment={!!employee && !employee.faceEnrolled} />
             <Button icon={<CalendarIcon className="h-3.75 w-3.75" />} onClick={() => setLeaveDialogOpen(true)}>
               File Leave
             </Button>
@@ -494,7 +379,6 @@ export function EmployeeOverview() {
         }}
       />
 
-      <FaceScanDialog open={faceScanOpen} mode="verify" onClose={() => setFaceScanOpen(false)} onSuccess={handleFaceScanSuccess} />
     </div>
   );
 }

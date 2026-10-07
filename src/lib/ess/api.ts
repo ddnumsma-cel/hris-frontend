@@ -7,11 +7,12 @@ import { cancelRequest, fileLeave, type FileInput } from "../leave/api";
 import { balanceFor, creditsFor, leave, type Credits } from "../leave/store";
 import { currentEmployee } from "../mockData";
 import { fileClaim, listMyClaims, type ClaimInput } from "../reimbursements/api";
-import { payroll, periodsFor, type PayLine, type Period } from "../reports/api";
+import { approvedLinesFor } from "../pay/runs";
+import type { PayLine, Period } from "../reports/api";
 import { addDays } from "../timekeeping/compute";
-import { fileFix, fileRequest, listDays, type DayRow } from "../timekeeping/api";
+import { acknowledgeNotice, fileFix, fileRequest, listDays, listNotices, type DayRow } from "../timekeeping/api";
 import { tk, todayIso } from "../timekeeping/store";
-import type { FixRequest, TimeRequest } from "../timekeeping/types";
+import type { FixCause, FixRequest, TimeRequest } from "../timekeeping/types";
 import { updateEmployeeSection } from "../corehr/api";
 import type { CoreEmployee } from "../corehr/types";
 import type { Balance, LeaveRequest, LeaveType } from "../leave/types";
@@ -71,7 +72,12 @@ export async function myAttendance(): Promise<MyAttendance> {
 }
 
 export const fileMyTimeRequest = (input: { date: string; type: TimeRequest["type"]; minutes: number; reason: string }) => fileRequest({ ...input, employeeId: myId() }, myName());
-export const fileMyFix = (input: { workDate: string; kind: "in" | "out"; time: string; nextDay?: boolean; reason: string }) => fileFix({ ...input, employeeId: myId() }, myName());
+
+export const fileMyFix = (input: { workDate: string; kind: "in" | "out"; time: string; nextDay?: boolean; cause: FixCause; reason: string }) => fileFix({ ...input, employeeId: myId() }, myName());
+
+/** Memos HR sent me about lateness or AWOL, newest first. */
+export const myNotices = () => listNotices(myId());
+export const acknowledgeMyNotice = (id: string) => acknowledgeNotice(id, myId());
 
 // ---- Payslips ----
 
@@ -82,14 +88,9 @@ export interface MyPayslip {
   released: boolean;
 }
 
+/** Payslips come only from payroll runs the CEO approved, so they never change after payday. */
 export async function myPayslips(): Promise<MyPayslip[]> {
-  const today = todayIso();
-  const out: MyPayslip[] = [];
-  for (const period of periodsFor("cutoff")) {
-    const line = (await payroll(period, "All offices")).find((l) => l.person.id === myId());
-    if (line) out.push({ period, line, released: period.to < today });
-  }
-  return out;
+  return respond(approvedLinesFor(myId()).map(({ run, line }) => ({ period: { id: run.id, label: run.label, from: run.from, to: run.to }, line, released: true })));
 }
 
 // ---- Profile ----

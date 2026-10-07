@@ -3,7 +3,8 @@
 
 import { findCredential, getCredentials } from "../credentials";
 import type { Role } from "../types";
-import { admin, logAdmin, roleOf, saveAdmin, type Access, type ModuleKey, type UserAccount } from "./store";
+import { fullName, state as core } from "../corehr/store";
+import { admin, logAdmin, NON_HR_MODULES, roleOf, saveAdmin, type Access, type ModuleKey, type UserAccount } from "./store";
 
 export type SignInResult = { ok: true; workspace: Role; account: UserAccount } | { ok: false; error: string };
 
@@ -50,7 +51,7 @@ export function recordSignOut(accountId: string | undefined, reason: "manual" | 
 
 export const accountById = (id: string | undefined) => admin.accounts.find((a) => a.id === id);
 
-const FULL: Record<ModuleKey, Access> = { people: "edit", company: "edit", documents: "edit", timekeeping: "approve", leave: "approve", reimbursements: "approve", reports: "edit", administration: "edit" };
+const FULL: Record<ModuleKey, Access> = { people: "edit", company: "edit", documents: "edit", timekeeping: "approve", leave: "approve", reimbursements: "approve", reports: "edit", payroll: "edit", administration: "edit" };
 
 /** What the signed-in account can open in the HR workspace. Older sessions with no account get full access. */
 export function accessFor(accountId: string | undefined): Record<ModuleKey, Access> {
@@ -82,7 +83,7 @@ export function endedForInactivity() {
 /** True when the account can open at least one HR module (not just Administration). */
 export function hasHrAccess(accountId: string | undefined) {
   const access = accessFor(accountId);
-  return (Object.keys(access) as ModuleKey[]).some((k) => k !== "administration" && access[k] !== "none");
+  return (Object.keys(access) as ModuleKey[]).some((k) => !NON_HR_MODULES.includes(k) && access[k] !== "none");
 }
 
 const SIGNED_IN_FLAG = "heyhr-just-signed-in";
@@ -105,4 +106,12 @@ export function consumeSignInFlag() {
   } catch {
     return false;
   }
+}
+
+/** The employee record behind a sign-in: the one linked in Users, or else the employee with the same name. */
+export function employeeIdFor(accountId: string | undefined, name: string): string | undefined {
+  const linked = accountById(accountId)?.employeeId;
+  if (linked) return linked;
+  const wanted = name.trim().toLowerCase();
+  return core.employees.find((e) => e.job.status !== "Separated" && fullName(e.personal).toLowerCase() === wanted)?.id;
 }
