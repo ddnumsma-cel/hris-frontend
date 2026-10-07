@@ -259,7 +259,7 @@ export async function saveSettings(input: Settings, actor: string, actorAccountI
 
 // ---- Audit trail ----
 
-export type AuditModule = "People" | "Timekeeping" | "Leave" | "Administration" | "Sign-in";
+export type AuditModule = "People" | "Timekeeping" | "Leave" | "Payroll" | "Administration" | "Sign-in";
 
 export interface AuditRow {
   id: string;

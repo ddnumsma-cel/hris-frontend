@@ -1,4 +1,4 @@
-import type { DayResult } from "@/lib/timekeeping/types";
+import type { DayResult, FixCause, TardinessRule } from "@/lib/timekeeping/types";
 
 export const tkKeys = {
   days: (from: string, to: string) => ["timekeeping", "days", from, to] as const,
@@ -7,6 +7,8 @@ export const tkKeys = {
   people: ["timekeeping", "people"] as const,
   roster: (week: string) => ["timekeeping", "roster", week] as const,
   requests: ["timekeeping", "requests"] as const,
+  tardinessFlags: ["timekeeping", "tardiness-flags"] as const,
+  tardinessRule: ["timekeeping", "tardiness-rule"] as const,
 };
 
 /** "8:07 AM" */
@@ -57,4 +59,18 @@ export function dayStatus(d: DayResult): { tone: "good" | "warn" | "crit" | "inf
   if (d.undertimeMinutes > 0) return { tone: "warn", label: `Left ${duration(d.undertimeMinutes)} early` };
   if (d.status === "working") return { tone: "good", label: "Working" };
   return { tone: "good", label: "On time" };
+}
+
+/** What went wrong, as the employee picks it when asking for a time adjustment. */
+export const FIX_CAUSES: Record<FixCause, string> = {
+  "not-recorded": "Biometrics didn't record it",
+  "wrong-time": "Biometrics recorded the wrong time",
+  "system-error": "System error or bug",
+  other: "Something else",
+};
+
+/** "late 3 work days in a row or late 5 times this month", or "off". */
+export function ruleText(rule: TardinessRule) {
+  const parts = [rule.consecutive && `late ${rule.consecutive} work days in a row`, rule.perMonth && `late ${rule.perMonth} times this month`].filter(Boolean);
+  return parts.length ? parts.join(" or ") : "off";
 }

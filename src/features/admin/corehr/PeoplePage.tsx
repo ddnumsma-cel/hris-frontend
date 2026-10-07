@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { GridIcon, ListIcon, SearchIcon, SearchXIcon, UserPlusIcon } from "@/components/icons";
 import { listEmployees, listUnits, type EmployeeSummary } from "@/lib/corehr/api";
+import { canChange, useAccess } from "../administration/access";
 import { useOfficeFilter } from "../OfficeFilterContext";
 import { filterSearchClass, filterSelectClass, formatDate, keys, statusTone, tenure } from "./format";
 import { StatusText } from "./SplitView";
@@ -62,6 +63,7 @@ function SortHeader({ label, k, sort, onSort, className }: { label: string; k: S
 /** Everyone's 201 file, as cards or as a table: HR picks whichever they prefer. */
 export function PeoplePage() {
   const navigate = useNavigate();
+  const canAdd = canChange(useAccess().people);
   const { office } = useOfficeFilter();
   const [params] = useSearchParams();
   const employeesQuery = useQuery({ queryKey: keys.employees, queryFn: listEmployees });
@@ -125,9 +127,11 @@ export function PeoplePage() {
         title="People"
         subtitle={`${current.length} employees${onLeave ? ` · ${onLeave} on leave or suspended` : ""}${needDocs ? ` · ${needDocs} with 201 documents to sort out` : ""}`}
         actions={
-          <Button icon={<UserPlusIcon className="h-4 w-4" />} onClick={() => navigate("/admin/people/new")}>
-            Add employee
-          </Button>
+          canAdd && (
+            <Button icon={<UserPlusIcon className="h-4 w-4" />} onClick={() => navigate("/admin/people/new")}>
+              Add employee
+            </Button>
+          )
         }
       />
 

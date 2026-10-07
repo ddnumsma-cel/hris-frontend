@@ -115,7 +115,50 @@ export interface TimeRequest {
   note?: string;
 }
 
-/** An employee asking HR to add a time-in or time-out they missed. */
+/**
+ * When repeated lateness gets flagged for HR to look at. 0 turns a check off.
+ * Flags never change pay or mark anyone absent; HR decides what to do.
+ */
+export interface TardinessRule {
+  /** Late on this many scheduled work days in a row. */
+  consecutive: number;
+  /** Late this many times in the current month. */
+  perMonth: number;
+}
+
+/**
+ * A day (or days) HR declares as work-from-home, for a typhoon or other emergency.
+ * The office scanners record nothing; everyone covered clocks in from home with a face scan.
+ */
+export interface RemoteDay {
+  id: string;
+  from: string;
+  to: string;
+  /** Branches covered; empty means every office. */
+  offices: string[];
+  reason: string;
+  declaredBy: string;
+  declaredAt: string;
+}
+
+/** A memo HR sends an employee about repeated lateness or absences. Never changes pay. */
+export interface AttendanceNotice {
+  id: string;
+  employeeId: string;
+  kind: "tardiness" | "awol";
+  subject: string;
+  message: string;
+  /** The days it is about. */
+  dates: string[];
+  sentBy: string;
+  sentAt: string;
+  acknowledgedAt?: string;
+}
+
+/** What went wrong with the device or system. */
+export type FixCause = "not-recorded" | "wrong-time" | "system-error" | "other";
+
+/** An employee asking HR to adjust a time-in or time-out the biometrics or system got wrong. */
 export interface FixRequest {
   id: string;
   employeeId: string;
@@ -124,6 +167,10 @@ export interface FixRequest {
   /** "HH:MM" */
   time: string;
   nextDay?: boolean;
+  /** Older requests have none; read as "not-recorded". */
+  cause?: FixCause;
+  /** The time on record when the request was sent, "HH:MM". */
+  recorded?: string;
   reason: string;
   status: "pending" | "approved" | "declined";
   filedBy: string;

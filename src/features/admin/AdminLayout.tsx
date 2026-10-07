@@ -1,9 +1,10 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
 import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
-import { BarChartIcon, CalendarIcon, ClockIcon, FolderIcon, GridIcon, LockIcon, OrgChartIcon, ReceiptIcon, ShieldIcon, UsersIcon } from "@/components/icons";
+import { BarChartIcon, CalendarIcon, ClockIcon, FolderIcon, GridIcon, LockIcon, OrgChartIcon, ReceiptIcon, ShieldIcon, UsersIcon, WalletIcon } from "@/components/icons";
 import { AppNav } from "@/components/layout/AppNav";
-import { moduleForPath, SUPER_ADMIN_PAGES, useAccess, useIsSuperAdmin } from "./administration/access";
+import { NON_HR_MODULES, type ModuleKey } from "@/lib/admin/store";
+import { canChange, EDIT_PAGES, moduleForPath, SUPER_ADMIN_PAGES, useAccess, useIsSuperAdmin } from "./administration/access";
 
 const GROUPS: SideNavGroup[] = [
   {
@@ -35,7 +36,8 @@ const GROUPS: SideNavGroup[] = [
           { label: "Overtime", to: "/admin/timekeeping/overtime" },
           { label: "Undertime", to: "/admin/timekeeping/undertime" },
           { label: "Tardiness", to: "/admin/timekeeping/tardiness" },
-          { label: "Time corrections", to: "/admin/timekeeping/corrections" },
+          { label: "Time adjustments", to: "/admin/timekeeping/corrections" },
+          { label: "Remote work days", to: "/admin/timekeeping/remote" },
         ],
       },
     ],
@@ -73,9 +75,24 @@ const GROUPS: SideNavGroup[] = [
         children: [
           { label: "HR reports", to: "/admin/reports/hr" },
           { label: "Attendance", to: "/admin/reports/attendance" },
-          { label: "Payroll", to: "/admin/reports/payroll" },
-          { label: "Government", to: "/admin/reports/statutory" },
           { label: "Management", to: "/admin/reports/management" },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Payroll",
+    short: "Payroll",
+    items: [
+      {
+        label: "Payroll",
+        to: "/admin/payroll",
+        icon: <WalletIcon />,
+        children: [
+          { label: "Payroll runs", to: "/admin/payroll/runs" },
+          { label: "Payroll report", to: "/admin/reports/payroll" },
+          { label: "Government reports", to: "/admin/reports/statutory" },
+          { label: "Government contributions", to: "/admin/payroll/contributions" },
         ],
       },
     ],
@@ -118,11 +135,12 @@ export function AdminLayout() {
   const { pathname } = useLocation();
   const isSuper = useIsSuperAdmin();
   // System-only accounts (Super Admin) have no HR modules, so no HR overview either.
-  const hrModules = Object.entries(access).some(([k, v]) => k !== "administration" && v !== "none");
+  const hrModules = Object.entries(access).some(([k, v]) => !NON_HR_MODULES.includes(k as ModuleKey) && v !== "none");
   const allowed = (to: string) => {
     if (!isSuper && SUPER_ADMIN_PAGES.some((p) => to === p || to.startsWith(`${p}/`))) return false;
     if (to === "/admin" && !hrModules) return false;
     const m = moduleForPath(to);
+    if (m && EDIT_PAGES.includes(to)) return canChange(access[m]);
     return !m || access[m] !== "none";
   };
   const groups = GROUPS.map((g) => ({

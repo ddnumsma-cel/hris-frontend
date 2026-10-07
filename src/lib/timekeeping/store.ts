@@ -7,7 +7,7 @@ import { state as core } from "../corehr/store";
 import { addDays, at, defaultBreakStart, isOvernight, toIsoDate, weekday } from "./compute";
 import { HOLIDAYS } from "../holidays";
 import { approvedLeaveSpans } from "../leave/store";
-import type { Punch, ShiftTemplate, TimeAudit, FixRequest, TimeRequest } from "./types";
+import type { AttendanceNotice, Punch, RemoteDay, ShiftTemplate, TardinessRule, TimeAudit, FixRequest, TimeRequest } from "./types";
 
 export interface TimekeepingState {
   shifts: ShiftTemplate[];
@@ -27,7 +27,25 @@ export interface TimekeepingState {
   seededRequests: boolean;
   /** Shifts moved to the 8:30 AM start with a 5-minute grace (Peak and Busy season). */
   seasonShifts?: boolean;
+  /** Missing until HR changes it; read through tardinessRule(). */
+  tardinessRule?: TardinessRule;
+  /** Memos HR sent about lateness or AWOL. */
+  notices?: AttendanceNotice[];
+  /** Work-from-home days HR declared (typhoons, emergencies). */
+  remoteDays?: RemoteDay[];
+  /** Time-ins and time-outs people recorded themselves from home with a face scan. */
+  remotePunches?: Punch[];
 }
+
+/** The remote work day covering this person on this date, if any. */
+export function remoteDayFor(employeeId: string, date: string): RemoteDay | undefined {
+  const e = core.employees.find((x) => x.id === employeeId);
+  const branch = e ? branchOf(e.job.unitId) : undefined;
+  return (tk.remoteDays ?? []).find((d) => d.from <= date && d.to >= date && (!d.offices.length || (branch !== undefined && d.offices.includes(branch))));
+}
+
+export const DEFAULT_TARDINESS_RULE: TardinessRule = { consecutive: 3, perMonth: 5 };
+export const tardinessRule = () => tk.tardinessRule ?? DEFAULT_TARDINESS_RULE;
 
 const KEY = "heyhr-timekeeping-v1";
 /** How far back device logs go. */
@@ -233,9 +251,11 @@ function devicePunchesFor(employeeId: string, date: string): Punch[] {
 /** Every punch for a person's day: device punches plus HR's corrections, with HR's decisions applied. */
 export function punchesFor(employeeId: string, date: string): Punch[] {
   const mark = (p: Punch): Punch => ({ ...p, ...(tk.voided[p.id] ? { voided: tk.voided[p.id] } : {}), ...(tk.confirmed[p.id] ? { confirmed: tk.confirmed[p.id] } : {}) });
-  const device = devicePunchesFor(employeeId, date).map(mark);
+  // On a remote work day nobody is at the office, so the scanners have nothing; only remote clock-ins count.
+  const device = remoteDayFor(employeeId, date) ? [] : devicePunchesFor(employeeId, date).map(mark);
   const manual = tk.corrections.filter((p) => p.employeeId === employeeId && p.workDate === date).map(mark);
-  return [...device, ...manual];
+  const remote = (tk.remotePunches ?? []).filter((p) => p.employeeId === employeeId && p.workDate === date).map(mark);
+  return [...device, ...manual, ...remote];
 }
 
 export const todayIso = today;

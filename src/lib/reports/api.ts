@@ -4,9 +4,10 @@
 import { fullName, state as core } from "../corehr/store";
 import { leave, countDays } from "../leave/store";
 import { listDays, listRequests as listTimeRequests, type DayRow } from "../timekeeping/api";
-import { addDays, lateHoursCharged, lateRuns } from "../timekeeping/compute";
+import { addDays } from "../timekeeping/compute";
+import { computePay, type Adjustment, type PayResult } from "../pay/engine";
 import { branchOf, departmentOf, todayIso } from "../timekeeping/store";
-import { pagibig, philhealth, round2, sss, THIRTEENTH_MONTH_EXEMPT, withholding } from "./statutory";
+import { pagibig, philhealth, round2, sss, THIRTEENTH_MONTH_EXEMPT } from "./statutory";
 
 // ---- Periods ----
 
@@ -161,12 +162,9 @@ async function attendance(from: string, to: string) {
 
 // ---- Payroll ----
 
-/** Rates used for one cut-off. Simplified: see the notes on the Payroll register. */
-const WORK_DAYS_PER_YEAR = 261;
-const OT_RATE: Record<string, number> = { ordinary: 1.25, rest: 1.69, special: 1.69, regular: 2.6 };
-const WORKED_PREMIUM: Record<string, number> = { ordinary: 0, rest: 0.3, special: 0.3, regular: 1 };
-
 export interface PayLine {
+  /** The full computation, line by line (see lib/pay/engine.ts). */
+  pay: PayResult;
   person: Person;
   basic: number;
   deductions: number;
@@ -193,9 +191,10 @@ function unpaidLeaveDays(employeeId: string, from: string, to: string) {
     .reduce((n, r) => n + (r.halfDay ? r.days : countDays(r.start < from ? from : r.start, r.end > to ? to : r.end, "workdays")), 0);
 }
 
-export async function payroll(period: Period, office: string): Promise<PayLine[]> {
+/** Pay for everyone in a cut-off, computed live from attendance. Payroll runs freeze this. */
+export async function payroll(period: Period, office: string, adjustmentsFor?: (employeeId: string) => Adjustment[]): Promise<PayLine[]> {
   const att = await attendance(period.from, period.to);
-  // Two weeks before the cut-off too, so a late run that started in the last cut-off is seen.
+  // Two weeks before the cut-off too, so an AWOL run that started in the last cut-off carries over.
   const end = period.to > todayIso() ? todayIso() : period.to;
   const history = new Map<string, DayRow[]>();
   for (const d of end < period.from ? [] : await listDays(addDays(period.from, -14), end)) history.set(d.person.id, [...(history.get(d.person.id) ?? []), d]);
@@ -203,51 +202,35 @@ export async function payroll(period: Period, office: string): Promise<PayLine[]
     .filter((p) => employedIn(p, period.from, period.to) && p.salary > 0)
     .map((p) => {
       const a = att.get(p.id);
-      const daily = (p.salary * 12) / WORK_DAYS_PER_YEAR;
-      const hourly = daily / 8;
-      const basic = p.salary / 2;
-      const lwop = unpaidLeaveDays(p.id, period.from, period.to);
-      // Company late rule: late days are charged by the hour; 3+ late days in a row are charged as full days (absent, then AWOL).
-      const runs = lateRuns(history.get(p.id) ?? []);
-      let lateHours = 0;
-      let lateRunDays = 0;
-      for (const d of a?.days ?? []) {
-        if (runs.has(d.date)) lateRunDays++;
-        else lateHours += lateHoursCharged(d);
-      }
-      const deductions = round2((a ? (a.absent + lateRunDays) * daily + (lateHours + a.undertimeMinutes / 60) * hourly : 0) + lwop * daily);
-      let overtime = 0;
-      let premiums = 0;
-      for (const d of a?.days ?? []) {
-        overtime += (d.approvedOvertimeMinutes / 60) * hourly * (OT_RATE[d.dayType] ?? 1.25);
-        if (d.workedMinutes > 0) premiums += daily * (WORKED_PREMIUM[d.dayType] ?? 0);
-        premiums += (d.nightMinutes / 60) * hourly * 0.1;
-      }
-      const gross = round2(Math.max(0, basic - deductions) + overtime + premiums);
-      const s = sss(p.salary);
-      const ph = philhealth(p.salary);
-      const pi = pagibig(p.salary);
-      const half = (n: number) => round2(n / 2);
-      const ee = half(s.ee) + half(ph.ee) + half(pi.ee);
-      const taxable = round2(Math.max(0, gross - ee));
-      const tax = withholding(taxable, "semi-monthly");
+      const pay = computePay({
+        monthlySalary: p.salary,
+        from: period.from,
+        to: period.to,
+        employedFrom: p.hired > period.from ? p.hired : undefined,
+        employedTo: p.separated && p.separated < period.to ? p.separated : undefined,
+        days: a?.days ?? [],
+        history: history.get(p.id) ?? [],
+        unpaidLeaveDays: unpaidLeaveDays(p.id, period.from, period.to),
+        adjustments: adjustmentsFor?.(p.id),
+      });
       return {
+        pay,
         person: p,
-        basic: round2(basic),
-        deductions,
-        overtime: round2(overtime),
-        premiums: round2(premiums),
-        gross,
-        sssEe: half(s.ee),
-        sssEr: half(s.er),
-        ec: half(s.ec),
-        phEe: half(ph.ee),
-        phEr: half(ph.er),
-        piEe: half(pi.ee),
-        piEr: half(pi.er),
-        taxable,
-        tax,
-        net: round2(gross - ee - tax),
+        basic: pay.basic,
+        deductions: round2(pay.absentDeduction + pay.unpaidLeaveDeduction + pay.undertimeDeduction),
+        overtime: pay.overtimePay,
+        premiums: round2(pay.premiumPay + pay.nightPay),
+        gross: pay.gross,
+        sssEe: pay.sssEe,
+        sssEr: pay.sssEr,
+        ec: pay.ec,
+        phEe: pay.phEe,
+        phEr: pay.phEr,
+        piEe: pay.piEe,
+        piEr: pay.piEr,
+        taxable: pay.taxable,
+        tax: pay.tax,
+        net: pay.net,
         time: {
           present: a?.present ?? 0,
           absent: a?.absent ?? 0,
@@ -497,7 +480,7 @@ export const REPORTS: ReportDef[] = [
     run: async (period, office) => {
       const lines = await payroll(period, office);
       return {
-        columns: [col("Employee", "Employee"), col("Basic", "Basic pay", "money"), col("Deductions", "Absences & lates", "money"), col("Overtime", "Overtime", "money"), col("Premiums", "Holiday / night", "money"), col("Gross", "Gross pay", "money"), { ...col("SSS", "SSS", "money"), only: "file" }, { ...col("PhilHealth", "PhilHealth", "money"), only: "file" }, { ...col("Pag-IBIG", "Pag-IBIG", "money"), only: "file" }, { ...col("Gov", "Gov't deductions", "money"), only: "screen" }, col("Tax", "Tax", "money"), col("Net", "Take-home pay", "money")],
+        columns: [col("Employee", "Employee"), col("Basic", "Basic pay", "money"), col("Deductions", "Absences & undertime", "money"), col("Overtime", "Overtime", "money"), col("Premiums", "Holiday / night", "money"), col("Gross", "Gross pay", "money"), { ...col("SSS", "SSS", "money"), only: "file" }, { ...col("PhilHealth", "PhilHealth", "money"), only: "file" }, { ...col("Pag-IBIG", "Pag-IBIG", "money"), only: "file" }, { ...col("Gov", "Gov't deductions", "money"), only: "screen" }, col("Tax", "Tax", "money"), col("Net", "Take-home pay", "money")],
         rows: lines.map((l) => ({ Employee: l.person.name, Basic: l.basic, Deductions: l.deductions, Overtime: l.overtime, Premiums: l.premiums, Gross: l.gross, SSS: l.sssEe, PhilHealth: l.phEe, "Pag-IBIG": l.piEe, Gov: round2(l.sssEe + l.phEe + l.piEe), Tax: l.tax, Net: l.net })),
         summary: [
           { label: "Gross pay", value: sum(lines, (l) => l.gross), kind: "money" },
@@ -505,7 +488,7 @@ export const REPORTS: ReportDef[] = [
           { label: "Tax withheld", value: sum(lines, (l) => l.tax), kind: "money" },
           { label: "Take-home pay", value: sum(lines, (l) => l.net), kind: "money" },
         ],
-        note: "A preview computed from salaries and attendance. Monthly government contributions are split across the two cut-offs. Allowances and loans aren't included yet.",
+        note: "Live from attendance, so it changes as attendance is corrected. The official, locked numbers are in Payroll runs once the CEO approves a run. Monthly contributions are split across the two cut-offs; adjustments are added in the run.",
       };
     },
   },

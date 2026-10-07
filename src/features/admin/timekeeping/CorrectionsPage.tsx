@@ -10,7 +10,7 @@ import { useOfficeFilter } from "../OfficeFilterContext";
 import { inputClass, useActor } from "../corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { Name, SearchBox, SimpleTable, Tabs, Toolbar, type Col } from "./common";
-import { hhmm, shortDate } from "./format";
+import { FIX_CAUSES, hhmm, shortDate } from "./format";
 
 type Tab = FixRequest["status"];
 
@@ -85,8 +85,10 @@ export function CorrectionsPage() {
   const cols: Col<FixRequest>[] = [
     { header: "Employee", cell: (r) => <Name name={person(r.employeeId)!.name} sub={person(r.employeeId)!.departmentName} /> },
     { header: "Work day", cell: (r) => shortDate(r.workDate) },
-    { header: "Missing", cell: (r) => (r.kind === "in" ? "Time-in" : "Time-out") },
-    { header: "Says it was", cell: (r) => <span className="font-medium">{hhmm(r.time)}{r.nextDay ? " (next day)" : ""}</span> },
+    { header: "Adjust", cell: (r) => (r.kind === "in" ? "Time-in" : "Time-out") },
+    { header: "What happened", cell: (r) => <span className="text-ink-2">{FIX_CAUSES[r.cause ?? "not-recorded"]}</span> },
+    { header: "On record", cell: (r) => <span className="text-ink-2">{r.recorded ? hhmm(r.recorded) : "None"}</span> },
+    { header: "Correct time", cell: (r) => <span className="font-medium">{hhmm(r.time)}{r.nextDay ? " (next day)" : ""}</span> },
     { header: "Reason", cell: (r) => <span className="inline-block max-w-56 truncate align-bottom text-ink-2" title={r.reason}>{r.reason}</span> },
     { header: "Sent", cell: (r) => <span className="text-ink-2">{shortDate(r.filedAt)}</span> },
     {
@@ -113,7 +115,7 @@ export function CorrectionsPage() {
 
   return (
     <>
-      <ContentHead title="Time corrections" subtitle="Employees asking to add a time-in or time-out they missed. Approving adds it to their attendance record." />
+      <ContentHead title="Time adjustments" subtitle="Employees asking to correct a time-in or time-out the biometrics or system got wrong. Approving puts the correct time on their record; a wrong recorded time is set aside." />
       <Tabs
         value={tab}
         onChange={setTab}

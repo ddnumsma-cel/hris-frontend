@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { useAuth } from "@/features/auth/AuthContext";
@@ -39,7 +39,6 @@ export function TopBar() {
     queryFn: fetchMyPhoto,
     enabled: user?.role === "employee",
   });
-
   function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" && searchValue.trim()) {
       navigate(`/admin/people?q=${encodeURIComponent(searchValue.trim())}`);
@@ -176,7 +175,7 @@ export function TopBar() {
         {/* Divider between the tool buttons and the signed-in person. */}
         <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-[var(--line-strong)] sm:block" />
 
-        <div className="topbar-user flex items-center gap-2.5">
+        <ProfileChip linked={user.role === "employee"}>
           {photoQuery.data ? (
             <img src={photoQuery.data} alt="" className="h-7 w-7 flex-none rounded-full object-cover" />
           ) : (
@@ -188,7 +187,7 @@ export function TopBar() {
             <div className="topbar-name truncate">{user.name}</div>
             <div className="topbar-secondary truncate">{user.title}</div>
           </div>
-        </div>
+        </ProfileChip>
 
         <button
           type="button"
@@ -200,5 +199,15 @@ export function TopBar() {
         </button>
       </div>
     </header>
+  );
+}
+
+/** The signed-in person. For employees it links to their 201 File. */
+function ProfileChip({ linked, children }: { linked: boolean; children: ReactNode }) {
+  if (!linked) return <div className="topbar-user flex items-center gap-2.5">{children}</div>;
+  return (
+    <Link to="/employee/201-file" title="Open my 201 File" className="topbar-user topbar-icon-button flex items-center gap-2.5 rounded-lg px-1.5 py-1 text-left">
+      {children}
+    </Link>
   );
 }

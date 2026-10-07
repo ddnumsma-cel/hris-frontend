@@ -37,6 +37,9 @@ const ReimbursementsPage = lazy(() => import("@/features/admin/reimbursements/Re
 const LeaveTypesPage = lazy(() => import("@/features/admin/leave/LeaveTypesPage").then((m) => ({ default: m.LeaveTypesPage })));
 const HrReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.HrReportsPage })));
 const AttendanceReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.AttendanceReportsPage })));
+const PayrollRunsPage = lazy(() => import("@/features/admin/payroll/PayrollRunsPage").then((m) => ({ default: m.PayrollRunsPage })));
+const PayrollRunPage = lazy(() => import("@/features/admin/payroll/PayrollRunsPage").then((m) => ({ default: m.PayrollRunPage })));
+const ContributionsPage = lazy(() => import("@/features/admin/payroll/ContributionsPage").then((m) => ({ default: m.ContributionsPage })));
 const PayrollReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.PayrollReportsPage })));
 const StatutoryReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.StatutoryReportsPage })));
 const ManagementReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.ManagementReportsPage })));
@@ -45,6 +48,7 @@ const RolesPage = lazy(() => import("@/features/admin/administration/RolesPage")
 const WorkflowsPage = lazy(() => import("@/features/admin/administration/WorkflowsPage").then((m) => ({ default: m.WorkflowsPage })));
 const AuditTrailPage = lazy(() => import("@/features/admin/administration/AuditTrailPage").then((m) => ({ default: m.AuditTrailPage })));
 const SystemSettingsPage = lazy(() => import("@/features/admin/administration/SystemSettingsPage").then((m) => ({ default: m.SystemSettingsPage })));
+const RemoteDaysPage = lazy(() => import("@/features/admin/timekeeping/RemoteDaysPage").then((m) => ({ default: m.RemoteDaysPage })));
 const CorrectionsPage = lazy(() => import("@/features/admin/timekeeping/CorrectionsPage").then((m) => ({ default: m.CorrectionsPage })));
 const OrgChartPage = lazy(() => import("@/features/admin/corehr/OrgChartPage").then((m) => ({ default: m.OrgChartPage })));
 const TardinessPage = lazy(() => import("@/features/admin/timekeeping/TardinessPage").then((m) => ({ default: m.TardinessPage })));
@@ -195,6 +199,7 @@ function App() {
               <Route path="timekeeping/undertime" element={<UndertimePage />} />
               <Route path="timekeeping/tardiness" element={<TardinessPage />} />
               <Route path="timekeeping/corrections" element={<CorrectionsPage />} />
+              <Route path="timekeeping/remote" element={<RemoteDaysPage />} />
               <Route path="leave" element={<Navigate to="/admin/leave/overview" replace />} />
               <Route path="leave/overview" element={<LeaveOverviewPage />} />
               <Route path="leave/requests" element={<LeaveRequestsPage />} />
@@ -208,6 +213,10 @@ function App() {
               <Route path="reports/payroll" element={<PayrollReportsPage />} />
               <Route path="reports/statutory" element={<StatutoryReportsPage />} />
               <Route path="reports/management" element={<ManagementReportsPage />} />
+              <Route path="payroll" element={<Navigate to="/admin/payroll/runs" replace />} />
+              <Route path="payroll/runs" element={<PayrollRunsPage />} />
+              <Route path="payroll/runs/:id" element={<PayrollRunPage />} />
+              <Route path="payroll/contributions" element={<ContributionsPage />} />
               <Route path="administration" element={<Navigate to="/admin/administration/users" replace />} />
               <Route path="administration/users" element={<UsersPage />} />
               <Route path="administration/roles" element={<RolesPage />} />

@@ -286,6 +286,9 @@ export interface PersonnelDocumentChecklistItem {
   id: string;
   type: PersonnelDocumentType;
   status: PersonnelDocumentStatus;
+  uploadedOn?: string;
+  /** The ID or license on file has expired or expires soon. No numbers, just the warning. */
+  expiry?: { status: "Due soon" | "Overdue"; note: string };
 }
 
 export type CivilStatus = "Single" | "Married" | "Widowed" | "Separated";

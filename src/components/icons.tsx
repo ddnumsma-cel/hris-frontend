@@ -40,6 +40,7 @@ import {
   Moon,
   Network,
   Pencil,
+  Minus,
   Plus,
   Receipt,
   Search,
@@ -296,4 +297,8 @@ export function SlidersIcon(props: IconProps) {
 
 export function ReceiptIcon(props: IconProps) {
   return <Receipt strokeWidth={strokeWidth} {...props} />;
+}
+
+export function MinusIcon(props: IconProps) {
+  return <Minus strokeWidth={strokeWidth} {...props} />;
 }

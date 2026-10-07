@@ -22,6 +22,7 @@ import { useToast } from "@/components/ui/ToastContext";
 import {
   BellIcon,
   CheckIcon,
+  ClockIcon,
   DownloadIcon,
   FileQuestionIcon,
   IdCardIcon,
@@ -30,7 +31,9 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import { AttentionPanel, type AttentionItem } from "@/components/shared/AttentionPanel";
-import { ClockInOutControl } from "@/components/shared/ClockInOutControl";
+import { AttendanceClock } from "@/components/shared/AttendanceClock";
+import { useAuth } from "@/features/auth/AuthContext";
+import { employeeIdFor } from "@/lib/admin/auth";
 import { PersonnelFileDialog } from "@/components/shared/PersonnelFileDialog";
 import {
   fetchAdminOverviewStats,
@@ -55,13 +58,16 @@ import {
 } from "@/lib/automation";
 import { downloadTextFile, toCsv } from "@/lib/download";
 import { formatPHPCompact, formatToday } from "@/lib/format";
+import { listAwolFlags, listTardinessFlags, remoteAttendanceToday } from "@/lib/timekeeping/api";
 import { currentAdmin } from "@/lib/mockData";
 import type { Employee } from "@/lib/types";
+import { useAccess } from "./administration/access";
 import { AddEmployeeDialog } from "./AddEmployeeDialog";
 import { HeadcountChart } from "./HeadcountChart";
 import { PayrollCostChart } from "./PayrollCostChart";
 import { PostAnnouncementDialog } from "./PostAnnouncementDialog";
 import { RecruitmentPipeline } from "./RecruitmentPipeline";
+import { tkKeys } from "./timekeeping/format";
 
 const complianceVariant: Record<string, ChipVariant> = {
   Filed: "good",
@@ -75,6 +81,7 @@ const employeeStatusVariant: Record<string, ChipVariant> = {
 };
 
 export function AdminOverview() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
@@ -104,6 +111,10 @@ export function AdminOverview() {
     queryKey: ["admin", "personnel-profiles"],
     queryFn: fetchAllPersonnelProfiles,
   });
+  const seesTime = useAccess().timekeeping !== "none";
+  const tardinessQuery = useQuery({ queryKey: tkKeys.tardinessFlags, queryFn: listTardinessFlags, enabled: seesTime });
+  const awolQuery = useQuery({ queryKey: ["timekeeping", "awol-flags"], queryFn: listAwolFlags, enabled: seesTime });
+  const remoteQuery = useQuery({ queryKey: ["timekeeping", "remote-days", "today"], queryFn: remoteAttendanceToday, enabled: seesTime, staleTime: 0 });
 
   const stats = statsQuery.data;
   const payrollSteps = runStepsQuery.data ? getEffectivePayrollSteps(runStepsQuery.data) : undefined;
@@ -181,6 +192,40 @@ export function AdminOverview() {
     }
   }
 
+  const remote = remoteQuery.data;
+  if (remote && remote.covered.length) {
+    const done = remote.covered.filter((p) => remote.clockedIn.includes(p.id)).length;
+    attentionItems.push({
+      id: "remote-day",
+      icon: <ClockIcon className="h-4 w-4" />,
+      title: `Remote work day: ${done} of ${remote.covered.length} clocked in from home`,
+      detail: "Everyone covered clocks in with a face scan today; the office scanners aren't used.",
+      tone: done === remote.covered.length ? "info" : "warn",
+      action: { label: "See who", onClick: () => navigate("/admin/timekeeping/remote") },
+    });
+  }
+  for (const f of awolQuery.data ?? []) {
+    attentionItems.push({
+      id: `awol-${f.person.id}`,
+      icon: <ClockIcon className="h-4 w-4" />,
+      title: `${f.person.name} is AWOL (${f.dates.length} ${f.dates.length === 1 ? "day" : "days"})`,
+      detail: "Absent 3 or more workdays in a row without approved leave. Send a notice.",
+      tone: "crit",
+      action: { label: "Review", onClick: () => navigate("/admin/timekeeping/tardiness?tab=habitual") },
+    });
+  }
+  for (const f of tardinessQuery.data ?? []) {
+    const run = f.streaks[0];
+    attentionItems.push({
+      id: `tardy-${f.person.id}`,
+      icon: <ClockIcon className="h-4 w-4" />,
+      title: run ? `${f.person.name} was late ${run.days} work days in a row` : `${f.person.name} was late ${f.thisMonth} times this month`,
+      detail: run && f.thisMonth ? `Also late ${f.thisMonth} times this month. Follow up; pay isn't affected.` : "Follow up with the employee; pay isn't affected.",
+      tone: run ? "crit" : "warn",
+      action: { label: "Review", onClick: () => navigate("/admin/timekeeping/tardiness?tab=habitual") },
+    });
+  }
+
   function handleExportReport() {
     if (!directoryQuery.data) return;
     const csv = toCsv(
@@ -203,7 +248,7 @@ export function AdminOverview() {
         subtitle={`All offices · Cebu HQ, Manila, Davao · ${formatToday()}`}
         actions={
           <>
-            <ClockInOutControl personName={currentAdmin.name.split(" ")[0]} />
+            <AttendanceClock employeeId={employeeIdFor(user?.accountId, user?.name ?? currentAdmin.name)} personName={(user?.name ?? currentAdmin.name).split(" ")[0]} actor={user?.name ?? currentAdmin.name} />
             <Button icon={<UserPlusIcon className="h-3.75 w-3.75" />} onClick={() => setAddEmployeeOpen(true)}>
               Add employee
             </Button>
