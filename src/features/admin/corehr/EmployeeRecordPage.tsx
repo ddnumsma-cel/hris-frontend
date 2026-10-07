@@ -285,7 +285,7 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
                 role="tab"
                 aria-selected={tab === t.id}
                 onClick={() => setTab(t.id)}
-                className={clsx("flex h-8 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium whitespace-nowrap", tab === t.id ? "bg-ink text-surface" : "text-ink-2 hover:text-ink")}
+                className={clsx("flex h-8 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium whitespace-nowrap", tab === t.id ? "bg-ink text-bg" : "text-ink-2 hover:text-ink")}
               >
                 {t.label}
                 {count > 0 && <span className={clsx("rounded-full px-1.5 text-[0.68rem] font-semibold", tab === t.id ? "bg-surface/20" : "bg-warning-tint text-warning")}>{count}</span>}

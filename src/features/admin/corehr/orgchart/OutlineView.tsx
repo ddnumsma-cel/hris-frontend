@@ -50,7 +50,7 @@ export function OutlineView({ org }: { org: Org }) {
               className={clsx(
                 "flex items-center rounded-xl",
                 p.id === selected?.id
-                  ? "bg-ink text-surface"
+                  ? "bg-ink text-bg"
                   : "hover:bg-surface-2",
               )}
               style={{ paddingLeft: depth * 16 }}
@@ -84,7 +84,7 @@ export function OutlineView({ org }: { org: Org }) {
                   <span
                     className={clsx(
                       "block truncate text-[0.7rem]",
-                      p.id === selected?.id ? "text-surface/70" : "text-ink-3",
+                      p.id === selected?.id ? "text-bg/70" : "text-ink-3",
                     )}
                   >
                     {p.positionTitle}
@@ -94,7 +94,7 @@ export function OutlineView({ org }: { org: Org }) {
                   <span
                     className={clsx(
                       "flex-none text-xs",
-                      p.id === selected?.id ? "text-surface/70" : "text-ink-3",
+                      p.id === selected?.id ? "text-bg/70" : "text-ink-3",
                     )}
                   >
                     {tree.count(p.id)}

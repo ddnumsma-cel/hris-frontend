@@ -78,7 +78,7 @@ function ShiftDialog({ shift, onClose }: { shift?: ShiftTemplate; onClose: () =>
             {DAYS.map((d, i) => {
               const on = v.restDays.includes(i);
               return (
-                <button key={d} type="button" aria-pressed={on} onClick={() => setV({ ...v, restDays: on ? v.restDays.filter((x) => x !== i) : [...v.restDays, i].sort() })} className={clsx("h-9 w-12 rounded-lg border text-xs font-medium", on ? "border-ink bg-ink text-surface" : "border-border text-ink-2 hover:border-ink-3")}>
+                <button key={d} type="button" aria-pressed={on} onClick={() => setV({ ...v, restDays: on ? v.restDays.filter((x) => x !== i) : [...v.restDays, i].sort() })} className={clsx("h-9 w-12 rounded-lg border text-xs font-medium", on ? "border-ink bg-ink text-bg" : "border-border text-ink-2 hover:border-ink-3")}>
                   {d}
                 </button>
               );

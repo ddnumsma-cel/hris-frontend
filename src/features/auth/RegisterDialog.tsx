@@ -11,8 +11,8 @@ import { registerEmployee } from "@/lib/api";
 import { clusterOptions, officeOptions, POSITION_TITLES, registerSchema, type RegisterFormValues } from "@/lib/schemas";
 
 const inputClass =
-  "w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-brand [&:is(input):read-only]:bg-surface-2";
-const labelClass = "mb-1.5 block text-xs font-semibold text-ink";
+  "field w-full px-3 py-2.5 text-sm";
+const labelClass = "mb-1.5 block text-xs font-medium text-ink";
 const errorClass = "mt-1 text-xs font-medium text-critical";
 
 // Demo-only stand-ins for a Google account chooser — this prototype has no
@@ -101,12 +101,12 @@ export function RegisterDialog({ open, onClose }: { open: boolean; onClose: () =
   const pending = isSubmitting || mutation.isPending;
 
   return (
-    <div className="overlay-enter fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+    <div className="overlay-backdrop overlay-enter fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4">
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Register"
-        className="panel-enter my-auto grid w-full max-w-4xl overflow-hidden rounded-2xl bg-surface shadow-2xl md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]"
+        className="glass-surface panel-enter my-auto grid w-full max-w-4xl overflow-hidden rounded-[var(--radius-modal)] md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]"
       >
         <RegisterArt />
         <RegisterBanner />
@@ -173,7 +173,7 @@ export function RegisterDialog({ open, onClose }: { open: boolean; onClose: () =
                           onClick={() => chooseGoogleAccount(acc)}
                           className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-surface"
                         >
-                          <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">
+                          <span className="flex h-7 w-7 flex-none items-center justify-center accent-fill rounded-full text-xs font-semibold">
                             {acc.name[0]}
                           </span>
                           <span className="min-w-0">
@@ -316,7 +316,7 @@ export function RegisterDialog({ open, onClose }: { open: boolean; onClose: () =
               <button
                 type="submit"
                 disabled={pending}
-                className="relative mt-2 flex w-full items-center justify-center rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_20px_-8px_var(--color-brand)] transition-[filter,transform] hover:brightness-110 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-70"
+                className="btn btn-primary relative mt-2 flex w-full items-center justify-center px-5 py-3 text-sm font-semibold"
               >
                 {pending ? (
                   <>

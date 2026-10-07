@@ -66,7 +66,7 @@ export function OrgChartPage() {
                   className={clsx(
                     "h-7 rounded-full px-3 text-xs font-medium whitespace-nowrap",
                     layout === l.value
-                      ? "bg-ink text-surface"
+                      ? "bg-ink text-bg"
                       : "text-ink-2 hover:text-ink",
                   )}
                 >

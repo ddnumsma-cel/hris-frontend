@@ -7,8 +7,8 @@ import { useAuth } from "@/features/auth/AuthContext";
 import type { Employee, PartnerProfile } from "@/lib/types";
 
 export const settingsInputClass =
-  "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand";
-export const settingsLabelClass = "mb-1 block text-xs font-semibold text-ink-2";
+  "field w-full px-3 py-2 text-sm";
+export const settingsLabelClass = "mb-1 block text-xs font-medium text-ink";
 
 const officeOptions: Employee["office"][] = ["Cebu HQ", "Manila", "Davao"];
 
@@ -77,7 +77,7 @@ export function ProfileSettingsForm({
         <CardHeader title="Personal information" meta={personalMeta} />
         <CardBody className="flex flex-col gap-3.5">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-gold text-base font-semibold text-[#2B1C05]">
+            <div className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-[image:var(--grad-avatar)] text-base font-semibold text-[var(--on-accent)]">
               {initials || "?"}
             </div>
             <div className="min-w-0">

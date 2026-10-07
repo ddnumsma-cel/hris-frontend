@@ -58,7 +58,7 @@ function WorkflowDialog({ initial, onClose }: { initial: Workflow; onClose: () =
         <ol className="flex flex-col gap-2">
           {w.steps.map((s, i) => (
             <li key={i} className="flex flex-wrap items-end gap-2 rounded-xl border border-border p-3">
-              <span className="mb-2 flex h-6 w-6 flex-none items-center justify-center rounded-full bg-ink text-xs font-semibold text-surface">{i + 1}</span>
+              <span className="mb-2 flex h-6 w-6 flex-none items-center justify-center rounded-full bg-ink text-xs font-semibold text-bg">{i + 1}</span>
               <Field id={`ws-${i}`} label="Who approves" className="min-w-44 flex-1">
                 <select id={`ws-${i}`} className={inputClass} value={s.approver} onChange={(e) => setStep(i, { approver: e.target.value as ApproverKind, roleId: e.target.value === "role" ? (s.roleId ?? hrRoles[0]?.id) : undefined })}>
                   {Object.entries(APPROVER).map(([v, l]) => (

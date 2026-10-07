@@ -26,7 +26,7 @@ function PreviewPanel({ e, onClose }: { e: EmployeeSummary; onClose: () => void 
       title={e.name}
       subtitle={`${e.positionTitle} · ${e.id}`}
       footer={
-        <button type="button" onClick={() => navigate(`/admin/people/${e.id}`)} className="inline-flex h-9 items-center rounded-full bg-ink px-4 text-sm font-medium text-surface">
+        <button type="button" onClick={() => navigate(`/admin/people/${e.id}`)} className="inline-flex h-9 items-center rounded-full bg-ink px-4 text-sm font-medium text-bg">
           Open full profile
         </button>
       }
@@ -100,7 +100,7 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
           {menu && (
             <>
               <button type="button" aria-label="Close menu" className="fixed inset-0 z-10 cursor-default" onClick={() => setMenu(false)} />
-              <div role="menu" className="absolute top-8 right-0 z-20 flex w-44 flex-col rounded-xl border border-border bg-surface p-1 text-sm shadow-lg">
+              <div role="menu" className="glass-surface absolute top-8 right-0 z-20 flex w-44 flex-col rounded-[var(--radius-dropdown)] p-1 text-sm">
                 <Link role="menuitem" to={`/admin/people/${e.id}`} className="rounded-lg px-3 py-1.5 hover:bg-surface-2">
                   View profile
                 </Link>

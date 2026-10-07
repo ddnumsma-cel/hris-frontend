@@ -22,8 +22,8 @@ import {
 } from "@/lib/schemas";
 
 const inputClass =
-  "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand";
-const labelClass = "mb-1 flex items-center gap-1.5 text-xs font-semibold text-ink-2";
+  "field w-full px-3 py-2 text-sm";
+const labelClass = "mb-1 flex items-center gap-1.5 text-xs font-medium text-ink";
 const errorClass = "mt-1 text-xs font-medium text-critical";
 
 const suffixOptions = ["Jr.", "Sr.", "II", "III", "IV", "V"];

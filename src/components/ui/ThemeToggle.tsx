@@ -17,7 +17,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       type="button"
       aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
       onClick={toggleTheme}
-      className={clsx("flex h-8 w-8 items-center justify-center rounded-lg", className)}
+      className={clsx("flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)]", className)}
     >
       {theme === "dark" ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
     </button>

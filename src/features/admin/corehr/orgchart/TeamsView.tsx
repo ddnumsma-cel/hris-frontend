@@ -51,14 +51,14 @@ export function TeamsView({ org }: { org: Org }) {
             <button
               type="button"
               onClick={() => org.openPerson(b.lead!)}
-              className="m-2.5 mb-1 flex items-center gap-2.5 rounded-xl bg-ink px-3 py-2 text-left text-surface"
+              className="m-2.5 mb-1 flex items-center gap-2.5 rounded-xl bg-ink px-3 py-2 text-left text-bg"
             >
               <Initials initials={b.lead.initials} size="sm" />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold">
                   {b.lead.name}
                 </span>
-                <span className="block truncate text-xs text-surface/70">
+                <span className="block truncate text-xs text-bg/70">
                   {b.lead.positionTitle} · leads {org.tree!.count(b.lead.id)}
                 </span>
               </span>

@@ -26,25 +26,12 @@ export interface SideNavGroup {
 }
 
 
-/** Lime "›" marker shown on the selected item. Styling is in index.css (.sidebar-*). */
-function ActiveChevron() {
-  return (
-    <span className="sidebar-active-chevron" aria-hidden="true">
-      ›
-    </span>
-  );
-}
 
 function NavItemLink({ item, onNavigate }: { item: SideNavItem; onNavigate?: () => void }) {
   return (
     <NavLink to={item.to} end={item.end} onClick={onNavigate} className="sidebar-item">
-      {({ isActive }) => (
-        <>
-          <span className="sidebar-icon">{item.icon}</span>
-          <span className="truncate">{item.label}</span>
-          {isActive && <ActiveChevron />}
-        </>
-      )}
+      <span className="sidebar-icon">{item.icon}</span>
+      <span className="truncate">{item.label}</span>
     </NavLink>
   );
 }
@@ -78,12 +65,7 @@ function NavItemWithChildren({ item, open, onToggle, onNavigate }: { item: SideN
                 onClick={onNavigate}
                 className="sidebar-item sidebar-subitem"
               >
-                {({ isActive }) => (
-                  <>
-                    <span className="truncate">{child.label}</span>
-                    {isActive && <ActiveChevron />}
-                  </>
-                )}
+                <span className="truncate">{child.label}</span>
               </NavLink>
             </li>
           ))}
@@ -93,17 +75,18 @@ function NavItemWithChildren({ item, open, onToggle, onNavigate }: { item: SideN
   );
 }
 
-/** Only one dropdown is open at a time. Opening one closes the others, even one whose page is showing. */
+/** Dropdowns stay open until the user closes them; several can be open at once. */
 function NavGroupList({ groups, onNavigate }: { groups: SideNavGroup[]; onNavigate?: () => void }) {
   const { pathname } = useLocation();
   const activeParent = groups.flatMap((g) => g.items).find((i) => i.children && isItemActive(i, pathname))?.to ?? null;
-  const [openTo, setOpenTo] = useState(activeParent);
-  // Moving to a page inside another dropdown opens that one instead.
+  const [openTos, setOpenTos] = useState<string[]>(activeParent ? [activeParent] : []);
+  // Moving to a page inside another dropdown opens that one too, without closing the rest.
   const [seenParent, setSeenParent] = useState(activeParent);
   if (seenParent !== activeParent) {
     setSeenParent(activeParent);
-    if (activeParent) setOpenTo(activeParent);
+    if (activeParent && !openTos.includes(activeParent)) setOpenTos([...openTos, activeParent]);
   }
+  const toggle = (to: string) => setOpenTos(openTos.includes(to) ? openTos.filter((x) => x !== to) : [...openTos, to]);
   return (
     <>
       {groups.map((group) => (
@@ -113,7 +96,7 @@ function NavGroupList({ groups, onNavigate }: { groups: SideNavGroup[]; onNaviga
             {group.items.map((item) => (
               <li key={item.label}>
                 {item.children ? (
-                  <NavItemWithChildren item={item} open={openTo === item.to} onToggle={() => setOpenTo(openTo === item.to ? null : item.to)} onNavigate={onNavigate} />
+                  <NavItemWithChildren item={item} open={openTos.includes(item.to)} onToggle={() => toggle(item.to)} onNavigate={onNavigate} />
                 ) : (
                   <NavItemLink item={item} onNavigate={onNavigate} />
                 )}
@@ -154,7 +137,7 @@ export function SideNav({ groups, desktop = true }: { groups: SideNavGroup[]; de
           <button
             type="button"
             aria-label="Close menu"
-            className="fixed inset-0 z-40 bg-black/40 sm:hidden"
+            className="overlay-backdrop fixed inset-0 z-40 sm:hidden"
             onClick={() => setMobileOpen(false)}
           />
           <aside
@@ -191,7 +174,7 @@ export function SideNav({ groups, desktop = true }: { groups: SideNavGroup[]; de
         )}
       >
         {user && (
-          <div className="flex flex-col items-center gap-1.5 border-b border-[var(--sb-border)] px-2 pb-4 text-center">
+          <div className="flex flex-col items-center gap-1 border-b border-[var(--sb-border)] px-2 pb-4 text-center">
             <BrandName />
             <WorkspaceLabel role={user.role} variant="caption" />
           </div>

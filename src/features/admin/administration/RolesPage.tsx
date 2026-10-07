@@ -65,7 +65,7 @@ function RoleDialog({ initial, onClose }: { initial: Draft; onClose: () => void 
         {!matrix ? (
           <p className="rounded-lg bg-surface-2 px-3 py-2 text-sm text-ink-2">This role signs into the {WORKSPACE[d.workspace]}. What they can see there is fixed: {d.workspace === "manager" ? "their own team only" : "only their own records"}.</p>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-[var(--radius-card)] border border-[var(--card-border)]">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-2/60 text-left text-xs text-ink-2">
