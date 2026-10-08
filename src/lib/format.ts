@@ -1,10 +1,7 @@
+import { fmtLongToday } from "./preferences";
+/** "Thursday, October 8, 2026", in the person's timezone. */
 export function formatToday() {
-  return new Date().toLocaleDateString("en-PH", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  return fmtLongToday();
 }
 
 const peso = new Intl.NumberFormat("en-PH", {

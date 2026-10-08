@@ -3,7 +3,7 @@ import { useState } from "react";
 const STORAGE_KEY = "sidebar-collapsed";
 
 /** Saved choice, or the default: expanded on desktop (≥ 1024px), collapsed on smaller screens. */
-function initialCollapsed() {
+export function initialCollapsed() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === "true" || saved === "false") return saved === "true";

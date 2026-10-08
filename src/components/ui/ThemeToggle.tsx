@@ -1,14 +1,14 @@
-import { useState } from "react";
 import clsx from "clsx";
 import { MoonIcon, SunIcon } from "@/components/icons";
-import { applyTheme, getEffectiveTheme, type Theme } from "@/lib/theme";
+import { applyTheme, type Theme } from "@/lib/theme";
+import { useEffectiveTheme } from "@/lib/useTheme";
 
+/** Moon/sun button. Reads the shared theme, so it stays in sync with the gear menu and Settings. */
 export function ThemeToggle({ className }: { className?: string }) {
-  const [theme, setTheme] = useState<Theme>(() => (typeof window === "undefined" ? "light" : getEffectiveTheme()));
+  const theme = useEffectiveTheme();
 
   function toggleTheme() {
     const next: Theme = theme === "dark" ? "light" : "dark";
-    setTheme(next);
     applyTheme(next);
   }
 

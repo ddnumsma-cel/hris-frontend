@@ -1,7 +1,7 @@
 import type { Role } from "./types";
 
-/** The four built-in demo logins, one per role. */
-export type DemoKey = "superadmin" | "admin" | "hr" | "employee";
+/** The built-in demo logins: one per role (and the older "Admin" one, now an HR account). */
+export type DemoKey = "sysadmin" | "superadmin" | "admin" | "hr" | "approver" | "partner-sanchez" | "accounting" | "employee";
 
 export interface DemoCredential {
   key: DemoKey;
@@ -10,6 +10,8 @@ export interface DemoCredential {
   /** The workspace it signs into. */
   role: Role;
   label: string;
+  /** false: still signs in, but isn't offered on the sign-in page's demo list. */
+  listed?: boolean;
 }
 
 // Strong, unique passwords on purpose: simple ones like "admin1" are in public
@@ -17,9 +19,14 @@ export interface DemoCredential {
 // Demo-only fixed accounts — this prototype has no real backend/user store,
 // so each built-in role is reachable with one username/password pair.
 const defaultCredentials: DemoCredential[] = [
+  { key: "sysadmin", username: "sysadmin", password: "Heyhr-SysAdmin-2026!", role: "admin", label: "System Admin" },
   { key: "superadmin", username: "superadmin", password: "Heyhr-Super-2026!", role: "admin", label: "Super Admin" },
-  { key: "admin", username: "admin", password: "Heyhr-Admin-2026!", role: "admin", label: "Admin" },
+  { key: "admin", username: "admin", password: "Heyhr-Admin-2026!", role: "admin", label: "HR (Office Administrator)", listed: false },
   { key: "hr", username: "admin1", password: "Heyhr-HR-2026!", role: "admin", label: "HR" },
+  { key: "approver", username: "approver", password: "Heyhr-Approver-2026!", role: "manager", label: "Approver" },
+  // A Partner: approver for the people who report to him.
+  { key: "partner-sanchez", username: "antonio.sanchez", password: "Heyhr-Partner1-2026!", role: "manager", label: "Approver · Antonio Sanchez (Partner)" },
+  { key: "accounting", username: "accounting", password: "Heyhr-Accounting-2026!", role: "admin", label: "Accounting" },
   { key: "employee", username: "admin2", password: "Heyhr-Staff-2026!", role: "employee", label: "Employee" },
 ];
 

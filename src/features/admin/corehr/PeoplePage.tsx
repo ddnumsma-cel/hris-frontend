@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { GridIcon, ListIcon, SearchIcon, SearchXIcon, UserPlusIcon } from "@/components/icons";
 import { listEmployees, listUnits, type EmployeeSummary } from "@/lib/corehr/api";
-import { canChange, useAccess } from "../administration/access";
+import { useCan } from "@/lib/useCan";
 import { useOfficeFilter } from "../OfficeFilterContext";
 import { filterSearchClass, filterSelectClass, formatDate, keys, statusTone, tenure } from "./format";
 import { StatusText } from "./SplitView";
@@ -63,7 +63,7 @@ function SortHeader({ label, k, sort, onSort, className }: { label: string; k: S
 /** Everyone's 201 file, as cards or as a table: HR picks whichever they prefer. */
 export function PeoplePage() {
   const navigate = useNavigate();
-  const canAdd = canChange(useAccess().people);
+  const canAdd = useCan("create", "people");
   const { office } = useOfficeFilter();
   const [params] = useSearchParams();
   const employeesQuery = useQuery({ queryKey: keys.employees, queryFn: listEmployees });
@@ -128,7 +128,7 @@ export function PeoplePage() {
         subtitle={`${current.length} employees${onLeave ? ` · ${onLeave} on leave or suspended` : ""}${needDocs ? ` · ${needDocs} with 201 documents to sort out` : ""}`}
         actions={
           canAdd && (
-            <Button icon={<UserPlusIcon className="h-4 w-4" />} onClick={() => navigate("/admin/people/new")}>
+            <Button icon={<UserPlusIcon className="h-4 w-4" />} onClick={() => navigate("/admin/maintenance/people/new")}>
               Add employee
             </Button>
           )
@@ -203,11 +203,11 @@ export function PeoplePage() {
               </thead>
               <tbody>
                 {shown.map((e) => (
-                  <tr key={e.id} onClick={() => navigate(`/admin/people/${e.id}`)} className={clsx("cursor-pointer border-b border-border last:border-0 hover:bg-surface-2/60", e.status === "Separated" && "opacity-60")}>
+                  <tr key={e.id} onClick={() => navigate(`/admin/maintenance/people/${e.id}`)} className={clsx("cursor-pointer border-b border-border last:border-0 hover:bg-surface-2/60", e.status === "Separated" && "opacity-60")}>
                     <td className="px-4 py-2">
                       <span className="flex items-center gap-3">
                         <Initials initials={e.initials} size="sm" />
-                        <Link to={`/admin/people/${e.id}`} onClick={(ev) => ev.stopPropagation()} className="font-medium hover:underline">
+                        <Link to={`/admin/maintenance/people/${e.id}`} onClick={(ev) => ev.stopPropagation()} className="font-medium hover:underline">
                           {e.name}
                         </Link>
                       </span>

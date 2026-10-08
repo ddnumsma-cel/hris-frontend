@@ -1141,6 +1141,48 @@ tbody tr:hover {
   }
 }
 
+/* Existing management pages embedded in a Settings section: their page title becomes a sub-heading. */
+.settings-embed h1 {
+  font-size: 16px;
+}
+
+/* Compact density (Settings > Appearance, or the gear menu): tighter rows and padding so more
+   fits on screen. Set as data-density on <html>; unlayered so it wins over spacing utilities. */
+html[data-density="compact"] .sidebar-item {
+  min-height: 32px;
+}
+html[data-density="compact"] .sidebar-subitem {
+  min-height: 28px;
+}
+html[data-density="compact"] [data-slot="card-header"] {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+html[data-density="compact"] [data-slot="card-body"],
+html[data-density="compact"] [data-slot="stat"] {
+  padding: 12px;
+}
+html[data-density="compact"] td,
+html[data-density="compact"] th {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+html[data-density="compact"] .field,
+html[data-density="compact"] .chip-filter {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+/* Reduce motion (Settings > Appearance), on top of the device's prefers-reduced-motion. */
+html[data-reduce-motion] *,
+html[data-reduce-motion] *::before,
+html[data-reduce-motion] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
 /* Desktop sidebar width: a 260px drawer, or a 72px icon rail when collapsed. Registered as a
    length so the sidebar, the content column beside it (push layout) and the top bar's offset
    all move together. The transition only exists while data-sidebar-anim is set (by the toggle),

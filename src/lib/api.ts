@@ -92,6 +92,7 @@ import { getExpiringPersonnelFields } from "./automation";
 import { getCredential, getCredentials, setCredential } from "./credentials";
 import { buildEmployeeFileRecords } from "./employmentRecords";
 import { teamReports, type ReportId } from "./reportsData";
+import { deny } from "./session";
 
 /**
  * Every function here stands in for a real HTTP call. Swap the body for a
@@ -119,6 +120,8 @@ export function fetchPayslips() {
 }
 
 export function fetchAnnouncements() {
+  const denied = deny("announcements", "view");
+  if (denied) return denied;
   return delay(announcements);
 }
 
@@ -135,6 +138,8 @@ export function fetchEmployeeBenefits() {
 }
 
 export async function confirmBenefitEnrollment(id: string) {
+  const denied = deny("selfService", "create");
+  if (denied) return denied;
   const next = employeeBenefits.map((b) => (b.id === id ? { ...b, status: "Active" as const } : b));
   setEmployeeBenefits(next);
   return delay(next.find((b) => b.id === id)!);
@@ -147,12 +152,16 @@ export interface AddBenefitInput {
 }
 
 export async function addEmployeeBenefit(input: AddBenefitInput): Promise<EmployeeBenefit> {
+  const denied = deny("selfService", "create");
+  if (denied) return denied;
   const benefit: EmployeeBenefit = { id: `b-${Date.now()}`, status: "Pending", ...input };
   setEmployeeBenefits([benefit, ...employeeBenefits]);
   return delay(benefit);
 }
 
 export async function removeEmployeeBenefit(id: string): Promise<void> {
+  const denied = deny("selfService", "create");
+  if (denied) return denied;
   setEmployeeBenefits(employeeBenefits.filter((b) => b.id !== id));
   return delay(undefined);
 }
@@ -204,10 +213,14 @@ export async function updateCpdUnits(id: string, cpdUnitsEarned: number) {
 // --- 201 File: HR/manager-side (full detail) ---
 
 export function fetchPersonnelProfile(employeeId: string) {
+  const denied = deny("people", "view", employeeId);
+  if (denied) return denied;
   return delay(personnelProfiles.find((p) => p.employeeId === employeeId) ?? null);
 }
 
 export function fetchAllPersonnelProfiles() {
+  const denied = deny("people", "view");
+  if (denied) return denied;
   return delay(personnelProfiles);
 }
 
@@ -224,6 +237,8 @@ export async function updatePersonnelProfile(
   input: UpdatePersonnelProfileInput,
   actor?: AuditActor,
 ) {
+  const denied = deny("people", "edit", employeeId);
+  if (denied) return denied;
   const existing = personnelProfiles.find((p) => p.employeeId === employeeId);
   const next: PersonnelProfile = { employeeId, dependents: [], ...existing, ...input };
   setPersonnelProfiles([...personnelProfiles.filter((p) => p.employeeId !== employeeId), next]);
@@ -232,10 +247,14 @@ export async function updatePersonnelProfile(
 }
 
 export function fetchPersonnelDocuments(employeeId: string) {
+  const denied = deny("documents", "view", employeeId);
+  if (denied) return denied;
   return delay(personnelDocuments.filter((d) => d.employeeId === employeeId));
 }
 
 export function fetchAllPersonnelDocuments() {
+  const denied = deny("documents", "view");
+  if (denied) return denied;
   return delay(personnelDocuments);
 }
 
@@ -256,6 +275,8 @@ export interface UpdatePersonnelDocumentInput {
 }
 
 export async function updatePersonnelDocument(id: string, input: UpdatePersonnelDocumentInput, actor?: AuditActor) {
+  const denied = deny("documents", "edit");
+  if (denied) return denied;
   const next = personnelDocuments.map((d) => (d.id === id ? { ...d, ...input } : d));
   const updated = next.find((d) => d.id === id)!;
   setPersonnelDocuments(next);
@@ -275,6 +296,8 @@ export async function updatePersonnelDocument(id: string, input: UpdatePersonnel
  * and any structured fields (ID/license number, expiry). Used when a document
  * or the details on it were wrong and need a clean re-submission. */
 export async function removePersonnelDocument(id: string, actor?: AuditActor) {
+  const denied = deny("documents", "delete");
+  if (denied) return denied;
   const target = personnelDocuments.find((d) => d.id === id);
   const next = personnelDocuments.map((d) =>
     d.id === id
@@ -323,6 +346,8 @@ export function logPersonnelView(employeeId: string, actor: AuditActor, target =
 }
 
 export function fetchAuditLog(employeeId: string) {
+  const denied = deny("people", "view", employeeId);
+  if (denied) return denied;
   return delay(
     auditLogEntries
       .filter((e) => e.employeeId === employeeId)
@@ -436,57 +461,81 @@ function formatDate(iso: string) {
 // ---- Manager ----
 
 export function fetchApprovalsQueue() {
+  const denied = deny("partnerTools", "view");
+  if (denied) return denied;
   return delay(leaveRequests.filter((r) => r.status === "Pending"));
 }
 
 export async function updateApprovalStatus(id: string, status: "Approved" | "Declined") {
+  const denied = deny("partnerTools", "edit");
+  if (denied) return denied;
   const next = leaveRequests.map((r) => (r.id === id ? { ...r, status } : r));
   setLeaveRequests(next);
   return delay(next.find((r) => r.id === id)!);
 }
 
 export function fetchOnLeaveToday() {
+  const denied = deny("partnerTools", "view");
+  if (denied) return denied;
   return delay(onLeaveToday);
 }
 
 export function fetchApprovedLeaveSchedule() {
+  const denied = deny("partnerTools", "view");
+  if (denied) return denied;
   return delay(leaveRequests.filter((r) => r.status === "Approved"));
 }
 
 export function fetchAttendanceTrend() {
+  const denied = deny("partnerTools", "view");
+  if (denied) return denied;
   return delay(attendanceTrend);
 }
 
 export function fetchWorkforceAlerts() {
+  const denied = deny("partnerTools", "view");
+  if (denied) return denied;
   return delay(workforceAlerts);
 }
 
 export function fetchTeamRoster() {
+  const denied = deny("partnerTools", "view");
+  if (denied) return denied;
   return delay(teamRoster);
 }
 
 export function fetchPerformanceReviewStatuses() {
+  const denied = deny("partnerTools", "view");
+  if (denied) return denied;
   return delay(performanceReviewStatuses);
 }
 
 export async function updatePerformanceReviewStatus(employeeId: string, status: "Submitted" | "Pending") {
+  const denied = deny("partnerTools", "edit");
+  if (denied) return denied;
   const next = { ...performanceReviewStatuses, [employeeId]: status };
   setPerformanceReviewStatuses(next);
   return delay(next);
 }
 
 export function fetchTeamTrainingRecords() {
+  const denied = deny("trainings", "view");
+  if (denied) return denied;
   const teamNames = new Set(teamRoster.map((m) => m.name));
   return delay(trainingRecords.filter((t) => teamNames.has(t.employeeName)));
 }
 
 export async function updateTrainingStatus(id: string, status: TrainingStatus) {
+  const denied = deny("trainings", "edit");
+  if (denied) return denied;
   const next = trainingRecords.map((t) => (t.id === id ? { ...t, status } : t));
   setTrainingRecords(next);
   return delay(next.find((t) => t.id === id)!);
 }
 
 export function fetchEmployeeCases() {
+  const denied = deny("partnerTools", "view");
+  if (denied) return denied;
   return delay(employeeCases);
 }
 
@@ -499,6 +548,8 @@ export interface CreateCaseInput {
 }
 
 export async function createEmployeeCase(input: CreateCaseInput): Promise<EmployeeCase> {
+  const denied = deny("partnerTools", "create");
+  if (denied) return denied;
   const record: EmployeeCase = {
     id: `case-${Date.now()}`,
     employeeName: input.employeeName,
@@ -514,6 +565,8 @@ export async function createEmployeeCase(input: CreateCaseInput): Promise<Employ
 }
 
 export async function updateCaseStatus(id: string, status: CaseStatus) {
+  const denied = deny("partnerTools", "edit");
+  if (denied) return denied;
   const next = employeeCases.map((c) => (c.id === id ? { ...c, status } : c));
   setEmployeeCases(next);
   return delay(next.find((c) => c.id === id)!);
@@ -525,12 +578,16 @@ export interface UpdateCaseDetailsInput {
 }
 
 export async function updateCaseDetails(id: string, input: UpdateCaseDetailsInput) {
+  const denied = deny("partnerTools", "edit");
+  if (denied) return denied;
   const next = employeeCases.map((c) => (c.id === id ? { ...c, ...input } : c));
   setEmployeeCases(next);
   return delay(next.find((c) => c.id === id)!);
 }
 
 export async function deleteEmployeeCase(id: string): Promise<void> {
+  const denied = deny("partnerTools", "delete");
+  if (denied) return denied;
   setEmployeeCases(employeeCases.filter((c) => c.id !== id));
   return delay(undefined);
 }
@@ -538,26 +595,38 @@ export async function deleteEmployeeCase(id: string): Promise<void> {
 // ---- HR Admin ----
 
 export function fetchAdminOverviewStats() {
+  const denied = deny("dashboard", "view");
+  if (denied) return denied;
   return delay(adminOverviewStats);
 }
 
 export function fetchPayrollRunSteps() {
+  const denied = deny("dashboard", "view");
+  if (denied) return denied;
   return delay(payrollRunSteps);
 }
 
 export function fetchHeadcountByOffice() {
+  const denied = deny("dashboard", "view");
+  if (denied) return denied;
   return delay(headcountByOffice);
 }
 
 export function fetchPayrollCostBreakdown() {
+  const denied = deny("dashboard", "view");
+  if (denied) return denied;
   return delay(payrollCostBreakdown);
 }
 
 export function fetchComplianceCalendar() {
+  const denied = deny("dashboard", "view");
+  if (denied) return denied;
   return delay(complianceCalendar);
 }
 
 export function fetchEmployeeDirectory() {
+  const denied = deny("people", "view");
+  if (denied) return denied;
   return delay(employeeDirectory);
 }
 
@@ -598,6 +667,8 @@ function initialsFor(name: string) {
 }
 
 export async function createEmployee(input: CreateEmployeeInput): Promise<Employee> {
+  const denied = deny("people", "create");
+  if (denied) return denied;
   const name = formatEmployeeName(input);
   const employee: Employee = {
     id: `MSMA-${Math.floor(10_000 + Math.random() * 89_999)}`,
@@ -646,19 +717,27 @@ export async function registerEmployee(input: RegisterEmployeeInput): Promise<Em
 }
 
 export function fetchOnboardingPipeline() {
+  const denied = deny("dashboard", "view");
+  if (denied) return denied;
   return delay(onboardingPipeline);
 }
 
 export function fetchJobRequisitions() {
+  const denied = deny("dashboard", "view");
+  if (denied) return denied;
   return delay(jobRequisitions);
 }
 
 export function fetchOrgChart() {
+  const denied = deny("orgChart", "view");
+  if (denied) return denied;
   const root = { id: "admin", name: currentAdmin.name, initials: currentAdmin.initials, title: currentAdmin.title };
   return delay({ root, employees: employeeDirectory });
 }
 
 export function fetchOffboardingCases() {
+  const denied = deny("people", "view");
+  if (denied) return denied;
   return delay(offboardingCases);
 }
 
@@ -671,6 +750,8 @@ export interface CreateOffboardingInput {
 }
 
 export async function createOffboardingCase(input: CreateOffboardingInput): Promise<OffboardingCase> {
+  const denied = deny("people", "create");
+  if (denied) return denied;
   const record: OffboardingCase = { id: `off-${Date.now()}`, ...input };
   setOffboardingCases([record, ...offboardingCases]);
   return delay(record);
@@ -680,17 +761,23 @@ export async function updateOffboardingCase(
   id: string,
   input: CreateOffboardingInput,
 ): Promise<OffboardingCase> {
+  const denied = deny("people", "edit");
+  if (denied) return denied;
   const updated: OffboardingCase = { id, ...input };
   setOffboardingCases(offboardingCases.map((c) => (c.id === id ? updated : c)));
   return delay(updated);
 }
 
 export async function deleteOffboardingCase(id: string): Promise<void> {
+  const denied = deny("people", "delete");
+  if (denied) return denied;
   setOffboardingCases(offboardingCases.filter((c) => c.id !== id));
   return delay(undefined);
 }
 
 export function fetchCompanyAssets() {
+  const denied = deny("people", "view");
+  if (denied) return denied;
   return delay(companyAssets);
 }
 
@@ -702,6 +789,8 @@ export interface CreateAssetInput {
 }
 
 export async function createCompanyAsset(input: CreateAssetInput): Promise<CompanyAsset> {
+  const denied = deny("people", "create");
+  if (denied) return denied;
   const asset: CompanyAsset = {
     id: `as-${Date.now()}`,
     type: input.type,
@@ -724,6 +813,8 @@ export interface UpdateAssetInput {
 }
 
 export async function updateCompanyAsset(id: string, input: UpdateAssetInput): Promise<CompanyAsset> {
+  const denied = deny("people", "edit");
+  if (denied) return denied;
   const existing = companyAssets.find((a) => a.id === id);
   const updated: CompanyAsset = { ...existing!, ...input };
   setCompanyAssets(companyAssets.map((a) => (a.id === id ? updated : a)));
@@ -731,11 +822,15 @@ export async function updateCompanyAsset(id: string, input: UpdateAssetInput): P
 }
 
 export async function deleteCompanyAsset(id: string): Promise<void> {
+  const denied = deny("people", "delete");
+  if (denied) return denied;
   setCompanyAssets(companyAssets.filter((a) => a.id !== id));
   return delay(undefined);
 }
 
 export function fetchAllTrainingRecords() {
+  const denied = deny("trainings", "view");
+  if (denied) return denied;
   return delay(trainingRecords);
 }
 
@@ -747,17 +842,23 @@ export interface CreateTrainingRecordInput {
 }
 
 export async function createTrainingRecord(input: CreateTrainingRecordInput): Promise<TrainingRecord> {
+  const denied = deny("trainings", "create");
+  if (denied) return denied;
   const record: TrainingRecord = { id: `tr-${Date.now()}`, status: "Not started", ...input };
   setTrainingRecords([record, ...trainingRecords]);
   return delay(record);
 }
 
 export async function deleteTrainingRecord(id: string): Promise<void> {
+  const denied = deny("trainings", "delete");
+  if (denied) return denied;
   setTrainingRecords(trainingRecords.filter((t) => t.id !== id));
   return delay(undefined);
 }
 
 export function fetchCertificateRequestsForReview() {
+  const denied = deny("selfService", "edit");
+  if (denied) return denied;
   return delay(certificateRequests);
 }
 
@@ -769,6 +870,8 @@ export function nextCertificateStatus(status: CertificateRequestStatus): Certifi
 }
 
 export async function advanceCertificateRequest(id: string) {
+  const denied = deny("selfService", "edit");
+  if (denied) return denied;
   const target = certificateRequests.find((r) => r.id === id);
   const nextStatus = target ? nextCertificateStatus(target.status) : null;
   if (!nextStatus) return delay(target!);
@@ -783,12 +886,16 @@ export interface UpdateCertificateRequestInput {
 }
 
 export async function updateCertificateRequest(id: string, input: UpdateCertificateRequestInput) {
+  const denied = deny("selfService", "edit");
+  if (denied) return denied;
   const next = certificateRequests.map((r) => (r.id === id ? { ...r, ...input } : r));
   setCertificateRequests(next);
   return delay(next.find((r) => r.id === id)!);
 }
 
 export async function deleteCertificateRequest(id: string): Promise<void> {
+  const denied = deny("selfService", "delete");
+  if (denied) return denied;
   setCertificateRequests(certificateRequests.filter((r) => r.id !== id));
   return delay(undefined);
 }
@@ -801,6 +908,8 @@ export async function cancelCertificateRequest(id: string): Promise<void> {
 }
 
 export async function updateComplianceStatus(id: string, status: ComplianceItem["status"]) {
+  const denied = deny("payrollReports", "edit");
+  if (denied) return denied;
   const next = complianceCalendar.map((c) => (c.id === id ? { ...c, status, note: undefined } : c));
   setComplianceCalendar(next);
   return delay(next.find((c) => c.id === id)!);
@@ -813,18 +922,24 @@ export interface ComplianceItemInput {
 }
 
 export async function createComplianceItem(input: ComplianceItemInput): Promise<ComplianceItem> {
+  const denied = deny("payrollReports", "create");
+  if (denied) return denied;
   const item: ComplianceItem = { id: `c-${Date.now()}`, status: "Due soon", ...input };
   setComplianceCalendar([item, ...complianceCalendar]);
   return delay(item);
 }
 
 export async function updateComplianceItem(id: string, input: ComplianceItemInput) {
+  const denied = deny("payrollReports", "edit");
+  if (denied) return denied;
   const next = complianceCalendar.map((c) => (c.id === id ? { ...c, ...input } : c));
   setComplianceCalendar(next);
   return delay(next.find((c) => c.id === id)!);
 }
 
 export async function deleteComplianceItem(id: string): Promise<void> {
+  const denied = deny("payrollReports", "delete");
+  if (denied) return denied;
   setComplianceCalendar(complianceCalendar.filter((c) => c.id !== id));
   return delay(undefined);
 }
@@ -834,6 +949,8 @@ export interface CreateAnnouncementInput {
 }
 
 export async function createAnnouncement(input: CreateAnnouncementInput): Promise<Announcement> {
+  const denied = deny("announcements", "create");
+  if (denied) return denied;
   const announcement: Announcement = {
     id: `an-${Date.now()}`,
     title: input.title,
@@ -846,6 +963,8 @@ export async function createAnnouncement(input: CreateAnnouncementInput): Promis
 // ---- Partner: attendance approvals ----
 
 export function fetchAttendanceRequests() {
+  const denied = deny("attendanceRecords", "view");
+  if (denied) return denied;
   return delay(attendanceRequests);
 }
 
@@ -853,6 +972,8 @@ export async function updateAttendanceRequestStatus(
   id: string,
   status: Exclude<AttendanceRequestStatus, "Pending">,
 ): Promise<AttendanceRequest> {
+  const denied = deny("attendanceRecords", "approve");
+  if (denied) return denied;
   const next = attendanceRequests.map((r) => (r.id === id ? { ...r, status } : r));
   setAttendanceRequests(next);
   return delay(next.find((r) => r.id === id)!);
@@ -895,6 +1016,8 @@ export interface ChangeCredentialsInput {
 // Rejects (like a real auth endpoint would) when the current password is
 // wrong or the username is already used by another account.
 export async function changeAdminCredentials(input: ChangeCredentialsInput): Promise<{ username: string }> {
+  const denied = deny("systemSettings", "edit");
+  if (denied) return denied;
   const current = getCredential("hr");
   const username = input.username.trim().toLowerCase();
   await delay(null);
@@ -930,10 +1053,14 @@ function upsertPayrollEntries(updated: PayrollEntry[]) {
 }
 
 export function fetchPayrollCutoff() {
+  const denied = deny("payrollRuns", "view");
+  if (denied) return denied;
   return delay(payrollCutoff);
 }
 
 export function fetchPayrollRegister(): Promise<PayrollRegisterRow[]> {
+  const denied = deny("payrollRuns", "view");
+  if (denied) return denied;
   return delay(employeeDirectory.map((employee) => ({ employee, entry: entryFor(employee.id) })));
 }
 
@@ -944,6 +1071,8 @@ export type UpdatePayrollEntryInput = Pick<
 
 /** Editing a figure sends the entry back to Draft so it has to be re-approved. */
 export async function updatePayrollEntry(employeeId: string, input: UpdatePayrollEntryInput): Promise<PayrollEntry> {
+  const denied = deny("payrollRuns", "edit");
+  if (denied) return denied;
   const existing = entryFor(employeeId);
   if (existing.status === "Released") throw new Error("Released payroll can no longer be edited.");
   const updated: PayrollEntry = { ...existing, ...input, status: "Draft" };
@@ -952,6 +1081,8 @@ export async function updatePayrollEntry(employeeId: string, input: UpdatePayrol
 }
 
 export async function approvePayrollEntries(employeeIds: string[]): Promise<void> {
+  const denied = deny("payrollRuns", "final");
+  if (denied) return denied;
   const ids = new Set(employeeIds);
   upsertPayrollEntries(
     employeeDirectory
@@ -964,6 +1095,8 @@ export async function approvePayrollEntries(employeeIds: string[]): Promise<void
 }
 
 export async function revertPayrollEntry(employeeId: string): Promise<void> {
+  const denied = deny("payrollRuns", "edit");
+  if (denied) return denied;
   const existing = entryFor(employeeId);
   if (existing.status === "Approved") upsertPayrollEntries([{ ...existing, status: "Draft" }]);
   return delay(undefined);
@@ -971,6 +1104,8 @@ export async function revertPayrollEntry(employeeId: string): Promise<void> {
 
 /** Releases every approved entry and marks the matching employee payslip as paid. */
 export async function releaseApprovedPayroll(): Promise<number> {
+  const denied = deny("payrollRuns", "final");
+  if (denied) return denied;
   const approved = employeeDirectory.map((e) => entryFor(e.id)).filter((entry) => entry.status === "Approved");
   upsertPayrollEntries(approved.map((entry) => ({ ...entry, status: "Released" as const })));
   if (approved.some((entry) => entry.employeeId === currentEmployee.id)) {
@@ -982,18 +1117,24 @@ export async function releaseApprovedPayroll(): Promise<number> {
 // ---- Partner reports ----
 
 export function fetchTeamReport(id: ReportId) {
+  const denied = deny("analytics", "view");
+  if (denied) return denied;
   return delay(teamReports[id]);
 }
 
 // ---- 201 File: government numbers, employment, during employment, separation ----
 
 export function fetchEmployeeFileRecords(employeeId: string) {
+  const denied = deny("people", "view", employeeId);
+  if (denied) return denied;
   const employee = employeeDirectory.find((e) => e.id === employeeId);
   return delay(employee ? buildEmployeeFileRecords(employee) : null);
 }
 
 /** Date hired for every directory entry, keyed by employee ID — for the directory cards. */
 export function fetchEmployeeHireDates() {
+  const denied = deny("dashboard", "view");
+  if (denied) return denied;
   return delay(
     Object.fromEntries(employeeDirectory.map((e) => [e.id, buildEmployeeFileRecords(e).employment.dateHired])) as Record<
       string,

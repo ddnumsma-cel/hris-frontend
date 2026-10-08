@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type { Eligibility, LeaveType, RequestStatus } from "@/lib/leave/types";
+import { fmtDayShort } from "@/lib/preferences";
 
 export const leaveKeys = {
   types: ["leave", "types"] as const,
@@ -12,7 +13,7 @@ export const leaveKeys = {
 /** Leave changes who Timekeeping shows as on leave, so refresh both. */
 export const LEAVE_INVALIDATES = [["leave"], ["timekeeping"]] as const;
 
-const md = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+const md = (iso: string) => fmtDayShort(iso);
 
 /** "Oct 5", "Oct 5 – 9", "Sep 29 – Oct 3" */
 export function dateRange(start: string, end: string) {

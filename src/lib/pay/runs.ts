@@ -7,6 +7,8 @@ import { newId } from "../corehr/store";
 import { payroll, periodsFor, type PayLine, type Period } from "../reports/api";
 import { tk, todayIso } from "../timekeeping/store";
 import type { Adjustment } from "./engine";
+import { canFor, scopeFor } from "../permissions";
+import { deny, forbidden, sessionWho } from "../session";
 
 export interface PayrollRun {
   id: string;
@@ -62,17 +64,22 @@ async function compute(run: Pick<PayrollRun, "label" | "from" | "to" | "adjustme
 }
 
 export function listRuns() {
+  // Whole runs are for those who work on payroll (Accounting, Super Admin); employees get their payslips.
+  if (scopeFor(sessionWho(), "view", "payrollRuns") !== "all") return forbidden();
   sync();
   return respond([...runs].sort((a, b) => b.from.localeCompare(a.from)));
 }
 
 export function getRun(id: string) {
+  if (scopeFor(sessionWho(), "view", "payrollRuns") !== "all") return forbidden();
   const r = find(id);
   return r ? respond(r) : fail("That payroll run no longer exists");
 }
 
 /** Cutoffs a new run can be made for: the recent ones without a run yet. */
 export function openCutoffs(): Promise<Period[]> {
+  const denied = deny("payrollRuns", "create");
+  if (denied) return denied;
   sync();
   return respond(periodsFor("cutoff").filter((p) => !runs.some((r) => r.from === p.from && r.to === p.to)));
 }
@@ -90,6 +97,8 @@ export function runWarnings(run: Pick<PayrollRun, "from" | "to">) {
 }
 
 export async function createRun(period: Period, actor: string): Promise<PayrollRun> {
+  const denied = deny("payrollRuns", "create");
+  if (denied) return denied;
   sync();
   if (runs.some((r) => r.from === period.from && r.to === period.to)) return fail("There's already a payroll run for this cutoff");
   const now = new Date().toISOString();
@@ -102,6 +111,8 @@ export async function createRun(period: Period, actor: string): Promise<PayrollR
 
 /** Recomputes a draft from the latest attendance. */
 export async function refreshRun(id: string): Promise<PayrollRun> {
+  const denied = deny("payrollRuns", "edit");
+  if (denied) return denied;
   const r = find(id);
   if (!r) return fail("That payroll run no longer exists");
   if (r.status !== "draft") return fail("This run is approved and locked");
@@ -111,6 +122,8 @@ export async function refreshRun(id: string): Promise<PayrollRun> {
 }
 
 export async function addAdjustment(id: string, employeeId: string, input: Omit<Adjustment, "id">, actor: string): Promise<PayrollRun> {
+  const denied = deny("payrollRuns", "edit");
+  if (denied) return denied;
   const r = find(id);
   if (!r) return fail("That payroll run no longer exists");
   if (r.status !== "draft") return fail("This run is approved and locked. Add the correction to the next run.");
@@ -127,6 +140,8 @@ export async function addAdjustment(id: string, employeeId: string, input: Omit<
 }
 
 export async function removeAdjustment(id: string, employeeId: string, adjustmentId: string): Promise<PayrollRun> {
+  const denied = deny("payrollRuns", "edit");
+  if (denied) return denied;
   const r = find(id);
   if (!r) return fail("That payroll run no longer exists");
   if (r.status !== "draft") return fail("This run is approved and locked");
@@ -138,6 +153,9 @@ export async function removeAdjustment(id: string, employeeId: string, adjustmen
 
 /** Locks the run with the numbers as they are now, and releases the payslips. */
 export async function approveRun(id: string, actor: string): Promise<PayrollRun> {
+  // The final approval locks the run and releases payslips (Accounting, Super Admin).
+  const denied = deny("payrollRuns", "final");
+  if (denied) return denied;
   const r = find(id);
   if (!r) return fail("That payroll run no longer exists");
   if (r.status !== "draft") return fail("This run is already approved");
@@ -152,6 +170,8 @@ export async function approveRun(id: string, actor: string): Promise<PayrollRun>
 }
 
 export async function deleteRun(id: string, actor: string): Promise<void> {
+  const denied = deny("payrollRuns", "delete");
+  if (denied) return denied;
   const r = find(id);
   if (!r) return fail("That payroll run no longer exists");
   if (r.status !== "draft") return fail("Approved runs stay on record");
@@ -162,6 +182,8 @@ export async function deleteRun(id: string, actor: string): Promise<void> {
 
 /** Released pay for one employee: their line from every approved run, newest first. */
 export function approvedLinesFor(employeeId: string) {
+  // Payslips: their own (or anyone's, for those who see every run).
+  if (!canFor(sessionWho(), "view", "payrollRuns", employeeId)) return [];
   sync();
   return runs
     .filter((r) => r.status === "approved")

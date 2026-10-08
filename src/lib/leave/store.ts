@@ -3,6 +3,7 @@
 
 import { fullName, state as core } from "../corehr/store";
 import { HOLIDAYS } from "../holidays";
+import { admin } from "../admin/store";
 import type { Adjustment, Balance, LeaveRequest, LeaveType } from "./types";
 
 export interface LeaveState {
@@ -11,7 +12,23 @@ export interface LeaveState {
   adjustments: Adjustment[];
   /** Unused days brought over from last year, by "employeeId|typeId". */
   carryOver: Record<string, number>;
+  /** Company-wide defaults from Settings > Time off & leave. */
+  policy?: Partial<LeavePolicy>;
 }
+
+export interface LeavePolicy {
+  /** Off: filing is whole days only. */
+  allowHalfDays: boolean;
+  /** On: people can file beyond their remaining credits. */
+  allowNegative: boolean;
+  /** Carry-over limit pre-filled for new leave types. */
+  defaultCarryOver: number;
+  /** TODO: credits are granted yearly today; monthly and per-payroll accrual aren't calculated yet. */
+  accrual: "yearly" | "monthly" | "per-payroll";
+}
+
+export const DEFAULT_LEAVE_POLICY: LeavePolicy = { allowHalfDays: true, allowNegative: false, defaultCarryOver: 0, accrual: "yearly" };
+export const leavePolicy = (): LeavePolicy => ({ ...DEFAULT_LEAVE_POLICY, ...leave.policy });
 
 const KEY = "heyhr-leave-v1";
 
@@ -43,14 +60,16 @@ export function addDays(date: string, n: number) {
 
 const weekday = (date: string) => new Date(`${date}T12:00:00`).getDay();
 const isHoliday = (date: string) => HOLIDAYS.some((h) => h.date === date);
+/** A working day per Settings > Organization (Monday–Friday unless changed). */
+const isWorkday = (date: string) => (admin.settings.workWeek ?? [1, 2, 3, 4, 5]).includes(weekday(date));
 
-/** Days a request covers: working days (Mon–Fri, not holidays) or every calendar day. */
+/** Days a request covers: working days (the company's work week, not holidays) or every calendar day. */
 export function countDays(start: string, end: string, countBy: LeaveType["countBy"], halfDay?: "am" | "pm") {
   if (!start || !end || end < start) return 0;
-  if (halfDay && start === end) return countBy === "calendar" || (weekday(start) !== 0 && weekday(start) !== 6 && !isHoliday(start)) ? 0.5 : 0;
+  if (halfDay && start === end) return countBy === "calendar" || (isWorkday(start) && !isHoliday(start)) ? 0.5 : 0;
   let n = 0;
   for (let d = start; d <= end; d = addDays(d, 1)) {
-    if (countBy === "calendar" || (weekday(d) !== 0 && weekday(d) !== 6 && !isHoliday(d))) n++;
+    if (countBy === "calendar" || (isWorkday(d) && !isHoliday(d))) n++;
   }
   return n;
 }

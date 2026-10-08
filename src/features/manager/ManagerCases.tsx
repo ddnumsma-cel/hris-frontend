@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useCan } from "@/lib/useCan";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Card } from "@/components/ui/Card";
@@ -31,6 +32,8 @@ export function ManagerCases() {
   useCreateParam("case", () => setDialogOpen(true));
   const [editingCase, setEditingCase] = useState<EmployeeCase | null>(null);
   const [deletingCase, setDeletingCase] = useState<EmployeeCase | null>(null);
+  // Approvers manage their team's cases (no delete).
+  const canWithdraw = useCan("delete", "partnerTools");
   const casesQuery = useQuery({ queryKey: ["cases"], queryFn: fetchEmployeeCases });
   const myTeamCases = (casesQuery.data ?? []).filter((c) => c.filedBy === currentManager.name);
 
@@ -99,9 +102,11 @@ export function ManagerCases() {
                       <EditIcon className="h-3.5 w-3.5" />
                       Edit
                     </button>
-                    <button type="button" onClick={() => setDeletingCase(c)} className="font-semibold text-critical">
-                      Withdraw
-                    </button>
+                    {canWithdraw && (
+                      <button type="button" onClick={() => setDeletingCase(c)} className="font-semibold text-critical">
+                        Withdraw
+                      </button>
+                    )}
                   </div>
                 )}
               </Card>
@@ -151,13 +156,11 @@ export function ManagerCases() {
                               <EditIcon className="h-3.5 w-3.5" />
                               Edit
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeletingCase(c)}
-                              className="text-xs font-semibold text-critical"
-                            >
-                              Withdraw
-                            </button>
+                            {canWithdraw && (
+                              <button type="button" onClick={() => setDeletingCase(c)} className="text-xs font-semibold text-critical">
+                                Withdraw
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>

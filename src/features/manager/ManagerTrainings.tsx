@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useCan } from "@/lib/useCan";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -29,7 +30,10 @@ export function ManagerTrainings() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [assignOpen, setAssignOpen] = useState(false);
-  useCreateParam("training", () => setAssignOpen(true));
+  // Trainings: View (team) for approvers; assigning and removing need Create / Delete.
+  const canAssign = useCan("create", "trainings");
+  const canRemove = useCan("delete", "trainings");
+  useCreateParam("training", () => canAssign && setAssignOpen(true));
   const [deletingRecord, setDeletingRecord] = useState<TrainingRecord | null>(null);
   const trainingsQuery = useQuery({ queryKey: ["manager", "team-trainings"], queryFn: fetchTeamTrainingRecords });
   const records = useMemo(() => trainingsQuery.data ?? [], [trainingsQuery.data]);
@@ -59,9 +63,11 @@ export function ManagerTrainings() {
         title="Trainings"
         subtitle={formatToday()}
         actions={
-          <Button icon={<GraduationCapIcon className="h-3.75 w-3.75" />} onClick={() => setAssignOpen(true)}>
-            Assign training
-          </Button>
+          canAssign ? (
+            <Button icon={<GraduationCapIcon className="h-3.75 w-3.75" />} onClick={() => setAssignOpen(true)}>
+              Assign training
+            </Button>
+          ) : undefined
         }
       />
 
@@ -112,9 +118,11 @@ export function ManagerTrainings() {
                   </div>
                   <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5 text-xs">
                     <span className="text-ink-3">Due {r.dueDate}</span>
-                    <button type="button" onClick={() => setDeletingRecord(r)} className="font-semibold text-critical">
-                      Remove
-                    </button>
+                    {canRemove && (
+                      <button type="button" onClick={() => setDeletingRecord(r)} className="font-semibold text-critical">
+                        Remove
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -151,13 +159,11 @@ export function ManagerTrainings() {
                         <Chip variant={statusVariant[r.status]}>{r.status}</Chip>
                       </td>
                       <td className="border-b border-border px-4 py-2.5">
-                        <button
-                          type="button"
-                          onClick={() => setDeletingRecord(r)}
-                          className="font-semibold text-critical"
-                        >
-                          Remove
-                        </button>
+                        {canRemove && (
+                          <button type="button" onClick={() => setDeletingRecord(r)} className="font-semibold text-critical">
+                            Remove
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

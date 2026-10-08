@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
+import type { Action, Feature } from "@/lib/permissions";
 import { NavLink, useLocation } from "react-router-dom";
 import clsx from "clsx";
 import { ChevronDownIcon, MenuIcon, SidebarCollapseIcon, SidebarExpandIcon, XIcon } from "@/components/icons";
@@ -23,7 +24,8 @@ export interface SideNavItem {
 /** A column in the sidebar's Create menu: a heading and short links, like an accounting app's "+ New". */
 export interface CreateGroup {
   title: string;
-  items: { label: string; to: string }[];
+  /** `action` / `feature`: what the link is for, when more than viewing its page (checked against the access matrix). */
+  items: { label: string; to: string; action?: Action; feature?: Feature }[];
 }
 
 export interface SideNavGroup {

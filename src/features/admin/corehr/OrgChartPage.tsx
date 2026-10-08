@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastContext";
 import { getOrgChart, setCompanyHead, setReportsTo, type OrgChart } from "@/lib/corehr/api";
-import { useAccess } from "../administration/access";
+import { useCan } from "@/lib/useCan";
 import { inputClass, useActor } from "./format";
 import { Drawer, ErrorNote, Field, Initials, LoadError } from "./ui";
 import { CanvasView } from "./orgchart/CanvasView";
@@ -43,7 +43,7 @@ function PersonPanel({ p, chart, tree, canEdit, onClose, onOpen }: { p: Person; 
       subtitle={`${p.positionTitle} · ${p.departmentName}${p.branchName ? ` · ${p.branchName}` : ""}`}
       footer={
         <span className="flex flex-wrap justify-end gap-2 pr-16">
-          <Link to={`/admin/people/${p.id}`} className="inline-flex h-9 items-center rounded-full border border-border px-4 text-sm font-medium hover:border-ink-3">
+          <Link to={`/admin/maintenance/people/${p.id}`} className="inline-flex h-9 items-center rounded-full border border-border px-4 text-sm font-medium hover:border-ink-3">
             Open full profile
           </Link>
         </span>
@@ -144,8 +144,7 @@ function ChooseHead({ chart }: { chart: OrgChart }) {
 
 export function OrgChartPage() {
   const chart = useQuery({ queryKey: KEY, queryFn: getOrgChart, staleTime: 0 });
-  const access = useAccess();
-  const canEdit = access.company === "edit" || access.company === "approve";
+  const canEdit = useCan("edit", "orgChart");
   const [openId, setOpenId] = useState<string | null>(null);
 
   if (chart.isError) return <LoadError onRetry={() => chart.refetch()} />;

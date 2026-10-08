@@ -4,7 +4,9 @@
 import { findCredential, getCredentials } from "../credentials";
 import type { Role } from "../types";
 import { fullName, state as core } from "../corehr/store";
-import { admin, logAdmin, NON_HR_MODULES, roleOf, saveAdmin, type Access, type ModuleKey, type UserAccount } from "./store";
+import { can } from "../permissions";
+import { whoFor } from "../session";
+import { admin, logAdmin, roleOf, saveAdmin, type Access, type ModuleKey, type UserAccount } from "./store";
 
 export type SignInResult = { ok: true; workspace: Role; account: UserAccount } | { ok: false; error: string };
 
@@ -60,9 +62,9 @@ export function accessFor(accountId: string | undefined): Record<ModuleKey, Acce
   return roleOf(account)?.access ?? FULL;
 }
 
-/** Still allowed to be signed in? (turned off or role removed while signed in) */
+/** Still allowed to be signed in? (turned off or role removed while signed in; sign-ins without an account are no longer accepted) */
 export function sessionValid(accountId: string | undefined) {
-  if (!accountId) return true;
+  if (!accountId) return false;
   const a = accountById(accountId);
   return !!a && a.status === "active" && !!roleOf(a);
 }
@@ -80,10 +82,9 @@ export function endedForInactivity() {
   }
 }
 
-/** True when the account can open at least one HR module (not just Administration). */
+/** True when the account may see employee records (the employee search, office filter, assistant). */
 export function hasHrAccess(accountId: string | undefined) {
-  const access = accessFor(accountId);
-  return (Object.keys(access) as ModuleKey[]).some((k) => !NON_HR_MODULES.includes(k) && access[k] !== "none");
+  return can(whoFor(accountId), "view", "people");
 }
 
 const SIGNED_IN_FLAG = "heyhr-just-signed-in";

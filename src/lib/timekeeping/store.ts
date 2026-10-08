@@ -35,7 +35,21 @@ export interface TimekeepingState {
   remoteDays?: RemoteDay[];
   /** Time-ins and time-outs people recorded themselves from home with a face scan. */
   remotePunches?: Punch[];
+  /** Company-wide rules from Settings > Scheduling. */
+  rules?: Partial<SchedulingRules>;
 }
+
+export interface SchedulingRules {
+  /** Extra time after a shift shorter than this isn't counted as overtime. */
+  overtimeThresholdMinutes: number;
+  /** Lunch break pre-filled for new shifts. */
+  defaultBreakMinutes: number;
+  /** TODO: there's no schedule publishing step yet; stored for when there is. */
+  publishLeadDays: number;
+}
+
+export const DEFAULT_SCHEDULING_RULES: SchedulingRules = { overtimeThresholdMinutes: 0, defaultBreakMinutes: 60, publishLeadDays: 7 };
+export const schedulingRules = (): SchedulingRules => ({ ...DEFAULT_SCHEDULING_RULES, ...tk.rules });
 
 /** The remote work day covering this person on this date, if any. */
 export function remoteDayFor(employeeId: string, date: string): RemoteDay | undefined {

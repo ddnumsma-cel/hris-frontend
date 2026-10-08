@@ -33,6 +33,7 @@ function userFor(role: Role, account?: UserAccount): AuthUser {
   const accountId = account?.id;
   if (account?.demo === "employee" || (!account && role === "employee")) return { role, name: currentEmployee.name, initials: currentEmployee.initials, title: currentEmployee.position, accountId };
   if (account?.demo === "hr" || (!account && role === "admin")) return { role, name: currentAdmin.name, initials: currentAdmin.initials, title: currentAdmin.title, accountId };
+  if (account?.demo === "approver") return { role, name: currentManager.name, initials: currentManager.initials, title: currentManager.title, accountId };
   if (account) return { role, name: account.name, initials: initials(account.name), title: roleOf(account)?.name ?? "", accountId };
   return { role, name: currentManager.name, initials: currentManager.initials, title: currentManager.title };
 }

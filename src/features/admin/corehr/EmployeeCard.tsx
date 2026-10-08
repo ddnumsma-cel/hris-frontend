@@ -26,7 +26,7 @@ function PreviewPanel({ e, onClose }: { e: EmployeeSummary; onClose: () => void 
       title={e.name}
       subtitle={`${e.positionTitle} · ${e.id}`}
       footer={
-        <button type="button" onClick={() => navigate(`/admin/people/${e.id}`)} className="inline-flex h-9 items-center rounded-full bg-ink px-4 text-sm font-medium text-bg">
+        <button type="button" onClick={() => navigate(`/admin/maintenance/people/${e.id}`)} className="inline-flex h-9 items-center rounded-full bg-ink px-4 text-sm font-medium text-bg">
           Open full profile
         </button>
       }
@@ -83,7 +83,7 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
       <header className="flex h-[4.25rem] items-start gap-2.5">
         <Initials initials={e.initials} size="md" />
         <div className="min-w-0 flex-1 pt-0.5">
-          <Link to={`/admin/people/${e.id}`} title={e.name} className="font-display block truncate text-[0.95rem] leading-tight font-semibold hover:underline">
+          <Link to={`/admin/maintenance/people/${e.id}`} title={e.name} className="font-display block truncate text-[0.95rem] leading-tight font-semibold hover:underline">
             {e.name}
           </Link>
           <span className="mt-0.5 block truncate text-xs text-ink-2" title={e.positionTitle}>
@@ -101,7 +101,7 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
             <>
               <button type="button" aria-label="Close menu" className="fixed inset-0 z-10 cursor-default" onClick={() => setMenu(false)} />
               <div role="menu" className="glass-surface absolute top-8 right-0 z-20 flex w-44 flex-col rounded-[var(--radius-dropdown)] p-1 text-sm">
-                <Link role="menuitem" to={`/admin/people/${e.id}`} className="rounded-lg px-3 py-1.5 hover:bg-surface-2">
+                <Link role="menuitem" to={`/admin/maintenance/people/${e.id}`} className="rounded-lg px-3 py-1.5 hover:bg-surface-2">
                   View profile
                 </Link>
                 {e.workEmail && (

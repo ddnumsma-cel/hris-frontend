@@ -17,6 +17,7 @@ import { downloadTextFile, toCsv } from "@/lib/download";
 import { reportTeamMembers, type ReportRow, type ReportStatus } from "@/lib/reportsData";
 import { useRowsThatFit } from "@/lib/useRowsThatFit";
 import { getReportDefinition, reportDefinitions, type ReportColumn } from "./reportDefinitions";
+import { fmtDay } from "@/lib/preferences";
 
 const PAGE_SIZE = 10;
 // The mock records cover September 2026, so the period opens on that month.
@@ -32,10 +33,9 @@ const statusVariant: Record<ReportStatus, ChipVariant> = {
 const fieldClass =
   "field px-3 py-2 text-sm";
 
-const dateFormat = new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric" });
 
 function formatDate(iso: string) {
-  return dateFormat.format(new Date(`${iso}T00:00:00`));
+  return fmtDay(iso);
 }
 
 function Cell({ column, row }: { column: ReportColumn; row: ReportRow }) {

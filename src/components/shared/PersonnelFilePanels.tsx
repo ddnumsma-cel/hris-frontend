@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useCan } from "@/lib/useCan";
 import clsx from "clsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Chip, type ChipVariant } from "@/components/ui/Chip";
@@ -54,7 +55,9 @@ const tableHeadClass =
 
 /** Completion summary plus the verify/edit/remove list of an employee's 201 documents. */
 /** `readOnly` hides verify/edit/remove — for views where another page owns those actions. */
-export function PersonnelDocumentsPanel({ employeeId, readOnly = false }: { employeeId: string; readOnly?: boolean }) {
+export function PersonnelDocumentsPanel({ employeeId, readOnly: readOnlyProp = false }: { employeeId: string; readOnly?: boolean }) {
+  // Verifying, editing and removing need Documents edit access for this person (lib/permissions.ts).
+  const readOnly = readOnlyProp || !useCan("edit", "documents", employeeId);
   const queryClient = useQueryClient();
   const actor = useAuditActor();
   const [editingDoc, setEditingDoc] = useState<PersonnelDocument | null>(null);

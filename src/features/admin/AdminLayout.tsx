@@ -1,22 +1,27 @@
-import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
 import { SideNav, type CreateGroup, type SideNavGroup } from "@/components/layout/SideNav";
 import {
-  BarChartIcon,
   CalendarIcon,
-  ClockIcon,
+  AttendanceIcon,
+  BuildingIcon,
   FolderIcon,
   HomeIcon,
-  LockIcon,
+  MaintenanceIcon,
+  MapPinIcon,
+  OnboardingIcon,
   OrgChartIcon,
+  PayrollIcon,
   ReceiptIcon,
+  ReportsIcon,
   ShieldIcon,
+  SlidersIcon,
   UsersIcon,
-  WalletIcon,
 } from "@/components/icons";
 import { AppNav } from "@/components/layout/AppNav";
-import { NON_HR_MODULES, type ModuleKey } from "@/lib/admin/store";
-import { canChange, EDIT_PAGES, moduleForPath, SUPER_ADMIN_PAGES, useAccess, useIsSuperAdmin } from "./administration/access";
+import { REQUEST_TYPES } from "@/lib/requests/types";
+import { NoAccess } from "@/components/layout/NoAccess";
+import { filterNav, useCreateAllowed, usePageAllowed } from "./administration/access";
 
 const GROUPS: SideNavGroup[] = [
   {
@@ -25,69 +30,41 @@ const GROUPS: SideNavGroup[] = [
     items: [{ label: "Home", to: "/admin", end: true, icon: <HomeIcon /> }],
   },
   {
-    title: "Core HR",
-    short: "Core HR",
+    title: "Maintenance",
+    short: "Maintenance",
+    icon: <MaintenanceIcon />,
     items: [
-      { label: "People", to: "/admin/people", icon: <UsersIcon /> },
-      { label: "Org chart", to: "/admin/org-chart", icon: <OrgChartIcon /> },
-      { label: "Documents", to: "/admin/documents", icon: <FolderIcon /> },
+      { label: "People", to: "/admin/maintenance/people", icon: <UsersIcon /> },
+      { label: "Departments", to: "/admin/maintenance/departments", icon: <BuildingIcon /> },
+      { label: "Locations", to: "/admin/maintenance/locations", icon: <MapPinIcon /> },
+      { label: "Org chart", to: "/admin/maintenance/org-chart", icon: <OrgChartIcon /> },
+      { label: "Documents", to: "/admin/maintenance/documents", icon: <FolderIcon /> },
+      {
+        label: "Leave",
+        to: "/admin/maintenance/leave",
+        icon: <CalendarIcon />,
+        children: [
+          { label: "Overview", to: "/admin/maintenance/leave/overview" },
+          { label: "Requests", to: "/admin/maintenance/leave/requests" },
+          { label: "Balances", to: "/admin/maintenance/leave/balances" },
+          { label: "Leave types", to: "/admin/maintenance/leave/types" },
+        ],
+      },
+      { label: "Rules", to: "/admin/maintenance/rules", icon: <SlidersIcon /> },
     ],
   },
   {
-    title: "Time & Attendance",
+    title: "Attendance",
     short: "Attendance",
     items: [
       {
-        label: "Timekeeping & Attendance",
+        label: "Attendance",
         to: "/admin/timekeeping",
-        icon: <ClockIcon />,
+        icon: <AttendanceIcon />,
         children: [
           { label: "Shifts", to: "/admin/timekeeping/shifts" },
           { label: "Schedules", to: "/admin/timekeeping/schedules" },
-          { label: "Attendance logs", to: "/admin/timekeeping/logs" },
-          { label: "Overtime", to: "/admin/timekeeping/overtime" },
-          { label: "Undertime", to: "/admin/timekeeping/undertime" },
-          { label: "Tardiness", to: "/admin/timekeeping/tardiness" },
-          { label: "Time adjustments", to: "/admin/timekeeping/corrections" },
           { label: "Remote work days", to: "/admin/timekeeping/remote" },
-        ],
-      },
-    ],
-  },
-  {
-    title: "Leave",
-    short: "Leave",
-    items: [
-      {
-        label: "Leave Management",
-        to: "/admin/leave",
-        icon: <CalendarIcon />,
-        children: [
-          { label: "Overview", to: "/admin/leave/overview" },
-          { label: "Requests", to: "/admin/leave/requests" },
-          { label: "Balances", to: "/admin/leave/balances" },
-          { label: "Leave types", to: "/admin/leave/types" },
-        ],
-      },
-    ],
-  },
-  {
-    title: "Expenses",
-    short: "Claims",
-    items: [{ label: "Reimbursements", to: "/admin/reimbursements", icon: <ReceiptIcon /> }],
-  },
-  {
-    title: "Insights",
-    short: "Reports",
-    items: [
-      {
-        label: "Reports & Analytics",
-        to: "/admin/reports",
-        icon: <BarChartIcon />,
-        children: [
-          { label: "HR reports", to: "/admin/reports/hr" },
-          { label: "Attendance", to: "/admin/reports/attendance" },
-          { label: "Management", to: "/admin/reports/management" },
         ],
       },
     ],
@@ -99,13 +76,59 @@ const GROUPS: SideNavGroup[] = [
       {
         label: "Payroll",
         to: "/admin/payroll",
-        icon: <WalletIcon />,
+        icon: <PayrollIcon />,
         children: [
           { label: "Payroll runs", to: "/admin/payroll/runs" },
           { label: "Payroll report", to: "/admin/reports/payroll" },
           { label: "Government reports", to: "/admin/reports/statutory" },
           { label: "Government contributions", to: "/admin/payroll/contributions" },
         ],
+      },
+    ],
+  },
+  {
+    title: "Onboarding",
+    short: "Onboarding",
+    items: [
+      {
+        label: "Onboarding",
+        to: "/admin/onboarding",
+        icon: <OnboardingIcon />,
+        children: [{ label: "Trainings", to: "/admin/onboarding/trainings" }],
+      },
+    ],
+  },
+  {
+    title: "Reports",
+    short: "Reports",
+    items: [
+      {
+        label: "Reports",
+        to: "/admin/reports",
+        icon: <ReportsIcon />,
+        children: [
+          { label: "Attendance logs", to: "/admin/reports/attendance-logs" },
+          { label: "Overtime", to: "/admin/reports/overtime" },
+          { label: "Undertime", to: "/admin/reports/undertime" },
+          { label: "Time adjustments", to: "/admin/reports/time-adjustments" },
+          { label: "Tardiness", to: "/admin/reports/tardiness" },
+          { label: "HR reports", to: "/admin/reports/hr" },
+          { label: "Attendance", to: "/admin/reports/attendance" },
+          { label: "Management", to: "/admin/reports/management" },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Requests",
+    short: "Requests",
+    items: [
+      {
+        label: "Requests",
+        to: "/admin/requests",
+        icon: <ReceiptIcon />,
+        // One page per request type (lib/requests/types.ts).
+        children: REQUEST_TYPES.map((t) => ({ label: t.label, to: `/admin/requests/${t.id}` })),
       },
     ],
   },
@@ -120,9 +143,9 @@ const GROUPS: SideNavGroup[] = [
         children: [
           { label: "Users", to: "/admin/administration/users" },
           { label: "Roles & access", to: "/admin/administration/roles" },
-          { label: "Approval workflows", to: "/admin/administration/workflows" },
           { label: "Audit trail", to: "/admin/administration/audit" },
           { label: "System settings", to: "/admin/administration/settings" },
+          { label: "Subscription & seats", to: "/admin/administration/subscription" },
         ],
       },
     ],
@@ -138,32 +161,32 @@ const CREATE: CreateGroup[] = [
   {
     title: "People",
     items: [
-      { label: "Add employee", to: "/admin/people/new" },
+      { label: "Add employee", to: "/admin/maintenance/people/new" },
       { label: "Post announcement", to: "/admin?create=announcement" },
-      { label: "Update reporting lines", to: "/admin/org-chart" },
-      { label: "Review documents", to: "/admin/documents" },
+      { label: "Update reporting lines", to: "/admin/maintenance/org-chart", action: "edit" },
+      { label: "Review documents", to: "/admin/maintenance/documents", action: "edit" },
     ],
   },
   {
-    title: "Time & attendance",
+    title: "Attendance",
     items: [
       { label: "Add shift", to: "/admin/timekeeping/shifts?create=shift" },
-      { label: "Assign schedules", to: "/admin/timekeeping/schedules" },
+      { label: "Assign schedules", to: "/admin/timekeeping/schedules", action: "edit" },
       { label: "Declare remote work day", to: "/admin/timekeeping/remote?create=remote-day" },
-      { label: "Add missing time", to: "/admin/timekeeping/logs" },
-      { label: "Review time adjustments", to: "/admin/timekeeping/corrections" },
-      { label: "Approve overtime", to: "/admin/timekeeping/overtime" },
-      { label: "Send lateness notice", to: "/admin/timekeeping/tardiness" },
+      { label: "Add missing time", to: "/admin/reports/attendance-logs", action: "edit" },
+      { label: "Review time adjustments", to: "/admin/reports/time-adjustments", action: "approve" },
+      { label: "Approve overtime", to: "/admin/reports/overtime", action: "approve" },
+      { label: "Send lateness notice", to: "/admin/reports/tardiness", action: "edit" },
     ],
   },
   {
-    title: "Leave & expenses",
+    title: "Leave & requests",
     items: [
-      { label: "File leave", to: "/admin/leave/requests?create=leave" },
-      { label: "Add leave type", to: "/admin/leave/types?create=leave-type" },
-      { label: "Adjust leave balances", to: "/admin/leave/balances" },
-      { label: "Approve leave", to: "/admin/leave/requests" },
-      { label: "Review reimbursements", to: "/admin/reimbursements" },
+      { label: "File leave", to: "/admin/maintenance/leave/requests?create=leave", action: "create" },
+      { label: "Add leave type", to: "/admin/maintenance/leave/types?create=leave-type" },
+      { label: "Adjust leave balances", to: "/admin/maintenance/leave/balances", action: "edit" },
+      { label: "Approve leave", to: "/admin/maintenance/leave/requests", action: "approve" },
+      { label: "Review reimbursements", to: "/admin/requests/reimbursement" },
     ],
   },
   {
@@ -179,46 +202,21 @@ const CREATE: CreateGroup[] = [
     title: "Other",
     items: [
       { label: "Add user", to: "/admin/administration/users?create=user" },
-      { label: "Add role", to: "/admin/administration/roles?create=role" },
-      { label: "Edit approval workflows", to: "/admin/administration/workflows" },
+      { label: "Edit approval workflows", to: "/admin/maintenance/rules", action: "edit" },
       { label: "View HR report", to: "/admin/reports/hr" },
       { label: "View attendance report", to: "/admin/reports/attendance" },
     ],
   },
 ];
 
-function NoAccess() {
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface px-6 py-16 text-center">
-      <LockIcon className="h-6 w-6 text-ink-3" />
-      <h1 className="font-display text-lg font-semibold">You don't have access to this page</h1>
-      <p className="max-w-md text-sm text-ink-2">Your role doesn't include this module. If you need it for your work, ask an HR administrator to update your role.</p>
-      <Link to="/admin" className="text-sm font-medium text-brand hover:underline">
-        Go to the overview
-      </Link>
-    </div>
-  );
-}
-
 export function AdminLayout() {
-  const access = useAccess();
   const { pathname } = useLocation();
-  const isSuper = useIsSuperAdmin();
-  // System-only accounts (Super Admin) have no HR modules, so no HR overview either.
-  const hrModules = Object.entries(access).some(([k, v]) => !NON_HR_MODULES.includes(k as ModuleKey) && v !== "none");
-  const allowed = (to: string) => {
-    if (!isSuper && SUPER_ADMIN_PAGES.some((p) => to === p || to.startsWith(`${p}/`))) return false;
-    if (to === "/admin" && !hrModules) return false;
-    const m = moduleForPath(to);
-    if (m && EDIT_PAGES.includes(to)) return canChange(access[m]);
-    return !m || access[m] !== "none";
-  };
-  const groups = GROUPS.map((g) => ({
-    ...g,
-    items: g.items.filter((i) => allowed(i.to)).map((i) => (i.children ? { ...i, children: i.children.filter((c) => allowed(c.to)) } : i)),
-  })).filter((g) => g.items.length > 0);
-  // Only the create actions whose page this person can open.
-  const create = CREATE.map((g) => ({ ...g, items: g.items.filter((i) => allowed(i.to.split("?")[0]!)) })).filter((g) => g.items.length > 0);
+  // What this role may open comes from the access matrix (lib/permissions.ts).
+  const allowed = usePageAllowed();
+  const createAllowed = useCreateAllowed();
+  const groups = filterNav(GROUPS, allowed);
+  // Only the create actions this role may use.
+  const create = CREATE.map((g) => ({ ...g, items: g.items.filter((i) => createAllowed(i.to, i.action, i.feature)) })).filter((g) => g.items.length > 0);
 
   return (
     <RolePage

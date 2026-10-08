@@ -6,6 +6,7 @@ import { fullName, state as core } from "../corehr/store";
 import { cancelRequest, fileLeave, type FileInput } from "../leave/api";
 import { balanceFor, creditsFor, leave, type Credits } from "../leave/store";
 import { currentEmployee } from "../mockData";
+import { sessionWho } from "../session";
 import { fileClaim, listMyClaims, type ClaimInput } from "../reimbursements/api";
 import { approvedLinesFor } from "../pay/runs";
 import type { PayLine, Period } from "../reports/api";
@@ -20,8 +21,8 @@ import type { Balance, LeaveRequest, LeaveType } from "../leave/types";
 const DELAY = 200;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
 
-/** The signed-in employee. */
-export const myId = () => currentEmployee.id;
+/** The signed-in employee: their linked record (the demo login is Angela's). */
+export const myId = () => sessionWho().employeeId ?? currentEmployee.id;
 const me = () => core.employees.find((e) => e.id === myId());
 export const myName = () => {
   const e = me();

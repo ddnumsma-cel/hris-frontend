@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { listMyApprovals } from "@/lib/approvals";
 import { useNavigate } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -19,7 +20,6 @@ import { AttentionPanel, type AttentionItem } from "@/components/shared/Attentio
 import { ClockInOutControl } from "@/components/shared/ClockInOutControl";
 import {
   fetchAllPersonnelDocuments,
-  fetchApprovalsQueue,
   fetchAttendanceTrend,
   fetchOnLeaveToday,
   fetchPerformanceReviewStatuses,
@@ -41,7 +41,7 @@ export function ManagerOverview() {
   const navigate = useNavigate();
   const attendanceQuery = useQuery({ queryKey: ["manager", "attendance-trend"], queryFn: fetchAttendanceTrend });
   const onLeaveQuery = useQuery({ queryKey: ["manager", "on-leave-today"], queryFn: fetchOnLeaveToday });
-  const approvalsQuery = useQuery({ queryKey: ["approvals-queue"], queryFn: fetchApprovalsQueue });
+  const approvalsQuery = useQuery({ queryKey: ["approvals-queue"], queryFn: listMyApprovals });
   const workforceAlertsQuery = useQuery({ queryKey: ["manager", "workforce-alerts"], queryFn: fetchWorkforceAlerts });
   const teamTrainingsQuery = useQuery({ queryKey: ["manager", "team-trainings"], queryFn: fetchTeamTrainingRecords });
   const rosterQuery = useQuery({ queryKey: ["manager", "team-roster"], queryFn: fetchTeamRoster });

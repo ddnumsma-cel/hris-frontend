@@ -12,13 +12,20 @@ import { inputClass, useActor } from "../corehr/format";
 import { Detail, ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { Choice, Name, SearchBox, SimpleTable, Tabs, Toolbar, type Col } from "../timekeeping/common";
 import { shortDate } from "../timekeeping/format";
-import { useAccess } from "../administration/access";
+import { canFor } from "@/lib/permissions";
+import { useWho } from "@/lib/useCan";
 import { peso, receiptDate, STATUS, useClaimsRefresh } from "./format";
 import { ReceiptThumb, ReceiptViewer } from "./receipt";
 
 type Tab = ClaimStatus | "all";
 
 /** Receipt on the left, claim details and the decision on the right. */
+/** May the signed-in person take this claim's next step? Approvers act on waiting claims, Accounting on endorsed ones. */
+function useCanDecide() {
+  const who = useWho();
+  return (c: ClaimRow) => (c.status === "pending" ? canFor(who, "approve", "claims", c.employeeId) : c.status === "endorsed" ? canFor(who, "final", "claims", c.employeeId) : false);
+}
+
 function ReviewDialog({ c, canApprove, startWith, onClose }: { c: ClaimRow; canApprove: boolean; startWith?: "reject"; onClose: () => void }) {
   const toast = useToast();
   const actor = useActor();
@@ -29,11 +36,11 @@ function ReviewDialog({ c, canApprove, startWith, onClose }: { c: ClaimRow; canA
     mutationFn: (approve: boolean) => decideClaim(c.id, approve, note, actor),
     onSuccess: (_, approve) => {
       refresh();
-      toast.show(approve ? `Approved ${c.person.name}'s claim. It goes out with the next payroll.` : `Rejected ${c.person.name}'s claim.`);
+      toast.show(approve ? (c.status === "pending" ? `Approved ${c.person.name}'s claim. It goes to Accounting for final approval.` : `Approved ${c.person.name}'s claim. It goes out with the next payroll.`) : `Rejected ${c.person.name}'s claim.`);
       onClose();
     },
   });
-  const pending = c.status === "pending" && canApprove;
+  const pending = canApprove;
 
   return (
     <Dialog
@@ -86,8 +93,15 @@ function ReviewDialog({ c, canApprove, startWith, onClose }: { c: ClaimRow; canA
             <Detail label="What it was for" wide>
               {c.description}
             </Detail>
-            {c.decidedBy && (
-              <Detail label={c.status === "approved" ? "Approved by" : "Rejected by"} wide>
+            {c.approverDecidedBy && (
+              <Detail label={c.status === "rejected" && c.decidedAt === c.approverDecidedAt ? "Rejected by approver" : "Approved by approver"} wide>
+                {c.approverDecidedBy}
+                {c.approverDecidedAt && `, ${shortDate(c.approverDecidedAt)}`}
+                {c.approverNote && <span className="block text-ink-2">“{c.approverNote}”</span>}
+              </Detail>
+            )}
+            {c.decidedBy && c.decidedAt !== c.approverDecidedAt && (
+              <Detail label={c.status === "approved" ? "Final approval by" : "Rejected by"} wide>
                 {c.decidedBy}
                 {c.decidedAt && `, ${shortDate(c.decidedAt)}`}
                 {c.note && <span className="block text-ink-2">“{c.note}”</span>}
@@ -96,7 +110,7 @@ function ReviewDialog({ c, canApprove, startWith, onClose }: { c: ClaimRow; canA
           </div>
           {pending && (
             <div className="rounded-lg bg-surface-2 p-3 text-xs text-ink-2">
-              Check that the receipt total, date and store match what's entered, and that it's a work expense. You're approving on behalf of the employee's supervisor.
+              Check that the receipt total, date and store match what's entered, and that it's a work expense. {c.status === "pending" ? "After you approve, Accounting gives the final approval." : "Your approval is final: it goes out with the next payroll."}
             </div>
           )}
           {pending && rejecting && (
@@ -116,9 +130,11 @@ export function ReimbursementsPage() {
   const actor = useActor();
   const refresh = useClaimsRefresh();
   const { office } = useOfficeFilter();
-  const canApprove = useAccess().reimbursements === "approve";
+  const who = useWho();
+  const canDecide = useCanDecide();
   const query = useQuery({ queryKey: ["reimbursements", "claims"], queryFn: listClaims });
-  const [tab, setTab] = useState<Tab>("pending");
+  // Accounting starts on the claims waiting for their final approval.
+  const [tab, setTab] = useState<Tab>(() => (who.role === "accounting" ? "endorsed" : "pending"));
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [open, setOpen] = useState<{ c: ClaimRow; reject?: boolean } | null>(null);
@@ -139,8 +155,8 @@ export function ReimbursementsPage() {
   const count = (s: ClaimStatus) => matching.filter((c) => c.status === s).length;
   const rows = tab === "all" ? matching : matching.filter((c) => c.status === tab);
   // Oldest waiting claims first, so nothing sits too long.
-  if (tab === "pending") rows.sort((a, b) => a.filedAt.localeCompare(b.filedAt));
-  const waitingTotal = matching.filter((c) => c.status === "pending").reduce((n, c) => n + c.amount, 0);
+  if (tab === "pending" || tab === "endorsed") rows.sort((a, b) => a.filedAt.localeCompare(b.filedAt));
+  const waitingTotal = matching.filter((c) => canDecide(c)).reduce((n, c) => n + c.amount, 0);
 
   const cols: Col<ClaimRow>[] = [
     { header: "Receipt", cell: (c) => <ReceiptThumb src={c.receipt} label={c.merchant} onOpen={() => setViewing(c)} /> },
@@ -153,7 +169,7 @@ export function ReimbursementsPage() {
       header: "Status",
       align: "right",
       cell: (c) =>
-        c.status === "pending" && canApprove ? (
+        canDecide(c) ? (
           <span className="flex justify-end gap-1.5">
             <Button size="sm" variant="ghost" onClick={() => setOpen({ c })}>
               Review
@@ -180,13 +196,14 @@ export function ReimbursementsPage() {
     <>
       <ContentHead
         title="Reimbursements"
-        subtitle={`Employees' expense claims with their POS receipts. Approve on the supervisor's behalf; approved claims go out with the next payroll.${count("pending") ? ` ${peso(waitingTotal)} waiting.` : ""}`}
+        subtitle={`Employees' expense claims with their POS receipts. Their approver approves first, then Accounting gives the final approval; approved claims go out with the next payroll.${waitingTotal ? ` ${peso(waitingTotal)} waiting for you.` : ""}`}
       />
       <Tabs
         value={tab}
         onChange={setTab}
         options={[
-          { value: "pending", label: "Waiting for approval", count: count("pending") },
+          { value: "pending", label: "Waiting for approver", count: count("pending") },
+          { value: "endorsed", label: "Waiting for Accounting", count: count("endorsed") },
           { value: "approved", label: "Approved", count: count("approved") },
           { value: "rejected", label: "Rejected", count: count("rejected") },
           { value: "all", label: "All", count: matching.length },
@@ -197,7 +214,7 @@ export function ReimbursementsPage() {
         <Choice label="Expense type" value={category} onChange={setCategory} options={[{ value: "all", label: "All expense types" }, ...CATEGORIES.map((c) => ({ value: c, label: c }))]} />
       </Toolbar>
       <SimpleTable rows={rows} rowKey={(c) => c.id} cols={cols} loading={query.isLoading} empty={tab === "pending" ? "Nothing waiting. You're all caught up." : "Nothing here yet."} />
-      {open && <ReviewDialog key={open.c.id} c={open.c} canApprove={canApprove} startWith={open.reject ? "reject" : undefined} onClose={() => setOpen(null)} />}
+      {open && <ReviewDialog key={open.c.id} c={open.c} canApprove={canDecide(open.c)} startWith={open.reject ? "reject" : undefined} onClose={() => setOpen(null)} />}
       {viewing && <ReceiptViewer src={viewing.receipt} title={`${viewing.person.name} · ${viewing.merchant}`} onClose={() => setViewing(null)} />}
     </>
   );

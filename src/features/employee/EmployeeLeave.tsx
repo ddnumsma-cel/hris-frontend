@@ -15,6 +15,7 @@ import { ErrorNote, Field, LoadError, Pill } from "../admin/corehr/ui";
 import { SimpleTable, type Col } from "../admin/timekeeping/common";
 import { shortDate } from "../admin/timekeeping/format";
 import { useCreateParam } from "@/lib/useCreateParam";
+import { leavePolicy } from "@/lib/leave/store";
 
 const KEY = ["ess", "leave"] as const;
 type MyRequest = MyLeave["requests"][number];
@@ -83,7 +84,8 @@ export function FileMyLeaveDialog({ onClose }: { onClose: () => void }) {
         <Field id="my-end" label="To" required>
           <input id="my-end" type="date" className={inputClass} min={form.start} value={form.end} onChange={(e) => set({ end: e.target.value })} />
         </Field>
-        {single && (
+        {/* Half days only when the company allows them (Settings > Time off & leave). */}
+        {single && leavePolicy().allowHalfDays && (
           <div className="col-span-2 flex flex-wrap gap-1.5 text-sm" role="radiogroup" aria-label="How long">
             {(
               [

@@ -14,13 +14,14 @@ import { ErrorNote, Field, LoadError } from "../corehr/ui";
 import { SimpleTable } from "./common";
 import { addMinutes, hhmm, tkKeys } from "./format";
 import { useCreateParam } from "@/lib/useCreateParam";
+import { schedulingRules } from "@/lib/timekeeping/store";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function ShiftDialog({ shift, onClose }: { shift?: ShiftTemplate; onClose: () => void }) {
   const toast = useToast();
   const queryClient = useQueryClient();
-  const [v, setV] = useState(shift ?? { name: "", start: "08:30", end: "17:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0, 6] });
+  const [v, setV] = useState(shift ?? { name: "", start: "08:30", end: "17:00", breakMinutes: schedulingRules().defaultBreakMinutes, breakStart: "12:00", graceMinutes: 5, restDays: [0, 6] });
   const save = useMutation({
     mutationFn: () => saveShift(v),
     onSuccess: (s) => {

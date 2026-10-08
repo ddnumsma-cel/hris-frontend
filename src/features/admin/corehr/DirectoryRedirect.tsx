@@ -5,5 +5,5 @@ export function DirectoryRedirect() {
   const [params] = useSearchParams();
   const employee = params.get("employee");
   const q = params.get("q");
-  return <Navigate replace to={employee ? `/admin/people/${employee}` : `/admin/people${q ? `?q=${encodeURIComponent(q)}` : ""}`} />;
+  return <Navigate replace to={employee ? `/admin/maintenance/people/${employee}` : `/admin/maintenance/people${q ? `?q=${encodeURIComponent(q)}` : ""}`} />;
 }

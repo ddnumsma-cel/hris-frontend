@@ -6,8 +6,9 @@ import { useToast } from "@/components/ui/ToastContext";
 import { FaceScanDialog } from "@/features/employee/FaceScanDialog";
 import { formatElapsed } from "@/lib/format";
 import { clockRemote, clockState } from "@/lib/timekeeping/api";
+import { fmtTime } from "@/lib/preferences";
 
-const time = (iso: string) => new Date(iso).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
+const time = (iso: string) => fmtTime(iso);
 
 /**
  * Clock in and out. On a remote work day HR declared (typhoon, emergency), it's a

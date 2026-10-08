@@ -2,9 +2,11 @@
 
 import { fullName, initialsOf, newId, state as core } from "../corehr/store";
 import { addDays, computeDay, longRuns, weekday } from "./compute";
-import { HISTORY_DAYS, HOLIDAYS, branchOf, departmentOf, isOnLeave, leaveSpans, punchesFor, remoteDayFor, save, shiftFor, tardinessRule, tk, todayIso, type LeaveSpan } from "./store";
+import { HISTORY_DAYS, HOLIDAYS, branchOf, departmentOf, isOnLeave, leaveSpans, punchesFor, remoteDayFor, save, schedulingRules, shiftFor, tardinessRule, tk, todayIso, type LeaveSpan } from "./store";
 import type { AttendanceNotice, DayResult, RemoteDay, FixCause, FixRequest, Punch, ShiftTemplate, TardinessRule, TimeRequest } from "./types";
 import { awolDates } from "../pay/engine";
+import { can, canFor, visible } from "../permissions";
+import { deny, forbidden, sessionWho } from "../session";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -42,8 +44,15 @@ function people(): TkPerson[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** People whose attendance the signed-in person may see. */
+const seen = () => visible(sessionWho(), "attendanceRecords", people(), (p) => p.id);
+
 export function listPeople() {
-  return respond(people());
+  // Attendance setup (HR) sees everyone; otherwise whoever's attendance they may see.
+  const who = sessionWho();
+  if (can(who, "view", "attendanceSettings")) return respond(people());
+  if (!can(who, "view", "attendanceRecords") && !can(who, "view", "remoteDays")) return forbidden();
+  return respond(visible(who, can(who, "view", "attendanceRecords") ? "attendanceRecords" : "remoteDays", people(), (p) => p.id));
 }
 
 export interface DayRow extends DayResult {
@@ -67,6 +76,7 @@ function day(p: TkPerson, date: string): DayRow {
       now: Date.now(),
       approvedOvertimeMinutes: req.filter((r) => r.type === "overtime").reduce((n, r) => n + r.minutes, 0),
       undertimeExcused: req.some((r) => r.type === "undertime"),
+      overtimeThresholdMinutes: schedulingRules().overtimeThresholdMinutes,
     }),
     person: p,
   };
@@ -80,12 +90,15 @@ function dates(from: string, to: string) {
 
 /** Every person's day for each date in [from, to], newest first. */
 export function listDays(from: string, to: string): Promise<DayRow[]> {
+  if (!can(sessionWho(), "view", "attendanceRecords")) return forbidden();
   ensureRequests();
-  const ps = people();
+  const ps = seen();
   return respond(dates(from, to).reverse().flatMap((d) => ps.map((p) => day(p, d))));
 }
 
 export function getDay(employeeId: string, date: string): Promise<DayRow | null> {
+  const denied = deny("attendanceRecords", "view", employeeId);
+  if (denied) return denied;
   const p = people().find((x) => x.id === employeeId);
   return respond(p ? day(p, date) : null);
 }
@@ -94,7 +107,8 @@ export const earliestDate = () => addDays(todayIso(), -HISTORY_DAYS);
 
 /** Who is on leave on a date, and until when. */
 export function listLeave(date: string): Promise<(LeaveSpan & { person: TkPerson })[]> {
-  const ps = people();
+  if (!can(sessionWho(), "view", "attendanceRecords")) return forbidden();
+  const ps = seen();
   return respond(
     leaveSpans()
       .filter((s) => date >= s.from && date <= s.to)
@@ -112,10 +126,19 @@ function audit(employeeId: string, workDate: string, actor: string, action: stri
 }
 
 export function listAudit(employeeId: string, workDate?: string) {
+  const denied = deny("attendanceRecords", "view", employeeId);
+  if (denied) return denied;
   return respond(tk.audit.filter((a) => a.employeeId === employeeId && (!workDate || a.workDate === workDate)));
 }
 
-export async function addCorrection(input: { employeeId: string; workDate: string; kind: "in" | "out"; time: string; nextDay?: boolean; reason: string }, actor: string): Promise<Punch> {
+/** Add a missing time-in / time-out (HR, or an approved time adjustment). */
+export async function addCorrection(input: Parameters<typeof addCorrectionUnchecked>[0], actor: string): Promise<Punch> {
+  const denied = deny("attendanceRecords", "edit", input.employeeId);
+  if (denied) return denied;
+  return addCorrectionUnchecked(input, actor);
+}
+
+async function addCorrectionUnchecked(input: { employeeId: string; workDate: string; kind: "in" | "out"; time: string; nextDay?: boolean; reason: string }, actor: string): Promise<Punch> {
   if (!/^\d{2}:\d{2}$/.test(input.time)) return fail("Enter the time");
   if (!input.reason.trim()) return fail("Say why you're adding this punch, for example \"forgot to tap out, confirmed by supervisor\"");
   const date = input.nextDay ? addDays(input.workDate, 1) : input.workDate;
@@ -140,6 +163,12 @@ export async function addCorrection(input: { employeeId: string; workDate: strin
 }
 
 export async function setPunchAside(punch: Punch, reason: string, actor: string): Promise<void> {
+  const denied = deny("attendanceRecords", "edit", punch.employeeId);
+  if (denied) return denied;
+  return setPunchAsideUnchecked(punch, reason, actor);
+}
+
+async function setPunchAsideUnchecked(punch: Punch, reason: string, actor: string): Promise<void> {
   if (!reason.trim()) return fail("Say why this punch should be ignored");
   const time = punch.at.slice(11);
   save({
@@ -151,6 +180,8 @@ export async function setPunchAside(punch: Punch, reason: string, actor: string)
 }
 
 export async function confirmPunch(punch: Punch, actor: string): Promise<void> {
+  const denied = deny("attendanceRecords", "edit", punch.employeeId);
+  if (denied) return denied;
   save({
     ...tk,
     confirmed: { ...tk.confirmed, [punch.id]: { by: actor, at: new Date().toISOString() } },
@@ -160,6 +191,8 @@ export async function confirmPunch(punch: Punch, actor: string): Promise<void> {
 }
 
 export async function restorePunch(punch: Punch, actor: string): Promise<void> {
+  const denied = deny("attendanceRecords", "edit", punch.employeeId);
+  if (denied) return denied;
   const rest = { ...tk.voided };
   delete rest[punch.id];
   save({ ...tk, voided: rest, audit: [audit(punch.employeeId, punch.workDate, actor, "Restored punch", `Time-${punch.kind} ${punch.at.slice(11)}`), ...tk.audit] });
@@ -169,10 +202,15 @@ export async function restorePunch(punch: Punch, actor: string): Promise<void> {
 // ---- Shifts and schedules ----
 
 export function listShifts() {
+  // Shift names are shown with attendance records and picked when adding people.
+  const who = sessionWho();
+  if (!can(who, "view", "attendanceSettings") && !can(who, "view", "attendanceRecords") && !can(who, "create", "people")) return forbidden();
   return respond(tk.shifts);
 }
 
 export async function saveShift(input: Omit<ShiftTemplate, "id" | "active"> & { id?: string }): Promise<ShiftTemplate> {
+  const denied = deny("attendanceSettings", input.id ? "edit" : "create");
+  if (denied) return denied;
   const name = input.name.trim();
   if (!name) return fail("Name the shift");
   if (!/^\d{2}:\d{2}$/.test(input.start) || !/^\d{2}:\d{2}$/.test(input.end)) return fail("Enter start and end times");
@@ -195,6 +233,8 @@ export async function saveShift(input: Omit<ShiftTemplate, "id" | "active"> & { 
 }
 
 export async function setUsualShift(employeeIds: string[], shiftId: string | null, actor: string): Promise<void> {
+  const denied = deny("attendanceSettings", "edit");
+  if (denied) return denied;
   const usualShift = { ...tk.usualShift };
   for (const id of employeeIds) usualShift[id] = shiftId;
   const name = tk.shifts.find((s) => s.id === shiftId)?.name ?? "no shift";
@@ -204,6 +244,8 @@ export async function setUsualShift(employeeIds: string[], shiftId: string | nul
 
 /** One day only: a different shift, a rest day, or back to the usual schedule (null). */
 export async function setDayShift(employeeId: string, date: string, value: string | "rest" | null, actor: string): Promise<void> {
+  const denied = deny("attendanceSettings", "edit");
+  if (denied) return denied;
   const overrides = { ...tk.overrides };
   const k = `${employeeId}|${date}`;
   if (value === null) delete overrides[k];
@@ -229,6 +271,8 @@ export interface RosterRow {
 }
 
 export function getRoster(weekStart: string): Promise<RosterRow[]> {
+  const denied = deny("attendanceSettings", "view");
+  if (denied) return denied;
   const week = dates(weekStart, addDays(weekStart, 6));
   const context = dates(addDays(weekStart, -6), addDays(weekStart, 13));
   return respond(
@@ -288,11 +332,16 @@ function ensureRequests() {
 }
 
 export function listRequests() {
+  const who = sessionWho();
+  if (!can(who, "view", "attendanceRecords")) return forbidden();
   ensureRequests();
-  return respond([...tk.requests].sort((a, b) => b.date.localeCompare(a.date)));
+  return respond(visible(who, "attendanceRecords", [...tk.requests], (r) => r.employeeId).sort((a, b) => b.date.localeCompare(a.date)));
 }
 
 export async function decideRequest(id: string, approve: boolean, note: string, actor: string): Promise<TimeRequest> {
+  const target = tk.requests.find((x) => x.id === id);
+  const denied = deny("attendanceRecords", "approve", target?.employeeId);
+  if (denied) return denied;
   const r = tk.requests.find((x) => x.id === id);
   if (!r) return fail("That request no longer exists");
   if (r.status !== "pending") return fail("This request was already decided");
@@ -307,6 +356,8 @@ export async function decideRequest(id: string, approve: boolean, note: string, 
 }
 
 export async function fileRequest(input: { employeeId: string; date: string; type: TimeRequest["type"]; minutes: number; reason: string }, actor: string): Promise<TimeRequest> {
+  const denied = deny("attendanceRecords", "create", input.employeeId);
+  if (denied) return denied;
   if (!Number.isFinite(input.minutes) || input.minutes <= 0) return fail("Enter how many minutes");
   if (!input.reason.trim()) return fail("Give the reason");
   if (tk.requests.some((r) => r.employeeId === input.employeeId && r.date === input.date && r.type === input.type && r.status !== "declined")) return fail("There's already a request for that day");
@@ -318,10 +369,14 @@ export async function fileRequest(input: { employeeId: string; date: string; typ
 // ---- Habitual tardiness ----
 
 export function getTardinessRule() {
+  const denied = deny("attendanceRecords", "view");
+  if (denied) return denied;
   return respond(tardinessRule());
 }
 
 export async function saveTardinessRule(rule: TardinessRule): Promise<TardinessRule> {
+  const denied = deny("rules", "edit");
+  if (denied) return denied;
   if (!Number.isInteger(rule.consecutive) || rule.consecutive < 0 || rule.consecutive === 1 || rule.consecutive > 10) return fail("Days in a row should be 2 to 10, or 0 to turn it off");
   if (!Number.isInteger(rule.perMonth) || rule.perMonth < 0 || rule.perMonth === 1 || rule.perMonth > 31) return fail("Times a month should be 2 to 31, or 0 to turn it off");
   save({ ...tk, tardinessRule: { consecutive: rule.consecutive, perMonth: rule.perMonth } });
@@ -344,6 +399,7 @@ export interface TardinessFlag {
  * or holiday in between doesn't break a streak, an on-time or absent day does.
  */
 export function listTardinessFlags(): Promise<TardinessFlag[]> {
+  if (!can(sessionWho(), "view", "attendanceRecords")) return forbidden();
   ensureRequests();
   const rule = tardinessRule();
   const today = todayIso();
@@ -351,7 +407,7 @@ export function listTardinessFlags(): Promise<TardinessFlag[]> {
   const from = [`${month}-01`, addDays(today, -29)].sort()[0]!;
   const span = dates(from, today);
   const flags: TardinessFlag[] = [];
-  for (const p of people()) {
+  for (const p of seen()) {
     const work = span.map((d) => day(p, d)).filter((d) => d.kind === "work" && d.status !== "upcoming" && d.status !== "not-in");
     const streaks: TardinessFlag["streaks"] = [];
     let run: string[] = [];
@@ -380,11 +436,12 @@ export interface AwolFlag {
 
 /** People absent 3 or more workdays in a row in the last 30 days. */
 export function listAwolFlags(): Promise<AwolFlag[]> {
+  if (!can(sessionWho(), "view", "attendanceRecords")) return forbidden();
   ensureRequests();
   const today = todayIso();
   const span = dates(addDays(today, -29), today);
   const flags: AwolFlag[] = [];
-  for (const p of people()) {
+  for (const p of seen()) {
     const awol = [...awolDates(span.map((d) => day(p, d)))].sort().reverse();
     if (awol.length) flags.push({ person: p, dates: awol });
   }
@@ -394,10 +451,14 @@ export function listAwolFlags(): Promise<AwolFlag[]> {
 // ---- Remote work days (typhoons, emergencies) ----
 
 export function listRemoteDays() {
+  const denied = deny("remoteDays", "view");
+  if (denied) return denied;
   return respond([...(tk.remoteDays ?? [])].sort((a, b) => b.from.localeCompare(a.from)));
 }
 
 export async function declareRemoteDay(input: Pick<RemoteDay, "from" | "to" | "offices" | "reason">, actor: string): Promise<RemoteDay> {
+  const denied = deny("remoteDays", "create");
+  if (denied) return denied;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.from) || !/^\d{4}-\d{2}-\d{2}$/.test(input.to)) return fail("Choose the dates");
   if (input.to < input.from) return fail("The last day can't be before the first");
   if (input.to < todayIso()) return fail("Those days have passed. Fix past attendance with time adjustments instead.");
@@ -410,6 +471,8 @@ export async function declareRemoteDay(input: Pick<RemoteDay, "from" | "to" | "o
 }
 
 export async function cancelRemoteDay(id: string): Promise<void> {
+  const denied = deny("remoteDays", "delete");
+  if (denied) return denied;
   const d = (tk.remoteDays ?? []).find((x) => x.id === id);
   if (!d) return fail("That remote work day no longer exists");
   if (d.from <= todayIso() && (tk.remotePunches ?? []).some((p) => p.workDate >= d.from && p.workDate <= d.to)) {
@@ -428,6 +491,9 @@ export interface ClockState {
 }
 
 export function clockState(employeeId: string): Promise<ClockState> {
+  // Anyone may see and record their own clock-ins; anyone else's needs attendance access.
+  const who = sessionWho();
+  if (employeeId !== who.employeeId && !canFor(who, "view", "attendanceRecords", employeeId)) return forbidden();
   const date = todayIso();
   const mine = (tk.remotePunches ?? []).filter((p) => p.employeeId === employeeId && p.workDate === date && !tk.voided[p.id]);
   return respond({ remoteDay: remoteDayFor(employeeId, date), inAt: mine.find((p) => p.kind === "in")?.at, outAt: mine.filter((p) => p.kind === "out").pop()?.at });
@@ -435,6 +501,8 @@ export function clockState(employeeId: string): Promise<ClockState> {
 
 /** Records a time-in or time-out from home after a face scan. Only on a remote work day. */
 export async function clockRemote(employeeId: string, kind: "in" | "out", match: number, actor: string): Promise<Punch> {
+  const who = sessionWho();
+  if (employeeId !== who.employeeId && !canFor(who, "edit", "attendanceRecords", employeeId)) return forbidden();
   const date = todayIso();
   const day = remoteDayFor(employeeId, date);
   if (!day) return fail("Remote clock-in is only open on remote work days that HR declares");
@@ -461,6 +529,8 @@ export async function clockRemote(employeeId: string, kind: "in" | "out", match:
 
 /** Who covered by a remote day has clocked in from home today. */
 export function remoteAttendanceToday(): Promise<{ covered: TkPerson[]; clockedIn: string[] }> {
+  const denied = deny("remoteDays", "view");
+  if (denied) return denied;
   const date = todayIso();
   const covered = people().filter((p) => remoteDayFor(p.id, date) && shiftFor(p.id, date).kind === "work" && !isOnLeave(p.id, date));
   const clockedIn = [...new Set((tk.remotePunches ?? []).filter((p) => p.workDate === date && p.kind === "in" && !tk.voided[p.id]).map((p) => p.employeeId))];
@@ -470,10 +540,14 @@ export function remoteAttendanceToday(): Promise<{ covered: TkPerson[]; clockedI
 // ---- Notices to employees about lateness or AWOL ----
 
 export function listNotices(employeeId?: string) {
-  return respond((tk.notices ?? []).filter((n) => !employeeId || n.employeeId === employeeId).sort((a, b) => b.sentAt.localeCompare(a.sentAt)));
+  const who = sessionWho();
+  if (!can(who, "view", "attendanceRecords")) return forbidden();
+  return respond(visible(who, "attendanceRecords", tk.notices ?? [], (n) => n.employeeId).filter((n) => !employeeId || n.employeeId === employeeId).sort((a, b) => b.sentAt.localeCompare(a.sentAt)));
 }
 
 export async function sendNotice(input: Pick<AttendanceNotice, "employeeId" | "kind" | "subject" | "message" | "dates">, actor: string): Promise<AttendanceNotice> {
+  const denied = deny("attendanceRecords", "edit", input.employeeId);
+  if (denied) return denied;
   if (!input.subject.trim()) return fail("Give the notice a subject");
   if (!input.message.trim()) return fail("Write the message the employee will read");
   const notice: AttendanceNotice = { id: newId("nt"), ...input, subject: input.subject.trim(), message: input.message.trim(), sentBy: actor, sentAt: new Date().toISOString() };
@@ -483,6 +557,8 @@ export async function sendNotice(input: Pick<AttendanceNotice, "employeeId" | "k
 }
 
 export async function acknowledgeNotice(id: string, employeeId: string): Promise<void> {
+  const who = sessionWho();
+  if (employeeId !== who.employeeId) return forbidden();
   const n = (tk.notices ?? []).find((x) => x.id === id && x.employeeId === employeeId);
   if (!n) return fail("That notice no longer exists");
   if (!n.acknowledgedAt) save({ ...tk, notices: (tk.notices ?? []).map((x) => (x.id === id ? { ...x, acknowledgedAt: new Date().toISOString() } : x)) });
@@ -492,7 +568,9 @@ export async function acknowledgeNotice(id: string, employeeId: string): Promise
 // ---- Missed time-in / time-out requests ----
 
 export function listFixes() {
-  return respond([...tk.fixRequests].sort((a, b) => b.filedAt.localeCompare(a.filedAt)));
+  const who = sessionWho();
+  if (!can(who, "view", "attendanceRecords")) return forbidden();
+  return respond(visible(who, "attendanceRecords", [...tk.fixRequests], (r) => r.employeeId).sort((a, b) => b.filedAt.localeCompare(a.filedAt)));
 }
 
 /** The punches of one kind still counting on a day (not set aside). */
@@ -506,6 +584,8 @@ function recordedTime(employeeId: string, workDate: string, kind: "in" | "out") 
 }
 
 export async function fileFix(input: { employeeId: string; workDate: string; kind: "in" | "out"; time: string; nextDay?: boolean; cause: FixCause; reason: string }, actor: string): Promise<FixRequest> {
+  const denied = deny("attendanceRecords", "create", input.employeeId);
+  if (denied) return denied;
   if (!/^\d{2}:\d{2}$/.test(input.time)) return fail("Enter the correct time");
   if (!input.reason.trim()) return fail("Say what happened, for example \"the scanner didn't read my finger\"");
   const at = `${input.nextDay ? addDays(input.workDate, 1) : input.workDate}T${input.time}`;
@@ -525,15 +605,18 @@ export async function fileFix(input: { employeeId: string; workDate: string; kin
  * device recorded the wrong time, its punch is set aside first so the new one counts.
  */
 export async function decideFix(id: string, approve: boolean, note: string, actor: string): Promise<FixRequest> {
+  const target = tk.fixRequests.find((x) => x.id === id);
+  const denied = deny("attendanceRecords", "approve", target?.employeeId);
+  if (denied) return denied;
   const r = tk.fixRequests.find((x) => x.id === id);
   if (!r) return fail("That request no longer exists");
   if (r.status !== "pending") return fail("This request was already decided");
   if (!approve && !note.trim()) return fail("Add a short note so the employee knows why");
   if (approve) {
     if (r.cause === "wrong-time") {
-      for (const p of livePunches(r.employeeId, r.workDate, r.kind)) await setPunchAside(p, `Wrong time from the device, replaced by an approved adjustment: ${r.reason}`, actor);
+      for (const p of livePunches(r.employeeId, r.workDate, r.kind)) await setPunchAsideUnchecked(p, `Wrong time from the device, replaced by an approved adjustment: ${r.reason}`, actor);
     }
-    await addCorrection({ employeeId: r.employeeId, workDate: r.workDate, kind: r.kind, time: r.time, nextDay: r.nextDay, reason: `Employee request: ${r.reason}` }, actor);
+    await addCorrectionUnchecked({ employeeId: r.employeeId, workDate: r.workDate, kind: r.kind, time: r.time, nextDay: r.nextDay, reason: `Employee request: ${r.reason}` }, actor);
   }
   const next: FixRequest = { ...r, status: approve ? "approved" : "declined", decidedBy: actor, decidedAt: new Date().toISOString(), note: note.trim() || undefined };
   save({

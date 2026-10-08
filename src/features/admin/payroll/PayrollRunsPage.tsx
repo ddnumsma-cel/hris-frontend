@@ -10,7 +10,7 @@ import { AlertTriangleIcon, ChevronLeftIcon, DownloadIcon, LockIcon, PlusIcon, T
 import { downloadTextFile, toCsv } from "@/lib/download";
 import type { PayLine } from "@/lib/reports/api";
 import { addAdjustment, approveRun, createRun, deleteRun, getRun, listRuns, openCutoffs, refreshRun, removeAdjustment, runWarnings, type PayrollRun } from "@/lib/pay/runs";
-import { canChange, useAccess } from "../administration/access";
+import { useCan } from "@/lib/useCan";
 import { inputClass, useActor } from "../corehr/format";
 import { Drawer, ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { SimpleTable } from "../timekeeping/common";
@@ -82,7 +82,7 @@ function NewRunDialog({ onClose }: { onClose: () => void }) {
 }
 
 export function PayrollRunsPage() {
-  const canEdit = canChange(useAccess().payroll);
+  const canEdit = useCan("create", "payrollRuns");
   const runs = useQuery({ queryKey: KEY, queryFn: listRuns, staleTime: 0 });
   const [adding, setAdding] = useState(false);
   useCreateParam("payroll-run", () => setAdding(true));
@@ -100,7 +100,7 @@ export function PayrollRunsPage() {
           ) : undefined
         }
       />
-      {!canEdit && <p className="text-xs text-ink-2">View only. The Super Admin runs and approves payroll.</p>}
+      {!canEdit && <p className="text-xs text-ink-2">View only. Accounting prepares and approves payroll.</p>}
       <SimpleTable
         rows={runs.data ?? []}
         rowKey={(r) => r.id}
@@ -293,7 +293,9 @@ export function PayrollRunPage() {
   const actor = useActor();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const canEdit = canChange(useAccess().payroll);
+  const canEdit = useCan("edit", "payrollRuns");
+  const canFinal = useCan("final", "payrollRuns");
+  const canDelete = useCan("delete", "payrollRuns");
   const run = useQuery({ queryKey: [...KEY, id], queryFn: () => getRun(id), staleTime: 0 });
   const [openId, setOpenId] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
@@ -369,13 +371,17 @@ export function PayrollRunPage() {
                 <Button variant="ghost" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
                   Recompute
                 </Button>
-                <Button variant="ghost" icon={<TrashIcon className="h-3.75 w-3.75" />} disabled={remove.isPending} onClick={() => window.confirm(`Delete the draft run for ${r.label}?`) && remove.mutate()}>
-                  Delete
-                </Button>
-                <Button icon={<LockIcon className="h-3.75 w-3.75" />} onClick={() => setApproving(true)}>
-                  Approve
-                </Button>
+                {canDelete && (
+                  <Button variant="ghost" icon={<TrashIcon className="h-3.75 w-3.75" />} disabled={remove.isPending} onClick={() => window.confirm(`Delete the draft run for ${r.label}?`) && remove.mutate()}>
+                    Delete
+                  </Button>
+                )}
               </>
+            )}
+            {draft && canFinal && (
+              <Button icon={<LockIcon className="h-3.75 w-3.75" />} onClick={() => setApproving(true)}>
+                Approve
+              </Button>
             )}
           </>
         }

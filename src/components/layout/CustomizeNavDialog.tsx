@@ -60,7 +60,7 @@ export function CustomizeNavDialog({ sections, prefs, onSave, onClose }: { secti
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
           <p className="text-sm text-ink-2">
-            <span className="font-medium text-ink">Pin</span> up to {MAX_PINS} pages you use every day; they appear at the top of your sidebar (as Bookmarks in the full sidebar). Use the arrows to put the modules you use most first. Home always stays at the top. Only you see these changes.
+            <span className="font-medium text-ink">Pin</span> up to {MAX_PINS} pages you use every day; they appear at the top of your sidebar, under Pinned. Use the arrows to put the modules you use most first. Home always stays at the top. Only you see these changes.
           </p>
           <div className="flex items-center gap-2 text-xs text-ink-2">
             <PinIcon className="h-3.5 w-3.5" />

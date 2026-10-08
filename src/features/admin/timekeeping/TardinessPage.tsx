@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useCan } from "@/lib/useCan";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
@@ -8,7 +9,6 @@ import { useToast } from "@/components/ui/ToastContext";
 import { getTardinessRule, listAwolFlags, listDays, listNotices, listTardinessFlags, saveTardinessRule, sendNotice, type AwolFlag, type DayRow, type TardinessFlag, type TkPerson } from "@/lib/timekeeping/api";
 import { addDays, toIsoDate } from "@/lib/timekeeping/compute";
 import type { AttendanceNotice, TardinessRule } from "@/lib/timekeeping/types";
-import { canChange, useAccess } from "../administration/access";
 import { useOfficeFilter } from "../OfficeFilterContext";
 import { inputClass, useActor } from "../corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
@@ -123,7 +123,8 @@ function NoticeDialog({ target, onClose }: { target: NoticeTarget; onClose: () =
 /** Late arrivals: minutes after the shift start, past the grace period. */
 export function TardinessPage() {
   const { office } = useOfficeFilter();
-  const canEditRule = canChange(useAccess().timekeeping);
+  const canEditRule = useCan("edit", "rules");
+  const canNotice = useCan("edit", "attendanceRecords");
   const today = toIsoDate(new Date());
   const [params] = useSearchParams();
   const [tab, setTab] = useState<Tab>(params.get("tab") === "habitual" ? "habitual" : "list");
@@ -192,7 +193,7 @@ export function TardinessPage() {
             {sent.acknowledgedAt ? " · read" : ""}
           </span>
         )}
-        {canEditRule && (
+        {canNotice && (
           <Button size="sm" variant="ghost" onClick={() => setNoticeFor({ kind, person, dates })}>
             {sent ? "Send again" : "Send notice"}
           </Button>

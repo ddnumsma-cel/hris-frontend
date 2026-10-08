@@ -1,10 +1,11 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useLayoutEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { TopBar } from "@/components/layout/TopBar";
 import { ProtectedRoute, RootRedirect } from "@/components/layout/ProtectedRoute";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import { DocumentTitle } from "@/components/layout/DocumentTitle";
 import { NotFoundPage } from "@/components/layout/NotFoundPage";
+import { Moved } from "@/components/layout/Moved";
 import { PageLoadingFallback } from "@/components/layout/PageLoadingFallback";
 import { useAuth } from "@/features/auth/AuthContext";
 import { hasHrAccess } from "@/lib/admin/auth";
@@ -12,6 +13,8 @@ import { SignInWelcome } from "@/features/auth/SignInWelcome";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { OfficeFilterProvider } from "@/features/admin/OfficeFilterContext";
 import { FirstLoginTour } from "@/components/shared/FirstLoginTour";
+import { applyAccountPrefs, applyAppearance, resetPreferences, usePreferencesVersion } from "@/lib/preferences";
+import { settingsFor, settingsKeyFor } from "@/lib/settings/store";
 
 const AssistantWidget = lazy(() =>
   import("@/features/assistant/AssistantWidget").then((m) => ({ default: m.AssistantWidget })),
@@ -33,7 +36,6 @@ const UndertimePage = lazy(() => import("@/features/admin/timekeeping/RequestsPa
 const LeaveOverviewPage = lazy(() => import("@/features/admin/leave/LeaveOverviewPage").then((m) => ({ default: m.LeaveOverviewPage })));
 const LeaveRequestsPage = lazy(() => import("@/features/admin/leave/LeaveRequestsPage").then((m) => ({ default: m.LeaveRequestsPage })));
 const BalancesPage = lazy(() => import("@/features/admin/leave/BalancesPage").then((m) => ({ default: m.BalancesPage })));
-const ReimbursementsPage = lazy(() => import("@/features/admin/reimbursements/ReimbursementsPage").then((m) => ({ default: m.ReimbursementsPage })));
 const LeaveTypesPage = lazy(() => import("@/features/admin/leave/LeaveTypesPage").then((m) => ({ default: m.LeaveTypesPage })));
 const HrReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.HrReportsPage })));
 const AttendanceReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.AttendanceReportsPage })));
@@ -44,8 +46,8 @@ const PayrollReportsPage = lazy(() => import("@/features/admin/reports/ReportPag
 const StatutoryReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.StatutoryReportsPage })));
 const ManagementReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.ManagementReportsPage })));
 const UsersPage = lazy(() => import("@/features/admin/administration/UsersPage").then((m) => ({ default: m.UsersPage })));
+const SubscriptionPage = lazy(() => import("@/features/admin/administration/SubscriptionPage").then((m) => ({ default: m.SubscriptionPage })));
 const RolesPage = lazy(() => import("@/features/admin/administration/RolesPage").then((m) => ({ default: m.RolesPage })));
-const WorkflowsPage = lazy(() => import("@/features/admin/administration/WorkflowsPage").then((m) => ({ default: m.WorkflowsPage })));
 const AuditTrailPage = lazy(() => import("@/features/admin/administration/AuditTrailPage").then((m) => ({ default: m.AuditTrailPage })));
 const SystemSettingsPage = lazy(() => import("@/features/admin/administration/SystemSettingsPage").then((m) => ({ default: m.SystemSettingsPage })));
 const RemoteDaysPage = lazy(() => import("@/features/admin/timekeeping/RemoteDaysPage").then((m) => ({ default: m.RemoteDaysPage })));
@@ -53,6 +55,11 @@ const CorrectionsPage = lazy(() => import("@/features/admin/timekeeping/Correcti
 const OrgChartPage = lazy(() => import("@/features/admin/corehr/OrgChartPage").then((m) => ({ default: m.OrgChartPage })));
 const TardinessPage = lazy(() => import("@/features/admin/timekeeping/TardinessPage").then((m) => ({ default: m.TardinessPage })));
 const DocumentsPage = lazy(() => import("@/features/admin/corehr/DocumentsPage").then((m) => ({ default: m.DocumentsPage })));
+const DepartmentsPage = lazy(() => import("@/features/admin/maintenance/DepartmentsPage").then((m) => ({ default: m.DepartmentsPage })));
+const LocationsPage = lazy(() => import("@/features/admin/maintenance/DepartmentsPage").then((m) => ({ default: m.LocationsPage })));
+const RulesPage = lazy(() => import("@/features/admin/maintenance/RulesPage").then((m) => ({ default: m.RulesPage })));
+const RequestsPage = lazy(() => import("@/features/admin/requests/RequestsPage").then((m) => ({ default: m.RequestsPage })));
+const TrainingsPage = lazy(() => import("@/features/admin/onboarding/TrainingsPage").then((m) => ({ default: m.TrainingsPage })));
 const DirectoryRedirect = lazy(() =>
   import("@/features/admin/corehr/DirectoryRedirect").then((m) => ({ default: m.DirectoryRedirect })),
 );
@@ -114,13 +121,58 @@ const ManagerAttendanceApprovals = lazy(() =>
   import("@/features/manager/ManagerAttendanceApprovals").then((m) => ({ default: m.ManagerAttendanceApprovals })),
 );
 const ManagerPayroll = lazy(() => import("@/features/manager/ManagerPayroll").then((m) => ({ default: m.ManagerPayroll })));
-const ManagerSettings = lazy(() =>
-  import("@/features/manager/ManagerSettings").then((m) => ({ default: m.ManagerSettings })),
-);
+// Settings (every workspace): /{role}/settings/..., with /settings/... redirecting there.
+const SettingsLayout = lazy(() => import("@/features/settings/SettingsLayout").then((m) => ({ default: m.SettingsLayout })));
+const SettingsRedirect = lazy(() => import("@/features/settings/SettingsLayout").then((m) => ({ default: m.SettingsRedirect })));
+const WorkspaceGuard = lazy(() => import("@/features/settings/SettingsLayout").then((m) => ({ default: m.WorkspaceGuard })));
+const ToMyAccount = lazy(() => import("@/features/settings/SettingsLayout").then((m) => ({ default: m.ToMyAccount })));
+const AccountSection = lazy(() => import("@/features/settings/AccountSection").then((m) => ({ default: m.AccountSection })));
+const SecuritySection = lazy(() => import("@/features/settings/SecuritySection").then((m) => ({ default: m.SecuritySection })));
+const NotificationsSection = lazy(() => import("@/features/settings/NotificationsSection").then((m) => ({ default: m.NotificationsSection })));
+const AppearanceSection = lazy(() => import("@/features/settings/AppearanceSection").then((m) => ({ default: m.AppearanceSection })));
+const OrganizationSection = lazy(() => import("@/features/settings/OrganizationSection").then((m) => ({ default: m.OrganizationSection })));
+const TimeOffSection = lazy(() => import("@/features/settings/TimeOffSection").then((m) => ({ default: m.TimeOffSection })));
+const SchedulingSection = lazy(() => import("@/features/settings/SchedulingSection").then((m) => ({ default: m.SchedulingSection })));
+const RolesSection = lazy(() => import("@/features/settings/RolesSection").then((m) => ({ default: m.RolesSection })));
+const DataSection = lazy(() => import("@/features/settings/DataSection").then((m) => ({ default: m.DataSection })));
+
+/** The Settings routes inside a workspace. Workspace sections exist for HR only and are guarded. */
+function settingsRoutes(admin = false) {
+  return (
+    <Route path="settings" element={<SettingsLayout />}>
+      <Route index element={<Navigate to="account" replace />} />
+      <Route path="account" element={<AccountSection />} />
+      <Route path="security" element={<SecuritySection />} />
+      <Route path="notifications" element={<NotificationsSection />} />
+      <Route path="appearance" element={<AppearanceSection />} />
+      {admin && (
+        <>
+          <Route path="organization" element={<WorkspaceGuard section="organization"><OrganizationSection /></WorkspaceGuard>} />
+          <Route path="time-off" element={<WorkspaceGuard section="time-off"><TimeOffSection /></WorkspaceGuard>} />
+          <Route path="scheduling" element={<WorkspaceGuard section="scheduling"><SchedulingSection /></WorkspaceGuard>} />
+          <Route path="roles" element={<WorkspaceGuard section="roles"><RolesSection /></WorkspaceGuard>} />
+          <Route path="data" element={<WorkspaceGuard section="data"><DataSection /></WorkspaceGuard>} />
+        </>
+      )}
+      <Route path="*" element={<ToMyAccount />} />
+    </Route>
+  );
+}
 const ManagerCases = lazy(() => import("@/features/manager/ManagerCases").then((m) => ({ default: m.ManagerCases })));
 
 function App() {
   const { user } = useAuth();
+  // Re-render every screen when a preference (date format, timezone…) changes.
+  usePreferencesVersion();
+  // Apply the signed-in person's saved preferences before paint (no flash); defaults when signed out.
+  // The theme isn't touched: it belongs to this device (moon toggle).
+  const prefsKey = user ? settingsKeyFor(user) : null;
+  useLayoutEffect(() => {
+    if (!prefsKey) return resetPreferences();
+    const saved = settingsFor(prefsKey);
+    applyAppearance(saved.appearance, { theme: false });
+    applyAccountPrefs(saved.account);
+  }, [prefsKey]);
 
   return (
     <OfficeFilterProvider>
@@ -133,6 +185,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<RootRedirect />} />
+            <Route path="/settings/*" element={<SettingsRedirect />} />
 
             <Route
               path="/employee"
@@ -152,6 +205,7 @@ function App() {
               <Route path="benefits" element={<EmployeeBenefitsPage />} />
               <Route path="trainings" element={<EmployeeTrainings />} />
               <Route path="reimbursements" element={<EmployeeReimbursements />} />
+              {settingsRoutes()}
             </Route>
 
             <Route
@@ -174,7 +228,7 @@ function App() {
               <Route path="payroll" element={<ManagerPayroll />} />
               <Route path="reports" element={<Navigate to="/manager/reports/overtime" replace />} />
               <Route path="reports/:reportId" element={<ManagerReportPage />} />
-              <Route path="settings" element={<ManagerSettings />} />
+              {settingsRoutes()}
             </Route>
 
             <Route
@@ -186,47 +240,92 @@ function App() {
               }
             >
               <Route index element={<AdminOverview />} />
-              <Route path="people" element={<PeoplePage />} />
-              <Route path="people/new" element={<NewEmployeePage />} />
-              <Route path="people/:employeeId" element={<EmployeePage />} />
-              <Route path="org-chart" element={<OrgChartPage />} />
-              <Route path="company" element={<Navigate to="/admin/org-chart" replace />} />
-              <Route path="timekeeping" element={<Navigate to="/admin/timekeeping/logs" replace />} />
+
+              {/* Maintenance: Core HR, Leave and Rules */}
+              <Route path="maintenance" element={<Navigate to="/admin/maintenance/people" replace />} />
+              <Route path="maintenance/people" element={<PeoplePage />} />
+              <Route path="maintenance/people/new" element={<NewEmployeePage />} />
+              <Route path="maintenance/people/:employeeId" element={<EmployeePage />} />
+              <Route path="maintenance/departments" element={<DepartmentsPage />} />
+              <Route path="maintenance/locations" element={<LocationsPage />} />
+              <Route path="maintenance/org-chart" element={<OrgChartPage />} />
+              <Route path="maintenance/documents" element={<DocumentsPage />} />
+              <Route path="maintenance/leave" element={<Navigate to="/admin/maintenance/leave/overview" replace />} />
+              <Route path="maintenance/leave/overview" element={<LeaveOverviewPage />} />
+              <Route path="maintenance/leave/requests" element={<LeaveRequestsPage />} />
+              <Route path="maintenance/leave/balances" element={<BalancesPage />} />
+              <Route path="maintenance/leave/types" element={<LeaveTypesPage />} />
+              <Route path="maintenance/rules" element={<RulesPage />} />
+
+              {/* Time & Attendance (its own module) */}
+              <Route path="timekeeping" element={<Navigate to="/admin/timekeeping/shifts" replace />} />
               <Route path="timekeeping/shifts" element={<ShiftsPage />} />
               <Route path="timekeeping/schedules" element={<SchedulesPage />} />
-              <Route path="timekeeping/logs" element={<AttendanceLogsPage />} />
-              <Route path="timekeeping/overtime" element={<OvertimePage />} />
-              <Route path="timekeeping/undertime" element={<UndertimePage />} />
-              <Route path="timekeeping/tardiness" element={<TardinessPage />} />
-              <Route path="timekeeping/corrections" element={<CorrectionsPage />} />
               <Route path="timekeeping/remote" element={<RemoteDaysPage />} />
-              <Route path="leave" element={<Navigate to="/admin/leave/overview" replace />} />
-              <Route path="leave/overview" element={<LeaveOverviewPage />} />
-              <Route path="leave/requests" element={<LeaveRequestsPage />} />
-              <Route path="leave/balances" element={<BalancesPage />} />
-              <Route path="leave/types" element={<LeaveTypesPage />} />
-              <Route path="reimbursements" element={<ReimbursementsPage />} />
-              <Route path="reports" element={<Navigate to="/admin/reports/hr" replace />} />
+
+              {/* Requests: every request type (reimbursements today) */}
+              <Route path="requests" element={<RequestsPage />} />
+              <Route path="requests/:type" element={<RequestsPage />} />
+
+              {/* Reports: attendance records, then HR and management reports */}
+              <Route path="reports" element={<Navigate to="/admin/reports/attendance-logs" replace />} />
+              <Route path="reports/attendance-logs" element={<AttendanceLogsPage />} />
+              <Route path="reports/overtime" element={<OvertimePage />} />
+              <Route path="reports/undertime" element={<UndertimePage />} />
+              <Route path="reports/time-adjustments" element={<CorrectionsPage />} />
+              <Route path="reports/tardiness" element={<TardinessPage />} />
               <Route path="reports/dashboard" element={<Navigate to="/admin/reports/hr" replace />} />
               <Route path="reports/hr" element={<HrReportsPage />} />
               <Route path="reports/attendance" element={<AttendanceReportsPage />} />
               <Route path="reports/payroll" element={<PayrollReportsPage />} />
               <Route path="reports/statutory" element={<StatutoryReportsPage />} />
               <Route path="reports/management" element={<ManagementReportsPage />} />
+
+              {/* Payroll (unchanged) */}
               <Route path="payroll" element={<Navigate to="/admin/payroll/runs" replace />} />
               <Route path="payroll/runs" element={<PayrollRunsPage />} />
               <Route path="payroll/runs/:id" element={<PayrollRunPage />} />
               <Route path="payroll/contributions" element={<ContributionsPage />} />
+
+              {/* Onboarding */}
+              <Route path="onboarding" element={<Navigate to="/admin/onboarding/trainings" replace />} />
+              <Route path="onboarding/trainings" element={<TrainingsPage />} />
+
               <Route path="administration" element={<Navigate to="/admin/administration/users" replace />} />
               <Route path="administration/users" element={<UsersPage />} />
               <Route path="administration/roles" element={<RolesPage />} />
-              <Route path="administration/workflows" element={<WorkflowsPage />} />
               <Route path="administration/audit" element={<AuditTrailPage />} />
               <Route path="administration/settings" element={<SystemSettingsPage />} />
-              <Route path="organization" element={<Navigate to="/admin/org-chart" replace />} />
-              <Route path="positions" element={<Navigate to="/admin/org-chart" replace />} />
-              <Route path="documents" element={<DocumentsPage />} />
+              <Route path="administration/subscription" element={<SubscriptionPage />} />
               <Route path="directory" element={<DirectoryRedirect />} />
+
+              {/* Old addresses, kept so links and bookmarks still work */}
+              <Route path="core-hr" element={<Moved to="/admin/maintenance/people" />} />
+              <Route path="people" element={<Moved to="/admin/maintenance/people" />} />
+              <Route path="people/new" element={<Moved to="/admin/maintenance/people/new" />} />
+              <Route path="people/:employeeId" element={<Moved to="/admin/maintenance/people/:employeeId" />} />
+              <Route path="org-chart" element={<Moved to="/admin/maintenance/org-chart" />} />
+              <Route path="company" element={<Moved to="/admin/maintenance/org-chart" />} />
+              <Route path="organization" element={<Moved to="/admin/maintenance/org-chart" />} />
+              <Route path="positions" element={<Moved to="/admin/maintenance/org-chart" />} />
+              <Route path="documents" element={<Moved to="/admin/maintenance/documents" />} />
+              <Route path="leave" element={<Moved to="/admin/maintenance/leave/overview" />} />
+              <Route path="leave/overview" element={<Moved to="/admin/maintenance/leave/overview" />} />
+              <Route path="leave/requests" element={<Moved to="/admin/maintenance/leave/requests" />} />
+              <Route path="leave/balances" element={<Moved to="/admin/maintenance/leave/balances" />} />
+              <Route path="leave/types" element={<Moved to="/admin/maintenance/leave/types" />} />
+              <Route path="time" element={<Moved to="/admin/timekeeping/shifts" />} />
+              <Route path="maintenance/attendance" element={<Moved to="/admin/timekeeping/shifts" />} />
+              <Route path="maintenance/attendance/:page" element={<Moved to="/admin/timekeeping/:page" />} />
+              <Route path="timekeeping/logs" element={<Moved to="/admin/reports/attendance-logs" />} />
+              <Route path="timekeeping/overtime" element={<Moved to="/admin/reports/overtime" />} />
+              <Route path="timekeeping/undertime" element={<Moved to="/admin/reports/undertime" />} />
+              <Route path="timekeeping/corrections" element={<Moved to="/admin/reports/time-adjustments" />} />
+              <Route path="timekeeping/tardiness" element={<Moved to="/admin/reports/tardiness" />} />
+              <Route path="claims" element={<Moved to="/admin/requests" />} />
+              <Route path="reimbursements" element={<Moved to="/admin/requests/reimbursement" />} />
+              <Route path="administration/workflows" element={<Moved to="/admin/maintenance/rules" />} />
+              {settingsRoutes(true)}
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

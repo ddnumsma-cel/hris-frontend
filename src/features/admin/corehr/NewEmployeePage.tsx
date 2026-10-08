@@ -137,7 +137,7 @@ export function NewEmployeePage() {
       queryClient.invalidateQueries({ queryKey: ["corehr"] });
       queryClient.invalidateQueries({ queryKey: ["admin"] });
       toast.show(`${e.personal.firstName} ${e.personal.lastName} added as ${e.id}.`);
-      navigate(`/admin/people/${e.id}`);
+      navigate(`/admin/maintenance/people/${e.id}`);
     },
   });
 
@@ -182,7 +182,7 @@ export function NewEmployeePage() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
       <div>
-        <Link to="/admin/people" className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-2 hover:text-ink">
+        <Link to="/admin/maintenance/people" className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-2 hover:text-ink">
           <ArrowRightIcon className="h-3.5 w-3.5 rotate-180" />
           People
         </Link>
@@ -414,7 +414,7 @@ export function NewEmployeePage() {
               type="button"
               onClick={() => {
                 if (step > 0) goTo(step - 1);
-                else if (!isDirty || window.confirm("Discard this new employee?")) navigate("/admin/people");
+                else if (!isDirty || window.confirm("Discard this new employee?")) navigate("/admin/maintenance/people");
               }}
             >
               {step > 0 ? "Back" : "Cancel"}

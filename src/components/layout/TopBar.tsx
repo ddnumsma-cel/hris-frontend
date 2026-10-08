@@ -7,9 +7,12 @@ import { hasHrAccess } from "@/lib/admin/auth";
 import { useOfficeFilter, type OfficeFilter } from "@/features/admin/OfficeFilterContext";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { fetchAnnouncements, fetchMyPhoto } from "@/lib/api";
-import { useIsSuperAdmin } from "@/features/admin/administration/access";
 import { BellIcon, BuildingIcon, CheckIcon, ChevronDownIcon, LogOutIcon, SearchIcon, SettingsIcon } from "../icons";
 import { BrandName, WorkspaceLabel } from "./Brand";
+import { SettingsMenu } from "./SettingsMenu";
+import { useMySettings } from "@/features/settings/useSettings";
+import { fetchMyAvatar } from "@/lib/settings/api";
+import { settingsKeyFor } from "@/lib/settings/store";
 
 const offices: OfficeFilter[] = ["All offices", "Cebu HQ", "Manila", "Davao"];
 
@@ -29,10 +32,18 @@ export function TopBar() {
   const { office, setOffice } = useOfficeFilter();
   const [officeMenuOpen, setOfficeMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const gearRef = useRef<HTMLButtonElement>(null);
+  // Closing the gear menu (Esc, outside click, a link) hands focus back to the gear.
+  const closeSettings = () => {
+    setSettingsOpen(false);
+    gearRef.current?.focus();
+  };
+  const settings = useMySettings();
+  const notificationsOn = settings.data?.notifications.enabled ?? true;
   const [searchValue, setSearchValue] = useState("");
   const headerRef = useRef<HTMLElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const isSuperAdmin = useIsSuperAdmin();
 
   // Ctrl/⌘ K (or "/" when not typing in a field) jumps to the employee search.
   useEffect(() => {
@@ -66,10 +77,17 @@ export function TopBar() {
     queryFn: fetchMyPhoto,
     enabled: user?.role === "employee",
   });
+  // Partner, HR and other accounts keep their photo in Settings.
+  const avatarQuery = useQuery({
+    queryKey: ["settings", "avatar", user ? settingsKeyFor(user) : "none"],
+    queryFn: () => fetchMyAvatar(user!),
+    enabled: !!user && user.role !== "employee",
+  });
+  const photo = user?.role === "employee" ? photoQuery.data : avatarQuery.data;
   function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Escape") e.currentTarget.blur();
     if (e.key === "Enter" && searchValue.trim()) {
-      navigate(`/admin/people?q=${encodeURIComponent(searchValue.trim())}`);
+      navigate(`/admin/maintenance/people?q=${encodeURIComponent(searchValue.trim())}`);
     }
   }
 
@@ -81,16 +99,6 @@ export function TopBar() {
   if (!user) return null;
   // System-only accounts (Super Admin) don't get the office filter or employee search.
   const hr = user.role !== "admin" || hasHrAccess(user.accountId);
-  // Each workspace's settings page; HR's System settings is Super Admin only, and employees
-  // have no settings page, so their personal details form stands in.
-  const settingsTo =
-    user.role === "manager"
-      ? "/manager/settings"
-      : user.role === "employee"
-        ? "/employee/201-file?create=details"
-        : isSuperAdmin
-          ? "/admin/administration/settings"
-          : null;
 
   return (
     <header ref={headerRef} className="topbar sticky top-0 z-40 flex flex-wrap items-center gap-3.5 px-4.5 py-2.5 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:gap-4">
@@ -98,6 +106,8 @@ export function TopBar() {
       <div className="flex min-w-0 items-center gap-3.5">
       {/* Shown here only while no desktop sidebar is on screen; otherwise the sidebar carries them. */}
       <BrandName className="topbar-sidebar-dup" />
+      {/* Phones only: on wider screens the sidebar already names the workspace. */}
+      <WorkspaceLabel role={user.role} className="topbar-sidebar-dup sm:hidden" />
 
       {user.role === "admin" && hr && (
         <div className="relative">
@@ -108,6 +118,7 @@ export function TopBar() {
             onClick={() => {
               setOfficeMenuOpen((v) => !v);
               setNotifOpen(false);
+              setSettingsOpen(false);
             }}
             className="topbar-field"
           >
@@ -150,7 +161,6 @@ export function TopBar() {
       </div>
 
       <div className="mx-auto flex min-w-0 justify-center sm:mx-0">
-        <WorkspaceLabel role={user.role} className="topbar-sidebar-dup" />
         {user.role === "admin" && hr && (
           <div className="topbar-field hidden sm:flex sm:w-64 md:w-80 lg:w-96">
             <SearchIcon className="h-3.5 w-3.5" />
@@ -185,11 +195,12 @@ export function TopBar() {
             onClick={() => {
               setNotifOpen((v) => !v);
               setOfficeMenuOpen(false);
+              setSettingsOpen(false);
             }}
             className="topbar-icon-button relative flex h-9 w-9 items-center justify-center"
           >
             <BellIcon className="h-[17px] w-[17px]" />
-            {notifications.length > 0 && (
+            {notificationsOn && notifications.length > 0 && (
               <span className="topbar-dot absolute right-2 top-2 h-2 w-2 rounded-full" />
             )}
           </button>
@@ -206,10 +217,13 @@ export function TopBar() {
                   Notifications
                 </div>
                 <div className="flex max-h-72 flex-col overflow-y-auto">
-                  {notifications.length === 0 && (
+                  {!notificationsOn && (
+                    <p className="px-3.5 py-4 text-sm text-ink-2">Notifications are turned off. Turn them on from the settings menu.</p>
+                  )}
+                  {notificationsOn && notifications.length === 0 && (
                     <p className="px-3.5 py-4 text-sm text-ink-2">You're all caught up.</p>
                   )}
-                  {notifications.map((a) => (
+                  {notificationsOn && notifications.map((a) => (
                     <div key={a.id} className="border-b border-border px-3.5 py-2.5 last:border-b-0">
                       <div className="text-[0.82rem] font-semibold">{a.title}</div>
                       <div className="text-xs text-ink-3">{a.postedOn}</div>
@@ -221,25 +235,43 @@ export function TopBar() {
           )}
         </div>
 
-        {settingsTo && (
-          <Link to={settingsTo} aria-label="Settings" title="Settings" className="topbar-icon-button flex h-9 w-9 items-center justify-center">
+        <div className="relative">
+          <button
+            ref={gearRef}
+            type="button"
+            aria-label="Settings"
+            aria-haspopup="dialog"
+            aria-expanded={settingsOpen}
+            onClick={() => {
+              setSettingsOpen((v) => !v);
+              setNotifOpen(false);
+              setOfficeMenuOpen(false);
+            }}
+            className={clsx("topbar-icon-button flex h-9 w-9 items-center justify-center", settingsOpen && "bg-[var(--nav-hover-bg)] text-[var(--nav-hover-text)]")}
+          >
             <SettingsIcon className="h-[17px] w-[17px]" />
-          </Link>
-        )}
+          </button>
+          {settingsOpen && (
+            <>
+              <button type="button" aria-label="Close settings" tabIndex={-1} className="fixed inset-0 z-40 cursor-default" onClick={closeSettings} />
+              <SettingsMenu onClose={closeSettings} onLogout={handleLogout} />
+            </>
+          )}
+        </div>
 
         {/* Divider between the tool buttons and the signed-in person. */}
         <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-[var(--line-strong)] sm:block" />
 
         <ProfileChip linked={user.role === "employee"}>
-          {photoQuery.data ? (
-            <img src={photoQuery.data} alt="" className="h-7 w-7 flex-none rounded-full object-cover" />
+          {photo ? (
+            <img src={photo} alt="" className="h-7 w-7 flex-none rounded-full object-cover" />
           ) : (
             <div className="topbar-avatar flex h-7 w-7 flex-none items-center justify-center rounded-full">
               {user.initials}
             </div>
           )}
           <div className="hidden min-w-0 max-w-48 leading-tight sm:block">
-            <div className="topbar-name truncate">{user.name}</div>
+            <div className="topbar-name truncate">{settings.data?.account.displayName.trim() || user.name}</div>
             <div className="topbar-secondary truncate">{user.title}</div>
           </div>
         </ProfileChip>

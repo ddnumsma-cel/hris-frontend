@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { canFor } from "@/lib/permissions";
+import { useWho } from "@/lib/useCan";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
@@ -62,6 +64,8 @@ export function CorrectionsPage() {
   const [tab, setTab] = useState<Tab>("pending");
   const [query, setQuery] = useState("");
   const [declining, setDeclining] = useState<{ r: FixRequest; name: string } | null>(null);
+  const who = useWho();
+  const canDecide = (r: FixRequest) => canFor(who, "approve", "attendanceRecords", r.employeeId);
   const approve = useMutation({
     mutationFn: (r: FixRequest) => decideFix(r.id, true, "", actor),
     onSuccess: () => {
@@ -95,7 +99,9 @@ export function CorrectionsPage() {
       header: tab === "pending" ? "" : "Decision",
       align: "right",
       cell: (r) =>
-        r.status === "pending" ? (
+        r.status === "pending" && !canDecide(r) ? (
+          <Pill tone="warn">Waiting for approver</Pill>
+        ) : r.status === "pending" ? (
           <span className="flex justify-end gap-1.5">
             <Button size="sm" variant="ghost" onClick={() => setDeclining({ r, name: person(r.employeeId)!.name })}>
               Decline

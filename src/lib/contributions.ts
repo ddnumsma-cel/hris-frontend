@@ -3,6 +3,7 @@
 
 import { logAdmin } from "./admin/store";
 import { addVersion, removeVersion, versionsOf, type Agency, type AgencyRates, type BirRates, type RateVersion, type TaxBracket } from "./reports/statutory";
+import { deny } from "./session";
 
 /** What is wrong with a tax table, if anything. */
 function checkBrackets(rows: TaxBracket[]) {
@@ -63,12 +64,16 @@ export const RATE_FIELDS: { [A in Agency]: (RateField & { key: keyof AgencyRates
 };
 
 export function listVersions<A extends Agency>(agency: A): Promise<RateVersion<A>[]> {
+  const denied = deny("contributions", "view");
+  if (denied) return denied;
   return respond(versionsOf(agency));
 }
 
 const label = (a: Agency) => AGENCIES.find((x) => x.id === a)!.label;
 
 export async function saveVersion<A extends Agency>(agency: A, input: { effectiveFrom: string; source: string; rates: AgencyRates[A] }, actor: string): Promise<RateVersion<A>> {
+  const denied = deny("contributions", "create");
+  if (denied) return denied;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveFrom)) return fail("Choose the date these rates take effect");
   if (!input.source.trim()) return fail("Name the source, for example the circular number");
   const rates = input.rates as unknown as Record<string, number>;
@@ -95,6 +100,8 @@ export async function saveVersion<A extends Agency>(agency: A, input: { effectiv
 }
 
 export async function deleteVersion(agency: Agency, id: string, actor: string): Promise<void> {
+  const denied = deny("contributions", "delete");
+  if (denied) return denied;
   const v = versionsOf(agency).find((x) => x.id === id);
   if (!v) return fail("That version no longer exists");
   if (!removeVersion(agency, id)) return fail("Rates already in force stay on record and can't be removed");

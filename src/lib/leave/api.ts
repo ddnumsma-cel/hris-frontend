@@ -2,8 +2,10 @@
 
 import { fullName, initialsOf, newId, state as core } from "../corehr/store";
 import { HOLIDAYS } from "../holidays";
-import { addDays, balanceFor, countDays, CREDITS_ADJUSTMENT, creditsFor, isoToday, leave, LEAVE_CREDITS_PER_YEAR, saveLeave, type Credits } from "./store";
+import { addDays, balanceFor, countDays, CREDITS_ADJUSTMENT, creditsFor, isoToday, leave, LEAVE_CREDITS_PER_YEAR, leavePolicy, saveLeave, type Credits } from "./store";
 import type { Balance, LeaveRequest, LeaveType } from "./types";
+import { can, canFor, visible } from "../permissions";
+import { deny, forbidden, sessionWho } from "../session";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -37,6 +39,8 @@ export function listTypes() {
 }
 
 export async function saveType(input: Omit<LeaveType, "id" | "active"> & { id?: string }): Promise<LeaveType> {
+  const denied = deny("leaveTypes", input.id ? "edit" : "create");
+  if (denied) return denied;
   const name = input.name.trim();
   if (!name) return fail("Name the leave type");
   if (!input.code.trim()) return fail("Give it a short code, e.g. VL");
@@ -48,6 +52,8 @@ export async function saveType(input: Omit<LeaveType, "id" | "active"> & { id?: 
 }
 
 export async function setTypeActive(id: string, active: boolean): Promise<void> {
+  const denied = deny("leaveTypes", "edit");
+  if (denied) return denied;
   saveLeave({ ...leave, types: leave.types.map((t) => (t.id === id ? { ...t, active } : t)) });
   return respond(undefined);
 }
@@ -60,9 +66,11 @@ export interface RequestRow extends LeaveRequest {
 }
 
 export function listRequests(): Promise<RequestRow[]> {
+  const who = sessionWho();
+  if (!can(who, "view", "leave")) return forbidden();
   const ps = people();
   return respond(
-    leave.requests
+    visible(who, "leave", leave.requests, (r) => r.employeeId)
       .flatMap((r) => {
         const person = ps.find((p) => p.id === r.employeeId);
         const type = leave.types.find((t) => t.id === r.typeId);
@@ -102,7 +110,9 @@ export function previewRequest(input: FileInput, ignoreId?: string): Preview {
   if (!type) return { days: 0, errors: [...errors, "Choose the leave type"], notes };
   if (!input.start || !input.end) return { days: 0, errors: [...errors, "Pick the start and end dates"], notes };
   if (input.end < input.start) return { days: 0, errors: [...errors, "The end date is before the start date"], notes };
-  const days = countDays(input.start, input.end, type.countBy, input.start === input.end ? input.halfDay : undefined);
+  // Half days only when Settings > Time off & leave allows them.
+  const halfDay = input.start === input.end && leavePolicy().allowHalfDays ? input.halfDay : undefined;
+  const days = countDays(input.start, input.end, type.countBy, halfDay);
   if (days === 0) errors.push("Those dates are all weekends or holidays, so no leave is needed");
   const holidays = HOLIDAYS.filter((h) => h.date >= input.start && h.date <= input.end);
   if (holidays.length && type.countBy === "workdays") notes.push(`${holidays.map((h) => h.name).join(", ")} ${holidays.length === 1 ? "is a holiday" : "are holidays"}, not counted.`);
@@ -111,7 +121,7 @@ export function previewRequest(input: FileInput, ignoreId?: string): Preview {
   if (!balance.eligible) errors.push(balance.eligibilityNote ?? "This employee can't use this leave type");
   else if (balance.eligibilityNote) notes.push(balance.eligibilityNote);
   const credits = balance.unlimited ? undefined : creditsFor(input.employeeId);
-  if (credits && credits.available < 1) errors.push(`All ${credits.total} leaves for this year are used up. File it as Leave without pay.`);
+  if (credits && credits.available < 1 && !leavePolicy().allowNegative) errors.push(`All ${credits.total} leaves for this year are used up. File it as Leave without pay.`);
   if (type.attachmentOver !== null && days > type.attachmentOver && !input.attachment) errors.push(type.attachmentOver === 0 ? `${type.name} needs a supporting document` : `${type.name} over ${type.attachmentOver} days needs a supporting document (e.g. medical certificate)`);
   const overlap = leave.requests.find((r) => r.id !== ignoreId && r.employeeId === input.employeeId && (r.status === "pending" || r.status === "approved") && r.start <= input.end && r.end >= input.start);
   if (overlap) errors.push(`Overlaps another ${overlap.status} request (${overlap.start === overlap.end ? overlap.start : `${overlap.start} to ${overlap.end}`})`);
@@ -124,6 +134,9 @@ export const fmtCredits = (n: number) => `${n} ${n === 1 ? "leave" : "leaves"}`;
 export const fmtDays = (n: number) => (n === Infinity ? "No limit" : `${Number.isInteger(n) ? n : n.toFixed(2).replace(/0$/, "")} ${n === 1 ? "day" : "days"}`);
 
 export async function fileLeave(input: FileInput, actor: string, approveNow = false): Promise<LeaveRequest> {
+  // Employees file their own leave; filing already-approved leave counts as approving it.
+  const denied = deny("leave", "create", input.employeeId) ?? (approveNow ? deny("leave", "approve", input.employeeId) : null);
+  if (denied) return denied;
   if (!input.reason.trim()) return fail("Give a short reason");
   const p = previewRequest(input);
   if (p.errors.length) return fail(p.errors[0]!);
@@ -134,7 +147,7 @@ export async function fileLeave(input: FileInput, actor: string, approveNow = fa
     typeId: input.typeId,
     start: input.start,
     end: input.end,
-    halfDay: input.start === input.end ? input.halfDay : undefined,
+    halfDay: input.start === input.end && leavePolicy().allowHalfDays ? input.halfDay : undefined,
     days: p.days,
     reason: input.reason.trim(),
     attachment: input.attachment,
@@ -148,6 +161,9 @@ export async function fileLeave(input: FileInput, actor: string, approveNow = fa
 }
 
 export async function decideRequest(id: string, approve: boolean, note: string, actor: string): Promise<LeaveRequest> {
+  const target = leave.requests.find((x) => x.id === id);
+  const denied = deny("leave", "approve", target?.employeeId);
+  if (denied) return denied;
   const r = leave.requests.find((x) => x.id === id);
   if (!r) return fail("That request no longer exists");
   if (r.status !== "pending") return fail("This request was already decided");
@@ -165,6 +181,10 @@ export async function decideRequest(id: string, approve: boolean, note: string, 
 
 /** Withdraw an approved leave that hasn't started yet; the days go back to the balance. */
 export async function cancelRequest(id: string, note: string, actor: string): Promise<LeaveRequest> {
+  // Approvers (HR) can cancel; an employee can withdraw their own.
+  const target = leave.requests.find((x) => x.id === id);
+  const who = sessionWho();
+  if (!canFor(who, "approve", "leave", target?.employeeId) && !(target && target.employeeId === who.employeeId && canFor(who, "create", "leave", target.employeeId))) return forbidden();
   const r = leave.requests.find((x) => x.id === id);
   if (!r) return fail("That request no longer exists");
   if (r.status === "approved" && r.start <= isoToday()) return fail("This leave has already started and can't be cancelled");
@@ -184,9 +204,11 @@ export interface CreditRow {
 }
 
 export function listCredits(): Promise<CreditRow[]> {
+  const who = sessionWho();
+  if (!can(who, "view", "leaveBalances")) return forbidden();
   const year = isoToday().slice(0, 4);
   return respond(
-    people().map((person) => ({
+    visible(who, "leaveBalances", people(), (p) => p.id).map((person) => ({
       person,
       credits: creditsFor(person.id),
       leaves: leave.requests
@@ -202,6 +224,8 @@ export function listCredits(): Promise<CreditRow[]> {
 
 /** HR adds or takes away whole leaves from someone's yearly 6. */
 export async function adjustCredits(input: { employeeId: string; leaves: number; reason: string }, actor: string) {
+  const denied = deny("leaveBalances", "edit", input.employeeId);
+  if (denied) return denied;
   if (!Number.isInteger(input.leaves) || input.leaves === 0) return fail("Enter the leaves to add (e.g. 1) or remove (e.g. -1)");
   if (Math.abs(input.leaves) > LEAVE_CREDITS_PER_YEAR) return fail(`Change at most ${LEAVE_CREDITS_PER_YEAR} leaves at a time`);
   if (!input.reason.trim()) return fail("Say why the leaves are changing");
@@ -215,6 +239,8 @@ export async function adjustCredits(input: { employeeId: string; leaves: number;
 // ---- Adjustments ----
 
 export function listAdjustments(employeeId: string) {
+  const denied = deny("leaveBalances", "view", employeeId);
+  if (denied) return denied;
   return respond(leave.adjustments.filter((a) => a.employeeId === employeeId).sort((a, b) => b.at.localeCompare(a.at)));
 }
 
@@ -228,9 +254,11 @@ export interface AwayEntry {
 
 /** Everyone away (approved or pending) between two dates. */
 export function listAway(from: string, to: string): Promise<AwayEntry[]> {
+  const who = sessionWho();
+  if (!can(who, "view", "leave")) return forbidden();
   const ps = people();
   return respond(
-    leave.requests
+    visible(who, "leave", leave.requests, (r) => r.employeeId)
       .filter((r) => (r.status === "approved" || r.status === "pending") && r.start <= to && r.end >= from)
       .flatMap((r) => {
         const person = ps.find((p) => p.id === r.employeeId);

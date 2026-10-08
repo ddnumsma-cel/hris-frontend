@@ -1,5 +1,10 @@
 import type { SVGProps } from "react";
 import {
+  Banknote,
+  CalendarClock,
+  ChartPie,
+  ClipboardCheck,
+  Database,
   AlertTriangle,
   ArrowRight,
   BarChart3,
@@ -201,6 +206,33 @@ export function GraduationCapIcon(props: IconProps) {
 
 export function FlagIcon(props: IconProps) {
   return <Flag strokeWidth={strokeWidth} {...props} />;
+}
+
+// Module icons, used wherever the module appears (HR, Partner and Employee sidebars).
+
+/** Maintenance: the company's master records (people, departments, leave, rules). */
+export function MaintenanceIcon(props: IconProps) {
+  return <Database strokeWidth={strokeWidth} {...props} />;
+}
+
+/** Attendance: shifts, schedules, time records. */
+export function AttendanceIcon(props: IconProps) {
+  return <CalendarClock strokeWidth={strokeWidth} {...props} />;
+}
+
+/** Payroll and payslips. */
+export function PayrollIcon(props: IconProps) {
+  return <Banknote strokeWidth={strokeWidth} {...props} />;
+}
+
+/** Onboarding: trainings and checklists for staff. */
+export function OnboardingIcon(props: IconProps) {
+  return <ClipboardCheck strokeWidth={strokeWidth} {...props} />;
+}
+
+/** Reports. */
+export function ReportsIcon(props: IconProps) {
+  return <ChartPie strokeWidth={strokeWidth} {...props} />;
 }
 
 export function BarChartIcon(props: IconProps) {

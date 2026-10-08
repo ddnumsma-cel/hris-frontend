@@ -5,6 +5,8 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { CalendarIcon, FingerprintIcon, LockIcon, OrgChartIcon, PersonIcon, ShieldIcon } from "@/components/icons";
 import { endedForInactivity, idleMinutes, signIn } from "@/lib/admin/auth";
 import { getCredentials } from "@/lib/credentials";
+import { landingPath } from "@/features/settings/landing";
+import { settingsFor } from "@/lib/settings/store";
 import { useAuth } from "./AuthContext";
 
 const RegisterDialog = lazy(() => import("./RegisterDialog").then((m) => ({ default: m.RegisterDialog })));
@@ -34,7 +36,8 @@ export function LoginPage() {
       return;
     }
     login(result.workspace, result.account);
-    navigate(`/${result.workspace}`, { replace: true });
+    // Their chosen landing page (Settings > Appearance), or the workspace Home.
+    navigate(landingPath(result.workspace, settingsFor(result.account.id).appearance.landing), { replace: true });
   }
 
   function handleSubmit(e: FormEvent) {
@@ -157,7 +160,7 @@ export function LoginPage() {
           <div className="mt-5 rounded-lg border border-dashed border-border bg-surface-2 px-3.5 py-3 text-xs">
             <div className="mb-1.5 font-semibold text-ink-2">Demo accounts — tap to fill</div>
             <div className="flex flex-col gap-1">
-              {getCredentials().map((c) => (
+              {getCredentials().filter((c) => c.listed !== false).map((c) => (
                 <button
                   key={c.username}
                   type="button"

@@ -1,4 +1,5 @@
 import type { DayResult, FixCause, TardinessRule } from "@/lib/timekeeping/types";
+import { fmtDayWithWeekday, fmtTime } from "@/lib/preferences";
 
 export const tkKeys = {
   days: (from: string, to: string) => ["timekeeping", "days", from, to] as const,
@@ -12,9 +13,9 @@ export const tkKeys = {
 };
 
 /** "8:07 AM" */
-export const clock = (v: number | string) => new Date(v).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
-/** "08:00" → "8:00 AM" */
-export const hhmm = (t: string) => clock(`2000-01-01T${t}:00`);
+export const clock = (v: number | string) => fmtTime(v);
+/** "08:00" → "8:00 AM" (a wall-clock time from a shift, so never shifted by timezone) */
+export const hhmm = (t: string) => new Date(`2000-01-01T${t}:00`).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
 /** "12:00" + 60 → "13:00" */
 export function addMinutes(t: string, minutes: number) {
   const total = (Number(t.slice(0, 2)) * 60 + Number(t.slice(3)) + minutes) % 1440;
@@ -28,7 +29,7 @@ export function lunchText(d: Pick<DayResult, "lunchOut" | "lunchIn">) {
 }
 
 /** "Fri, Oct 2" */
-export const shortDate = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
+export const shortDate = (iso: string) => fmtDayWithWeekday(iso);
 
 /** "1 h 20 min", "45 min" */
 export function duration(minutes: number) {

@@ -85,6 +85,8 @@ export interface DayInput {
   now: number;
   approvedOvertimeMinutes: number;
   undertimeExcused: boolean;
+  /** Extra time on a scheduled day below this isn't counted (Settings > Scheduling). Default 0. */
+  overtimeThresholdMinutes?: number;
 }
 
 /** Minimum face-recognition match to trust a punch without a second look. */
@@ -173,6 +175,7 @@ export function computeDay(input: DayInput): DayResult {
         extra = Math.max(0, Math.round((tOut - shiftEnd) / MINUTE));
       }
     }
+    if (extra < (input.overtimeThresholdMinutes ?? 0)) extra = 0;
     if (tIn === undefined) status = now < shiftStart ? "upcoming" : now < shiftEnd ? "not-in" : "absent";
     else if (tOut === undefined) {
       if (now < shiftEnd + OUT_WAIT) status = "working";

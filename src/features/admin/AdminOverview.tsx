@@ -62,7 +62,7 @@ import { formatPHPCompact, formatToday } from "@/lib/format";
 import { listAwolFlags, listTardinessFlags, remoteAttendanceToday } from "@/lib/timekeeping/api";
 import { currentAdmin } from "@/lib/mockData";
 import type { Employee } from "@/lib/types";
-import { useAccess } from "./administration/access";
+import { useCan } from "@/lib/useCan";
 import { AddEmployeeDialog } from "./AddEmployeeDialog";
 import { HeadcountChart, RecentlyJoined } from "./HeadcountChart";
 import { PayrollCostChart } from "./PayrollCostChart";
@@ -88,7 +88,11 @@ export function AdminOverview() {
   const toast = useToast();
   const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
-  useCreateParam("announcement", () => setAnnouncementOpen(true));
+  // Home actions follow the access matrix: adding people, posting announcements, exporting reports.
+  const canAddEmployee = useCan("create", "people");
+  const canAnnounce = useCan("create", "announcements");
+  const canExport = useCan("view", "analytics");
+  useCreateParam("announcement", () => canAnnounce && setAnnouncementOpen(true));
   const [profileEmployee, setProfileEmployee] = useState<Employee | null>(null);
 
   const statsQuery = useQuery({ queryKey: ["admin", "overview-stats"], queryFn: fetchAdminOverviewStats });
@@ -115,7 +119,7 @@ export function AdminOverview() {
     queryKey: ["admin", "personnel-profiles"],
     queryFn: fetchAllPersonnelProfiles,
   });
-  const seesTime = useAccess().timekeeping !== "none";
+  const seesTime = useCan("view", "attendanceRecords");
   const tardinessQuery = useQuery({ queryKey: tkKeys.tardinessFlags, queryFn: listTardinessFlags, enabled: seesTime });
   const awolQuery = useQuery({ queryKey: ["timekeeping", "awol-flags"], queryFn: listAwolFlags, enabled: seesTime });
   const remoteQuery = useQuery({ queryKey: ["timekeeping", "remote-days", "today"], queryFn: remoteAttendanceToday, enabled: seesTime, staleTime: 0 });
@@ -215,7 +219,7 @@ export function AdminOverview() {
       title: `${f.person.name} is AWOL (${f.dates.length} ${f.dates.length === 1 ? "day" : "days"})`,
       detail: "Absent 3 or more workdays in a row without approved leave. Send a notice.",
       tone: "crit",
-      action: { label: "Review", onClick: () => navigate("/admin/timekeeping/tardiness?tab=habitual") },
+      action: { label: "Review", onClick: () => navigate("/admin/reports/tardiness?tab=habitual") },
     });
   }
   for (const f of tardinessQuery.data ?? []) {
@@ -226,7 +230,7 @@ export function AdminOverview() {
       title: run ? `${f.person.name} was late ${run.days} work days in a row` : `${f.person.name} was late ${f.thisMonth} times this month`,
       detail: run && f.thisMonth ? `Also late ${f.thisMonth} times this month. Follow up; pay isn't affected.` : "Follow up with the employee; pay isn't affected.",
       tone: run ? "crit" : "warn",
-      action: { label: "Review", onClick: () => navigate("/admin/timekeeping/tardiness?tab=habitual") },
+      action: { label: "Review", onClick: () => navigate("/admin/reports/tardiness?tab=habitual") },
     });
   }
 
@@ -253,9 +257,11 @@ export function AdminOverview() {
         actions={
           <>
             <AttendanceClock employeeId={employeeIdFor(user?.accountId, user?.name ?? currentAdmin.name)} personName={(user?.name ?? currentAdmin.name).split(" ")[0]} actor={user?.name ?? currentAdmin.name} />
-            <Button icon={<UserPlusIcon className="h-3.75 w-3.75" />} onClick={() => setAddEmployeeOpen(true)}>
-              Add employee
-            </Button>
+            {canAddEmployee && (
+              <Button icon={<UserPlusIcon className="h-3.75 w-3.75" />} onClick={() => setAddEmployeeOpen(true)}>
+                Add employee
+              </Button>
+            )}
           </>
         }
       />
@@ -326,12 +332,14 @@ export function AdminOverview() {
             <CardHeader title="Quick actions" />
             <CardBody>
               <QuickActionRow>
-                <QuickActionTile
-                  icon={<BellIcon />}
-                  label="Post announcement"
-                  onClick={() => setAnnouncementOpen(true)}
-                />
-                <QuickActionTile icon={<DownloadIcon />} label="Export report" onClick={handleExportReport} />
+                {canAnnounce && (
+                  <QuickActionTile
+                    icon={<BellIcon />}
+                    label="Post announcement"
+                    onClick={() => setAnnouncementOpen(true)}
+                  />
+                )}
+                {canExport && <QuickActionTile icon={<DownloadIcon />} label="Export report" onClick={handleExportReport} />}
                 <QuickActionTile
                   icon={<UsersIcon />}
                   label="Open full directory"

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useCan } from "@/lib/useCan";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
@@ -10,6 +11,7 @@ import { inputClass, useActor } from "../corehr/format";
 import { Detail, ErrorNote, Field, Pill } from "../corehr/ui";
 import { shortDate } from "../timekeeping/format";
 import { dateRange, leaveKeys, num, STATUS, useLeaveRefresh } from "./format";
+import { leavePolicy } from "@/lib/leave/store";
 
 /** The File leave form: works out the days and the balance as you type. */
 export function FileLeaveDialog({ onClose, employeeId = "" }: { onClose: () => void; employeeId?: string }) {
@@ -91,7 +93,8 @@ export function FileLeaveDialog({ onClose, employeeId = "" }: { onClose: () => v
         <Field id="fl-end" label="End date" required>
           <input id="fl-end" type="date" className={inputClass} min={form.start} value={form.end} onChange={(e) => set({ end: e.target.value })} />
         </Field>
-        {single && (
+        {/* Half days only when Settings > Time off & leave allows them. */}
+        {single && leavePolicy().allowHalfDays && (
           <div className="col-span-2 flex gap-1.5 text-sm" role="radiogroup" aria-label="How long">
             {(
               [
@@ -156,7 +159,8 @@ export function RequestDialog({ r, onClose, startWith }: { r: RequestRow; onClos
   };
   const decide = useMutation({ mutationFn: (approve: boolean) => decideRequest(r.id, approve, note, actor), onSuccess: (x) => done(x.status === "approved" ? `Approved ${r.person.name}'s leave.` : "Rejected.") });
   const cancel = useMutation({ mutationFn: () => cancelRequest(r.id, note, actor), onSuccess: () => done("Leave cancelled. The days are back in their balance.") });
-  const canCancel = r.status === "approved" && r.start > isoToday();
+  const canDecide = useCan("approve", "leave", r.employeeId);
+  const canCancel = canDecide && r.status === "approved" && r.start > isoToday();
   const busy = decide.isPending || cancel.isPending;
 
   const footer =
@@ -167,7 +171,7 @@ export function RequestDialog({ r, onClose, startWith }: { r: RequestRow; onClos
             Cancel this leave
           </Button>
         )}
-        {r.status === "pending" ? (
+        {r.status === "pending" && canDecide ? (
           <>
             <Button variant="ghost" onClick={() => setMode("reject")}>
               Reject

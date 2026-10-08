@@ -30,21 +30,27 @@ const titles: Record<string, string> = {
   "/manager/reports/broken-time": "Broken Time Report",
   "/manager/reports/offset-hours": "Offset Hours Report",
   "/admin": "Home",
-  "/admin/people": "People",
-  "/admin/people/new": "Add employee",
-  "/admin/org-chart": "Org chart",
+  "/admin/maintenance/people": "People",
+  "/admin/maintenance/people/new": "Add employee",
+  "/admin/maintenance/departments": "Departments",
+  "/admin/maintenance/locations": "Locations",
+  "/admin/maintenance/org-chart": "Org chart",
+  "/admin/maintenance/documents": "Documents",
+  "/admin/maintenance/leave/overview": "Leave",
+  "/admin/maintenance/leave/requests": "Leave requests",
+  "/admin/maintenance/leave/balances": "Leave balances",
+  "/admin/maintenance/leave/types": "Leave types",
   "/admin/timekeeping/shifts": "Shifts",
   "/admin/timekeeping/schedules": "Schedules",
-  "/admin/timekeeping/logs": "Attendance logs",
-  "/admin/timekeeping/overtime": "Overtime",
-  "/admin/timekeeping/undertime": "Undertime",
-  "/admin/timekeeping/tardiness": "Tardiness",
-  "/admin/timekeeping/corrections": "Time adjustments",
   "/admin/timekeeping/remote": "Remote work days",
-  "/admin/leave/overview": "Leave",
-  "/admin/leave/requests": "Leave requests",
-  "/admin/leave/balances": "Leave balances",
-  "/admin/leave/types": "Leave types",
+  "/admin/maintenance/rules": "Rules",
+  "/admin/requests": "Requests",
+  "/admin/requests/reimbursement": "Reimbursements",
+  "/admin/reports/attendance-logs": "Attendance logs",
+  "/admin/reports/overtime": "Overtime",
+  "/admin/reports/undertime": "Undertime",
+  "/admin/reports/time-adjustments": "Time adjustments",
+  "/admin/reports/tardiness": "Tardiness",
   "/admin/reports/hr": "HR reports",
   "/admin/reports/attendance": "Attendance reports",
   "/admin/reports/payroll": "Payroll reports",
@@ -52,19 +58,19 @@ const titles: Record<string, string> = {
   "/admin/payroll/runs": "Payroll runs",
   "/admin/reports/statutory": "Government reports",
   "/admin/reports/management": "Management reports",
+  "/admin/onboarding/trainings": "Trainings",
   "/admin/administration/users": "Users",
   "/admin/administration/roles": "Roles & access",
-  "/admin/administration/workflows": "Approval workflows",
   "/admin/administration/audit": "Audit trail",
   "/admin/administration/settings": "System settings",
-  "/admin/documents": "Documents",
+  "/admin/administration/subscription": "Subscription & seats",
 };
 
 export function DocumentTitle() {
   const location = useLocation();
 
   useEffect(() => {
-    const label = titles[location.pathname] ?? (location.pathname.startsWith("/admin/people/") ? "201 File" : undefined);
+    const label = titles[location.pathname] ?? (location.pathname.startsWith("/admin/maintenance/people/") ? "201 File" : undefined);
     document.title = label ? `${label} · MSMA` : "MSMA";
   }, [location.pathname]);
 

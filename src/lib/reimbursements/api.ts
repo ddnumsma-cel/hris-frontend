@@ -3,6 +3,8 @@
 import { newId } from "../corehr/store";
 import { people, type LeavePerson } from "../leave/api";
 import { CLAIM_WINDOW_DAYS, claims, MAX_AMOUNT, saveClaims, type Category, type Claim } from "./store";
+import { can, visible } from "../permissions";
+import { deny, forbidden, sessionWho } from "../session";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -44,7 +46,7 @@ export function checkClaim(input: ClaimInput): Partial<Record<keyof ClaimInput, 
   if (!input.description.trim()) errors.description = "Say what it was for";
   if (!errors.amount && !errors.purchaseDate) {
     const dup = claims.find(
-      (c) => c.employeeId === input.employeeId && (c.status === "pending" || c.status === "approved") && c.purchaseDate === input.purchaseDate && c.amount === Math.round(input.amount * 100) / 100 && c.merchant.trim().toLowerCase() === input.merchant.trim().toLowerCase(),
+      (c) => c.employeeId === input.employeeId && c.status !== "rejected" && c.purchaseDate === input.purchaseDate && c.amount === Math.round(input.amount * 100) / 100 && c.merchant.trim().toLowerCase() === input.merchant.trim().toLowerCase(),
     );
     if (dup) errors.receipt = "You've already claimed this receipt";
   }
@@ -52,6 +54,8 @@ export function checkClaim(input: ClaimInput): Partial<Record<keyof ClaimInput, 
 }
 
 export async function fileClaim(input: ClaimInput): Promise<Claim> {
+  const denied = deny("claims", "create", input.employeeId);
+  if (denied) return denied;
   const errors = Object.values(checkClaim(input));
   if (errors.length) return fail(errors[0]!);
   const claim: Claim = {
@@ -72,6 +76,8 @@ export async function fileClaim(input: ClaimInput): Promise<Claim> {
 }
 
 export function listMyClaims(employeeId: string): Promise<Claim[]> {
+  const denied = deny("claims", "view", employeeId);
+  if (denied) return denied;
   return respond(claims.filter((c) => c.employeeId === employeeId).sort((a, b) => b.filedAt.localeCompare(a.filedAt)));
 }
 
@@ -82,9 +88,12 @@ export interface ClaimRow extends Claim {
 }
 
 export function listClaims(): Promise<ClaimRow[]> {
+  // Approvers see their team's claims, Accounting and Super Admins everyone's; HR none.
+  const who = sessionWho();
+  if (!can(who, "view", "claims")) return forbidden();
   const ps = people();
   return respond(
-    claims
+    visible(who, "claims", claims, (c) => c.employeeId)
       .flatMap((c) => {
         const person = ps.find((p) => p.id === c.employeeId);
         return person ? [{ ...c, person }] : [];
@@ -93,12 +102,25 @@ export function listClaims(): Promise<ClaimRow[]> {
   );
 }
 
+/**
+ * One approval step. A waiting claim goes to the employee's approver (Approve, team): yes moves it
+ * on to Accounting, no rejects it. An endorsed claim gets Accounting's final decision (Final Approve).
+ * Each step records who, when and the reason.
+ */
 export async function decideClaim(id: string, approve: boolean, note: string, actor: string): Promise<Claim> {
   const c = claims.find((x) => x.id === id);
   if (!c) return fail("That claim no longer exists");
-  if (c.status !== "pending") return fail("This claim was already decided");
+  if (c.status !== "pending" && c.status !== "endorsed") return fail("This claim was already decided");
+  const step = c.status === "pending" ? "approve" : "final";
+  const denied = deny("claims", step, c.employeeId);
+  if (denied) return denied;
   if (!approve && !note.trim()) return fail("Say why, so the employee knows");
-  const next: Claim = { ...c, status: approve ? "approved" : "rejected", decidedBy: actor, decidedAt: new Date().toISOString(), note: note.trim() || undefined };
+  const at = new Date().toISOString();
+  const why = note.trim() || undefined;
+  const next: Claim =
+    step === "approve"
+      ? { ...c, status: approve ? "endorsed" : "rejected", approverDecidedBy: actor, approverDecidedAt: at, approverNote: why, ...(approve ? {} : { decidedBy: actor, decidedAt: at, note: why }) }
+      : { ...c, status: approve ? "approved" : "rejected", decidedBy: actor, decidedAt: at, note: why };
   if (!saveClaims(claims.map((x) => (x.id === id ? next : x)))) return fail(FULL_STORAGE);
   return respond(next);
 }

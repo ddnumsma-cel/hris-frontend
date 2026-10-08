@@ -3,7 +3,9 @@
 import { fullName, state as core } from "../corehr/store";
 import { leave } from "../leave/store";
 import { tk } from "../timekeeping/store";
-import { admin, isSuperAdmin, logAdmin, MODULES, saveAdmin, type Access, type ModuleKey, type RequestKind, type Settings, type SystemRole, type UserAccount, type Workflow } from "./store";
+import { admin, logAdmin, saveAdmin, type Access, type ModuleKey, type RequestKind, type Settings, type SystemRole, type UserAccount, type Workflow } from "./store";
+import { LIMITS, type RoleKey } from "../permissions";
+import { deny, employeeOfAccount, forbidden, sessionWho } from "../session";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -30,9 +32,12 @@ function rows(): AccountRow[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export const listAccounts = () => respond(rows());
+/** A System Admin sees only Super Admin accounts (no client staff); Super Admins see everyone. */
+export const listAccounts = () => deny("roleAssignment", "view") ?? respond(rows().filter((a) => sessionWho().role !== "system_admin" || roleKeyOf(a.roleId) === "super_admin"));
 
 export function employeesWithoutAccount() {
+  // System Admins don't see client staff.
+  if (sessionWho().role === "system_admin") return [];
   const taken = new Set(admin.accounts.map((a) => a.employeeId));
   return core.employees
     .filter((e) => e.job.status !== "Separated" && !taken.has(e.id))
@@ -49,11 +54,20 @@ function tempPassword() {
   return p;
 }
 
-const superAdmins = (accounts: UserAccount[], roles = admin.roles) => accounts.filter((a) => a.status === "active" && roles.find((r) => r.id === a.roleId)?.superAdmin);
-const isSuperRole = (roleId: string | undefined) => !!admin.roles.find((r) => r.id === roleId)?.superAdmin;
-const SUPER_ONLY = "Only a Super Admin can do this.";
+const roleKeyOf = (roleId: string | undefined): RoleKey | undefined => admin.roles.find((r) => r.id === roleId)?.key;
+/** May the signed-in person give (or change accounts holding) this role? */
+const mayAssign = (key: RoleKey | undefined) => !!key && LIMITS.assignableRoles[sessionWho().role ?? "employee"].includes(key);
 
-export async function createAccount(input: { name: string; username: string; roleId: string; employeeId?: string }, actor: string, actorAccountId?: string) {
+const superAdmins = (accounts: UserAccount[], roles = admin.roles) => accounts.filter((a) => a.status === "active" && roles.find((r) => r.id === a.roleId)?.superAdmin);
+
+export async function createAccount(input: { name: string; username: string; roleId: string; employeeId?: string }, actor: string, _actorAccountId?: string) {
+  const denied = deny("roleAssignment", "create");
+  if (denied) return denied;
+  const giving = admin.roles.find((r) => r.id === input.roleId)?.key;
+  if (!giving || !mayAssign(giving)) return forbidden("You can't give that role.");
+  // One person, one account.
+  const holder = input.employeeId ? admin.accounts.find((a) => employeeOfAccount(a) === input.employeeId) : undefined;
+  if (holder) return fail(`This person already has an account (username ${holder.username}).`);
   const name = input.name.trim();
   const username = input.username.trim().toLowerCase();
   if (!name) return fail("Enter the person's name");
@@ -61,7 +75,6 @@ export async function createAccount(input: { name: string; username: string; rol
   if (admin.accounts.some((a) => a.username === username) || ["admin", "admin1", "admin2"].includes(username)) return fail("That username is taken");
   const role = admin.roles.find((r) => r.id === input.roleId);
   if (!role) return fail("Choose a role");
-  if (role.superAdmin && !isSuperAdmin(actorAccountId)) return fail(SUPER_ONLY);
   const password = tempPassword();
   const account: UserAccount = { id: `ua-${Date.now().toString(36)}`, name, username, password, employeeId: input.employeeId || undefined, roleId: role.id, status: "active", mustChangePassword: true, failedAttempts: 0, createdAt: new Date().toISOString() };
   saveAdmin({ ...admin, accounts: [...admin.accounts, account] });
@@ -70,15 +83,17 @@ export async function createAccount(input: { name: string; username: string; rol
 }
 
 function guard(id: string, actorAccountId: string | undefined, next: UserAccount[]) {
-  const target = admin.accounts.find((a) => a.id === id);
-  const after = next.find((a) => a.id === id);
-  if ((isSuperRole(target?.roleId) || isSuperRole(after?.roleId)) && !isSuperAdmin(actorAccountId)) return "Only a Super Admin can change a Super Admin account or give the Super Admin role.";
-  if (id === actorAccountId) return "You can't change your own access. Ask another HR administrator.";
+  if (id === actorAccountId) return "You can't change your own access. Ask another administrator.";
   if (superAdmins(next).length === 0) return "There must always be at least one active Super Admin.";
   return null;
 }
 
 export async function setAccountRole(id: string, roleId: string, actor: string, actorAccountId?: string) {
+  const denied = deny("roleAssignment", "edit");
+  if (denied) return denied;
+  const current = admin.accounts.find((x) => x.id === id);
+  const giving = admin.roles.find((r) => r.id === roleId)?.key;
+  if (!current || !giving || !mayAssign(giving) || !mayAssign(roleKeyOf(current.roleId))) return forbidden("You can't give or change that role.");
   const a = admin.accounts.find((x) => x.id === id);
   const role = admin.roles.find((r) => r.id === roleId);
   if (!a || !role) return fail("Choose a role");
@@ -91,6 +106,8 @@ export async function setAccountRole(id: string, roleId: string, actor: string, 
 }
 
 export async function setAccountStatus(id: string, status: UserAccount["status"], actor: string, actorAccountId?: string) {
+  const denied = deny("roleAssignment", "edit") ?? (mayAssign(roleKeyOf(admin.accounts.find((x) => x.id === id)?.roleId)) ? null : forbidden());
+  if (denied) return denied;
   const a = admin.accounts.find((x) => x.id === id);
   if (!a) return fail("That account no longer exists");
   const next = admin.accounts.map((x) => (x.id === id ? { ...x, status } : x));
@@ -101,19 +118,21 @@ export async function setAccountStatus(id: string, status: UserAccount["status"]
   return respond(undefined);
 }
 
-export async function unlockAccount(id: string, actor: string, actorAccountId?: string) {
+export async function unlockAccount(id: string, actor: string, _actorAccountId?: string) {
+  const denied = deny("roleAssignment", "edit") ?? (mayAssign(roleKeyOf(admin.accounts.find((x) => x.id === id)?.roleId)) ? null : forbidden());
+  if (denied) return denied;
   const a = admin.accounts.find((x) => x.id === id);
   if (!a) return fail("That account no longer exists");
-  if (isSuperRole(a.roleId) && !isSuperAdmin(actorAccountId)) return fail(SUPER_ONLY);
   saveAdmin({ ...admin, accounts: admin.accounts.map((x) => (x.id === id ? { ...x, lockedUntil: undefined, failedAttempts: 0 } : x)) });
   logAdmin({ actor, module: "Administration", action: "Unlocked account", target: a.username, detail: a.name });
   return respond(undefined);
 }
 
-export async function resetPassword(id: string, actor: string, actorAccountId?: string) {
+export async function resetPassword(id: string, actor: string, _actorAccountId?: string) {
+  const denied = deny("roleAssignment", "edit") ?? (mayAssign(roleKeyOf(admin.accounts.find((x) => x.id === id)?.roleId)) ? null : forbidden());
+  if (denied) return denied;
   const a = admin.accounts.find((x) => x.id === id);
   if (!a) return fail("That account no longer exists");
-  if (isSuperRole(a.roleId) && !isSuperAdmin(actorAccountId)) return fail(SUPER_ONLY);
   if (a.demo) return fail("This is a demo login. Its password is set on the sign-in screen's demo list.");
   const password = tempPassword();
   saveAdmin({ ...admin, accounts: admin.accounts.map((x) => (x.id === id ? { ...x, password, mustChangePassword: true, lockedUntil: undefined, failedAttempts: 0 } : x)) });
@@ -129,36 +148,13 @@ export interface RoleRow extends SystemRole {
 
 export const listRoles = () => respond(admin.roles.map((r) => ({ ...r, users: admin.accounts.filter((a) => a.roleId === r.id).length })));
 
-export async function saveRole(input: { id?: string; name: string; description: string; access: Record<ModuleKey, Access> }, actor: string, actorAccountId?: string) {
-  if (!isSuperAdmin(actorAccountId)) return fail(SUPER_ONLY);
-  const name = input.name.trim();
-  if (!name) return fail("Name the role");
-  if (admin.roles.some((r) => r.id !== input.id && r.name.toLowerCase() === name.toLowerCase())) return fail("There's already a role with that name");
-  const existing = admin.roles.find((r) => r.id === input.id);
-  if (existing?.superAdmin) return fail("The Super Admin role is fixed: it runs the system and has no access to employee data.");
-  // "Approve" only applies to modules with requests.
-  const access = Object.fromEntries(MODULES.map((m) => [m.key, !m.approvable && input.access[m.key] === "approve" ? "edit" : input.access[m.key]])) as Record<ModuleKey, Access>;
-  const role: SystemRole = existing ? { ...existing, name, description: input.description.trim(), access } : { id: `role-${Date.now().toString(36)}`, name, description: input.description.trim(), workspace: "admin", builtIn: false, access };
-  const roles = existing ? admin.roles.map((r) => (r.id === role.id ? role : r)) : [...admin.roles, role];
-  const mine = admin.accounts.find((a) => a.id === actorAccountId);
-  if (existing && mine?.roleId === existing.id && access.administration !== "edit") return fail("This is your own role. Removing its Administration access would lock you out.");
-  if (superAdmins(admin.accounts, roles).length === 0) return fail("There must always be at least one active Super Admin.");
-  saveAdmin({ ...admin, roles });
-  const changes = existing ? MODULES.filter((m) => existing.access[m.key] !== access[m.key]).map((m) => `${m.label}: ${ACCESS_LABEL[existing.access[m.key]]} → ${ACCESS_LABEL[access[m.key]]}`) : [];
-  logAdmin({ actor, module: "Administration", action: existing ? "Changed role access" : "Added role", target: name, detail: existing ? changes.join("; ") || "Name or description" : role.description });
-  return respond(role);
+/** The six roles are fixed: what they can do is the access matrix in lib/permissions.ts. */
+export async function saveRole(_input: { id?: string; name: string; description: string; access: Record<ModuleKey, Access> }, _actor: string, _actorAccountId?: string): Promise<SystemRole> {
+  return fail("Roles are fixed. Their access is set in the access matrix, not here.");
 }
 
-export async function deleteRole(id: string, actor: string, actorAccountId?: string) {
-  if (!isSuperAdmin(actorAccountId)) return fail(SUPER_ONLY);
-  const role = admin.roles.find((r) => r.id === id);
-  if (!role) return fail("That role no longer exists");
-  if (role.builtIn) return fail("Built-in roles can't be deleted");
-  const users = admin.accounts.filter((a) => a.roleId === id).length;
-  if (users) return fail(`${users} ${users === 1 ? "user has" : "users have"} this role. Move them to another role first.`);
-  saveAdmin({ ...admin, roles: admin.roles.filter((r) => r.id !== id), workflows: admin.workflows.map((w) => ({ ...w, steps: w.steps.filter((s) => s.roleId !== id) })) });
-  logAdmin({ actor, module: "Administration", action: "Deleted role", target: role.name, detail: "" });
-  return respond(undefined);
+export async function deleteRole(_id: string, _actor: string, _actorAccountId?: string): Promise<void> {
+  return fail("Roles are fixed and can't be deleted.");
 }
 
 // ---- Workflows ----
@@ -171,9 +167,11 @@ export const WORKFLOW_LABEL: Record<RequestKind, { name: string; description: st
   profile: { name: "Profile change", description: "Employee updates to their own 201 file" },
 };
 
-export const listWorkflows = () => respond(admin.workflows);
+export const listWorkflows = () => deny("rules", "view") ?? respond(admin.workflows);
 
 export async function saveWorkflow(input: Workflow, actor: string) {
+  const denied = deny("rules", "edit");
+  if (denied) return denied;
   if (input.steps.length === 0) return fail("Add at least one approval step");
   if (input.steps.length > 3) return fail("Keep it to 3 steps or fewer so requests don't get stuck");
   if (input.steps.some((s) => s.approver === "role" && !admin.roles.some((r) => r.id === s.roleId))) return fail("Choose the role for each 'Anyone with a role' step");
@@ -239,8 +237,9 @@ export function sampleEmployees() {
 
 export const getSettings = () => respond(admin.settings);
 
-export async function saveSettings(input: Settings, actor: string, actorAccountId?: string) {
-  if (!isSuperAdmin(actorAccountId)) return fail(SUPER_ONLY);
+export async function saveSettings(input: Settings, actor: string, _actorAccountId?: string) {
+  const denied = deny("systemSettings", "edit");
+  if (denied) return denied;
   if (!input.companyName.trim()) return fail("Enter the company name");
   if (input.tin && !/^\d{3}-\d{3}-\d{3}(-\d{3,5})?$/.test(input.tin.trim())) return fail("TIN looks like 000-000-000-00000");
   if (input.contactEmail && !/^\S+@\S+\.\S+$/.test(input.contactEmail.trim())) return fail("Enter a valid HR email");
@@ -248,18 +247,23 @@ export async function saveSettings(input: Settings, actor: string, actorAccountI
   if (!(input.lockAfterFailed >= 3 && input.lockAfterFailed <= 10)) return fail("Lock after 3 to 10 wrong passwords");
   if (!(input.lockMinutes >= 5 && input.lockMinutes <= 1440)) return fail("Lock for 5 minutes to 24 hours");
   if (!(input.idleMinutes >= 5 && input.idleMinutes <= 480)) return fail("Sign out after 5 minutes to 8 hours without activity");
+  if (!input.workWeek.length) return fail("Pick at least one working day");
+  if (!(input.workStart < input.workEnd)) return fail("Working hours must end after they start");
+  if (!(input.fiscalYearStartMonth >= 1 && input.fiscalYearStartMonth <= 12)) return fail("Pick the month the fiscal year starts");
+  if (!(input.retentionMonths >= 0 && input.retentionMonths <= 240)) return fail("Keep records for 0 to 240 months");
   const before = admin.settings;
   const next = { ...input, companyName: input.companyName.trim(), tin: input.tin.trim(), address: input.address.trim(), contactEmail: input.contactEmail.trim() };
   saveAdmin({ ...admin, settings: next });
-  const labels: Record<keyof Settings, string> = { companyName: "Company name", tin: "TIN", address: "Address", contactEmail: "HR email", minPasswordLength: "Minimum password length", lockAfterFailed: "Lock after wrong passwords", lockMinutes: "Lock minutes", idleMinutes: "Idle sign-out minutes" };
-  const changed = (Object.keys(labels) as (keyof Settings)[]).filter((k) => before[k] !== next[k]).map((k) => `${labels[k]}: ${before[k] || "—"} → ${next[k] || "—"}`);
+  const labels: Record<keyof Settings, string> = { companyName: "Company name", tin: "TIN", address: "Address", contactEmail: "HR email", minPasswordLength: "Minimum password length", lockAfterFailed: "Lock after wrong passwords", lockMinutes: "Lock minutes", idleMinutes: "Idle sign-out minutes", logo: "Logo", defaultTimezone: "Default timezone", currency: "Currency", workWeek: "Work week", workStart: "Work starts", workEnd: "Work ends", fiscalYearStartMonth: "Fiscal year start", retentionMonths: "Keep records (months)" };
+  const show = (k: keyof Settings, v: Settings[keyof Settings]) => (k === "logo" ? (v ? "set" : "none") : Array.isArray(v) ? v.join(",") : String(v || "—"));
+  const changed = (Object.keys(labels) as (keyof Settings)[]).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(next[k])).map((k) => `${labels[k]}: ${show(k, before[k])} → ${show(k, next[k])}`);
   if (changed.length) logAdmin({ actor, module: "Administration", action: "Changed system settings", target: "Settings", detail: changed.join("; ") });
   return respond(next);
 }
 
 // ---- Audit trail ----
 
-export type AuditModule = "People" | "Timekeeping" | "Leave" | "Payroll" | "Administration" | "Sign-in";
+export type AuditModule = "People" | "Timekeeping" | "Leave" | "Payroll" | "Administration" | "Sign-in" | "Settings";
 
 export interface AuditRow {
   id: string;
@@ -273,6 +277,10 @@ export interface AuditRow {
 
 /** Everything recorded across the system, newest first. Read-only: there is no edit or delete. */
 export function listAudit(): Promise<AuditRow[]> {
+  const denied = deny("audit", "view");
+  if (denied) return denied;
+  // Each role sees its own areas of the trail (lib/permissions.ts LIMITS.auditAreas).
+  const areas = LIMITS.auditAreas[sessionWho().role ?? "employee"];
   const name = (id: string) => {
     const e = core.employees.find((x) => x.id === id);
     return e ? fullName(e.personal) : id;
@@ -293,5 +301,5 @@ export function listAudit(): Promise<AuditRow[]> {
     ]),
     ...leave.adjustments.map((a) => ({ id: `la-${a.id}`, at: a.at, actor: a.by, module: "Leave" as const, action: "Changed leave balance", target: name(a.employeeId), detail: `${a.days > 0 ? "+" : ""}${a.days} ${typeName(a.typeId)}: ${a.reason}` })),
   ];
-  return respond(rows.filter((r) => r.at).sort((a, b) => b.at.localeCompare(a.at)));
+  return respond(rows.filter((r) => r.at && (areas === "all" || areas.includes(r.module))).sort((a, b) => b.at.localeCompare(a.at)));
 }

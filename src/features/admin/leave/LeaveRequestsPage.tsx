@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { can, canFor } from "@/lib/permissions";
+import { useWho } from "@/lib/useCan";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
@@ -28,8 +30,11 @@ export function LeaveRequestsPage() {
   const [tab, setTab] = useState<Tab>("pending");
   const [query, setQuery] = useState("");
   const [typeId, setTypeId] = useState("all");
-  const [filing, setFiling] = useState(params.get("file") === "1");
-  useCreateParam("leave", () => setFiling(true));
+  const who = useWho();
+  const canFileLeave = can(who, "create", "leave");
+  const canDecide = (r: RequestRow) => canFor(who, "approve", "leave", r.employeeId);
+  const [filing, setFiling] = useState(params.get("file") === "1" && canFileLeave);
+  useCreateParam("leave", () => canFileLeave && setFiling(true));
   const [open, setOpen] = useState<{ r: RequestRow; reject?: boolean } | null>(null);
   const approve = useMutation({
     mutationFn: (r: RequestRow) => decideRequest(r.id, true, "", actor),
@@ -60,7 +65,7 @@ export function LeaveRequestsPage() {
       header: "Status",
       align: "right",
       cell: (r) =>
-        r.status === "pending" ? (
+        r.status === "pending" && canDecide(r) ? (
           <span className="flex justify-end gap-1.5">
             <Button size="sm" variant="ghost" onClick={() => setOpen({ r })}>
               View
@@ -85,7 +90,7 @@ export function LeaveRequestsPage() {
 
   return (
     <>
-      <ContentHead title="Leave requests" subtitle="Approve or reject leave, and file leave for an employee. Days are counted without weekends and holidays." actions={<Button onClick={() => setFiling(true)}>File leave</Button>} />
+      <ContentHead title="Leave requests" subtitle="Approve or reject leave, and file leave for an employee. Days are counted without weekends and holidays." actions={canFileLeave ? <Button onClick={() => setFiling(true)}>File leave</Button> : undefined} />
       <Tabs
         value={tab}
         onChange={setTab}

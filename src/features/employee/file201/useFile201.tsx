@@ -21,6 +21,7 @@ import { EditProfileDialog } from "../EditProfileDialog";
 import { FaceScanDialog } from "../FaceScanDialog";
 import { print201File } from "../printTemplates";
 import { useCreateParam } from "@/lib/useCreateParam";
+import { fmtDay } from "@/lib/preferences";
 
 /** One required document, worded for the employee. */
 export interface DocRow {
@@ -39,7 +40,7 @@ export const cpdTone: Record<CpdStatus, ChipVariant> = { Compliant: "good", "In 
 
 export const linkClass = "inline-flex items-center gap-1 text-xs font-semibold text-brand-ink hover:underline";
 
-export const shortDate = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+export const shortDate = (iso: string) => fmtDay(iso);
 
 function toRow(item: PersonnelDocumentChecklistItem): DocRow {
   const accept = item.type === "Application Form / Resume" ? "application/pdf,image/*" : undefined;

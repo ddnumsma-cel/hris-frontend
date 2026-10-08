@@ -2,9 +2,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { formatPHP } from "@/lib/format";
 import type { ClaimStatus } from "@/lib/reimbursements/store";
 import type { Tone } from "../corehr/format";
+import { fmtDay } from "@/lib/preferences";
 
 export const STATUS: Record<ClaimStatus, { label: string; tone: Tone }> = {
-  pending: { label: "Waiting for approval", tone: "warn" },
+  pending: { label: "Waiting for approver", tone: "warn" },
+  endorsed: { label: "Waiting for Accounting", tone: "info" },
   approved: { label: "Approved", tone: "good" },
   rejected: { label: "Rejected", tone: "crit" },
 };
@@ -12,7 +14,7 @@ export const STATUS: Record<ClaimStatus, { label: string; tone: Tone }> = {
 export const peso = formatPHP;
 
 export function receiptDate(iso: string) {
-  return new Date(`${iso}T12:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+  return fmtDay(iso);
 }
 
 export function useClaimsRefresh() {

@@ -7,18 +7,19 @@ import { useToast } from "@/components/ui/ToastContext";
 import { PlusIcon, XIcon } from "@/components/icons";
 import { AGENCIES, RATE_FIELDS, deleteVersion, listVersions, saveVersion, type RateField } from "@/lib/contributions";
 import { pagibig, philhealth, sss, withholding, type Agency, type BirRates, type RateVersion, type TaxBracket } from "@/lib/reports/statutory";
-import { canChange, useAccess } from "../administration/access";
+import { useCan } from "@/lib/useCan";
 import { inputClass, useActor } from "../corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { SimpleTable, Tabs } from "../timekeeping/common";
 import { useCreateParam } from "@/lib/useCreateParam";
+import { fmtDay } from "@/lib/preferences";
 
 const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const longDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+const longDate = (iso: string) => fmtDay(iso);
 const show = (f: RateField, v: number) => (f.kind === "pct" ? `${+(v * 100).toFixed(4)}%` : peso(v));
 const fieldsOf = (a: Agency) => RATE_FIELDS[a] as RateField[];
 const rateOf = (v: RateVersion, key: string) => (v.rates as unknown as Record<string, number>)[key] ?? 0;
@@ -201,7 +202,7 @@ export function ContributionsPage() {
   const toast = useToast();
   const actor = useActor();
   const queryClient = useQueryClient();
-  const canEdit = canChange(useAccess().payroll);
+  const canEdit = useCan("edit", "contributions");
   const [agency, setAgency] = useState<Agency>("sss");
   const [salary, setSalary] = useState(30000);
   const [adding, setAdding] = useState(false);
@@ -240,7 +241,7 @@ export function ContributionsPage() {
         }
       />
       <Tabs value={agency} onChange={setAgency} options={AGENCIES.map((a) => ({ value: a.id, label: a.label }))} />
-      {!canEdit && <p className="text-xs text-ink-2">View only. The Super Admin maintains these rates.</p>}
+      {!canEdit && <p className="text-xs text-ink-2">View only. Accounting maintains these rates.</p>}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <section className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-5">

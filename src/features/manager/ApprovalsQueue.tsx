@@ -1,22 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { MiniAvatar } from "@/components/ui/MiniAvatar";
-import { CheckIcon, CheckSquareIcon, XIcon } from "@/components/icons";
+import { CheckSquareIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { fetchApprovalsQueue, updateApprovalStatus } from "@/lib/api";
+import { listMyApprovals } from "@/lib/approvals";
 
 export function ApprovalsQueue() {
-  const queryClient = useQueryClient();
-  const approvalsQuery = useQuery({ queryKey: ["approvals-queue"], queryFn: fetchApprovalsQueue });
-
-  const mutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: "Approved" | "Declined" }) =>
-      updateApprovalStatus(id, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["approvals-queue"] });
-      queryClient.invalidateQueries({ queryKey: ["manager", "approved-leave-schedule"] });
-    },
-  });
+  // Real team items waiting for this person (claims, overtime, undertime, time adjustments).
+  const approvalsQuery = useQuery({ queryKey: ["approvals-queue"], queryFn: listMyApprovals });
 
   const requests = approvalsQuery.data ?? [];
 
@@ -59,26 +51,9 @@ export function ApprovalsQueue() {
                 <td className="border-b border-border px-4 py-2.5">{r.type}</td>
                 <td className="border-b border-border px-4 py-2.5">{r.detail}</td>
                 <td className="border-b border-border px-4 py-2.5">
-                  <div className="flex gap-1.5">
-                    <button
-                      type="button"
-                      aria-label={`Approve ${r.employeeName}'s request`}
-                      disabled={mutation.isPending}
-                      onClick={() => mutation.mutate({ id: r.id, status: "Approved" })}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-ink-2 hover:border-transparent hover:bg-good-tint hover:text-good disabled:opacity-50"
-                    >
-                      <CheckIcon className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Decline ${r.employeeName}'s request`}
-                      disabled={mutation.isPending}
-                      onClick={() => mutation.mutate({ id: r.id, status: "Declined" })}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-ink-2 hover:border-transparent hover:bg-critical-tint hover:text-critical disabled:opacity-50"
-                    >
-                      <XIcon className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                  <Link to={r.href} className="btn btn-secondary inline-flex items-center px-3 py-1.5 text-xs font-medium">
+                    Review
+                  </Link>
                 </td>
               </tr>
             ))}

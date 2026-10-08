@@ -2,6 +2,7 @@
 // approval workflows, system settings and the admin log. Saved to localStorage.
 
 import type { DemoKey } from "../credentials";
+import { ROLE_DESCRIPTION, ROLE_LABEL, type RoleKey } from "../permissions";
 import type { Role } from "../types";
 
 export type ModuleKey = "people" | "company" | "documents" | "timekeeping" | "leave" | "reimbursements" | "reports" | "payroll" | "administration";
@@ -21,6 +22,8 @@ export const MODULES: { key: ModuleKey; label: string; approvable?: boolean }[] 
 
 export interface SystemRole {
   id: string;
+  /** Which of the six roles this is (lib/permissions.ts). */
+  key: RoleKey;
   name: string;
   description: string;
   /** Which workspace the role signs into. */
@@ -78,13 +81,28 @@ export interface Settings {
   lockAfterFailed: number;
   lockMinutes: number;
   idleMinutes: number;
+  /** Company logo as a data URL ("" = none). TODO(backend): file storage; not printed on documents yet. */
+  logo: string;
+  /** Timezone for anyone who hasn't chosen their own (Settings > Account). */
+  defaultTimezone: string;
+  /** TODO: payroll is in pesos only, so this is stored but amounts aren't converted or relabelled yet. */
+  currency: string;
+  /** Working days, 0 = Sunday … 6 = Saturday. Leave filed in working days skips the rest. */
+  workWeek: number[];
+  /** Standard working hours, "08:30" – "17:30". */
+  workStart: string;
+  workEnd: string;
+  /** 1 = January. */
+  fiscalYearStartMonth: number;
+  /** Months to keep records (0 = keep everything). TODO(backend): a scheduled job to remove older records. */
+  retentionMonths: number;
 }
 
 export interface AdminLog {
   id: string;
   at: string;
   actor: string;
-  module: "Administration" | "Sign-in" | "Payroll";
+  module: "Administration" | "Sign-in" | "Payroll" | "Settings";
   action: string;
   target: string;
   detail: string;
@@ -96,18 +114,48 @@ export interface AdminState {
   workflows: Workflow[];
   settings: Settings;
   log: AdminLog[];
+  /** See ROLES_VERSION. */
+  rolesVersion?: number;
 }
 
 const KEY = "heyhr-admin-v3";
 
 const all = (a: Access): Record<ModuleKey, Access> => ({ people: a, company: a, documents: a, timekeeping: a, leave: a, reimbursements: a, reports: a, payroll: a, administration: a });
 
+/**
+ * The six fixed roles. What each can do is in lib/permissions.ts (the access matrix); `access`
+ * here is kept only so older code and saved data still load.
+ */
+const role = (id: string, key: RoleKey, workspace: Role, extra: Partial<SystemRole> = {}): SystemRole => ({
+  id,
+  key,
+  name: ROLE_LABEL[key],
+  description: ROLE_DESCRIPTION[key],
+  workspace,
+  builtIn: true,
+  access: all("none"),
+  ...extra,
+});
+
 export const DEFAULT_ROLES: SystemRole[] = [
-  { id: "super-admin", name: "Super Admin", description: "Runs the system and payroll: users, roles, approval workflows, audit trail, settings, payroll and government contributions.", workspace: "admin", builtIn: true, superAdmin: true, access: { ...all("none"), payroll: "edit", administration: "edit" } },
-  { id: "admin", name: "Admin", description: "Runs HR: every HR module, company setup and approvals.", workspace: "admin", builtIn: true, access: { ...all("edit"), timekeeping: "approve", leave: "approve", reimbursements: "approve", administration: "none", payroll: "none" } },
-  { id: "hr", name: "HR", description: "Day-to-day HR: employee records, attendance, leave and reports. Approves leave, overtime and undertime.", workspace: "admin", builtIn: true, access: { people: "edit", company: "view", documents: "edit", timekeeping: "approve", leave: "approve", reimbursements: "approve", reports: "view", payroll: "view", administration: "none" } },
-  { id: "employee", name: "Employee", description: "Self-service: own leave, time, payslips and 201 file.", workspace: "employee", builtIn: true, access: all("none") },
+  role("system-admin", "system_admin", "admin"),
+  role("super-admin", "super_admin", "admin", { superAdmin: true }),
+  role("hr", "hr", "admin"),
+  role("approver", "approver", "manager"),
+  role("accounting", "accounting", "admin"),
+  role("employee", "employee", "employee"),
 ];
+
+/**
+ * Bumped when roles change. 3: the six fixed roles. Older saved roles map onto them once:
+ * Super Admin → super_admin; Admin and HR → hr; Employee → employee; a Partner (manager) role →
+ * approver; Accountant → accounting; anything else (custom roles) → employee, the least access, for
+ * a Super Admin to review. (2 was an earlier trial whose saved data also needs moving.)
+ */
+const ROLES_VERSION = 3;
+/** Demo logins that no longer exist; their accounts are removed when saved data loads. */
+const REMOVED_DEMO_IDS = ["ua-partner-mora", "ua-partner-menoza"];
+const ROLE_UPGRADE: Record<string, string> = { "super-admin": "super-admin", admin: "hr", hr: "hr", employee: "employee", accountant: "accounting", manager: "approver" };
 
 const DEFAULT_SETTINGS: Settings = {
   companyName: "MSMA Group",
@@ -118,6 +166,14 @@ const DEFAULT_SETTINGS: Settings = {
   lockAfterFailed: 5,
   lockMinutes: 15,
   idleMinutes: 30,
+  logo: "",
+  defaultTimezone: "Asia/Manila",
+  currency: "PHP",
+  workWeek: [1, 2, 3, 4, 5],
+  workStart: "08:30",
+  workEnd: "17:30",
+  fiscalYearStartMonth: 1,
+  retentionMonths: 0,
 };
 
 const DEFAULT_WORKFLOWS: Workflow[] = [
@@ -134,15 +190,37 @@ function seed(): AdminState {
     roles: DEFAULT_ROLES,
     accounts: [
       { id: "ua-super", name: "System Administrator", username: "superadmin", demo: "superadmin", roleId: "super-admin", status: "active", failedAttempts: 0, createdAt: at },
-      { id: "ua-admin", name: "Office Administrator", username: "admin", demo: "admin", roleId: "admin", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-admin", name: "Office Administrator", username: "admin", demo: "admin", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
       { id: "ua-hr", name: "Dinah Marquez", username: "admin1", demo: "hr", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
       { id: "ua-employee", name: "Employee (demo)", username: "admin2", demo: "employee", roleId: "employee", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-sysadmin", name: "System Admin (demo)", username: "sysadmin", demo: "sysadmin", roleId: "system-admin", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-approver", name: "Rafael Ortiz", username: "approver", demo: "approver", employeeId: "MSMA-00317", roleId: "approver", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-partner-sanchez", name: "Antonio D. Sanchez Jr.", username: "antonio.sanchez", demo: "partner-sanchez", employeeId: "MSMA-00001", roleId: "approver", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-accounting", name: "Accounting (demo)", username: "accounting", demo: "accounting", roleId: "accounting", status: "active", failedAttempts: 0, createdAt: at },
       { id: "ua-officer", name: "Joel Nierves", username: "hrofficer", password: "Heyhr-Officer-2026!", employeeId: "MSMA-00812", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
     ],
     workflows: DEFAULT_WORKFLOWS,
     settings: DEFAULT_SETTINGS,
     log: [],
+    rolesVersion: ROLES_VERSION,
   };
+}
+
+/** One-time move to the six fixed roles (see ROLES_VERSION). Every change is written to the audit log. */
+function upgradeRoles(s: AdminState): AdminState {
+  const at = new Date().toISOString();
+  const workspaceOf = (roleId: string) => s.roles?.find((r) => r.id === roleId)?.workspace;
+  const log: AdminLog[] = [];
+  const accounts = (s.accounts ?? []).map((a) => {
+    const next = ROLE_UPGRADE[a.roleId] ?? (workspaceOf(a.roleId) === "manager" ? "approver" : DEFAULT_ROLES.some((r) => r.id === a.roleId) ? a.roleId : "employee");
+    if (next === a.roleId) return a;
+    const from = s.roles?.find((r) => r.id === a.roleId)?.name ?? a.roleId;
+    log.push({ id: `al-up-${a.id}`, at, actor: "System", module: "Administration", action: "Changed role", target: a.username, detail: `${from} → ${DEFAULT_ROLES.find((r) => r.id === next)!.name} (move to the six fixed roles)` });
+    return { ...a, roleId: next };
+  });
+  const fresh = seed();
+  const missing = fresh.accounts.filter((a) => a.demo && !accounts.some((x) => x.demo === a.demo || x.username === a.username));
+  return { ...fresh, ...s, roles: DEFAULT_ROLES, accounts: [...accounts, ...missing], log: [...log, ...(s.log ?? [])], settings: { ...DEFAULT_SETTINGS, ...s.settings }, rolesVersion: ROLES_VERSION };
 }
 
 function load(): AdminState {
@@ -150,12 +228,24 @@ function load(): AdminState {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const s = JSON.parse(raw) as AdminState;
-      // Roles saved before a module existed get the built-in default for it (or no access).
-      const roles = s.roles?.map((r) => {
-        const base = DEFAULT_ROLES.find((d) => d.id === r.id)?.access ?? all("none");
-        return { ...r, access: { ...base, ...r.access } };
-      });
-      return { ...seed(), ...s, ...(roles ? { roles } : {}), settings: { ...DEFAULT_SETTINGS, ...s.settings } };
+      // Saved before the six fixed roles: move accounts onto them once.
+      if ((s.rolesVersion ?? 1) < ROLES_VERSION) {
+        const upgraded = upgradeRoles(s);
+        localStorage.setItem(KEY, JSON.stringify(upgraded));
+        return upgraded;
+      }
+      // Demo logins that were removed (two Partner logins) are deleted from saved data too.
+      const removed = (s.accounts ?? []).some((a) => REMOVED_DEMO_IDS.includes(a.id));
+      const loaded = { ...seed(), ...s, accounts: (s.accounts ?? []).filter((a) => !REMOVED_DEMO_IDS.includes(a.id)), roles: DEFAULT_ROLES, settings: { ...DEFAULT_SETTINGS, ...s.settings } };
+      if (removed) localStorage.setItem(KEY, JSON.stringify(loaded));
+      // Safety net: never leave an account on a role that no longer exists, or a demo login missing.
+      const known = new Set(DEFAULT_ROLES.map((r) => r.id));
+      if (loaded.accounts.some((a) => !known.has(a.roleId)) || seed().accounts.some((a) => a.demo && !loaded.accounts.some((x) => x.demo === a.demo))) {
+        const fixed = upgradeRoles(loaded);
+        localStorage.setItem(KEY, JSON.stringify(fixed));
+        return fixed;
+      }
+      return loaded;
     }
   } catch {
     // Storage blocked or corrupt: start from the seed.
@@ -181,7 +271,7 @@ export function logAdmin(entry: Omit<AdminLog, "id" | "at">) {
 
 export const roleOf = (account: UserAccount | undefined) => admin.roles.find((r) => r.id === account?.roleId);
 
-export const isSuperAdmin = (accountId: string | undefined) => !!roleOf(admin.accounts.find((a) => a.id === accountId))?.superAdmin;
+export const isSuperAdmin = (accountId: string | undefined) => roleOf(admin.accounts.find((a) => a.id === accountId))?.key === "super_admin";
 
 /** Modules that don't open the HR workspace by themselves: system setup and payroll (the CEO runs both). */
 export const NON_HR_MODULES: ModuleKey[] = ["administration", "payroll"];

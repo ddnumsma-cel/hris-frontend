@@ -13,10 +13,18 @@ export interface NavPrefs {
   collapsed: string[];
   /** Full sidebar: modules the user has opened, so they stay open (and are remembered) until closed. */
   opened: string[];
+  /** Which default module sequence `order` was arranged against (see ORDER_VERSION). */
+  orderVersion?: number;
 }
 
 export const MAX_PINS = 4;
-const EMPTY: NavPrefs = { pins: [], order: [], style: "rail", collapsed: [], opened: [] };
+/**
+ * Bumped when the default module sequence changes (2: Home, Pinned, Maintenance, Attendance,
+ * Payroll, Onboarding, Reports). A module order saved against an older sequence is dropped once
+ * so the new one shows; pins and other choices are kept, and Menu settings can reorder again.
+ */
+const ORDER_VERSION = 2;
+const EMPTY: NavPrefs = { pins: [], order: [], style: "rail", collapsed: [], opened: [], orderVersion: ORDER_VERSION };
 const keyFor = (who: string) => `heyhr-nav-prefs:${who}`;
 
 /** Saved per signed-in account (or per workspace for older sessions), in this browser. */
@@ -26,7 +34,8 @@ export function useNavPrefs(who: string): [NavPrefs, (p: NavPrefs) => void] {
       const raw = localStorage.getItem(keyFor(who));
       if (raw) {
         const p = JSON.parse(raw) as Partial<NavPrefs>;
-        return { pins: Array.isArray(p.pins) ? p.pins : [], order: Array.isArray(p.order) ? p.order : [], style: p.style === "full" ? "full" : "rail", collapsed: Array.isArray(p.collapsed) ? p.collapsed : [], opened: Array.isArray(p.opened) ? p.opened : [] };
+        const current = p.orderVersion === ORDER_VERSION;
+        return { pins: Array.isArray(p.pins) ? p.pins : [], order: current && Array.isArray(p.order) ? p.order : [], orderVersion: ORDER_VERSION, style: p.style === "full" ? "full" : "rail", collapsed: Array.isArray(p.collapsed) ? p.collapsed : [], opened: Array.isArray(p.opened) ? p.opened : [] };
       }
     } catch {
       // Storage blocked or corrupt: use the default layout.

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useCan } from "@/lib/useCan";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EditIcon } from "@/components/icons";
@@ -11,6 +12,7 @@ import type { PersonnelFileSubject } from "./PersonnelFileDialog";
  * profile dialog and the Employee Directory's Profile tab. */
 export function PersonnelProfilePanel({ subject }: { subject: PersonnelFileSubject }) {
   const [editingProfile, setEditingProfile] = useState(false);
+  const canEdit = useCan("edit", "people", subject.id);
   const profileQuery = useQuery({
     queryKey: ["personnel", "profile", subject.id],
     queryFn: () => fetchPersonnelProfile(subject.id),
@@ -42,7 +44,7 @@ export function PersonnelProfilePanel({ subject }: { subject: PersonnelFileSubje
       <Section
         title="Personal info"
         action={
-          <button
+          canEdit && <button
             type="button"
             onClick={() => setEditingProfile(true)}
             aria-label="Edit personal info"

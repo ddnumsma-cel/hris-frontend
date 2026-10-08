@@ -7,7 +7,7 @@ export function EmployeePage() {
   const { employeeId = "" } = useParams();
   return (
     <>
-      <Link to="/admin/people" className="inline-flex items-center gap-1.5 self-start text-sm font-medium text-ink-2 hover:text-ink">
+      <Link to="/admin/maintenance/people" className="inline-flex items-center gap-1.5 self-start text-sm font-medium text-ink-2 hover:text-ink">
         <ArrowRightIcon className="h-4 w-4 rotate-180" />
         Back to People
       </Link>

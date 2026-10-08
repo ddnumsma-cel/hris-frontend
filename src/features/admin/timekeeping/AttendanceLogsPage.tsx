@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useCan } from "@/lib/useCan";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
@@ -44,6 +45,8 @@ function ReviewDialog({ employeeId, date, onClose }: { employeeId: string; date:
   const actor = useActor();
   const queryClient = useQueryClient();
   const dayQuery = useQuery({ queryKey: tkKeys.day(employeeId, date), queryFn: () => getDay(employeeId, date) });
+  // Fixing scans and adding missing times changes the record (Edit); viewing only shows them.
+  const canEdit = useCan("edit", "attendanceRecords", employeeId);
   const [asideId, setAsideId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [kind, setKind] = useState<"in" | "out">("out");
@@ -128,7 +131,7 @@ function ReviewDialog({ employeeId, date, onClose }: { employeeId: string; date:
                       {p.voided && <span className="text-xs text-ink-3">Set aside: {p.voided.reason}</span>}
                       {p.reason && <span className="text-xs text-ink-3">Reason: {p.reason}</span>}
                       <span className="ml-auto flex gap-1.5">
-                        {p.voided ? (
+                        {!canEdit ? null : p.voided ? (
                           <Button size="sm" variant="ghost" onClick={() => restore.mutate(p)}>
                             Count again
                           </Button>
@@ -161,6 +164,7 @@ function ReviewDialog({ employeeId, date, onClose }: { employeeId: string; date:
             <ErrorNote error={aside.error} />
           </section>
 
+          {canEdit && (
           <section>
             <h3 className="mb-2 text-sm font-semibold">Add a missing time</h3>
             <form
@@ -193,6 +197,7 @@ function ReviewDialog({ employeeId, date, onClose }: { employeeId: string; date:
             )}
             <ErrorNote error={add.error} />
           </section>
+          )}
         </div>
       )}
     </Dialog>

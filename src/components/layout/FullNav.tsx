@@ -80,7 +80,7 @@ export function FullNav({
     const i = keys.indexOf(k ?? "");
     return i < 0 ? 99 : i;
   };
-  // Home always sits at the very top, above Bookmarks; groups left empty are dropped.
+  // Home always sits at the very top, above Pinned; groups left empty are dropped.
   const homeItems = groups.flatMap((g) => g.items.filter(isHomeItem));
   const sorted = [...groups]
     .map((g) => ({ ...g, items: g.items.filter((i) => !isHomeItem(i)) }))
@@ -127,7 +127,7 @@ export function FullNav({
             ))}
           </ul>
         )}
-        <Heading title="Bookmarks" open={!isCollapsed("Bookmarks")} onToggle={() => toggle("Bookmarks")} onEdit={() => setCustomizing(true)} />
+        <Heading title="Pinned" open={!isCollapsed("Bookmarks")} onToggle={() => toggle("Bookmarks")} onEdit={() => setCustomizing(true)} />
         {!isCollapsed("Bookmarks") && (
           <ul className="flex flex-col gap-0.5">
             {pins.length === 0 && (

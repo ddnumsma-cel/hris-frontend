@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/ToastContext";
+import { fmtTime } from "./preferences";
 
 /**
  * Shared onsite clock-in/out state for roles that don't need the
@@ -26,7 +27,7 @@ export function useClockInOut(personName?: string) {
       const clockInTime = new Date();
       setClockedIn(clockInTime);
       setNow(clockInTime);
-      const time = clockInTime.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
+      const time = fmtTime(clockInTime);
       toast.show(`Clocked in at ${time} — confirmed by the office biometric scanner.`);
     }, 900);
   }

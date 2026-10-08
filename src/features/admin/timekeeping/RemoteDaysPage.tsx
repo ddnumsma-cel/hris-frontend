@@ -8,7 +8,7 @@ import { HomeIcon } from "@/components/icons";
 import { cancelRemoteDay, declareRemoteDay, listRemoteDays, remoteAttendanceToday } from "@/lib/timekeeping/api";
 import type { RemoteDay } from "@/lib/timekeeping/types";
 import { todayIso } from "@/lib/timekeeping/store";
-import { canChange, useAccess } from "../administration/access";
+import { useCan } from "@/lib/useCan";
 import { inputClass, useActor } from "../corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { Name, SimpleTable } from "./common";
@@ -91,7 +91,7 @@ function DeclareDialog({ onClose }: { onClose: () => void }) {
 export function RemoteDaysPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
-  const canEdit = canChange(useAccess().timekeeping);
+  const canEdit = useCan("create", "remoteDays");
   const days = useQuery({ queryKey: KEY, queryFn: listRemoteDays, staleTime: 0 });
   const today = useQuery({ queryKey: [...KEY, "today"], queryFn: remoteAttendanceToday, staleTime: 0 });
   const [declaring, setDeclaring] = useState(false);

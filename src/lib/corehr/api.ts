@@ -16,6 +16,8 @@ import type {
   EmploymentType,
   UnitType,
 } from "./types";
+import { can, visible } from "../permissions";
+import { deny, forbidden, sessionWho } from "../session";
 
 const DELAY_MS = 300;
 function respond<T>(value: T): Promise<T> {
@@ -127,8 +129,11 @@ function summarize(e: CoreEmployee): EmployeeSummary {
 }
 
 export function listEmployees(): Promise<EmployeeSummary[]> {
+  // People list: everyone, their team, or only themselves (lib/permissions.ts).
+  const who = sessionWho();
+  if (!can(who, "view", "people")) return forbidden();
   reconcile();
-  return respond(state.employees.map(summarize).sort((a, b) => a.name.localeCompare(b.name)));
+  return respond(visible(who, "people", state.employees, (e) => e.id).map(summarize).sort((a, b) => a.name.localeCompare(b.name)));
 }
 
 export interface EmployeeRecord {
@@ -140,6 +145,8 @@ export interface EmployeeRecord {
 }
 
 export function getEmployee(id: string): Promise<EmployeeRecord | null> {
+  const denied = deny("people", "view", id);
+  if (denied) return denied;
   reconcile();
   const e = employeeById(id);
   if (!e) return respond(null);
@@ -184,6 +191,8 @@ export interface ScannedGovernmentId {
 }
 
 export async function createEmployee(values: NewEmployeeValues, actor: string, scannedId?: ScannedGovernmentId): Promise<CoreEmployee> {
+  const denied = deny("people", "create");
+  if (denied) return denied;
   const parsed = newEmployeeSchema.safeParse(values);
   if (!parsed.success) return fail(firstIssue(parsed));
   const v = parsed.data;
@@ -262,6 +271,13 @@ const SECTION_LABELS = {
 export type EditableSection = keyof typeof SECTION_LABELS;
 
 export async function updateEmployeeSection<S extends EditableSection>(id: string, section: S, values: CoreEmployee[S], actor: string): Promise<CoreEmployee> {
+  // HR edits anyone in scope; employees ("Own") may update their own contact details only.
+  const who = sessionWho();
+  const ownContact = section === "contact" && id === who.employeeId;
+  if (!ownContact) {
+    const denied = deny("people", "edit", id);
+    if (denied) return denied;
+  }
   const schema = section === "personal" ? personalSchema : section === "contact" ? contactSchema : governmentSchema;
   const parsed = schema.safeParse(values);
   if (!parsed.success) return fail(firstIssue(parsed));
@@ -290,11 +306,15 @@ export async function updateEmployeeSection<S extends EditableSection>(id: strin
 
 /** Showing unmasked government numbers is itself recorded. */
 export async function logGovernmentReveal(id: string, actor: string): Promise<void> {
+  const denied = deny("people", "view", id);
+  if (denied) return denied;
   commit({ ...state, audit: [audit(id, actor, "Viewed", "Government numbers", "Revealed full numbers"), ...state.audit] });
   return respond(undefined);
 }
 
 export function listAudit(employeeId: string): Promise<AuditEntry[]> {
+  const denied = deny("people", "view", employeeId);
+  if (denied) return denied;
   return respond(state.audit.filter((a) => a.employeeId === employeeId));
 }
 
@@ -308,6 +328,9 @@ export interface UnitSummary extends OrgUnit {
 }
 
 export function listUnits(): Promise<UnitSummary[]> {
+  // Departments and offices: anyone who sees them, or who adds people (to pick a department).
+  const who = sessionWho();
+  if (!(["departments", "locations", "orgChart"] as const).some((f) => can(who, "view", f)) && !can(who, "create", "people")) return forbidden();
   reconcile();
   return respond(
     state.units.map((u) => {
@@ -338,6 +361,8 @@ export interface PositionSummary extends Position {
 }
 
 export function listPositions(): Promise<PositionSummary[]> {
+  const who = sessionWho();
+  if (!(["departments", "orgChart"] as const).some((f) => can(who, "view", f)) && !can(who, "create", "people")) return forbidden();
   reconcile();
   return respond(
     state.positions.map((p) => {
@@ -368,6 +393,8 @@ export interface OrgChart {
 
 /** Everyone currently employed with who they report to. */
 export function getOrgChart(): Promise<OrgChart> {
+  const denied = deny("orgChart", "view");
+  if (denied) return denied;
   reconcile();
   const company = state.units.find((u) => u.type === "company");
   const people = state.employees.filter(isCurrent).map((e) => ({ ...summarize(e), supervisorId: e.job.supervisorId }));
@@ -375,6 +402,8 @@ export function getOrgChart(): Promise<OrgChart> {
 }
 
 export async function setCompanyHead(employeeId: string, actor: string): Promise<void> {
+  const denied = deny("orgChart", "edit");
+  if (denied) return denied;
   const company = state.units.find((u) => u.type === "company");
   const e = employeeById(employeeId);
   if (!company) return fail("The company record is missing");
@@ -392,6 +421,8 @@ export async function setCompanyHead(employeeId: string, actor: string): Promise
 
 /** Change who someone reports to. Blocks loops (reporting to someone who reports to them). */
 export async function setReportsTo(employeeId: string, supervisorId: string | null, actor: string): Promise<void> {
+  const denied = deny("orgChart", "edit");
+  if (denied) return denied;
   const e = employeeById(employeeId);
   if (!e || !isCurrent(e)) return fail("That employee no longer works here");
   if (supervisorId === employeeId) return fail("Someone can't report to themselves");
@@ -426,8 +457,10 @@ export function documentAlert(d: Pick<EmployeeDocument, "status" | "expiresOn">)
 }
 
 export function listDocuments(employeeId?: string): Promise<EmployeeDocument[]> {
+  const who = sessionWho();
+  if (!can(who, "view", "documents")) return forbidden();
   reconcile();
-  return respond(state.documents.filter((d) => !employeeId || d.employeeId === employeeId));
+  return respond(visible(who, "documents", state.documents, (d) => d.employeeId).filter((d) => !employeeId || d.employeeId === employeeId));
 }
 
 export type DocumentAction =
@@ -438,6 +471,9 @@ export type DocumentAction =
   | { kind: "required" };
 
 export async function updateDocument(id: string, action: DocumentAction, actor: string): Promise<EmployeeDocument> {
+  const target = state.documents.find((x) => x.id === id);
+  const denied = deny("documents", "edit", target?.employeeId);
+  if (denied) return denied;
   const d = state.documents.find((x) => x.id === id);
   if (!d) return fail("That document no longer exists");
   const now = new Date().toISOString();
@@ -478,6 +514,8 @@ export async function updateDocument(id: string, action: DocumentAction, actor: 
 // ---- Employment history ----
 
 export function listEvents(employeeId: string): Promise<JobEvent[]> {
+  const denied = deny("people", "view", employeeId);
+  if (denied) return denied;
   return respond(
     state.events
       .filter((e) => e.employeeId === employeeId)

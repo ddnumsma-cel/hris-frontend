@@ -1,6 +1,7 @@
 import { useAuth } from "@/features/auth/AuthContext";
 import { documentAlert } from "@/lib/corehr/api";
 import type { DocumentStatus, EmployeeDocument, EmploymentStatus } from "@/lib/corehr/types";
+import { fmtDate, fmtDay } from "@/lib/preferences";
 
 export const inputClass =
   "field w-full px-3 py-2 text-sm";
@@ -18,7 +19,9 @@ export const filterSearchClass =
 export function formatDate(iso?: string) {
   if (!iso) return "—";
   const d = new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+  if (Number.isNaN(d.getTime())) return iso;
+  // Calendar days keep their date; moments follow the person's timezone. Both use their date format.
+  return iso.length === 10 ? fmtDay(iso) : fmtDate(d);
 }
 
 /** "3 yrs 2 mos" since an ISO date. */

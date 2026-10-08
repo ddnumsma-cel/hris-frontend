@@ -8,6 +8,7 @@ import { addDays } from "../timekeeping/compute";
 import { computePay, type Adjustment, type PayResult } from "../pay/engine";
 import { branchOf, departmentOf, todayIso } from "../timekeeping/store";
 import { pagibig, philhealth, round2, sss, THIRTEENTH_MONTH_EXEMPT } from "./statutory";
+import { deny } from "../session";
 
 // ---- Periods ----
 
@@ -289,7 +290,7 @@ export interface ReportDef {
 
 const col = (key: string, label: string, kind: ColumnKind = "text"): ReportColumn => ({ key, label, kind });
 
-export const REPORTS: ReportDef[] = [
+const ALL_REPORTS: ReportDef[] = [
   // ---- HR ----
   {
     id: "masterlist",
@@ -722,3 +723,12 @@ export const REPORTS: ReportDef[] = [
     },
   },
 ];
+
+/**
+ * Every report checks access when it runs: payroll and government reports need Payroll reports
+ * access; HR, attendance and management reports need Reports access (lib/permissions.ts).
+ */
+export const REPORTS: ReportDef[] = ALL_REPORTS.map((r) => ({
+  ...r,
+  run: (period: Period, office: string) => deny(r.category === "payroll" || r.category === "statutory" ? "payrollReports" : "analytics", "view") ?? r.run(period, office),
+}));

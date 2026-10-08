@@ -12,6 +12,7 @@ import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { SimpleTable, type Col } from "../timekeeping/common";
 import { ELIGIBILITY, leaveKeys, proofText, useLeaveRefresh } from "./format";
 import { useCreateParam } from "@/lib/useCreateParam";
+import { leavePolicy } from "@/lib/leave/store";
 
 /** Paid types use one of the yearly leaves; unpaid ones (Leave without pay) have no limit. */
 type Draft = Omit<LeaveType, "id" | "active" | "earning"> & { id?: string; usesCredit: boolean };
@@ -114,12 +115,15 @@ function TypeDialog({ initial, onClose }: { initial: Draft; onClose: () => void 
   );
 }
 
+/** A blank leave type, with the company's default carry-over (Settings > Time off & leave). */
+const newType = (): Draft => ({ ...BLANK, carryOverMax: leavePolicy().defaultCarryOver });
+
 export function LeaveTypesPage() {
   const toast = useToast();
   const refresh = useLeaveRefresh();
   const typesQuery = useQuery({ queryKey: leaveKeys.types, queryFn: listTypes });
   const [editing, setEditing] = useState<Draft | null>(null);
-  useCreateParam("leave-type", () => setEditing(BLANK));
+  useCreateParam("leave-type", () => setEditing(newType()));
   const toggle = useMutation({
     mutationFn: (t: LeaveType) => setTypeActive(t.id, !t.active),
     onSuccess: (_, t) => {
@@ -166,7 +170,7 @@ export function LeaveTypesPage() {
 
   return (
     <>
-      <ContentHead title="Leave types" subtitle={`The kinds of leave employees can file. Every paid type shares the same ${LEAVE_CREDITS_PER_YEAR} leaves a year; filing any of them uses 1.`} actions={<Button onClick={() => setEditing(BLANK)}>Add leave type</Button>} />
+      <ContentHead title="Leave types" subtitle={`The kinds of leave employees can file. Every paid type shares the same ${LEAVE_CREDITS_PER_YEAR} leaves a year; filing any of them uses 1.`} actions={<Button onClick={() => setEditing(newType())}>Add leave type</Button>} />
       <SimpleTable rows={typesQuery.data ?? []} rowKey={(t) => t.id} cols={cols} loading={typesQuery.isLoading} empty="No leave types yet." />
       {editing && <TypeDialog initial={editing} onClose={() => setEditing(null)} />}
     </>

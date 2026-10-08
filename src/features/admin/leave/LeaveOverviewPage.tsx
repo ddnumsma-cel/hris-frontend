@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useCan } from "@/lib/useCan";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import clsx from "clsx";
@@ -16,6 +17,7 @@ import { useActor } from "../corehr/format";
 import { Initials, LoadError, Pill } from "../corehr/ui";
 import { FileLeaveDialog, RequestDialog } from "./dialogs";
 import { dateRange, leaveKeys, num, STATUS, useLeaveRefresh } from "./format";
+import { fmtDayWithWeekday, fmtMonthYear } from "@/lib/preferences";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -59,6 +61,8 @@ export function LeaveOverviewPage() {
   const [month, setMonth] = useState(() => ({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) - 1 }));
   const [picked, setPicked] = useState(today);
   const [filing, setFiling] = useState(false);
+  // HR approves leave (Approve); filing for someone else needs Create.
+  const canFileLeave = useCan("create", "leave");
   const [open, setOpen] = useState<{ r: RequestRow; reject?: boolean } | null>(null);
   const [awayAll, setAwayAll] = useState(false);
   const approve = useMutation({
@@ -107,7 +111,7 @@ export function LeaveOverviewPage() {
 
   return (
     <>
-      <ContentHead title="Leave" subtitle="Who's off, what's waiting for approval, and how much leave has been used this year." actions={<Button onClick={() => setFiling(true)}>File leave</Button>} />
+      <ContentHead title="Leave" subtitle="Who's off, what's waiting for approval, and how much leave has been used this year." actions={canFileLeave ? <Button onClick={() => setFiling(true)}>File leave</Button> : undefined} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cards.map((c) => (
@@ -133,7 +137,7 @@ export function LeaveOverviewPage() {
 
       <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
         <Panel
-          title={first.toLocaleDateString("en-PH", { month: "long", year: "numeric" })}
+          title={fmtMonthYear(first)}
           action={
             <span className="flex items-center gap-1">
               <button type="button" aria-label="Previous month" onClick={() => shiftMonth(-1)} className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-2 hover:bg-surface-2">
@@ -194,7 +198,7 @@ export function LeaveOverviewPage() {
               <span className="h-2 w-2 rounded-full bg-critical" /> Holiday
             </span>
             <span className="ml-auto min-w-0 truncate font-medium text-ink">
-              {new Date(`${picked}T12:00:00`).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" })}:{" "}
+              {fmtDayWithWeekday(picked)}:{" "}
               {pickedHoliday ? `${pickedHoliday.name}. ` : ""}
               {pickedList.length ? pickedList.map((r) => r.person.name.split(" ")[0]).join(", ") + " off" : "No one off"}
             </span>
@@ -206,7 +210,7 @@ export function LeaveOverviewPage() {
             title={`Waiting for approval (${waiting.length})`}
             action={
               waiting.length > 4 && (
-                <Link to="/admin/leave/requests" className="text-xs font-medium text-brand hover:underline">
+                <Link to="/admin/maintenance/leave/requests" className="text-xs font-medium text-brand hover:underline">
                   See all
                 </Link>
               )

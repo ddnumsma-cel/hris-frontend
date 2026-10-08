@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { canFor } from "@/lib/permissions";
+import { useWho } from "@/lib/useCan";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
@@ -129,6 +131,9 @@ export function RequestsPage({ kind }: { kind: Kind }) {
   const [query, setQuery] = useState("");
   const [declining, setDeclining] = useState<{ r: TimeRequest; name: string } | null>(null);
   const [filing, setFiling] = useState<DayRow | null>(null);
+  const who = useWho();
+  const canDecide = (r: TimeRequest) => canFor(who, "approve", "attendanceRecords", r.employeeId);
+  const canFile = (d: DayRow) => canFor(who, "create", "attendanceRecords", d.person.id);
   const approve = useMutation({
     mutationFn: (r: TimeRequest) => decideRequest(r.id, true, "", actor),
     onSuccess: () => {
@@ -163,7 +168,9 @@ export function RequestsPage({ kind }: { kind: Kind }) {
       header: tab === "pending" ? "" : "Decision",
       align: "right",
       cell: (r) =>
-        r.status === "pending" ? (
+        r.status === "pending" && !canDecide(r) ? (
+          <Pill tone="warn">Waiting for approver</Pill>
+        ) : r.status === "pending" ? (
           <span className="flex justify-end gap-1.5">
             <Button size="sm" variant="ghost" onClick={() => setDeclining({ r, name: dayMap.get(`${r.employeeId}|${r.date}`)!.person.name })}>
               Decline
@@ -189,11 +196,12 @@ export function RequestsPage({ kind }: { kind: Kind }) {
     {
       header: "",
       align: "right",
-      cell: (d) => (
-        <Button size="sm" variant="ghost" onClick={() => setFiling(d)}>
-          File {kind}
-        </Button>
-      ),
+      cell: (d) =>
+        canFile(d) ? (
+          <Button size="sm" variant="ghost" onClick={() => setFiling(d)}>
+            File {kind}
+          </Button>
+        ) : null,
     },
   ];
 

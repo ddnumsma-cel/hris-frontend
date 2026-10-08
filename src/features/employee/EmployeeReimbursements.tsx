@@ -176,7 +176,7 @@ function NewClaimDialog({ onClose }: { onClose: () => void }) {
 function Summary({ claims }: { claims: Claim[] }) {
   const year = isoToday().slice(0, 4);
   const sum = (xs: Claim[]) => xs.reduce((n, c) => n + c.amount, 0);
-  const pending = claims.filter((c) => c.status === "pending");
+  const pending = claims.filter((c) => c.status === "pending" || c.status === "endorsed");
   const approved = claims.filter((c) => c.status === "approved" && c.purchaseDate.startsWith(year));
   const rejected = claims.filter((c) => c.status === "rejected" && c.purchaseDate.startsWith(year));
   const tiles = [
@@ -256,7 +256,8 @@ export function EmployeeReimbursements() {
                     <div className="mt-1 text-xs text-ink-2 sm:mt-0">{receiptDate(c.purchaseDate)}</div>
                     <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2 sm:mt-0">
                       <Pill tone={STATUS[c.status].tone}>{STATUS[c.status].label}</Pill>
-                      {c.note && <span className="min-w-0 truncate text-xs text-ink-3" title={c.note}>{c.note}</span>}
+                      {(c.note ?? c.approverNote) && <span className="min-w-0 truncate text-xs text-ink-3" title={c.note ?? c.approverNote}>{c.note ?? c.approverNote}</span>}
+                      {c.status === "endorsed" && c.approverDecidedBy && <span className="min-w-0 truncate text-xs text-ink-3">Approved by {c.approverDecidedBy}</span>}
                     </div>
                   </div>
                   <div className="flex flex-none flex-col items-end gap-1.5 sm:w-32 sm:flex-row sm:items-center sm:justify-end sm:gap-3">

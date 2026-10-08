@@ -1,12 +1,13 @@
-// Reimbursements: expense claims employees file with a photo of the POS receipt,
-// approved in the HR workspace. Saved to localStorage, receipts as compressed JPEG data URLs.
+// Reimbursements: expense claims employees file with a photo of the POS receipt. Two approvals:
+// the employee's approver (supervisor) first, then Accounting's final approval. HR isn't involved. Saved to localStorage, receipts as compressed JPEG data URLs.
 
 import { state as core } from "../corehr/store";
 
 export const CATEGORIES = ["Transportation", "Meals & client meetings", "Office supplies", "Communication", "Training & seminars", "Medical", "Other"] as const;
 export type Category = (typeof CATEGORIES)[number];
 
-export type ClaimStatus = "pending" | "approved" | "rejected";
+/** pending: waiting for the approver · endorsed: approver said yes, waiting for Accounting · approved: final. */
+export type ClaimStatus = "pending" | "endorsed" | "approved" | "rejected";
 
 export interface Claim {
   id: string;
@@ -23,6 +24,11 @@ export interface Claim {
   receipt: string;
   status: ClaimStatus;
   filedAt: string;
+  /** Step 1: the approver (supervisor). */
+  approverDecidedBy?: string;
+  approverDecidedAt?: string;
+  approverNote?: string;
+  /** The final decision (Accounting), or the approver's when they declined. */
   decidedBy?: string;
   decidedAt?: string;
   note?: string;

@@ -85,7 +85,7 @@ export function DocumentsCards() {
                     </span>
                   </span>
                   <div className="min-w-0">
-                    <Link to={`/admin/people/${p.e.id}#documents`} className="font-display line-clamp-2 text-[0.95rem] leading-tight font-semibold hover:underline">
+                    <Link to={`/admin/maintenance/people/${p.e.id}#documents`} className="font-display line-clamp-2 text-[0.95rem] leading-tight font-semibold hover:underline">
                       {p.e.name}
                     </Link>
                     <div className="truncate text-xs text-ink-3">{p.e.departmentName}</div>
