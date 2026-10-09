@@ -7,6 +7,7 @@ import { AppNav } from "@/components/layout/AppNav";
 import { SideNav, type CreateGroup, type SideNavGroup } from "@/components/layout/SideNav";
 import {
   CalendarIcon,
+  CheckSquareIcon,
   AttendanceIcon,
   FileIcon,
   FolderIcon,
@@ -27,6 +28,7 @@ const GROUPS: SideNavGroup[] = [
       { label: "Payslips", to: "/employee/payslips", icon: <PayrollIcon /> },
       { label: "201 File", to: "/employee/201-file", icon: <FolderIcon /> },
       { label: "Trainings", to: "/employee/trainings", icon: <GraduationCapIcon /> },
+      { label: "Company policies", short: "Policies", to: "/employee/policies", icon: <CheckSquareIcon /> },
     ],
   },
   {

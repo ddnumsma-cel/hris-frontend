@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
 import { getLeavePolicy, getSchedulingRules } from "@/lib/settings/workspace";
 import { WorkflowsPage } from "../administration/WorkflowsPage";
+import { CompanyPolicies } from "./CompanyPolicies";
 
 const ACCRUAL = { yearly: "Yearly", monthly: "Monthly", "per-payroll": "Every payroll" } as const;
 
@@ -41,7 +42,8 @@ export function RulesPage() {
 
   return (
     <>
-      <ContentHead title="Rules" subtitle="Leave, scheduling and approval rules that apply to everyone." />
+      <ContentHead title="Rules" subtitle="Company policies, and the leave, scheduling and approval rules that apply to everyone." />
+      <CompanyPolicies />
       <div className="grid gap-4 md:grid-cols-2">
         <RuleCard
           title="Leave rules"

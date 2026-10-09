@@ -3,7 +3,7 @@
 
 import { fullName, state as core } from "../corehr/store";
 import { leave, countDays } from "../leave/store";
-import { listDays, listRequests as listTimeRequests, type DayRow } from "../timekeeping/api";
+import { listDays, type DayRow } from "../timekeeping/api";
 import { addDays } from "../timekeeping/compute";
 import { computePay, type Adjustment, type PayResult } from "../pay/engine";
 import { branchOf, departmentOf, todayIso } from "../timekeeping/store";
@@ -415,58 +415,6 @@ const ALL_REPORTS: ReportDef[] = [
           { label: "Approved OT (hrs)", value: sum(rows, (r) => r["OT (hrs)"] as number) },
         ],
         note: "Attendance rate leaves out days on approved leave. Days that haven't happened yet aren't counted.",
-      };
-    },
-  },
-  {
-    id: "tardiness",
-    category: "attendance",
-    name: "Tardiness",
-    description: "Every late arrival past the grace period.",
-    period: "recent",
-    run: async (period, office) => {
-      const att = await attendance(period.from, period.to);
-      const ids = new Set(current(office).map((p) => p.id));
-      const rows = [...att.values()]
-        .flatMap((a) => a.days)
-        .filter((d) => d.lateMinutes > 0 && ids.has(d.person.id))
-        .sort((a, b) => b.date.localeCompare(a.date))
-        .map((d) => ({ Employee: d.person.name, Department: d.person.departmentName, Date: d.date, "Shift start": d.shift?.start ?? "", "Time in": d.timeIn ? new Date(d.timeIn.at).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" }) : "", "Minutes late": d.lateMinutes }));
-      return {
-        columns: [col("Employee", "Employee"), col("Department", "Department"), col("Date", "Date"), col("Shift start", "Shift start"), col("Time in", "Time in"), col("Minutes late", "Minutes late", "number")],
-        rows,
-        summary: [
-          { label: "Late arrivals", value: rows.length },
-          { label: "Minutes late", value: sum(rows, (r) => r["Minutes late"] as number) },
-          { label: "People", value: new Set(rows.map((r) => r.Employee)).size },
-        ],
-      };
-    },
-  },
-  {
-    id: "overtime",
-    category: "attendance",
-    name: "Overtime",
-    description: "Overtime approved in the period, with the rate it's paid at.",
-    period: "recent",
-    run: async (period, office) => {
-      const att = await attendance(period.from, period.to);
-      const ids = new Set(current(office).map((p) => p.id));
-      const kind: Record<string, string> = { ordinary: "Ordinary day (125%)", rest: "Rest day (169%)", special: "Special day (169%)", regular: "Regular holiday (260%)" };
-      const rows = [...att.values()]
-        .flatMap((a) => a.days)
-        .filter((d) => d.approvedOvertimeMinutes > 0 && ids.has(d.person.id))
-        .sort((a, b) => b.date.localeCompare(a.date))
-        .map((d) => ({ Employee: d.person.name, Department: d.person.departmentName, Date: d.date, "Day type": kind[d.dayType] ?? d.dayType, Hours: round2(d.approvedOvertimeMinutes / 60) }));
-      const pending = (await listTimeRequests()).filter((r) => r.type === "overtime" && r.status === "pending" && r.date >= period.from && r.date <= period.to && ids.has(r.employeeId)).length;
-      return {
-        columns: [col("Employee", "Employee"), col("Department", "Department"), col("Date", "Date"), col("Day type", "Day type"), col("Hours", "Hours", "number")],
-        rows,
-        summary: [
-          { label: "Approved hours", value: sum(rows, (r) => r.Hours as number) },
-          { label: "People", value: new Set(rows.map((r) => r.Employee)).size },
-          { label: "Still waiting for approval", value: pending },
-        ],
       };
     },
   },

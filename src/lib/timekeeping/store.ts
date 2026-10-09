@@ -35,6 +35,8 @@ export interface TimekeepingState {
   remoteDays?: RemoteDay[];
   /** Time-ins and time-outs people recorded themselves from home with a face scan. */
   remotePunches?: Punch[];
+  /** Days someone chose to work from home themselves (from their Home page), one per person per day. */
+  wfh?: { id: string; employeeId: string; date: string; declaredAt: string }[];
   /** Company-wide rules from Settings > Scheduling. */
   rules?: Partial<SchedulingRules>;
 }
@@ -51,12 +53,21 @@ export interface SchedulingRules {
 export const DEFAULT_SCHEDULING_RULES: SchedulingRules = { overtimeThresholdMinutes: 0, defaultBreakMinutes: 60, publishLeadDays: 7 };
 export const schedulingRules = (): SchedulingRules => ({ ...DEFAULT_SCHEDULING_RULES, ...tk.rules });
 
-/** The remote work day covering this person on this date, if any. */
+/**
+ * The remote work day covering this person on this date, if any: one HR declared for their
+ * office, or a day they chose to work from home (offices empty, reason "Working from home").
+ */
 export function remoteDayFor(employeeId: string, date: string): RemoteDay | undefined {
   const e = core.employees.find((x) => x.id === employeeId);
   const branch = e ? branchOf(e.job.unitId) : undefined;
-  return (tk.remoteDays ?? []).find((d) => d.from <= date && d.to >= date && (!d.offices.length || (branch !== undefined && d.offices.includes(branch))));
+  const declared = (tk.remoteDays ?? []).find((d) => d.from <= date && d.to >= date && (!d.offices.length || (branch !== undefined && d.offices.includes(branch))));
+  if (declared) return declared;
+  const own = (tk.wfh ?? []).find((w) => w.employeeId === employeeId && w.date === date);
+  return own && { id: own.id, from: date, to: date, offices: [], reason: "Working from home", declaredBy: "self", declaredAt: own.declaredAt };
 }
+
+/** True when the remote day is one the person chose themselves (they can switch back before clocking in). */
+export const isOwnWfh = (d: RemoteDay | undefined) => d?.declaredBy === "self";
 
 export const DEFAULT_TARDINESS_RULE: TardinessRule = { consecutive: 3, perMonth: 5 };
 export const tardinessRule = () => tk.tardinessRule ?? DEFAULT_TARDINESS_RULE;

@@ -26,7 +26,7 @@ export function featureForPath(pathname: string): Feature | null {
       return null;
     }
     if (seg === "timekeeping") return sub === "remote" ? "remoteDays" : sub === "shifts" || sub === "schedules" ? "attendanceSettings" : null;
-    if (seg === "payroll") return sub === "contributions" ? "contributions" : sub === "runs" ? "payrollRuns" : null;
+    if (seg === "payroll") return sub === "contributions" ? "contributions" : ["runs", "pay-details", "loans", "final-pay", "payouts", "year-end"].includes(sub) ? "payrollRuns" : null;
     if (seg === "reports") {
       if (sub === "payroll" || sub === "statutory") return "payrollReports";
       if (ATTENDANCE_REPORTS.includes(sub)) return "attendanceRecords";

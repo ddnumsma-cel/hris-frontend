@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useCan } from "@/lib/useCan";
+import { canFor } from "@/lib/permissions";
+import { useCan, useWho } from "@/lib/useCan";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import clsx from "clsx";
@@ -61,8 +62,10 @@ export function LeaveOverviewPage() {
   const [month, setMonth] = useState(() => ({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) - 1 }));
   const [picked, setPicked] = useState(today);
   const [filing, setFiling] = useState(false);
-  // HR approves leave (Approve); filing for someone else needs Create.
+  // The employee's manager approves leave; HR sees it here but doesn't approve. Filing for someone else needs Create.
   const canFileLeave = useCan("create", "leave");
+  const who = useWho();
+  const canApprove = (r: RequestRow) => canFor(who, "approve", "leave", r.employeeId);
   const [open, setOpen] = useState<{ r: RequestRow; reject?: boolean } | null>(null);
   const [awayAll, setAwayAll] = useState(false);
   const approve = useMutation({
@@ -95,7 +98,7 @@ export function LeaveOverviewPage() {
   const cards = [
     { id: "left", name: "Leaves left", value: num(left), sub: `of ${num(total)} given this year`, bar: pct(left), note: `${LEAVE_CREDITS_PER_YEAR} per employee, given on January 1`, tone: "bg-brand" },
     { id: "used", name: "Leaves used", value: num(used), sub: `of ${num(total)}`, bar: pct(used), note: "Each paid leave uses 1, however many days", tone: "bg-brand" },
-    { id: "waiting", name: "Waiting for approval", value: num(pending), sub: pending === 1 ? "leave" : "leaves", bar: pct(pending), note: pending ? "Approve or reject below" : "Nothing waiting", tone: "bg-warning" },
+    { id: "waiting", name: "Waiting for approval", value: num(pending), sub: pending === 1 ? "leave" : "leaves", bar: pct(pending), note: pending ? (requests.some((r) => r.status === "pending" && canApprove(r)) ? "Approve or reject below" : "With their managers") : "Nothing waiting", tone: "bg-warning" },
     { id: "none", name: "No leaves left", value: num(noneLeft), sub: noneLeft === 1 ? "employee" : "employees", bar: `${rows.length ? (noneLeft / rows.length) * 100 : 0}%`, note: noneLeft ? "Further leave goes as Leave without pay" : "Everyone still has leaves", tone: "bg-critical" },
   ];
 
@@ -231,9 +234,11 @@ export function LeaveOverviewPage() {
                         <Button size="sm" variant="ghost" onClick={() => setOpen({ r })}>
                           View
                         </Button>
-                        <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate(r)}>
-                          Approve
-                        </Button>
+                        {canApprove(r) && (
+                          <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate(r)}>
+                            Approve
+                          </Button>
+                        )}
                       </span>
                     }
                   />

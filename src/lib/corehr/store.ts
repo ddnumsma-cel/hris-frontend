@@ -245,7 +245,34 @@ function load(): CoreHrState {
   return seed();
 }
 
-export let state: CoreHrState = load();
+/**
+ * Sample bank accounts for the demo, added once to records that have none (two are left
+ * without, so Accounting's "missing bank account" check has something to show).
+ */
+function withSampleBanks(s: CoreHrState): CoreHrState {
+  const FLAG = "heyhr-sample-banks-v1";
+  try {
+    if (localStorage.getItem(FLAG)) return s;
+    localStorage.setItem(FLAG, "1");
+  } catch {
+    return s;
+  }
+  const banks = ["BDO Unibank", "BPI", "Metrobank", "UnionBank", "Landbank", "Security Bank"];
+  const employees = s.employees.map((e, i) => {
+    if (e.bank || i % 8 === 7) return e;
+    const digits = e.id.replace(/D/g, "").padStart(5, "0");
+    return { ...e, bank: { bank: banks[i % banks.length]!, accountName: fullName(e.personal).toUpperCase(), accountNumber: `00${(i + 3) % 10}${digits.slice(-5)}${String((i * 7919) % 10000).padStart(4, "0")}` } };
+  });
+  const next = { ...s, employees };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // Kept for this session only.
+  }
+  return next;
+}
+
+export let state: CoreHrState = withSampleBanks(load());
 
 export function commit(next: CoreHrState) {
   state = next;

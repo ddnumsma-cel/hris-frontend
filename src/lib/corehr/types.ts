@@ -82,6 +82,13 @@ export interface GovernmentNumbers {
   tin: string;
 }
 
+/** Where take-home pay is sent. Optional: older records and new hires may not have it yet. */
+export interface BankDetails {
+  bank: string;
+  accountName: string;
+  accountNumber: string;
+}
+
 export interface JobInfo {
   positionId: string;
   /** A team, or the department itself when they aren't in a team. */
@@ -101,6 +108,7 @@ export interface CoreEmployee {
   personal: PersonalInfo;
   contact: ContactInfo;
   government: GovernmentNumbers;
+  bank?: BankDetails;
   job: JobInfo;
   createdAt: string;
 }

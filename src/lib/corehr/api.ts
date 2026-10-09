@@ -1,7 +1,7 @@
 // Core HR mock API. Each function stands in for an HTTP call and resolves
 // after a short delay with a copy of the data, the way a real response would.
 
-import { firstIssue, contactSchema, governmentSchema, newEmployeeSchema, personalSchema, type NewEmployeeValues } from "./schemas";
+import { firstIssue, bankSchema, contactSchema, governmentSchema, newEmployeeSchema, personalSchema, type NewEmployeeValues } from "./schemas";
 import { commit, fullName, initialsOf, isoDate, newId, reconcile, state, type CoreHrState } from "./store";
 import type {
   AuditEntry,
@@ -266,6 +266,7 @@ const SECTION_LABELS = {
   personal: { title: "Personal information", fields: { firstName: "First name", middleName: "Middle name", lastName: "Last name", suffix: "Suffix", birthDate: "Birth date", sex: "Sex", civilStatus: "Civil status", nationality: "Nationality" } },
   contact: { title: "Contact details", fields: { workEmail: "Work email", personalEmail: "Personal email", mobile: "Mobile", address: "Address", city: "City", province: "Province", emergencyName: "Emergency contact", emergencyRelationship: "Relationship", emergencyPhone: "Emergency phone" } },
   government: { title: "Government numbers", fields: { sss: "SSS", philhealth: "PhilHealth", pagibig: "Pag-IBIG", tin: "TIN" } },
+  bank: { title: "Bank account", fields: { bank: "Bank", accountName: "Account name", accountNumber: "Account number" } },
 } as const;
 
 export type EditableSection = keyof typeof SECTION_LABELS;
@@ -278,7 +279,7 @@ export async function updateEmployeeSection<S extends EditableSection>(id: strin
     const denied = deny("people", "edit", id);
     if (denied) return denied;
   }
-  const schema = section === "personal" ? personalSchema : section === "contact" ? contactSchema : governmentSchema;
+  const schema = section === "personal" ? personalSchema : section === "contact" ? contactSchema : section === "bank" ? bankSchema : governmentSchema;
   const parsed = schema.safeParse(values);
   if (!parsed.success) return fail(firstIssue(parsed));
   const e = employeeById(id);
@@ -289,12 +290,12 @@ export async function updateEmployeeSection<S extends EditableSection>(id: strin
     if (email && state.employees.some((x) => x.id !== id && x.contact.workEmail.toLowerCase() === email)) return fail("Another employee already uses that work email");
   }
   const labels = SECTION_LABELS[section].fields as Record<string, string>;
-  const before = e[section] as unknown as Record<string, string>;
+  const before = (e[section] ?? {}) as unknown as Record<string, string>;
   const after = data as unknown as Record<string, string>;
   const changed = Object.keys(labels).filter((k) => (before[k] ?? "") !== (after[k] ?? ""));
   if (changed.length === 0) return respond(e);
   // Sensitive values are named in the trail, never written into it.
-  const summary = section === "government" ? `Changed ${changed.map((k) => labels[k]).join(", ")}` : changed.map((k) => `${labels[k]}: ${before[k] || "—"} → ${after[k] || "—"}`).join("; ");
+  const summary = section === "government" || section === "bank" ? `Changed ${changed.map((k) => labels[k]).join(", ")}` : changed.map((k) => `${labels[k]}: ${before[k] || "—"} → ${after[k] || "—"}`).join("; ");
   const updated: CoreEmployee = { ...e, [section]: data };
   commit({
     ...state,

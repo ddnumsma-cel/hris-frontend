@@ -32,6 +32,12 @@ export interface Claim {
   decidedBy?: string;
   decidedAt?: string;
   note?: string;
+  /** Paid out: with a payroll run (added to take-home pay), by bank transfer, or in final pay. */
+  paidAt?: string;
+  paidBy?: string;
+  payoutMethod?: "payroll" | "transfer" | "final pay";
+  /** The run label, the transfer reference, or "Final pay". */
+  payoutRef?: string;
 }
 
 /** The expense name to show: what they typed for "Other", else the category. */

@@ -129,6 +129,8 @@ function Breakdown({ run, line, canEdit, onClose }: { run: PayrollRun; line: Pay
   const p = line.pay;
   const draft = run.status === "draft" && canEdit;
   const adjustments = run.adjustments[line.person.id] ?? [];
+  // Loan installments and approved reimbursements, added by the run itself.
+  const auto = run.auto?.[line.person.id] ?? [];
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
   const [taxable, setTaxable] = useState(true);
@@ -190,9 +192,25 @@ function Breakdown({ run, line, canEdit, onClose }: { run: PayrollRun; line: Pay
           </tbody>
         </table>
 
+        {auto.length > 0 && (
+          <section className="flex flex-col gap-2">
+            <h3 className="text-sm font-semibold">Loans and reimbursements</h3>
+            {auto.map((a) => (
+              <div key={a.id} className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2 text-sm">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">{a.label}</div>
+                  <div className="truncate text-xs text-ink-2">{a.reason}</div>
+                </div>
+                <span className={`font-num ${a.amount < 0 ? "text-critical" : "text-good"}`}>{a.amount < 0 ? `−${peso(-a.amount)}` : peso(a.amount)}</span>
+              </div>
+            ))}
+            <p className="text-xs text-ink-3">Added automatically from Loans & deductions and approved reimbursements. Part of the non-taxable adjustments above.</p>
+          </section>
+        )}
+
         <section className="flex flex-col gap-2">
           <h3 className="text-sm font-semibold">Adjustments</h3>
-          {adjustments.length === 0 && <p className="text-xs text-ink-2">None. Use these for allowances, loans, bonuses or corrections from an earlier cutoff.</p>}
+          {adjustments.length === 0 && <p className="text-xs text-ink-2">None. Use these for allowances, bonuses or corrections from an earlier cutoff. Loans go in Loans & deductions.</p>}
           {adjustments.map((a) => (
             <div key={a.id} className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2 text-sm">
               <div className="min-w-0 flex-1">

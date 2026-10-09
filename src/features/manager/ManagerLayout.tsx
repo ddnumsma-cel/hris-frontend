@@ -21,8 +21,8 @@ const CREATE: CreateGroup[] = [
   {
     title: "Team",
     items: [
-      { label: "Approve leave", to: "/manager/approvals", action: "approve", feature: "leave" },
-      { label: "Approve attendance", to: "/manager/attendance-approvals", action: "approve" },
+      { label: "Approve leave", to: "/manager/approvals?tab=leave", action: "approve", feature: "leave" },
+      { label: "Approve attendance", to: "/manager/approvals?tab=overtime", action: "approve", feature: "attendanceRecords" },
       { label: "Check team attendance", to: "/manager/attendance" },
       { label: "View team calendar", to: "/manager/calendar" },
     ],
@@ -60,15 +60,7 @@ export function ManagerLayout() {
                 { label: "Home", to: "/manager", end: true, icon: <HomeIcon /> },
                 { label: "Approvals", to: "/manager/approvals", icon: <CheckSquareIcon /> },
                 { label: "Team Calendar", short: "Calendar", to: "/manager/calendar", icon: <CalendarIcon /> },
-                {
-                  label: "Attendance",
-                  to: "/manager/attendance",
-                  icon: <AttendanceIcon />,
-                  children: [
-                    { label: "Team Attendance", to: "/manager/attendance", end: true },
-                    { label: "Attendance Approvals", to: "/manager/attendance-approvals" },
-                  ],
-                },
+                { label: "Team Attendance", short: "Attendance", to: "/manager/attendance", icon: <AttendanceIcon /> },
               ],
             },
             {

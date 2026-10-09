@@ -1,4 +1,5 @@
 import { CIVIL_STATUSES } from "@/lib/corehr/types";
+import { BANKS } from "@/lib/corehr/schemas";
 
 export interface FieldSpec {
   name: string;
@@ -32,6 +33,12 @@ export const CONTACT_FIELDS: FieldSpec[] = [
   { name: "emergencyName", label: "Emergency contact", required: true },
   { name: "emergencyRelationship", label: "Relationship", placeholder: "Spouse, parent…", required: true },
   { name: "emergencyPhone", label: "Emergency phone", type: "tel", required: true },
+];
+
+export const BANK_FIELDS: FieldSpec[] = [
+  { name: "bank", label: "Bank", type: "select", options: BANKS },
+  { name: "accountName", label: "Account name", placeholder: "As printed on the passbook or card" },
+  { name: "accountNumber", label: "Account number", placeholder: "0012 3456 7890", wide: true },
 ];
 
 export const GOVERNMENT_FIELDS: FieldSpec[] = [

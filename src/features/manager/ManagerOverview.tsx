@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { StatTile } from "@/components/ui/StatTile";
-import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
   BentoArea,
@@ -15,9 +14,8 @@ import {
   ListRowSkeletons,
   ProgressMeter,
 } from "@/components/ui/Bento";
-import { AlertTriangleIcon, CheckSquareIcon, ClockIcon, GraduationCapIcon, IdCardIcon } from "@/components/icons";
+import { AlertTriangleIcon, ClockIcon, GraduationCapIcon, IdCardIcon } from "@/components/icons";
 import { AttentionPanel, type AttentionItem } from "@/components/shared/AttentionPanel";
-import { ClockInOutControl } from "@/components/shared/ClockInOutControl";
 import {
   fetchAllPersonnelDocuments,
   fetchAttendanceTrend,
@@ -81,7 +79,7 @@ export function ManagerOverview() {
         title: `${r.employeeName}'s ${r.type} request has waited ${ageDays} day${ageDays === 1 ? "" : "s"}`,
         detail: r.detail,
         tone: ageDays >= 4 ? "crit" : "warn",
-        action: { label: "Review", onClick: () => navigate("/manager/approvals") },
+        action: { label: "Review", onClick: () => navigate(r.href) },
       });
     }
   }
@@ -117,17 +115,6 @@ export function ManagerOverview() {
       <ContentHead
         title="Audit & Assurance — Team Overview"
         subtitle={`${currentManager.name}, ${currentManager.title} · ${currentManager.office} · ${formatToday()}`}
-        actions={
-          <>
-            <ClockInOutControl personName={currentManager.name.split(" ")[0]} />
-            <Button
-              icon={<CheckSquareIcon className="h-3.75 w-3.75" />}
-              onClick={() => navigate("/manager/approvals")}
-            >
-              Review approvals
-            </Button>
-          </>
-        }
       />
 
       <div className="bento bento-manager">

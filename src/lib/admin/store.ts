@@ -114,6 +114,8 @@ export interface AdminState {
   workflows: Workflow[];
   settings: Settings;
   log: AdminLog[];
+  /** 2 once the team requests moved from HR to the employee's supervisor. */
+  workflowsVersion?: number;
   /** See ROLES_VERSION. */
   rolesVersion?: number;
 }
@@ -177,10 +179,11 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 const DEFAULT_WORKFLOWS: Workflow[] = [
-  { kind: "leave", steps: [{ approver: "role", roleId: "hr" }], remindAfterDays: 2, active: true },
-  { kind: "overtime", steps: [{ approver: "role", roleId: "hr" }], remindAfterDays: 2, active: true },
-  { kind: "undertime", steps: [{ approver: "role", roleId: "hr" }], remindAfterDays: 2, active: true },
-  { kind: "correction", steps: [{ approver: "role", roleId: "hr" }], remindAfterDays: 1, active: true },
+  // Managers and supervisors (the Approver role) decide their team's requests; see lib/permissions.ts.
+  { kind: "leave", steps: [{ approver: "supervisor" }], remindAfterDays: 2, active: true },
+  { kind: "overtime", steps: [{ approver: "supervisor" }], remindAfterDays: 2, active: true },
+  { kind: "undertime", steps: [{ approver: "supervisor" }], remindAfterDays: 2, active: true },
+  { kind: "correction", steps: [{ approver: "supervisor" }], remindAfterDays: 1, active: true },
   { kind: "profile", steps: [{ approver: "role", roleId: "hr" }], remindAfterDays: 3, active: true },
 ];
 
@@ -203,6 +206,7 @@ function seed(): AdminState {
     settings: DEFAULT_SETTINGS,
     log: [],
     rolesVersion: ROLES_VERSION,
+    workflowsVersion: 2,
   };
 }
 
@@ -228,6 +232,10 @@ function load(): AdminState {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const s = JSON.parse(raw) as AdminState;
+      // Only request types this version knows (an older build saved a "reimbursement" workflow), and every one of them.
+      const knownKinds = new Set<string>(DEFAULT_WORKFLOWS.map((w) => w.kind));
+      const saved = (s.workflows ?? []).filter((w) => knownKinds.has(w.kind));
+      s.workflows = [...saved, ...DEFAULT_WORKFLOWS.filter((d) => !saved.some((w) => w.kind === d.kind))];
       // Saved before the six fixed roles: move accounts onto them once.
       if ((s.rolesVersion ?? 1) < ROLES_VERSION) {
         const upgraded = upgradeRoles(s);
@@ -244,6 +252,14 @@ function load(): AdminState {
         const fixed = upgradeRoles(loaded);
         localStorage.setItem(KEY, JSON.stringify(fixed));
         return fixed;
+      }
+      // Team requests used to go to HR; send the untouched HR defaults to the supervisor once.
+      if ((s.workflowsVersion ?? 1) < 2) {
+        const team = ["leave", "overtime", "undertime", "correction"];
+        const byDefault = (w: Workflow) => team.includes(w.kind) && w.steps.length === 1 && w.steps[0].approver === "role" && w.steps[0].roleId === "hr";
+        const moved = { ...loaded, workflows: loaded.workflows.map((w) => (byDefault(w) ? { ...w, steps: [{ approver: "supervisor" as const }] } : w)), workflowsVersion: 2 };
+        localStorage.setItem(KEY, JSON.stringify(moved));
+        return moved;
       }
       return loaded;
     }

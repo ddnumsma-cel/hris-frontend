@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/ToastContext";
 import { updateEmployeeSection, type EditableSection } from "@/lib/corehr/api";
-import { contactSchema, governmentSchema, personalSchema } from "@/lib/corehr/schemas";
+import { bankSchema, contactSchema, governmentSchema, personalSchema } from "@/lib/corehr/schemas";
 import type { CoreEmployee } from "@/lib/corehr/types";
-import { CONTACT_FIELDS, GOVERNMENT_FIELDS, PERSONAL_FIELDS, type FieldSpec } from "./fields";
+import { BANK_FIELDS, CONTACT_FIELDS, GOVERNMENT_FIELDS, PERSONAL_FIELDS, type FieldSpec } from "./fields";
 import { inputClass, useActor } from "./format";
 import { ErrorNote, Field } from "./ui";
 import { PlaceFields } from "./PlaceFields";
@@ -18,6 +18,7 @@ const CONFIG = {
   personal: { title: "Edit personal information", fields: PERSONAL_FIELDS, schema: personalSchema },
   contact: { title: "Edit contact details", fields: CONTACT_FIELDS, schema: contactSchema },
   government: { title: "Edit government numbers", fields: GOVERNMENT_FIELDS, schema: governmentSchema },
+  bank: { title: "Edit bank account", fields: BANK_FIELDS, schema: bankSchema },
 } satisfies Record<EditableSection, { title: string; fields: FieldSpec[]; schema: ZodType }>;
 
 /** A grid of inputs driven by FieldSpecs; used by the edit dialogs and the hire form. */
@@ -83,7 +84,7 @@ export function EditSectionDialog({ employee, section, onClose }: { employee: Co
     setValue,
     control,
     formState: { errors, isDirty },
-  } = useForm<FieldValues>({ resolver: zodResolver(config.schema as ZodType<FieldValues, FieldValues>), defaultValues: employee[section] as FieldValues });
+  } = useForm<FieldValues>({ resolver: zodResolver(config.schema as ZodType<FieldValues, FieldValues>), defaultValues: (employee[section] ?? (section === "bank" ? { bank: "", accountName: "", accountNumber: "" } : {})) as FieldValues });
   const mutation = useMutation({
     mutationFn: (values: FieldValues) => updateEmployeeSection(employee.id, section, values as CoreEmployee[typeof section], actor),
     onSuccess: () => {
@@ -116,6 +117,7 @@ export function EditSectionDialog({ employee, section, onClose }: { employee: Co
     >
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         {section === "government" && <p className="text-xs text-ink-2">Changes to these numbers are recorded in the audit trail. The numbers themselves are never written into it.</p>}
+        {section === "bank" && <p className="text-xs text-ink-2">Take-home pay is sent here. Accounting sees it in Pay details and the bank file; changes are recorded in the audit trail without the number.</p>}
         {section === "contact" ? (
           <>
             <SpecFields fields={config.fields.filter((f) => ["workEmail", "personalEmail", "mobile", "address"].includes(f.name))} register={register} errors={errors as Record<string, { message?: string }>} />

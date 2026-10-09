@@ -7,6 +7,7 @@ import { hasHrAccess } from "@/lib/admin/auth";
 import { useOfficeFilter, type OfficeFilter } from "@/features/admin/OfficeFilterContext";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { fetchAnnouncements, fetchMyPhoto } from "@/lib/api";
+import { teamNotices } from "@/lib/teamNotices";
 import { BellIcon, BuildingIcon, CheckIcon, ChevronDownIcon, LogOutIcon, SearchIcon, SettingsIcon } from "../icons";
 import { BrandName, WorkspaceLabel } from "./Brand";
 import { SettingsMenu } from "./SettingsMenu";
@@ -71,7 +72,9 @@ export function TopBar() {
     return () => observer.disconnect();
   }, [user]);
   const announcementsQuery = useQuery({ queryKey: ["employee", "announcements"], queryFn: fetchAnnouncements });
-  const notifications = announcementsQuery.data ?? [];
+  // Team alerts (a manager's people working from home today) come first.
+  const teamQuery = useQuery({ queryKey: ["team-notices"], queryFn: teamNotices, refetchInterval: 60_000 });
+  const notifications = [...(teamQuery.data ?? []), ...(announcementsQuery.data ?? [])];
   const photoQuery = useQuery({
     queryKey: ["employee", "my-photo"],
     queryFn: fetchMyPhoto,

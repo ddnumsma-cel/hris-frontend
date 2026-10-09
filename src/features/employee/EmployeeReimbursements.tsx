@@ -255,7 +255,7 @@ export function EmployeeReimbursements() {
                     </div>
                     <div className="mt-1 text-xs text-ink-2 sm:mt-0">{receiptDate(c.purchaseDate)}</div>
                     <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2 sm:mt-0">
-                      <Pill tone={STATUS[c.status].tone}>{STATUS[c.status].label}</Pill>
+                      {c.status === "approved" ? <Pill tone={c.paidAt ? "good" : "info"}>{c.paidAt ? "Paid" : "Approved · with next payroll"}</Pill> : <Pill tone={STATUS[c.status].tone}>{STATUS[c.status].label}</Pill>}
                       {(c.note ?? c.approverNote) && <span className="min-w-0 truncate text-xs text-ink-3" title={c.note ?? c.approverNote}>{c.note ?? c.approverNote}</span>}
                       {c.status === "endorsed" && c.approverDecidedBy && <span className="min-w-0 truncate text-xs text-ink-3">Approved by {c.approverDecidedBy}</span>}
                     </div>

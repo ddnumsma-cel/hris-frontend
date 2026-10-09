@@ -5,7 +5,7 @@ import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/ToastContext";
-import { decideClaim, listClaims, type ClaimRow } from "@/lib/reimbursements/api";
+import { decideClaim, listClaims, payClaimsByTransfer, type ClaimRow } from "@/lib/reimbursements/api";
 import { CATEGORIES, claimType, type ClaimStatus } from "@/lib/reimbursements/store";
 import { useOfficeFilter } from "../OfficeFilterContext";
 import { inputClass, useActor } from "../corehr/format";
@@ -13,11 +13,72 @@ import { Detail, ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { Choice, Name, SearchBox, SimpleTable, Tabs, Toolbar, type Col } from "../timekeeping/common";
 import { shortDate } from "../timekeeping/format";
 import { canFor } from "@/lib/permissions";
-import { useWho } from "@/lib/useCan";
+import { useCan, useWho } from "@/lib/useCan";
 import { peso, receiptDate, STATUS, useClaimsRefresh } from "./format";
 import { ReceiptThumb, ReceiptViewer } from "./receipt";
 
-type Tab = ClaimStatus | "all";
+type Tab = ClaimStatus | "all" | "topay";
+
+/** Who paid it and how, for approved claims. */
+const paidText = (c: ClaimRow) => (c.paidAt ? `Paid ${shortDate(c.paidAt)} · ${c.payoutMethod === "payroll" ? `with payroll ${c.payoutRef}` : c.payoutMethod === "transfer" ? `bank transfer ${c.payoutRef}` : "in final pay"}` : "Not paid yet: goes out with the next payroll run");
+
+function PayDialog({ picked, onClose, onDone }: { picked: ClaimRow[]; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const actor = useActor();
+  const refresh = useClaimsRefresh();
+  const [reference, setReference] = useState("");
+  const [paidOn, setPaidOn] = useState(new Date().toISOString().slice(0, 10));
+  const total = picked.reduce((n, c) => n + c.amount, 0);
+  const pay = useMutation({
+    mutationFn: () => payClaimsByTransfer(picked.map((c) => c.id), reference, paidOn, actor),
+    onSuccess: (n) => {
+      refresh();
+      toast.show(`${n} ${n === 1 ? "claim" : "claims"} marked paid. They won't be added to payroll.`);
+      onDone();
+      onClose();
+    },
+  });
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={`Pay ${picked.length} ${picked.length === 1 ? "claim" : "claims"} by bank transfer`}
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button disabled={pay.isPending} onClick={() => pay.mutate()}>
+            Mark {peso(total)} paid
+          </Button>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-ink-2">For claims sent separately from payroll. Claims you don't mark here are added to the next payroll run automatically.</p>
+        <ul className="flex flex-col gap-1 text-sm">
+          {picked.map((c) => (
+            <li key={c.id} className="flex justify-between gap-2">
+              <span>
+                {c.person.name} · {claimType(c)}
+              </span>
+              <span className="font-num">{peso(c.amount)}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field id="pay-ref" label="Transfer reference">
+            <input id="pay-ref" className={inputClass} value={reference} onChange={(e) => setReference(e.target.value)} />
+          </Field>
+          <Field id="pay-date" label="Date sent">
+            <input id="pay-date" type="date" className={inputClass} value={paidOn} onChange={(e) => setPaidOn(e.target.value)} />
+          </Field>
+        </div>
+        <ErrorNote error={pay.error} />
+      </div>
+    </Dialog>
+  );
+}
 
 /** Receipt on the left, claim details and the decision on the right. */
 /** May the signed-in person take this claim's next step? Approvers act on waiting claims, Accounting on endorsed ones. */
@@ -100,6 +161,11 @@ function ReviewDialog({ c, canApprove, startWith, onClose }: { c: ClaimRow; canA
                 {c.approverNote && <span className="block text-ink-2">“{c.approverNote}”</span>}
               </Detail>
             )}
+            {c.status === "approved" && (
+              <Detail label="Payout" wide>
+                {paidText(c)}
+              </Detail>
+            )}
             {c.decidedBy && c.decidedAt !== c.approverDecidedAt && (
               <Detail label={c.status === "approved" ? "Final approval by" : "Rejected by"} wide>
                 {c.decidedBy}
@@ -139,6 +205,11 @@ export function ReimbursementsPage() {
   const [category, setCategory] = useState("all");
   const [open, setOpen] = useState<{ c: ClaimRow; reject?: boolean } | null>(null);
   const [viewing, setViewing] = useState<ClaimRow | null>(null);
+  // Accounting pays approved claims: picked ones by bank transfer, the rest with payroll.
+  const canPay = useCan("final", "claims");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [paying, setPaying] = useState(false);
+  const toggle = (id: string) => setPicked((s) => (s.has(id) ? new Set([...s].filter((x) => x !== id)) : new Set([...s, id])));
   const approve = useMutation({
     mutationFn: (c: ClaimRow) => decideClaim(c.id, true, "", actor),
     onSuccess: (_, c) => {
@@ -153,12 +224,14 @@ export function ReimbursementsPage() {
   const q = search.trim().toLowerCase();
   const matching = (query.data ?? []).filter((c) => (office === "All offices" || c.person.branch === office) && (category === "all" || c.category === category) && (!q || c.person.name.toLowerCase().includes(q) || c.merchant.toLowerCase().includes(q) || claimType(c).toLowerCase().includes(q)));
   const count = (s: ClaimStatus) => matching.filter((c) => c.status === s).length;
-  const rows = tab === "all" ? matching : matching.filter((c) => c.status === tab);
+  const unpaid = matching.filter((c) => c.status === "approved" && !c.paidAt);
+  const rows = tab === "all" ? matching : tab === "topay" ? unpaid : matching.filter((c) => c.status === tab);
   // Oldest waiting claims first, so nothing sits too long.
   if (tab === "pending" || tab === "endorsed") rows.sort((a, b) => a.filedAt.localeCompare(b.filedAt));
   const waitingTotal = matching.filter((c) => canDecide(c)).reduce((n, c) => n + c.amount, 0);
 
   const cols: Col<ClaimRow>[] = [
+    ...(tab === "topay" && canPay ? [{ header: "", cell: (c: ClaimRow) => <input type="checkbox" aria-label={`Pay ${c.person.name}'s claim`} checked={picked.has(c.id)} onChange={() => toggle(c.id)} /> }] : []),
     { header: "Receipt", cell: (c) => <ReceiptThumb src={c.receipt} label={c.merchant} onOpen={() => setViewing(c)} /> },
     { header: "Employee", cell: (c) => <Name name={c.person.name} sub={c.person.departmentName} /> },
     { header: "Expense", cell: (c) => <Name name={claimType(c)} sub={c.merchant} /> },
@@ -183,7 +256,7 @@ export function ReimbursementsPage() {
           </span>
         ) : (
           <span className="flex items-center justify-end gap-2">
-            <Pill tone={STATUS[c.status].tone}>{STATUS[c.status].label}</Pill>
+            {c.status === "approved" ? <Pill tone={c.paidAt ? "good" : "info"}>{c.paidAt ? "Paid" : "To pay out"}</Pill> : <Pill tone={STATUS[c.status].tone}>{STATUS[c.status].label}</Pill>}
             <Button size="sm" variant="ghost" onClick={() => setOpen({ c })}>
               View
             </Button>
@@ -204,6 +277,7 @@ export function ReimbursementsPage() {
         options={[
           { value: "pending", label: "Waiting for approver", count: count("pending") },
           { value: "endorsed", label: "Waiting for Accounting", count: count("endorsed") },
+          ...(canPay ? [{ value: "topay" as const, label: "To pay out", count: unpaid.length }] : []),
           { value: "approved", label: "Approved", count: count("approved") },
           { value: "rejected", label: "Rejected", count: count("rejected") },
           { value: "all", label: "All", count: matching.length },
@@ -212,9 +286,21 @@ export function ReimbursementsPage() {
       <Toolbar>
         <SearchBox value={search} onChange={setSearch} placeholder="Search employee or store" />
         <Choice label="Expense type" value={category} onChange={setCategory} options={[{ value: "all", label: "All expense types" }, ...CATEGORIES.map((c) => ({ value: c, label: c }))]} />
+        {tab === "topay" && canPay && (
+          <span className="ml-auto flex gap-2">
+            <Button size="sm" variant="ghost" disabled={!rows.length} onClick={() => setPicked(picked.size === rows.length ? new Set() : new Set(rows.map((c) => c.id)))}>
+              {picked.size === rows.length && rows.length ? "Clear" : "Select all"}
+            </Button>
+            <Button size="sm" disabled={!picked.size} onClick={() => setPaying(true)}>
+              Pay by transfer{picked.size ? ` (${picked.size})` : ""}
+            </Button>
+          </span>
+        )}
       </Toolbar>
+      {tab === "topay" && <p className="text-xs text-ink-2">Approved claims not paid yet. They're added to the next payroll run automatically; mark the ones you send by bank transfer instead.</p>}
       <SimpleTable rows={rows} rowKey={(c) => c.id} cols={cols} loading={query.isLoading} empty={tab === "pending" ? "Nothing waiting. You're all caught up." : "Nothing here yet."} />
       {open && <ReviewDialog key={open.c.id} c={open.c} canApprove={canDecide(open.c)} startWith={open.reject ? "reject" : undefined} onClose={() => setOpen(null)} />}
+      {paying && <PayDialog picked={rows.filter((c) => picked.has(c.id))} onClose={() => setPaying(false)} onDone={() => setPicked(new Set())} />}
       {viewing && <ReceiptViewer src={viewing.receipt} title={`${viewing.person.name} · ${viewing.merchant}`} onClose={() => setViewing(null)} />}
     </>
   );

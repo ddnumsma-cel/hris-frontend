@@ -79,7 +79,11 @@ const GROUPS: SideNavGroup[] = [
         icon: <PayrollIcon />,
         children: [
           { label: "Payroll runs", to: "/admin/payroll/runs" },
-          { label: "Payroll report", to: "/admin/reports/payroll" },
+          { label: "Pay details", to: "/admin/payroll/pay-details" },
+          { label: "Loans & deductions", to: "/admin/payroll/loans" },
+          { label: "Final pay", to: "/admin/payroll/final-pay" },
+          { label: "Payouts & journal", to: "/admin/payroll/payouts" },
+          { label: "Year-end BIR forms", to: "/admin/payroll/year-end" },
           { label: "Government reports", to: "/admin/reports/statutory" },
           { label: "Government contributions", to: "/admin/payroll/contributions" },
         ],
@@ -114,6 +118,7 @@ const GROUPS: SideNavGroup[] = [
           { label: "Tardiness", to: "/admin/reports/tardiness" },
           { label: "HR reports", to: "/admin/reports/hr" },
           { label: "Attendance", to: "/admin/reports/attendance" },
+          { label: "Payroll report", to: "/admin/reports/payroll" },
           { label: "Management", to: "/admin/reports/management" },
         ],
       },
@@ -209,12 +214,29 @@ const CREATE: CreateGroup[] = [
   },
 ];
 
+const AUDIT = "/admin/administration/audit";
+
+/**
+ * When Audit trail is the only System page a role may open (HR, Accounting), an "Admin" module
+ * holding just a log is misleading: list Audit trail under Reports instead.
+ */
+function auditUnderReports(groups: SideNavGroup[]): SideNavGroup[] {
+  const system = groups.find((g) => g.title === "System");
+  const pages = system?.items.flatMap((i) => i.children ?? [i]) ?? [];
+  if (!system || pages.length !== 1 || pages[0]!.to !== AUDIT) return groups;
+  const audit = { label: "Audit trail", to: AUDIT };
+  const rest = groups.filter((g) => g !== system);
+  const reports = rest.find((g) => g.title === "Reports");
+  if (!reports) return [...rest, { title: "Reports", short: "Reports", items: [{ label: "Audit trail", to: AUDIT, icon: <ReportsIcon /> }] }];
+  return rest.map((g) => (g === reports ? { ...g, items: g.items.map((i, n) => (n === 0 && i.children ? { ...i, children: [...i.children, audit] } : i)) } : g));
+}
+
 export function AdminLayout() {
   const { pathname } = useLocation();
   // What this role may open comes from the access matrix (lib/permissions.ts).
   const allowed = usePageAllowed();
   const createAllowed = useCreateAllowed();
-  const groups = filterNav(GROUPS, allowed);
+  const groups = auditUnderReports(filterNav(GROUPS, allowed));
   // Only the create actions this role may use.
   const create = CREATE.map((g) => ({ ...g, items: g.items.filter((i) => createAllowed(i.to, i.action, i.feature)) })).filter((g) => g.items.length > 0);
 

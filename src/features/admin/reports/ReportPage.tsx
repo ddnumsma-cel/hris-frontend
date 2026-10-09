@@ -104,6 +104,7 @@ export function ReportPage({ category }: { category: Category }) {
     <>
       <ContentHead title={copy.title} subtitle={copy.subtitle} />
       <div className="flex flex-col gap-1.5">
+        {reports.length > 1 && (
         <div className="no-scrollbar flex gap-1.5 overflow-x-auto" role="group" aria-label="Report">
           {reports.map((r) => (
             <FilterChip key={r.id} active={r.id === def.id} onClick={() => setParams({ report: r.id }, { replace: true })}>
@@ -111,6 +112,7 @@ export function ReportPage({ category }: { category: Category }) {
             </FilterChip>
           ))}
         </div>
+        )}
         <p className="text-sm text-ink-2">{def.description}</p>
       </div>
       <ReportBody key={def.id} def={def} />

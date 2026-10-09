@@ -31,10 +31,6 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import { AttentionPanel, type AttentionItem } from "@/components/shared/AttentionPanel";
-import { AttendanceClock } from "@/components/shared/AttendanceClock";
-import { useAuth } from "@/features/auth/AuthContext";
-import { employeeIdFor } from "@/lib/admin/auth";
-import { PersonnelFileDialog } from "@/components/shared/PersonnelFileDialog";
 import {
   fetchAdminOverviewStats,
   fetchCertificateRequestsForReview,
@@ -60,8 +56,6 @@ import {
 import { downloadTextFile, toCsv } from "@/lib/download";
 import { formatPHPCompact, formatToday } from "@/lib/format";
 import { listAwolFlags, listTardinessFlags, remoteAttendanceToday } from "@/lib/timekeeping/api";
-import { currentAdmin } from "@/lib/mockData";
-import type { Employee } from "@/lib/types";
 import { useCan } from "@/lib/useCan";
 import { AddEmployeeDialog } from "./AddEmployeeDialog";
 import { HeadcountChart, RecentlyJoined } from "./HeadcountChart";
@@ -77,13 +71,7 @@ const complianceVariant: Record<string, ChipVariant> = {
   Overdue: "crit",
 };
 
-const employeeStatusVariant: Record<string, ChipVariant> = {
-  Active: "good",
-  "On leave": "neutral",
-};
-
 export function AdminOverview() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
@@ -93,7 +81,6 @@ export function AdminOverview() {
   const canAnnounce = useCan("create", "announcements");
   const canExport = useCan("view", "analytics");
   useCreateParam("announcement", () => canAnnounce && setAnnouncementOpen(true));
-  const [profileEmployee, setProfileEmployee] = useState<Employee | null>(null);
 
   const statsQuery = useQuery({ queryKey: ["admin", "overview-stats"], queryFn: fetchAdminOverviewStats });
   const runStepsQuery = useQuery({ queryKey: ["admin", "payroll-run-steps"], queryFn: fetchPayrollRunSteps });
@@ -120,9 +107,10 @@ export function AdminOverview() {
     queryFn: fetchAllPersonnelProfiles,
   });
   const seesTime = useCan("view", "attendanceRecords");
+  const seesRemoteDays = useCan("view", "remoteDays");
   const tardinessQuery = useQuery({ queryKey: tkKeys.tardinessFlags, queryFn: listTardinessFlags, enabled: seesTime });
   const awolQuery = useQuery({ queryKey: ["timekeeping", "awol-flags"], queryFn: listAwolFlags, enabled: seesTime });
-  const remoteQuery = useQuery({ queryKey: ["timekeeping", "remote-days", "today"], queryFn: remoteAttendanceToday, enabled: seesTime, staleTime: 0 });
+  const remoteQuery = useQuery({ queryKey: ["timekeeping", "remote-days", "today"], queryFn: remoteAttendanceToday, enabled: seesTime && seesRemoteDays, staleTime: 0 });
 
   const stats = statsQuery.data;
   const payrollSteps = runStepsQuery.data ? getEffectivePayrollSteps(runStepsQuery.data) : undefined;
@@ -256,7 +244,6 @@ export function AdminOverview() {
         subtitle={`All offices · Cebu HQ, Manila, Davao · ${formatToday()}`}
         actions={
           <>
-            <AttendanceClock employeeId={employeeIdFor(user?.accountId, user?.name ?? currentAdmin.name)} personName={(user?.name ?? currentAdmin.name).split(" ")[0]} actor={user?.name ?? currentAdmin.name} />
             {canAddEmployee && (
               <Button icon={<UserPlusIcon className="h-3.75 w-3.75" />} onClick={() => setAddEmployeeOpen(true)}>
                 Add employee
@@ -448,89 +435,10 @@ export function AdminOverview() {
         <AttentionPanel items={attentionItems} />
         <RecruitmentPipeline />
       </div>
-
-      <Card>
-        <CardHeader
-          title="Employee directory"
-          action={
-            <button
-              type="button"
-              onClick={() => navigate("/admin/directory")}
-              className="flex items-center gap-1 text-xs font-semibold text-brand-ink"
-            >
-              Open full directory
-            </button>
-          }
-        />
-        {/* One card per person: fills wide screens instead of a sparse table. */}
-        <ul className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
-          {directoryQuery.isLoading &&
-            Array.from({ length: 3 }, (_, i) => (
-              <li key={i} className="flex flex-col gap-3 rounded-xl border border-border p-4">
-                <div className="flex items-center gap-3">
-                  <Skeleton className="h-10 w-10 flex-none rounded-full" />
-                  <div className="flex flex-1 flex-col gap-1.5">
-                    <Skeleton className="h-3.5 w-2/3" />
-                    <Skeleton className="h-3 w-1/2" />
-                  </div>
-                </div>
-                <Skeleton className="h-3 w-full" />
-              </li>
-            ))}
-          {directoryQuery.data?.map((emp) => (
-            <li
-              key={emp.id}
-              className="flex flex-col rounded-xl border border-border p-4 transition-colors hover:bg-surface-2/60"
-            >
-              <div className="flex items-start gap-3">
-                <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-surface-2 text-xs font-semibold text-ink-2">
-                  {emp.initials}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold">{emp.name}</div>
-                  <div className="font-num truncate text-xs text-ink-2">{emp.id}</div>
-                </div>
-                <Chip variant={employeeStatusVariant[emp.status]}>{emp.status}</Chip>
-              </div>
-              <dl className="mt-3.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[13px]">
-                <dt className="text-ink-2">Department</dt>
-                <dd className="truncate">{emp.department}</dd>
-                <dt className="text-ink-2">Office</dt>
-                <dd className="truncate">{emp.office}</dd>
-              </dl>
-              <button
-                type="button"
-                onClick={() => setProfileEmployee(emp)}
-                className="mt-4 self-start rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-brand-ink hover:bg-surface-2"
-              >
-                Open 201 file
-              </button>
-            </li>
-          ))}
-        </ul>
-      </Card>
-
       <AddEmployeeDialog
         open={addEmployeeOpen}
         onClose={() => setAddEmployeeOpen(false)}
         onSubmitted={() => toast.show("New employee added to the directory.")}
-      />
-
-      <PersonnelFileDialog
-        subject={
-          profileEmployee && {
-            id: profileEmployee.id,
-            name: profileEmployee.name,
-            initials: profileEmployee.initials,
-            position: profileEmployee.position,
-            department: profileEmployee.department,
-            office: profileEmployee.office,
-            cluster: profileEmployee.cluster,
-            status: profileEmployee.status,
-          }
-        }
-        onClose={() => setProfileEmployee(null)}
-        documentsHref={(id) => `/admin/directory?employee=${id}`}
       />
 
       <PostAnnouncementDialog

@@ -125,6 +125,26 @@ export async function decideClaim(id: string, approve: boolean, note: string, ac
   return respond(next);
 }
 
+/**
+ * Accounting pays approved claims by bank transfer instead of waiting for payroll. Claims left
+ * unpaid go out with the next payroll run automatically (lib/pay/runs.ts).
+ */
+export async function payClaimsByTransfer(ids: string[], reference: string, paidOn: string, actor: string): Promise<number> {
+  const picked = claims.filter((c) => ids.includes(c.id));
+  for (const c of picked) {
+    const denied = deny("claims", "final", c.employeeId);
+    if (denied) return denied;
+  }
+  if (!picked.length) return fail("Choose the claims to pay");
+  if (picked.some((c) => c.status !== "approved" || c.paidAt)) return fail("Only approved claims that aren't paid yet can be paid out");
+  if (!reference.trim()) return fail("Enter the transfer reference");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paidOn)) return fail("Enter the date it was sent");
+  const at = `${paidOn}T12:00:00`;
+  const set = new Set(ids);
+  if (!saveClaims(claims.map((c) => (set.has(c.id) ? { ...c, paidAt: at, paidBy: actor, payoutMethod: "transfer" as const, payoutRef: reference.trim() } : c)))) return fail(FULL_STORAGE);
+  return respond(picked.length);
+}
+
 /** Shrinks a phone photo to a JPEG that fits in storage (longest side 1400px). */
 export async function compressReceipt(file: File): Promise<string> {
   if (!file.type.startsWith("image/")) throw new Error("Choose a photo (JPG or PNG)");

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useLayoutEffect } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { TopBar } from "@/components/layout/TopBar";
 import { ProtectedRoute, RootRedirect } from "@/components/layout/ProtectedRoute";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
@@ -24,7 +24,6 @@ const ManagerReportPage = lazy(() =>
   import("@/features/manager/reports/ManagerReportPage").then((m) => ({ default: m.ManagerReportPage })),
 );
 const AdminLayout = lazy(() => import("@/features/admin/AdminLayout").then((m) => ({ default: m.AdminLayout })));
-const AdminOverview = lazy(() => import("@/features/admin/AdminOverview").then((m) => ({ default: m.AdminOverview })));
 const PeoplePage = lazy(() => import("@/features/admin/corehr/PeoplePage").then((m) => ({ default: m.PeoplePage })));
 const EmployeePage = lazy(() => import("@/features/admin/corehr/EmployeePage").then((m) => ({ default: m.EmployeePage })));
 const NewEmployeePage = lazy(() => import("@/features/admin/corehr/NewEmployeePage").then((m) => ({ default: m.NewEmployeePage })));
@@ -39,6 +38,12 @@ const BalancesPage = lazy(() => import("@/features/admin/leave/BalancesPage").th
 const LeaveTypesPage = lazy(() => import("@/features/admin/leave/LeaveTypesPage").then((m) => ({ default: m.LeaveTypesPage })));
 const HrReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.HrReportsPage })));
 const AttendanceReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.AttendanceReportsPage })));
+const LoansPage = lazy(() => import("@/features/admin/payroll/LoansPage").then((m) => ({ default: m.LoansPage })));
+const FinalPayPage = lazy(() => import("@/features/admin/payroll/FinalPayPage").then((m) => ({ default: m.FinalPayPage })));
+const PayoutsPage = lazy(() => import("@/features/admin/payroll/PayoutsPage").then((m) => ({ default: m.PayoutsPage })));
+const YearEndPage = lazy(() => import("@/features/admin/payroll/YearEndPage").then((m) => ({ default: m.YearEndPage })));
+const AdminHome = lazy(() => import("@/features/admin/payroll/AccountingHome").then((m) => ({ default: m.AdminHome })));
+const PayDetailsPage = lazy(() => import("@/features/admin/payroll/PayDetailsPage").then((m) => ({ default: m.PayDetailsPage })));
 const PayrollRunsPage = lazy(() => import("@/features/admin/payroll/PayrollRunsPage").then((m) => ({ default: m.PayrollRunsPage })));
 const PayrollRunPage = lazy(() => import("@/features/admin/payroll/PayrollRunsPage").then((m) => ({ default: m.PayrollRunPage })));
 const ContributionsPage = lazy(() => import("@/features/admin/payroll/ContributionsPage").then((m) => ({ default: m.ContributionsPage })));
@@ -56,7 +61,7 @@ const OrgChartPage = lazy(() => import("@/features/admin/corehr/OrgChartPage").t
 const TardinessPage = lazy(() => import("@/features/admin/timekeeping/TardinessPage").then((m) => ({ default: m.TardinessPage })));
 const DocumentsPage = lazy(() => import("@/features/admin/corehr/DocumentsPage").then((m) => ({ default: m.DocumentsPage })));
 const DepartmentsPage = lazy(() => import("@/features/admin/maintenance/DepartmentsPage").then((m) => ({ default: m.DepartmentsPage })));
-const LocationsPage = lazy(() => import("@/features/admin/maintenance/DepartmentsPage").then((m) => ({ default: m.LocationsPage })));
+const LocationsPage = lazy(() => import("@/features/admin/maintenance/LocationsPage").then((m) => ({ default: m.LocationsPage })));
 const RulesPage = lazy(() => import("@/features/admin/maintenance/RulesPage").then((m) => ({ default: m.RulesPage })));
 const RequestsPage = lazy(() => import("@/features/admin/requests/RequestsPage").then((m) => ({ default: m.RequestsPage })));
 const TrainingsPage = lazy(() => import("@/features/admin/onboarding/TrainingsPage").then((m) => ({ default: m.TrainingsPage })));
@@ -91,6 +96,7 @@ const EmployeeBenefitsPage = lazy(() =>
 const EmployeeReimbursements = lazy(() =>
   import("@/features/employee/EmployeeReimbursements").then((m) => ({ default: m.EmployeeReimbursements })),
 );
+const EmployeePolicies = lazy(() => import("@/features/employee/EmployeePolicies").then((m) => ({ default: m.EmployeePolicies })));
 const EmployeeTrainings = lazy(() =>
   import("@/features/employee/EmployeeTrainings").then((m) => ({ default: m.EmployeeTrainings })),
 );
@@ -116,9 +122,6 @@ const ManagerPerformance = lazy(() =>
 );
 const ManagerTrainings = lazy(() =>
   import("@/features/manager/ManagerTrainings").then((m) => ({ default: m.ManagerTrainings })),
-);
-const ManagerAttendanceApprovals = lazy(() =>
-  import("@/features/manager/ManagerAttendanceApprovals").then((m) => ({ default: m.ManagerAttendanceApprovals })),
 );
 const ManagerPayroll = lazy(() => import("@/features/manager/ManagerPayroll").then((m) => ({ default: m.ManagerPayroll })));
 // Settings (every workspace): /{role}/settings/..., with /settings/... redirecting there.
@@ -159,6 +162,12 @@ function settingsRoutes(admin = false) {
   );
 }
 const ManagerCases = lazy(() => import("@/features/manager/ManagerCases").then((m) => ({ default: m.ManagerCases })));
+
+/** Attendance approvals now live on the Approvals page; old links keep their tab. */
+function AttendanceApprovalsMoved() {
+  const tab = new URLSearchParams(useLocation().search).get("tab") ?? "overtime";
+  return <Navigate to={`/manager/approvals?tab=${tab}`} replace />;
+}
 
 function App() {
   const { user } = useAuth();
@@ -204,6 +213,7 @@ function App() {
               <Route path="certificates" element={<EmployeeCertificates />} />
               <Route path="benefits" element={<EmployeeBenefitsPage />} />
               <Route path="trainings" element={<EmployeeTrainings />} />
+              <Route path="policies" element={<EmployeePolicies />} />
               <Route path="reimbursements" element={<EmployeeReimbursements />} />
               {settingsRoutes()}
             </Route>
@@ -220,7 +230,7 @@ function App() {
               <Route path="approvals" element={<ManagerApprovals />} />
               <Route path="calendar" element={<ManagerCalendar />} />
               <Route path="attendance" element={<ManagerAttendancePage />} />
-              <Route path="attendance-approvals" element={<ManagerAttendanceApprovals />} />
+              <Route path="attendance-approvals" element={<AttendanceApprovalsMoved />} />
               <Route path="workforce" element={<ManagerWorkforcePage />} />
               <Route path="performance" element={<ManagerPerformance />} />
               <Route path="trainings" element={<ManagerTrainings />} />
@@ -239,7 +249,7 @@ function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<AdminOverview />} />
+              <Route index element={<AdminHome />} />
 
               {/* Maintenance: Core HR, Leave and Rules */}
               <Route path="maintenance" element={<Navigate to="/admin/maintenance/people" replace />} />
@@ -286,6 +296,11 @@ function App() {
               <Route path="payroll/runs" element={<PayrollRunsPage />} />
               <Route path="payroll/runs/:id" element={<PayrollRunPage />} />
               <Route path="payroll/contributions" element={<ContributionsPage />} />
+              <Route path="payroll/pay-details" element={<PayDetailsPage />} />
+              <Route path="payroll/loans" element={<LoansPage />} />
+              <Route path="payroll/final-pay" element={<FinalPayPage />} />
+              <Route path="payroll/payouts" element={<PayoutsPage />} />
+              <Route path="payroll/year-end" element={<YearEndPage />} />
 
               {/* Onboarding */}
               <Route path="onboarding" element={<Navigate to="/admin/onboarding/trainings" replace />} />

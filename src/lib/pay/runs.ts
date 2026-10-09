@@ -8,6 +8,8 @@ import { payroll, periodsFor, type PayLine, type Period } from "../reports/api";
 import { tk, todayIso } from "../timekeeping/store";
 import type { Adjustment } from "./engine";
 import { canFor, scopeFor } from "../permissions";
+import { claims, claimType, saveClaims } from "../reimbursements/store";
+import { allLoans, claimAdjustmentId, loanAdjustmentId } from "./loanStore";
 import { deny, forbidden, sessionWho } from "../session";
 
 export interface PayrollRun {
@@ -17,8 +19,10 @@ export interface PayrollRun {
   to: string;
   status: "draft" | "approved";
   lines: PayLine[];
-  /** Per employee. */
+  /** Per employee: added by hand on the run. */
   adjustments: Record<string, Adjustment[]>;
+  /** Per employee: added automatically (loan installments, approved reimbursements). Kept so balances and exports can read them. */
+  auto?: Record<string, Adjustment[]>;
   createdBy: string;
   createdAt: string;
   computedAt: string;
@@ -58,9 +62,49 @@ function save(next: PayrollRun[]) {
 const find = (id: string) => (sync(), runs.find((r) => r.id === id));
 const replace = (run: PayrollRun) => save(runs.map((r) => (r.id === run.id ? run : r)));
 
-async function compute(run: Pick<PayrollRun, "label" | "from" | "to" | "adjustments">) {
+/** What approved runs (other than this one) have already taken for a loan. */
+export function loanPaid(loanId: string, exceptRunId?: string) {
+  sync();
+  const id = loanAdjustmentId(loanId);
+  return runs
+    .filter((r) => r.status === "approved" && r.id !== exceptRunId)
+    .flatMap((r) => Object.values(r.auto ?? {}).flat())
+    .filter((a) => a.id === id)
+    .reduce((n, a) => n + Math.abs(a.amount), 0);
+}
+
+/** Every approved run, oldest first (for year-end forms, exports and final pay). */
+export function approvedRuns(): PayrollRun[] {
+  sync();
+  return runs.filter((r) => r.status === "approved").sort((a, b) => a.from.localeCompare(b.from));
+}
+
+/** Loan installments due this cutoff and approved reimbursements not paid out yet, per employee. */
+function autoAdjustments(run: { id?: string; from: string; to: string }): Record<string, Adjustment[]> {
+  const out: Record<string, Adjustment[]> = {};
+  const add = (employeeId: string, a: Adjustment) => (out[employeeId] = [...(out[employeeId] ?? []), a]);
+  const money = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  for (const l of allLoans()) {
+    if (l.status !== "active" || l.startDate > run.to) continue;
+    const balance = Math.round((l.principal - loanPaid(l.id, run.id)) * 100) / 100;
+    if (balance <= 0) continue;
+    const amount = Math.min(l.installment, balance);
+    add(l.employeeId, { id: loanAdjustmentId(l.id), label: l.kind, amount: -amount, taxable: false, reason: `${l.reference} · balance ${money(balance - amount)} after this` });
+  }
+  for (const c of claims) {
+    if (c.status !== "approved" || c.paidAt) continue;
+    add(c.employeeId, { id: claimAdjustmentId(c.id), label: `Reimbursement: ${claimType(c)}`, amount: c.amount, taxable: false, reason: c.merchant });
+  }
+  return out;
+}
+
+async function compute(run: Pick<PayrollRun, "label" | "from" | "to" | "adjustments"> & { id?: string }) {
   const period: Period = { id: run.from, label: run.label, from: run.from, to: run.to };
-  return payroll(period, "All offices", (id) => run.adjustments[id] ?? []);
+  const auto = autoAdjustments(run);
+  const lines = await payroll(period, "All offices", (id) => [...(auto[id] ?? []), ...(run.adjustments[id] ?? [])]);
+  // Only people on this run's payroll actually receive their automatic items.
+  const onRun = new Set(lines.map((l) => l.person.id));
+  return { lines, auto: Object.fromEntries(Object.entries(auto).filter(([id]) => onRun.has(id))) };
 }
 
 export function listRuns() {
@@ -103,7 +147,7 @@ export async function createRun(period: Period, actor: string): Promise<PayrollR
   if (runs.some((r) => r.from === period.from && r.to === period.to)) return fail("There's already a payroll run for this cutoff");
   const now = new Date().toISOString();
   const draft = { label: period.label, from: period.from, to: period.to, adjustments: {} };
-  const run: PayrollRun = { id: newId("pr"), ...draft, status: "draft", lines: await compute(draft), createdBy: actor, createdAt: now, computedAt: now };
+  const run: PayrollRun = { id: newId("pr"), ...draft, status: "draft", ...(await compute(draft)), createdBy: actor, createdAt: now, computedAt: now };
   save([run, ...runs]);
   logAdmin({ actor, module: "Payroll", action: "Started payroll run", target: run.label, detail: `${run.lines.length} employees` });
   return respond(run);
@@ -116,7 +160,7 @@ export async function refreshRun(id: string): Promise<PayrollRun> {
   const r = find(id);
   if (!r) return fail("That payroll run no longer exists");
   if (r.status !== "draft") return fail("This run is approved and locked");
-  const next = { ...r, lines: await compute(r), computedAt: new Date().toISOString() };
+  const next = { ...r, ...(await compute(r)), computedAt: new Date().toISOString() };
   replace(next);
   return respond(next);
 }
@@ -132,7 +176,7 @@ export async function addAdjustment(id: string, employeeId: string, input: Omit<
   if (!input.reason.trim()) return fail("Give the reason");
   const adj: Adjustment = { id: newId("adj"), label: input.label.trim(), amount: Math.round(input.amount * 100) / 100, taxable: input.taxable, reason: input.reason.trim() };
   const adjustments = { ...r.adjustments, [employeeId]: [...(r.adjustments[employeeId] ?? []), adj] };
-  const next = { ...r, adjustments, lines: await compute({ ...r, adjustments }), computedAt: new Date().toISOString() };
+  const next = { ...r, adjustments, ...(await compute({ ...r, adjustments })), computedAt: new Date().toISOString() };
   replace(next);
   const name = next.lines.find((l) => l.person.id === employeeId)?.person.name ?? employeeId;
   logAdmin({ actor, module: "Payroll", action: "Added pay adjustment", target: name, detail: `${r.label}: ${adj.label} ₱${adj.amount.toLocaleString("en-PH")} (${adj.taxable ? "taxable" : "non-taxable"}) · ${adj.reason}` });
@@ -146,7 +190,7 @@ export async function removeAdjustment(id: string, employeeId: string, adjustmen
   if (!r) return fail("That payroll run no longer exists");
   if (r.status !== "draft") return fail("This run is approved and locked");
   const adjustments = { ...r.adjustments, [employeeId]: (r.adjustments[employeeId] ?? []).filter((a) => a.id !== adjustmentId) };
-  const next = { ...r, adjustments, lines: await compute({ ...r, adjustments }), computedAt: new Date().toISOString() };
+  const next = { ...r, adjustments, ...(await compute({ ...r, adjustments })), computedAt: new Date().toISOString() };
   replace(next);
   return respond(next);
 }
@@ -160,10 +204,13 @@ export async function approveRun(id: string, actor: string): Promise<PayrollRun>
   if (!r) return fail("That payroll run no longer exists");
   if (r.status !== "draft") return fail("This run is already approved");
   // Approve exactly what is computed now, not a stale preview.
-  const lines = await compute(r);
+  const { lines, auto } = await compute(r);
   const now = new Date().toISOString();
-  const next: PayrollRun = { ...r, lines, computedAt: now, status: "approved", approvedBy: actor, approvedAt: now };
+  const next: PayrollRun = { ...r, lines, auto, computedAt: now, status: "approved", approvedBy: actor, approvedAt: now };
   replace(next);
+  // Reimbursements in this run are now paid, with this payroll.
+  const paid = new Set(Object.values(auto).flat().filter((a) => a.id.startsWith("claim-")).map((a) => a.id.slice("claim-".length)));
+  if (paid.size) saveClaims(claims.map((c) => (paid.has(c.id) ? { ...c, paidAt: now, paidBy: actor, payoutMethod: "payroll" as const, payoutRef: r.label } : c)));
   const total = lines.reduce((n, l) => n + l.net, 0);
   logAdmin({ actor, module: "Payroll", action: "Approved payroll run", target: r.label, detail: `${lines.length} employees · take-home ₱${total.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` });
   return respond(next);

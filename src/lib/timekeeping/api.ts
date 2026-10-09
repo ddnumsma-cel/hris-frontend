@@ -483,6 +483,8 @@ export async function cancelRemoteDay(id: string): Promise<void> {
 }
 
 export interface ClockState {
+  /** Today's first time-in and last time-out from the office devices (or HR's corrections). */
+  office?: { in?: Punch; out?: Punch };
   /** Today's remote work day for this person, if any: only then can they clock in from home. */
   remoteDay?: RemoteDay;
   /** Their remote time-in today, if they clocked in. */
@@ -496,11 +498,35 @@ export function clockState(employeeId: string): Promise<ClockState> {
   if (employeeId !== who.employeeId && !canFor(who, "view", "attendanceRecords", employeeId)) return forbidden();
   const date = todayIso();
   const mine = (tk.remotePunches ?? []).filter((p) => p.employeeId === employeeId && p.workDate === date && !tk.voided[p.id]);
-  return respond({ remoteDay: remoteDayFor(employeeId, date), inAt: mine.find((p) => p.kind === "in")?.at, outAt: mine.filter((p) => p.kind === "out").pop()?.at });
+  const remoteDay = remoteDayFor(employeeId, date);
+  // What the office devices (or HR's corrections) recorded today; not the clock-ins from home.
+  const fromHome = new Set((tk.remotePunches ?? []).map((p) => p.id));
+  const officePunches = punchesFor(employeeId, date).filter((p) => !p.voided && !fromHome.has(p.id));
+  const office = { in: officePunches.find((p) => p.kind === "in"), out: officePunches.filter((p) => p.kind === "out").pop() };
+  return respond({ remoteDay, office, inAt: mine.find((p) => p.kind === "in")?.at, outAt: mine.filter((p) => p.kind === "out").pop()?.at });
 }
 
 /** Records a time-in or time-out from home after a face scan. Only on a remote work day. */
-export async function clockRemote(employeeId: string, kind: "in" | "out", match: number, actor: string): Promise<Punch> {
+/**
+ * Work from home today, or back to an office day. Switching back sets today's face-scan times
+ * aside (kept on record, not counted), so the office scanner's times count again.
+ * HR-declared remote days can't be undone here.
+ */
+export async function setWorkFromHome(employeeId: string, on: boolean, actor = "Employee"): Promise<void> {
+  const who = sessionWho();
+  if (employeeId !== who.employeeId) return forbidden();
+  const date = todayIso();
+  const declared = remoteDayFor(employeeId, date);
+  if (declared && declared.declaredBy !== "self") return fail("Today is already a remote work day for your office");
+  const today = (tk.remotePunches ?? []).filter((p) => p.employeeId === employeeId && p.workDate === date && !tk.voided[p.id]);
+  const rest = (tk.wfh ?? []).filter((w) => !(w.employeeId === employeeId && w.date === date));
+  const at = new Date().toISOString();
+  const voided = on ? tk.voided : { ...tk.voided, ...Object.fromEntries(today.map((p) => [p.id, { reason: "Switched back to an office day", by: actor, at }])) };
+  save({ ...tk, voided, wfh: on ? [...rest, { id: newId("wfh"), employeeId, date, declaredAt: at }] : rest });
+  return respond(undefined);
+}
+
+export async function clockRemote(employeeId: string, kind: "in" | "out", match: number, actor: string, method: "face" | "biometric" = "face", location?: Punch["location"]): Promise<Punch> {
   const who = sessionWho();
   if (employeeId !== who.employeeId && !canFor(who, "edit", "attendanceRecords", employeeId)) return forbidden();
   const date = todayIso();
@@ -516,10 +542,11 @@ export async function clockRemote(employeeId: string, kind: "in" | "out", match:
     workDate: date,
     at: `${date}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
     kind,
-    source: "face",
-    device: "Remote · face scan",
+    source: method,
+    device: method === "face" ? "Remote · face scan" : "Remote · fingerprint",
     deviceRegistered: true,
-    match,
+    ...(method === "face" ? { match } : {}),
+    ...(location ? { location } : {}),
     reason: day.reason,
     recordedBy: actor,
   };

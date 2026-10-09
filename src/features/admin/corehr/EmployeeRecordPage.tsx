@@ -381,6 +381,19 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
                 </dl>
                 {!revealed && <p className="mt-3 text-xs text-ink-3">Hidden for privacy. Showing the full numbers is recorded in Activity.</p>}
               </Card>
+              <Card title="Bank account" className="xl:col-span-2" action={edit("bank")}>
+                {e.bank ? (
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-3.5 sm:grid-cols-4">
+                    <Item label="Bank">{e.bank.bank}</Item>
+                    <Item label="Account name">{e.bank.accountName}</Item>
+                    <Item label="Account number">
+                      <span className="font-num tracking-wide">{revealed ? e.bank.accountNumber : mask(e.bank.accountNumber)}</span>
+                    </Item>
+                  </dl>
+                ) : (
+                  <p className="text-sm text-ink-2">Not set yet. Accounting needs it to send take-home pay by bank transfer.</p>
+                )}
+              </Card>
             </div>
           )}
 

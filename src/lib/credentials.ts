@@ -23,7 +23,7 @@ const defaultCredentials: DemoCredential[] = [
   { key: "superadmin", username: "superadmin", password: "Heyhr-Super-2026!", role: "admin", label: "Super Admin" },
   { key: "admin", username: "admin", password: "Heyhr-Admin-2026!", role: "admin", label: "HR (Office Administrator)", listed: false },
   { key: "hr", username: "admin1", password: "Heyhr-HR-2026!", role: "admin", label: "HR" },
-  { key: "approver", username: "approver", password: "Heyhr-Approver-2026!", role: "manager", label: "Approver" },
+  { key: "approver", username: "approver", password: "Heyhr-Approver-2026!", role: "manager", label: "Approver", listed: false },
   // A Partner: approver for the people who report to him.
   { key: "partner-sanchez", username: "antonio.sanchez", password: "Heyhr-Partner1-2026!", role: "manager", label: "Approver · Antonio Sanchez (Partner)" },
   { key: "accounting", username: "accounting", password: "Heyhr-Accounting-2026!", role: "admin", label: "Accounting" },

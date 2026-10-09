@@ -46,7 +46,8 @@ import { AttentionPanel, type AttentionItem } from "@/components/shared/Attentio
 import { BenefitsCard } from "./BenefitsCard";
 import { AttendanceClock } from "@/components/shared/AttendanceClock";
 import { FileMyLeaveDialog } from "./EmployeeLeave";
-import { myAttendance, myLeave, myPayslips } from "@/lib/ess/api";
+import { myAttendance, myId, myLeave, myPayslips } from "@/lib/ess/api";
+import { policiesFor } from "@/lib/policies";
 import { RequestCertificateDialog } from "./RequestCertificateDialog";
 import { printPayslip } from "./printTemplates";
 import type { Payslip } from "@/lib/types";
@@ -104,6 +105,7 @@ export function EmployeeOverview() {
   const benefitsQuery = useQuery({ queryKey: ["employee", "benefits"], queryFn: fetchEmployeeBenefits });
   const myTrainingsQuery = useQuery({ queryKey: ["employee", "my-trainings"], queryFn: fetchMyTrainingRecords });
   const myLeaveQuery = useQuery({ queryKey: ["employee", "my-leave-requests"], queryFn: fetchMyLeaveRequests });
+  const policiesQuery = useQuery({ queryKey: ["employee", "policies"], queryFn: () => policiesFor(myId()) });
   const licenseQuery = useQuery({
     queryKey: ["employee", "professional-license"],
     queryFn: fetchMyProfessionalLicense,
@@ -176,6 +178,17 @@ export function EmployeeOverview() {
         action: { label: "View", onClick: () => navigate("/employee/201-file") },
       });
     }
+  }
+  const unreadPolicies = (policiesQuery.data ?? []).filter((p) => p.requireAck && !p.acknowledgedAt);
+  if (unreadPolicies.length > 0) {
+    attentionItems.push({
+      id: "policies-unread",
+      icon: <FileIcon className="h-4 w-4" />,
+      title: unreadPolicies.length === 1 ? `Please read ${unreadPolicies[0].title}` : `${unreadPolicies.length} company policies to read`,
+      detail: "HR needs you to confirm you've read and understood them.",
+      tone: "warn",
+      action: { label: "Read", onClick: () => navigate("/employee/policies") },
+    });
   }
   const missingDocs = (checklistQuery.data ?? []).filter((d) => d.status === "Missing");
   if (missingDocs.length > 0) {

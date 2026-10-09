@@ -204,6 +204,9 @@ function ReviewDialog({ employeeId, date, onClose }: { employeeId: string; date:
   );
 }
 
+/** Where a clock-in from home was made: the phone's GPS, or why it's missing. */
+const whereText = (l: Punch["location"]) => (!l ? "" : "lat" in l ? ` · at ${l.lat}, ${l.lng} (±${l.accuracy} m)` : ` · no location (${l.unavailable.toLowerCase()})`);
+
 /** Every time-in and time-out from the fingerprint and face-recognition devices. */
 export function AttendanceLogsPage() {
   const { office } = useOfficeFilter();
@@ -276,7 +279,7 @@ export function AttendanceLogsPage() {
           { header: "Time", cell: (s) => <span className={s.punch.voided ? "text-ink-3 line-through" : "font-medium"}>{clock(s.punch.at)}</span> },
           { header: "Employee", cell: (s) => <Name name={s.day.person.name} sub={s.day.person.departmentName} /> },
           { header: "Type", cell: (s) => (s.lunch ? (s.lunch === "out" ? "Lunch out" : "Lunch in") : s.punch.kind === "in" ? "Time-in" : "Time-out") },
-          { header: "Device", cell: (s) => (s.lunch ? <Name name="Automatic" sub="From the shift's lunch break" /> : <Name name={SOURCE[s.punch.source]} sub={s.punch.device} />) },
+          { header: "Device", cell: (s) => (s.lunch ? <Name name="Automatic" sub="From the shift's lunch break" /> : <Name name={SOURCE[s.punch.source]} sub={s.punch.device + whereText(s.punch.location)} />) },
           { header: "Face match", cell: (s) => (s.punch.match !== undefined ? <span className={s.punch.match < FACE_MATCH_THRESHOLD ? "font-semibold text-critical" : ""}>{s.punch.match}%</span> : "—") },
           {
             header: "Status",

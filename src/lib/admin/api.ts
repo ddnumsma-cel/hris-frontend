@@ -183,7 +183,7 @@ export async function saveWorkflow(input: Workflow, actor: string) {
 }
 
 function approverName(step: Workflow["steps"][number]) {
-  if (step.approver === "supervisor") return "Their supervisor";
+  if (step.approver === "supervisor") return "Their manager or supervisor";
   if (step.approver === "department-head") return "Department head";
   return admin.roles.find((r) => r.id === step.roleId)?.name ?? "A role";
 }
@@ -204,7 +204,9 @@ export function approvalPath(kind: RequestKind, employeeId: string, days = 0): {
     .map((s) => {
       if (s.approver === "supervisor") {
         const sup = core.employees.find((x) => x.id === e.job.supervisorId);
-        return { step: "Supervisor", who: sup ? fullName(sup.personal) : "No supervisor set: goes to HR" };
+        // Only a supervisor with an active Approver login can decide; otherwise the Super Admin does.
+        const canApprove = !!sup && admin.accounts.some((a) => a.employeeId === sup.id && a.roleId === "approver" && a.status === "active");
+        return { step: "Manager or supervisor", who: !sup ? "No supervisor set: Super Admin decides" : canApprove ? fullName(sup.personal) : `${fullName(sup.personal)} has no Approver login: Super Admin decides` };
       }
       if (s.approver === "department-head") {
         const unitOf = (id: string) => core.units.find((u) => u.id === id);

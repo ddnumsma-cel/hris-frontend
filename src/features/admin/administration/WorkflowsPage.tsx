@@ -11,7 +11,7 @@ import { inputClass, useActor } from "../corehr/format";
 import { ErrorNote, Field, LoadError } from "../corehr/ui";
 import { Name, SimpleTable, type Col } from "../timekeeping/common";
 
-const APPROVER: Record<ApproverKind, string> = { supervisor: "Their supervisor", "department-head": "Department head", role: "Anyone with a role…" };
+const APPROVER: Record<ApproverKind, string> = { supervisor: "Their manager or supervisor", "department-head": "Department head", role: "Anyone with a role…" };
 
 function WorkflowDialog({ initial, onClose }: { initial: Workflow; onClose: () => void }) {
   const toast = useToast();
