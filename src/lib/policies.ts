@@ -4,6 +4,7 @@
 
 import { fullName, state as core } from "./corehr/store";
 import { getFile } from "./fileStore";
+import { notifyEmployee } from "./outbox";
 
 export const POLICY_CATEGORIES = ["Employee handbook", "Code of conduct", "Attendance & time", "Leave", "Pay & benefits", "Data privacy", "Health & safety", "Other"] as const;
 export type PolicyCategory = (typeof POLICY_CATEGORIES)[number];
@@ -118,6 +119,7 @@ export async function setPolicyStatus(id: string, status: Policy["status"], acto
   const p = saved.policies.find((x) => x.id === id);
   if (!p) return fail("That policy no longer exists");
   persist({ ...saved, policies: saved.policies.map((x) => (x.id === id ? { ...x, status, updatedBy: actor, updatedAt: new Date().toISOString() } : x)) });
+  if (status === "published" && p.status !== "published") for (const e of current()) notifyEmployee(e.id, "policy", `New company policy: ${p.title}`, `${p.title} is published${p.requireAck ? " and needs your confirmation that you've read it" : ""}. Read it on heyhr under Company policies.`);
   return respond(undefined);
 }
 

@@ -36,6 +36,7 @@ const LeaveOverviewPage = lazy(() => import("@/features/admin/leave/LeaveOvervie
 const LeaveRequestsPage = lazy(() => import("@/features/admin/leave/LeaveRequestsPage").then((m) => ({ default: m.LeaveRequestsPage })));
 const BalancesPage = lazy(() => import("@/features/admin/leave/BalancesPage").then((m) => ({ default: m.BalancesPage })));
 const LeaveTypesPage = lazy(() => import("@/features/admin/leave/LeaveTypesPage").then((m) => ({ default: m.LeaveTypesPage })));
+const LeaveReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.LeaveReportsPage })));
 const HrReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.HrReportsPage })));
 const AttendanceReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.AttendanceReportsPage })));
 const LoansPage = lazy(() => import("@/features/admin/payroll/LoansPage").then((m) => ({ default: m.LoansPage })));
@@ -51,11 +52,13 @@ const PayrollReportsPage = lazy(() => import("@/features/admin/reports/ReportPag
 const StatutoryReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.StatutoryReportsPage })));
 const ManagementReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.ManagementReportsPage })));
 const UsersPage = lazy(() => import("@/features/admin/administration/UsersPage").then((m) => ({ default: m.UsersPage })));
+const OutboxPage = lazy(() => import("@/features/admin/administration/OutboxPage").then((m) => ({ default: m.OutboxPage })));
 const SubscriptionPage = lazy(() => import("@/features/admin/administration/SubscriptionPage").then((m) => ({ default: m.SubscriptionPage })));
 const RolesPage = lazy(() => import("@/features/admin/administration/RolesPage").then((m) => ({ default: m.RolesPage })));
 const AuditTrailPage = lazy(() => import("@/features/admin/administration/AuditTrailPage").then((m) => ({ default: m.AuditTrailPage })));
 const SystemSettingsPage = lazy(() => import("@/features/admin/administration/SystemSettingsPage").then((m) => ({ default: m.SystemSettingsPage })));
 const RemoteDaysPage = lazy(() => import("@/features/admin/timekeeping/RemoteDaysPage").then((m) => ({ default: m.RemoteDaysPage })));
+const HolidayCalendarPage = lazy(() => import("@/features/admin/timekeeping/HolidayCalendarPage").then((m) => ({ default: m.HolidayCalendarPage })));
 const CorrectionsPage = lazy(() => import("@/features/admin/timekeeping/CorrectionsPage").then((m) => ({ default: m.CorrectionsPage })));
 const OrgChartPage = lazy(() => import("@/features/admin/corehr/OrgChartPage").then((m) => ({ default: m.OrgChartPage })));
 const TardinessPage = lazy(() => import("@/features/admin/timekeeping/TardinessPage").then((m) => ({ default: m.TardinessPage })));
@@ -272,6 +275,7 @@ function App() {
               <Route path="timekeeping/shifts" element={<ShiftsPage />} />
               <Route path="timekeeping/schedules" element={<SchedulesPage />} />
               <Route path="timekeeping/remote" element={<RemoteDaysPage />} />
+              <Route path="timekeeping/holidays" element={<HolidayCalendarPage />} />
 
               {/* Requests: every request type (reimbursements today) */}
               <Route path="requests" element={<RequestsPage />} />
@@ -286,6 +290,7 @@ function App() {
               <Route path="reports/tardiness" element={<TardinessPage />} />
               <Route path="reports/dashboard" element={<Navigate to="/admin/reports/hr" replace />} />
               <Route path="reports/hr" element={<HrReportsPage />} />
+              <Route path="reports/leave" element={<LeaveReportsPage />} />
               <Route path="reports/attendance" element={<AttendanceReportsPage />} />
               <Route path="reports/payroll" element={<PayrollReportsPage />} />
               <Route path="reports/statutory" element={<StatutoryReportsPage />} />
@@ -312,6 +317,7 @@ function App() {
               <Route path="administration/audit" element={<AuditTrailPage />} />
               <Route path="administration/settings" element={<SystemSettingsPage />} />
               <Route path="administration/subscription" element={<SubscriptionPage />} />
+              <Route path="administration/outbox" element={<OutboxPage />} />
               <Route path="directory" element={<DirectoryRedirect />} />
 
               {/* Old addresses, kept so links and bookmarks still work */}

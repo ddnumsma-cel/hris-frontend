@@ -2,11 +2,13 @@
 
 import { fullName, initialsOf, newId, state as core } from "../corehr/store";
 import { addDays, computeDay, longRuns, weekday } from "./compute";
-import { HISTORY_DAYS, HOLIDAYS, branchOf, departmentOf, isOnLeave, leaveSpans, punchesFor, remoteDayFor, save, schedulingRules, shiftFor, tardinessRule, tk, todayIso, type LeaveSpan } from "./store";
+import { HISTORY_DAYS, branchOf, departmentOf, isOnLeave, leaveSpans, punchesFor, remoteDayFor, save, schedulingRules, shiftFor, tardinessRule, tk, todayIso, type LeaveSpan } from "./store";
+import { holidayOn } from "../holidays";
 import type { AttendanceNotice, DayResult, RemoteDay, FixCause, FixRequest, Punch, ShiftTemplate, TardinessRule, TimeRequest } from "./types";
 import { awolDates } from "../pay/engine";
 import { can, canFor, visible } from "../permissions";
 import { deny, forbidden, sessionWho } from "../session";
+import { managerOf, nameOf, notifyEmployee } from "../outbox";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -61,7 +63,7 @@ export interface DayRow extends DayResult {
 
 function day(p: TkPerson, date: string): DayRow {
   const sched = shiftFor(p.id, date);
-  const holiday = HOLIDAYS.find((h) => h.date === date);
+  const holiday = holidayOn(date, p.branch);
   const kind = isOnLeave(p.id, date) ? "leave" : holiday && sched.kind === "work" ? "holiday" : sched.kind;
   const req = tk.requests.filter((r) => r.employeeId === p.id && r.date === date && r.status === "approved");
   return {
@@ -279,7 +281,7 @@ export function getRoster(weekStart: string): Promise<RosterRow[]> {
     people().map((p) => {
       const cells = week.map((date): RosterCell => {
         const s = shiftFor(p.id, date);
-        const holiday = HOLIDAYS.find((h) => h.date === date);
+        const holiday = holidayOn(date, p.branch);
         if (isOnLeave(p.id, date)) return { date, kind: "leave", label: "On leave", changed: false };
         if (holiday && s.kind === "work") return { date, kind: "holiday", shiftId: s.shift?.id, label: holiday.name, changed: s.override };
         return { date, kind: s.kind, shiftId: s.kind === "work" ? s.shift?.id : undefined, label: s.kind === "work" ? s.shift!.name : s.kind === "rest" ? "Rest day" : "No shift", changed: s.override };
@@ -523,6 +525,7 @@ export async function setWorkFromHome(employeeId: string, on: boolean, actor = "
   const at = new Date().toISOString();
   const voided = on ? tk.voided : { ...tk.voided, ...Object.fromEntries(today.map((p) => [p.id, { reason: "Switched back to an office day", by: actor, at }])) };
   save({ ...tk, voided, wfh: on ? [...rest, { id: newId("wfh"), employeeId, date, declaredAt: at }] : rest });
+  if (on) notifyEmployee(managerOf(employeeId), "wfh", `${nameOf(employeeId)} is working from home today`, `${nameOf(employeeId)} switched ${date} to a work-from-home day and clocks in with a face scan. You can see their times in Team Attendance.`);
   return respond(undefined);
 }
 

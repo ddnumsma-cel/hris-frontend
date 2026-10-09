@@ -12,6 +12,7 @@ import type { EventKind } from "@/lib/corehr/types";
 import { useCan } from "@/lib/useCan";
 import { DocumentChecklist } from "./DocumentChecklist";
 import { EditSectionDialog } from "./EditSectionDialog";
+import { SeparationDialog, useCancelSeparation } from "./SeparationDialog";
 import { formatDate, inputClass, keys, mask, statusTone, tenure, useActor, type Tone } from "./format";
 import { StatusText } from "./SplitView";
 import { ErrorNote, Field, Initials, LoadError, Pill } from "./ui";
@@ -160,6 +161,8 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
   const [editing, setEditing] = useState<EditableSection | null>(null);
   const [reportsTo, setReportsToOpen] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const [separating, setSeparating] = useState(false);
+  const undoSeparation = useCancelSeparation(employeeId, recordQuery.data?.summary.name ?? "");
 
   const reveal = useMutation({
     mutationFn: () => logGovernmentReveal(employeeId, actor),
@@ -242,6 +245,27 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
             </dd>
           </div>
         </dl>
+
+        {(e.job.separationDate || (canEdit && !separated)) && (
+          <div className="flex flex-col gap-1.5 border-t border-border pt-4 text-sm">
+            {e.job.separationDate ? (
+              <>
+                <p className={separated ? "text-critical" : "text-warning"}>
+                  {separated ? "Separated" : "Leaving"} · last day {formatDate(e.job.separationDate)}
+                </p>
+                {canEdit && (
+                  <button type="button" disabled={undoSeparation.isPending} onClick={() => window.confirm(`Cancel the separation of ${s.name}?`) && undoSeparation.mutate()} className="self-start text-xs font-medium text-brand hover:underline">
+                    Cancel separation
+                  </button>
+                )}
+              </>
+            ) : (
+              <button type="button" onClick={() => setSeparating(true)} className="self-start text-xs font-medium text-critical hover:underline">
+                Record separation
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5 border-t border-border pt-4 text-sm">
           {c.workEmail && (
@@ -480,6 +504,7 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
       </div>
 
       {editing && <EditSectionDialog employee={e} section={editing} onClose={() => setEditing(null)} />}
+      {separating && <SeparationDialog employeeId={e.id} name={s.name} onClose={() => setSeparating(false)} />}
       {reportsTo && <ReportsToDialog record={record} onClose={() => setReportsToOpen(false)} />}
     </div>
   );

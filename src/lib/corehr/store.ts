@@ -272,7 +272,14 @@ function withSampleBanks(s: CoreHrState): CoreHrState {
   return next;
 }
 
-export let state: CoreHrState = withSampleBanks(load());
+/** Someone whose last day has passed becomes separated (HR recorded it ahead of time). */
+function withSeparationsDue(s: CoreHrState): CoreHrState {
+  const today = isoDate();
+  if (!s.employees.some((e) => e.job.separationDate && e.job.separationDate < today && e.job.status !== "Separated")) return s;
+  return { ...s, employees: s.employees.map((e) => (e.job.separationDate && e.job.separationDate < today && e.job.status !== "Separated" ? { ...e, job: { ...e.job, status: "Separated" as const } } : e)) };
+}
+
+export let state: CoreHrState = withSeparationsDue(withSampleBanks(load()));
 
 export function commit(next: CoreHrState) {
   state = next;

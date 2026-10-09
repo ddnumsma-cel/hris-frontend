@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
 import { GoogleButton } from "@/components/ui/GoogleButton";
+import { isGoogleConfigured, signInWithGoogle } from "@/lib/googleAuth";
 import { useToast } from "@/components/ui/ToastContext";
 import { ArrowRightIcon, CheckIcon, ChevronDownIcon, LoaderIcon, XIcon } from "@/components/icons";
 import { registerEmployee } from "@/lib/api";
@@ -15,10 +16,8 @@ const inputClass =
 const labelClass = "mb-1.5 block text-xs font-medium text-ink";
 const errorClass = "mt-1 text-xs font-medium text-critical";
 
-// Demo-only stand-ins for a Google account chooser — this prototype has no
-// real OAuth client/backend to exchange tokens with, so "Continue with
-// Google" simulates the identity handoff (picking a name/email) rather than
-// performing a real sign-in.
+// "Continue with Google" uses the real Google account chooser when a Client ID is set up
+// (lib/googleAuth.ts). Without one, these demo accounts stand in so the form still works.
 const demoGoogleAccounts = [
   { name: "Miguel Torres", email: "miguel.torres@gmail.com" },
   { name: "Sofia Reyes", email: "sofia.reyes@gmail.com" },
@@ -75,12 +74,19 @@ export function RegisterDialog({ open, onClose }: { open: boolean; onClose: () =
     return () => document.removeEventListener("keydown", onKeyDown);
   });
 
-  function connectGoogle() {
-    setGoogleConnecting(true);
-    setTimeout(() => {
-      setGoogleConnecting(false);
+  async function connectGoogle() {
+    if (!isGoogleConfigured()) {
       setGooglePickerOpen(true);
-    }, 700);
+      return;
+    }
+    setGoogleConnecting(true);
+    try {
+      chooseGoogleAccount(await signInWithGoogle());
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : "Google sign-in didn't finish", "critical");
+    } finally {
+      setGoogleConnecting(false);
+    }
   }
 
   function chooseGoogleAccount(account: { name: string; email: string }) {
@@ -165,7 +171,7 @@ export function RegisterDialog({ open, onClose }: { open: boolean; onClose: () =
 
                   {googlePickerOpen && (
                     <div className="panel-enter rounded-lg border border-border bg-surface-2 p-1.5">
-                      <div className="px-2 py-1 text-xs font-semibold text-ink-2">Choose an account</div>
+                      <div className="px-2 py-1 text-xs font-semibold text-ink-2">Choose an account (demo: Google sign-in isn't set up yet)</div>
                       {demoGoogleAccounts.map((acc) => (
                         <button
                           key={acc.email}

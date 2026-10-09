@@ -258,7 +258,7 @@ async function monthPayroll(period: Period, office: string) {
 
 // ---- Report definitions ----
 
-export type Category = "hr" | "attendance" | "payroll" | "statutory" | "management";
+export type Category = "hr" | "leave" | "attendance" | "payroll" | "statutory" | "management";
 export type ColumnKind = "text" | "number" | "money" | "percent";
 
 export interface ReportColumn {
@@ -362,7 +362,7 @@ const ALL_REPORTS: ReportDef[] = [
   },
   {
     id: "leave-taken",
-    category: "hr",
+    category: "leave",
     name: "Leave taken",
     description: "Approved leave days per employee, by leave type.",
     period: "year",

@@ -5,7 +5,7 @@
 
 import { state as core } from "../corehr/store";
 import { addDays, at, defaultBreakStart, isOvernight, toIsoDate, weekday } from "./compute";
-import { HOLIDAYS } from "../holidays";
+import { HOLIDAYS, holidayOn } from "../holidays";
 import { approvedLeaveSpans } from "../leave/store";
 import type { AttendanceNotice, Punch, RemoteDay, ShiftTemplate, TardinessRule, TimeAudit, FixRequest, TimeRequest } from "./types";
 
@@ -150,6 +150,12 @@ export function save(next: TimekeepingState) {
 
 // ---- Who's where ----
 
+/** The office an employee works in, for office-only holidays. */
+export const branchOfEmployee = (employeeId: string) => {
+  const e = core.employees.find((x) => x.id === employeeId);
+  return e ? branchOf(e.job.unitId) : undefined;
+};
+
 export function branchOf(unitId: string) {
   let u = core.units.find((x) => x.id === unitId);
   while (u && u.type !== "branch") u = core.units.find((x) => x.id === u!.parentId);
@@ -247,7 +253,7 @@ function devicePunchesFor(employeeId: string, date: string): Punch[] {
   }
 
   const { kind, shift } = shiftFor(employeeId, date);
-  if (kind !== "work" || !shift || isOnLeave(employeeId, date) || HOLIDAYS.some((h) => h.date === date)) return [];
+  if (kind !== "work" || !shift || isOnLeave(employeeId, date) || holidayOn(date, branchOfEmployee(employeeId))) return [];
 
   const start = at(date, shift.start);
   let end = at(date, shift.end);

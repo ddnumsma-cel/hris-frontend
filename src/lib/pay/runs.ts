@@ -11,6 +11,7 @@ import { canFor, scopeFor } from "../permissions";
 import { claims, claimType, saveClaims } from "../reimbursements/store";
 import { allLoans, claimAdjustmentId, loanAdjustmentId } from "./loanStore";
 import { deny, forbidden, sessionWho } from "../session";
+import { notifyEmployee } from "../outbox";
 
 export interface PayrollRun {
   id: string;
@@ -210,6 +211,7 @@ export async function approveRun(id: string, actor: string): Promise<PayrollRun>
   replace(next);
   // Reimbursements in this run are now paid, with this payroll.
   const paid = new Set(Object.values(auto).flat().filter((a) => a.id.startsWith("claim-")).map((a) => a.id.slice("claim-".length)));
+  for (const l of lines) notifyEmployee(l.person.id, "payslip", `Your payslip for ${r.label} is ready`, `Your payslip for ${r.label} is released. Take-home pay: ₱${l.net.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. See it on heyhr under Payslips.`, `heyhr: your payslip for ${r.label} is ready.`);
   if (paid.size) saveClaims(claims.map((c) => (paid.has(c.id) ? { ...c, paidAt: now, paidBy: actor, payoutMethod: "payroll" as const, payoutRef: r.label } : c)));
   const total = lines.reduce((n, l) => n + l.net, 0);
   logAdmin({ actor, module: "Payroll", action: "Approved payroll run", target: r.label, detail: `${lines.length} employees · take-home ₱${total.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` });

@@ -17,7 +17,10 @@ import type {
   UnitType,
 } from "./types";
 import { can, visible } from "../permissions";
-import { deny, forbidden, sessionWho } from "../session";
+import { deny, employeeOfAccount, forbidden, sessionWho } from "../session";
+import { admin, saveAdmin } from "../admin/store";
+import { dropCase, ensureCase } from "../pay/finalPayStore";
+import { notifyEmployee } from "../outbox";
 
 const DELAY_MS = 300;
 function respond<T>(value: T): Promise<T> {
@@ -524,3 +527,79 @@ export function listEvents(employeeId: string): Promise<JobEvent[]> {
   );
 }
 
+
+// ---- Separation ----
+
+export const SEPARATION_REASONS = ["Resigned", "End of contract", "Retired", "Terminated", "Redundancy", "Death", "Other"] as const;
+
+/**
+ * HR records that someone is leaving: their last day and why. On or after the last day they're
+ * separated (off payroll and headcount, their login stops working); before it they're shown as
+ * leaving. Accounting gets a final pay case right away.
+ */
+export async function recordSeparation(id: string, input: { lastDay: string; reason: string; note: string }, actor: string): Promise<CoreEmployee> {
+  const denied = deny("people", "edit", id);
+  if (denied) return denied;
+  const e = employeeById(id);
+  if (!e) return fail("That employee no longer exists");
+  if (e.job.status === "Separated") return fail("This employee is already separated");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.lastDay)) return fail("Enter their last day");
+  if (input.lastDay < e.job.dateHired) return fail("The last day can't be before they were hired");
+  if (!SEPARATION_REASONS.includes(input.reason as (typeof SEPARATION_REASONS)[number])) return fail("Choose why they're leaving");
+  const today = isoDate();
+  const done = input.lastDay < today;
+  const updated: CoreEmployee = { ...e, job: { ...e.job, separationDate: input.lastDay, ...(done ? { status: "Separated" as const } : {}) } };
+  const event: JobEvent = {
+    id: newId("ev"),
+    employeeId: id,
+    kind: "Separation",
+    effectiveDate: input.lastDay,
+    changes: [
+      { label: "Reason", to: input.reason },
+      { label: "Last day", to: input.lastDay },
+    ],
+    remarks: input.note.trim() || undefined,
+    recordedBy: actor,
+    recordedAt: new Date().toISOString(),
+  };
+  commit({
+    ...state,
+    employees: state.employees.map((x) => (x.id === id ? updated : x)),
+    events: [event, ...state.events],
+    audit: [audit(id, actor, "Edited", "Employment", `Separation recorded: ${input.reason}, last day ${input.lastDay}`), ...state.audit],
+  });
+  closeAccountsIfGone(id);
+  ensureCase(id, input.lastDay, input.reason, actor);
+  notifyEmployee(updated.job.supervisorId, "separation", `${fullName(e.personal)} is leaving`, `HR recorded that ${fullName(e.personal)} is leaving (${input.reason}). Their last day is ${input.lastDay}.`);
+  return respond(updated);
+}
+
+/** Undo a separation recorded by mistake, or a resignation that was withdrawn. */
+export async function cancelSeparation(id: string, actor: string): Promise<CoreEmployee> {
+  const denied = deny("people", "edit", id);
+  if (denied) return denied;
+  const e = employeeById(id);
+  if (!e?.job.separationDate) return fail("There's no separation to cancel");
+  const { separationDate, ...job } = e.job;
+  const updated: CoreEmployee = { ...e, job: { ...job, status: e.job.status === "Separated" ? "Active" : e.job.status } };
+  commit({
+    ...state,
+    employees: state.employees.map((x) => (x.id === id ? updated : x)),
+    events: state.events.filter((ev) => !(ev.employeeId === id && ev.kind === "Separation" && ev.effectiveDate === separationDate)),
+    audit: [audit(id, actor, "Edited", "Employment", `Separation cancelled (last day was ${separationDate})`), ...state.audit],
+  });
+  dropCase(id);
+  return respond(updated);
+}
+
+/** Turns off the logins of someone whose last day has passed. */
+function closeAccountsIfGone(id: string) {
+  const e = employeeById(id);
+  if (!e?.job.separationDate || e.job.separationDate >= isoDate()) return;
+  // Linked in Users, the demo login's profile, or the same name.
+  const name = fullName(e.personal).toLowerCase();
+  const theirs = (a: (typeof admin.accounts)[number]) => a.employeeId === id || (!a.employeeId && (employeeOfAccount(a) === id || a.name.trim().toLowerCase() === name));
+  if (admin.accounts.some((a) => theirs(a) && a.status === "active")) {
+    saveAdmin({ ...admin, accounts: admin.accounts.map((a) => (theirs(a) ? { ...a, status: "disabled" as const } : a)) });
+  }
+}

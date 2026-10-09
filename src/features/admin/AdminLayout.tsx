@@ -5,6 +5,7 @@ import {
   CalendarIcon,
   AttendanceIcon,
   BuildingIcon,
+  FileIcon,
   FolderIcon,
   HomeIcon,
   MaintenanceIcon,
@@ -65,6 +66,7 @@ const GROUPS: SideNavGroup[] = [
           { label: "Shifts", to: "/admin/timekeeping/shifts" },
           { label: "Schedules", to: "/admin/timekeeping/schedules" },
           { label: "Remote work days", to: "/admin/timekeeping/remote" },
+          { label: "Holiday calendar", to: "/admin/timekeeping/holidays" },
         ],
       },
     ],
@@ -84,7 +86,6 @@ const GROUPS: SideNavGroup[] = [
           { label: "Final pay", to: "/admin/payroll/final-pay" },
           { label: "Payouts & journal", to: "/admin/payroll/payouts" },
           { label: "Year-end BIR forms", to: "/admin/payroll/year-end" },
-          { label: "Government reports", to: "/admin/reports/statutory" },
           { label: "Government contributions", to: "/admin/payroll/contributions" },
         ],
       },
@@ -105,20 +106,47 @@ const GROUPS: SideNavGroup[] = [
   {
     title: "Reports",
     short: "Reports",
+    // Grouped like Xeleqt: forms, presence, requests, payroll, others.
     items: [
       {
-        label: "Reports",
-        to: "/admin/reports",
-        icon: <ReportsIcon />,
+        label: "Forms",
+        to: "/admin/reports/statutory",
+        icon: <FileIcon />,
+        children: [{ label: "BIR & government forms", to: "/admin/reports/statutory" }],
+      },
+      {
+        label: "Presence",
+        to: "/admin/reports/attendance-logs",
+        icon: <AttendanceIcon />,
         children: [
           { label: "Attendance logs", to: "/admin/reports/attendance-logs" },
+          { label: "Attendance summary", to: "/admin/reports/attendance" },
+          { label: "Tardiness", to: "/admin/reports/tardiness" },
+        ],
+      },
+      {
+        label: "Requests",
+        to: "/admin/reports/leave",
+        icon: <ReceiptIcon />,
+        children: [
+          { label: "Leave", to: "/admin/reports/leave" },
           { label: "Overtime", to: "/admin/reports/overtime" },
           { label: "Undertime", to: "/admin/reports/undertime" },
           { label: "Time adjustments", to: "/admin/reports/time-adjustments" },
-          { label: "Tardiness", to: "/admin/reports/tardiness" },
+        ],
+      },
+      {
+        label: "Payroll",
+        to: "/admin/reports/payroll",
+        icon: <PayrollIcon />,
+        children: [{ label: "Payroll report", to: "/admin/reports/payroll" }],
+      },
+      {
+        label: "Others",
+        to: "/admin/reports/hr",
+        icon: <ReportsIcon />,
+        children: [
           { label: "HR reports", to: "/admin/reports/hr" },
-          { label: "Attendance", to: "/admin/reports/attendance" },
-          { label: "Payroll report", to: "/admin/reports/payroll" },
           { label: "Management", to: "/admin/reports/management" },
         ],
       },
@@ -150,6 +178,7 @@ const GROUPS: SideNavGroup[] = [
           { label: "Roles & access", to: "/admin/administration/roles" },
           { label: "Audit trail", to: "/admin/administration/audit" },
           { label: "System settings", to: "/admin/administration/settings" },
+          { label: "Email & text outbox", to: "/admin/administration/outbox" },
           { label: "Subscription & seats", to: "/admin/administration/subscription" },
         ],
       },
@@ -228,7 +257,10 @@ function auditUnderReports(groups: SideNavGroup[]): SideNavGroup[] {
   const rest = groups.filter((g) => g !== system);
   const reports = rest.find((g) => g.title === "Reports");
   if (!reports) return [...rest, { title: "Reports", short: "Reports", items: [{ label: "Audit trail", to: AUDIT, icon: <ReportsIcon /> }] }];
-  return rest.map((g) => (g === reports ? { ...g, items: g.items.map((i, n) => (n === 0 && i.children ? { ...i, children: [...i.children, audit] } : i)) } : g));
+  // Under "Others"; when the role sees none of those reports, as its own "Others" entry.
+  const others = reports.items.find((i) => i.label === "Others");
+  const items = others ? reports.items.map((i) => (i === others ? { ...i, children: [...(i.children ?? []), audit] } : i)) : [...reports.items, { label: "Others", to: AUDIT, icon: <ReportsIcon />, children: [audit] }];
+  return rest.map((g) => (g === reports ? { ...g, items } : g));
 }
 
 export function AdminLayout() {

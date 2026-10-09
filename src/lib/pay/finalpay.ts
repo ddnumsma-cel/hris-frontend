@@ -11,6 +11,7 @@ import { round2, THIRTEENTH_MONTH_EXEMPT } from "../reports/statutory";
 import { claims, claimType, saveClaims } from "../reimbursements/store";
 import { deny } from "../session";
 import { outstandingLoans, settleLoans } from "./loans";
+import { loadCases, saveCases, type FinalPayCase, type FinalPayItem } from "./finalPayStore";
 import { approvedRuns } from "./runs";
 import { annualTax, cutoffsOf, yearToDate } from "./yearend";
 
@@ -23,41 +24,10 @@ const money = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDi
 const DE_MINIMIS_LEAVE_DAYS = 10;
 const WORKING_DAYS_PER_YEAR = 261;
 
-export interface FinalPayItem {
-  label: string;
-  detail: string;
-  amount: number;
-}
+export type { FinalPayCase, FinalPayItem };
 
-export interface FinalPayCase {
-  id: string;
-  employeeId: string;
-  lastDay: string;
-  reason: string;
-  openedBy: string;
-  openedAt: string;
-  /** Set when released: the figures are frozen as they were then. */
-  released?: { at: string; by: string; reference: string; items: FinalPayItem[]; total: number };
-}
-
-const KEY = "heyhr-final-pay-v1";
-
-function load(): FinalPayCase[] {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw) as FinalPayCase[];
-  } catch {
-    // Blocked or corrupt storage: start empty.
-  }
-  return [];
-}
-function save(next: FinalPayCase[]) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(next));
-  } catch {
-    // Not kept after a reload.
-  }
-}
+const load = loadCases;
+const save = saveCases;
 
 const person = (id: string) => core.employees.find((e) => e.id === id);
 

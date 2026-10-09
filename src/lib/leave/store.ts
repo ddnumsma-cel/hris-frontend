@@ -59,7 +59,8 @@ export function addDays(date: string, n: number) {
 }
 
 const weekday = (date: string) => new Date(`${date}T12:00:00`).getDay();
-const isHoliday = (date: string) => HOLIDAYS.some((h) => h.date === date);
+// Leave days are counted for the whole company, so only holidays every office has are skipped.
+const isHoliday = (date: string) => HOLIDAYS.some((h) => h.date === date && !h.offices?.length);
 /** A working day per Settings > Organization (Monday–Friday unless changed). */
 const isWorkday = (date: string) => (admin.settings.workWeek ?? [1, 2, 3, 4, 5]).includes(weekday(date));
 

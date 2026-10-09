@@ -5,7 +5,7 @@ import { findCredential, getCredentials } from "../credentials";
 import type { Role } from "../types";
 import { fullName, state as core } from "../corehr/store";
 import { can } from "../permissions";
-import { whoFor } from "../session";
+import { employeeOfAccount, whoFor } from "../session";
 import { admin, logAdmin, roleOf, saveAdmin, type Access, type ModuleKey, type UserAccount } from "./store";
 
 export type SignInResult = { ok: true; workspace: Role; account: UserAccount } | { ok: false; error: string };
@@ -39,6 +39,10 @@ export function signIn(username: string, password: string): SignInResult {
     return fail(lock ? `Too many wrong passwords. Your account is locked for ${admin.settings.lockMinutes} minutes.` : "Incorrect username or password.", lock ? `Wrong password; locked after ${failed} tries` : `Wrong password (${failed} of ${admin.settings.lockAfterFailed})`);
   }
   if (account.status === "disabled") return fail("This account has been turned off. Please contact HR.", "Account turned off");
+  // Someone whose last day has passed can't sign in, even if their account wasn't turned off yet.
+  const who = account.employeeId ?? employeeOfAccount(account) ?? core.employees.find((e) => fullName(e.personal).toLowerCase() === account.name.trim().toLowerCase())?.id;
+  const gone = core.employees.find((e) => e.id === who && e.job.separationDate && e.job.separationDate < now.toISOString().slice(0, 10));
+  if (gone) return fail(`Your employment ended on ${gone.job.separationDate}, so this account is closed.`, "Employment ended");
   const role = roleOf(account);
   if (!role) return fail("This account has no role yet. Please contact HR.", "No role");
   update(account.id, { failedAttempts: 0, lockedUntil: undefined, lastSignIn: now.toISOString() });

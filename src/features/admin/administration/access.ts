@@ -25,12 +25,12 @@ export function featureForPath(pathname: string): Feature | null {
       if (sub === "leave") return third === "types" ? "leaveTypes" : third === "balances" ? "leaveBalances" : "leave";
       return null;
     }
-    if (seg === "timekeeping") return sub === "remote" ? "remoteDays" : sub === "shifts" || sub === "schedules" ? "attendanceSettings" : null;
+    if (seg === "timekeeping") return sub === "remote" ? "remoteDays" : sub === "shifts" || sub === "schedules" || sub === "holidays" ? "attendanceSettings" : null;
     if (seg === "payroll") return sub === "contributions" ? "contributions" : ["runs", "pay-details", "loans", "final-pay", "payouts", "year-end"].includes(sub) ? "payrollRuns" : null;
     if (seg === "reports") {
       if (sub === "payroll" || sub === "statutory") return "payrollReports";
       if (ATTENDANCE_REPORTS.includes(sub)) return "attendanceRecords";
-      if (sub === "hr" || sub === "attendance" || sub === "management") return "analytics";
+      if (sub === "hr" || sub === "leave" || sub === "attendance" || sub === "management") return "analytics";
       return null;
     }
     if (seg === "requests") return (REQUEST_TYPES.find((t) => t.id === sub) ?? REQUEST_TYPES[0])!.feature;
@@ -38,7 +38,7 @@ export function featureForPath(pathname: string): Feature | null {
     if (seg === "administration") {
       if (sub === "users" || sub === "roles") return "roleAssignment";
       if (sub === "audit") return "audit";
-      if (sub === "settings") return "systemSettings";
+      if (sub === "settings" || sub === "outbox") return "systemSettings";
       if (sub === "subscription") return "subscription";
     }
     return null;

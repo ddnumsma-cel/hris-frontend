@@ -15,7 +15,8 @@ import { Choice, SearchBox, SimpleTable, Toolbar, type Col } from "../timekeepin
 import { formatValue } from "./format";
 
 const COPY: Record<Category, { title: string; subtitle: string }> = {
-  hr: { title: "HR reports", subtitle: "Employee lists, headcount, movements and leave. Download or print any report." },
+  hr: { title: "HR reports", subtitle: "Employee lists, headcount and movements. Download or print any report." },
+  leave: { title: "Leave report", subtitle: "Leave taken by each employee, by leave type." },
   attendance: { title: "Attendance reports", subtitle: "Attendance, lates and overtime, from the time logs." },
   payroll: { title: "Payroll reports", subtitle: "Pay per cut-off, worked out from salaries and attendance." },
   statutory: { title: "Government reports", subtitle: "SSS, PhilHealth, Pag-IBIG, BIR tax and 13th month, ready for remittance." },
@@ -121,6 +122,7 @@ export function ReportPage({ category }: { category: Category }) {
 }
 
 export const HrReportsPage = () => <ReportPage category="hr" />;
+export const LeaveReportsPage = () => <ReportPage category="leave" />;
 export const AttendanceReportsPage = () => <ReportPage category="attendance" />;
 export const PayrollReportsPage = () => <ReportPage category="payroll" />;
 export const StatutoryReportsPage = () => <ReportPage category="statutory" />;

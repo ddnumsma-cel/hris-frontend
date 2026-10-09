@@ -6,6 +6,7 @@ import { addDays, balanceFor, countDays, CREDITS_ADJUSTMENT, creditsFor, isoToda
 import type { Balance, LeaveRequest, LeaveType } from "./types";
 import { can, canFor, visible } from "../permissions";
 import { deny, forbidden, sessionWho } from "../session";
+import { managerOf, nameOf, notifyEmployee } from "../outbox";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -114,7 +115,7 @@ export function previewRequest(input: FileInput, ignoreId?: string): Preview {
   const halfDay = input.start === input.end && leavePolicy().allowHalfDays ? input.halfDay : undefined;
   const days = countDays(input.start, input.end, type.countBy, halfDay);
   if (days === 0) errors.push("Those dates are all weekends or holidays, so no leave is needed");
-  const holidays = HOLIDAYS.filter((h) => h.date >= input.start && h.date <= input.end);
+  const holidays = HOLIDAYS.filter((h) => h.date >= input.start && h.date <= input.end && !h.offices?.length);
   if (holidays.length && type.countBy === "workdays") notes.push(`${holidays.map((h) => h.name).join(", ")} ${holidays.length === 1 ? "is a holiday" : "are holidays"}, not counted.`);
   if (!input.employeeId) return { days, errors, notes };
   const balance = balanceFor(input.employeeId, type);
@@ -157,6 +158,10 @@ export async function fileLeave(input: FileInput, actor: string, approveNow = fa
     ...(approveNow ? { decidedBy: actor, decidedAt: now } : {}),
   };
   saveLeave({ ...leave, requests: [req, ...leave.requests] });
+  if (req.status === "pending") {
+    const typeName = leave.types.find((t) => t.id === req.typeId)?.name ?? "Leave";
+    notifyEmployee(managerOf(req.employeeId), "leaveSubmitted", `Leave request from ${nameOf(req.employeeId)}`, `${nameOf(req.employeeId)} filed ${typeName}, ${req.start} to ${req.end} (${req.days} ${req.days === 1 ? "day" : "days"}). Approve or decline it on heyhr under Approvals.`);
+  }
   return respond(req);
 }
 
@@ -176,6 +181,9 @@ export async function decideRequest(id: string, approve: boolean, note: string, 
   }
   const next: LeaveRequest = { ...r, status: approve ? "approved" : "rejected", decidedBy: actor, decidedAt: new Date().toISOString(), note: note.trim() || undefined };
   saveLeave({ ...leave, requests: leave.requests.map((x) => (x.id === id ? next : x)) });
+  const typeName = leave.types.find((t) => t.id === next.typeId)?.name ?? "leave";
+  const verdict = next.status === "approved" ? "approved" : "declined";
+  notifyEmployee(next.employeeId, "leaveDecided", `Your ${typeName} was ${verdict}`, `Your ${typeName}, ${next.start} to ${next.end}, was ${verdict} by ${actor}.${next.note ? ` Note: ${next.note}` : ""}`, `heyhr: your ${typeName} (${next.start}) was ${verdict}.`);
   return respond(next);
 }
 
