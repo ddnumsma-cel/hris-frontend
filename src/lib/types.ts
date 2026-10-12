@@ -65,7 +65,7 @@ export interface AttendancePoint {
 }
 
 export interface OfficeHeadcount {
-  office: "Cebu HQ" | "Manila" | "Davao";
+  office: string;
   count: number;
 }
 
@@ -84,7 +84,7 @@ export interface ComplianceItem {
 }
 
 export interface OnboardingStage {
-  stage: "Offer accepted" | "Documents submitted" | "Day 1 setup";
+  stage: string;
   count: number;
 }
 
@@ -92,7 +92,10 @@ export interface AdminOverviewStats {
   totalHeadcount: number;
   newHiresThisMonth: number;
   attritionRateYtd: number;
-  openPositions: { audit: number; tax: number; legal: number };
+  separationsYtd: number;
+  openPositions: { total: number; byDepartment: { name: string; count: number }[] };
+  onLeaveToday: number;
+  /** Monthly salaries of everyone employed now. */
   payrollRunTotal: number;
   payrollCutoffLabel: string;
 }

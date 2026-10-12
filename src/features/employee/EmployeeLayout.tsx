@@ -4,6 +4,7 @@ import { NoAccess } from "@/components/layout/NoAccess";
 import { filterNav, useCreateAllowed, usePageAllowed } from "@/features/admin/administration/access";
 import { RolePage } from "@/components/layout/RolePage";
 import { AppNav } from "@/components/layout/AppNav";
+import { BottomTabs } from "@/components/layout/BottomTabs";
 import { SideNav, type CreateGroup, type SideNavGroup } from "@/components/layout/SideNav";
 import {
   CalendarIcon,
@@ -20,11 +21,11 @@ import {
 
 const GROUPS: SideNavGroup[] = [
   {
-    title: "My workspace",
+    title: "Workspace",
     items: [
       { label: "Home", to: "/employee", end: true, icon: <HomeIcon /> },
-      { label: "My leave", short: "Leave", to: "/employee/leave", icon: <CalendarIcon /> },
-      { label: "My attendance", short: "Attendance", to: "/employee/attendance", icon: <AttendanceIcon /> },
+      { label: "Leave", to: "/employee/leave", icon: <CalendarIcon /> },
+      { label: "Attendance", to: "/employee/attendance", icon: <AttendanceIcon /> },
       { label: "Payslips", to: "/employee/payslips", icon: <PayrollIcon /> },
       { label: "201 File", to: "/employee/201-file", icon: <FolderIcon /> },
       { label: "Trainings", to: "/employee/trainings", icon: <GraduationCapIcon /> },
@@ -36,6 +37,7 @@ const GROUPS: SideNavGroup[] = [
     short: "Requests",
     icon: <FileIcon />,
     items: [
+      { label: "All requests", short: "Requests", to: "/employee/requests", icon: <CheckSquareIcon /> },
       { label: "Certificates", to: "/employee/certificates", icon: <FileIcon /> },
       { label: "Reimbursements", to: "/employee/reimbursements", icon: <ReceiptIcon /> },
       { label: "HMO & Benefits", to: "/employee/benefits", icon: <UsersIcon /> },
@@ -61,7 +63,7 @@ const CREATE: CreateGroup[] = [
     ],
   },
   {
-    title: "My records",
+    title: "Records",
     items: [
       { label: "Update my details", to: "/employee/201-file?create=details" },
       { label: "Add benefit or dependent", to: "/employee/benefits?create=benefit" },
@@ -91,6 +93,14 @@ export function EmployeeLayout() {
           {/* Phones get the slide-in menu; desktop gets the sidebar style chosen in Menu settings. */}
           <SideNav groups={groups} desktop={false} />
           <AppNav groups={groups} create={create} />
+          <BottomTabs
+            tabs={[
+              { label: "Home", to: "/employee", end: true, icon: <HomeIcon /> },
+              { label: "Attendance", to: "/employee/attendance", icon: <AttendanceIcon /> },
+              { label: "Leave", to: "/employee/leave", icon: <CalendarIcon /> },
+              { label: "Payslips", to: "/employee/payslips", icon: <PayrollIcon /> },
+            ].filter((t) => allowed(t.to))}
+          />
         </>
       }
     >

@@ -4,7 +4,7 @@ import { Chip, type ChipVariant } from "@/components/ui/Chip";
 import { CheckCircleIcon, FileIcon } from "@/components/icons";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { AssetsPanel, Avatar, Bar, FacePanel, LicensePanel, RemoveAction, UploadAction } from "./parts";
-import { linkClass, shortDate, type File201 } from "./useFile201";
+import { linkClass, type File201 } from "./useFile201";
 
 type Tab = "documents" | "license" | "assets" | "face";
 
@@ -36,7 +36,6 @@ export function File201View({ f }: { f: File201 }) {
     { label: "Waiting for HR", count: f.docs.filter((d) => !d.needsAction && d.item.status === "Submitted").length, dot: "bg-ink-3" },
     { label: "Needs your action", count: actionDocs.length, dot: "bg-critical" },
   ];
-  const lastUpload = f.docs.map((d) => d.item.uploadedOn).filter(Boolean).sort().at(-1);
 
   return (
     <div className="flex flex-col items-start gap-6 lg:flex-row lg:items-stretch">
@@ -111,31 +110,6 @@ export function File201View({ f }: { f: File201 }) {
             ))}
           </ul>
 
-          <div className="flex flex-col gap-2 border-t border-border pt-4">
-            <h3 className="text-xs font-semibold text-ink-2">{actionDocs.length ? "To do" : "All set"}</h3>
-            {actionDocs.length ? (
-              <ul className="flex flex-col gap-2">
-                {actionDocs.map((r) => (
-                  <li key={r.item.id} className="flex items-center gap-3 rounded-xl bg-surface-2 px-3 py-2.5">
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-[0.8rem] font-medium">{r.item.type}</span>
-                      <span className={clsx("text-xs", r.tone === "crit" ? "text-critical" : "text-warning")}>{r.meta}</span>
-                    </div>
-                    <UploadAction row={r} f={f} className={linkClass} />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="flex items-center gap-2 text-xs text-ink-2">
-                <CheckCircleIcon className="h-4 w-4 text-good" />
-                Nothing needs your action.
-              </p>
-            )}
-          </div>
-
-          <p className="mt-auto border-t border-border pt-4 text-xs text-ink-2">
-            {lastUpload ? `Last upload ${shortDate(lastUpload)}. ` : ""}HR verifies each upload. Verified documents are locked; ask HR if one needs changing.
-          </p>
         </section>
       </aside>
 
@@ -158,7 +132,6 @@ export function File201View({ f }: { f: File201 }) {
         {tab === "documents" && (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="flex-[1_1_320px] text-xs text-ink-2">Upload or replace your pre-employment and identity records. HR verifies each one; verified documents are locked.</p>
               <div role="group" aria-label="Filter documents" className="flex gap-2">
                 {[
                   { on: false, label: "All" },

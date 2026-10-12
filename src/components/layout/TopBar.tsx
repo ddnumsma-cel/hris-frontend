@@ -10,6 +10,7 @@ import { fetchAnnouncements, fetchMyPhoto } from "@/lib/api";
 import { teamNotices } from "@/lib/teamNotices";
 import { listMyNotifications, markMyNotificationsRead } from "@/lib/notifications";
 import { fmtDay } from "@/lib/preferences";
+import { myNotices } from "@/lib/ess/more";
 import { BellIcon, BuildingIcon, CheckIcon, ChevronDownIcon, LogOutIcon, SearchIcon, SettingsIcon } from "../icons";
 import { BrandName, WorkspaceLabel } from "./Brand";
 import { SettingsMenu } from "./SettingsMenu";
@@ -79,6 +80,10 @@ export function TopBar() {
   const announcementsQuery = useQuery({ queryKey: ["employee", "announcements"], queryFn: fetchAnnouncements });
   // Team alerts (a manager's people working from home today) come first.
   const teamQuery = useQuery({ queryKey: ["team-notices"], queryFn: teamNotices, refetchInterval: 60_000 });
+  // Policies the signed-in employee still has to read and confirm (stays until they do). Their
+  // decisions, payslips and claims arrive as stored notifications below, so only these are taken.
+  const mineQuery = useQuery({ queryKey: ["ess", "bell"], queryFn: myNotices, refetchInterval: 60_000 });
+  const policyReminders = (mineQuery.data ?? []).filter((n) => n.id.startsWith("po-"));
   // Stored alerts (seat limits, upgrade requests…) for the signed-in role, newest first.
   const queryClient = useQueryClient();
   const myQuery = useQuery({ queryKey: ["notifications", user?.accountId], queryFn: listMyNotifications, refetchInterval: 30_000 });
@@ -87,6 +92,7 @@ export function TopBar() {
   const items: NotificationItem[] = [
     ...(myQuery.data ?? []).map((n) => ({ id: n.id, kind: (n.kind === "alert" || !n.kind ? (/seat/i.test(n.title) ? "seat" : "alert") : n.kind) as NotificationKind, title: n.title, body: n.body, time: timeAgo(n.at, fmtDay), link: n.link })),
     ...(teamQuery.data ?? []).map((n) => ({ id: n.id, kind: "team" as const, title: n.title, body: n.postedOn, time: "Today" })),
+    ...policyReminders.map((n) => ({ id: n.id, kind: "alert" as const, title: n.title, body: "Read it and confirm under Company policies.", time: n.postedOn, link: "/employee/policies" })),
     ...(announcementsQuery.data ?? []).map((n) => ({ id: n.id, kind: "news" as const, title: n.title, time: n.postedOn.replace(/^Posted\s+/, "") })),
   ];
   // What was new when the bell was opened, so it stays highlighted until the panel closes.
@@ -101,7 +107,7 @@ export function TopBar() {
       return [];
     }
   });
-  const others = [...(teamQuery.data ?? []), ...(announcementsQuery.data ?? [])];
+  const others = [...(teamQuery.data ?? []), ...policyReminders, ...(announcementsQuery.data ?? [])];
   const unreadCount = alerts.filter((a) => a.unread).length + others.filter((n) => !seen.includes(n.id)).length;
   const markSeen = () => {
     const ids = others.map((n) => n.id);

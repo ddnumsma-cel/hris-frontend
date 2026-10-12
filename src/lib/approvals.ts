@@ -6,6 +6,7 @@ import { fullName, initialsOf, state as core } from "./corehr/store";
 import { canFor, LIMITS } from "./permissions";
 import { listRequests as listLeave } from "./leave/api";
 import { listClaims } from "./reimbursements/api";
+import { fmtDay } from "./preferences";
 import { sessionWho } from "./session";
 import { listFixes, listRequests } from "./timekeeping/api";
 
@@ -42,16 +43,16 @@ export async function listMyApprovals(): Promise<ApprovalItem[]> {
   const items: ApprovalItem[] = [
     ...leave
       .filter((r) => r.status === "pending" && canFor(who, "approve", "leave", r.employeeId))
-      .map((r) => ({ id: r.id, ...person(r.employeeId), type: r.type.name, detail: r.start === r.end ? r.start : `${r.start} to ${r.end}`, requestedOn: r.filedAt, href: partner ? "/manager/approvals?tab=leave" : "/admin/maintenance/leave/requests" })),
+      .map((r) => ({ id: r.id, ...person(r.employeeId), type: r.type.name, detail: r.start === r.end ? fmtDay(r.start) : `${fmtDay(r.start)} to ${fmtDay(r.end)}`, requestedOn: r.filedAt, href: partner ? "/manager/approvals?tab=leave" : "/admin/maintenance/leave/requests" })),
     ...claims
       .filter((c) => (c.status === "pending" && canFor(who, "approve", "claims", c.employeeId)) || (c.status === "endorsed" && canFor(who, "final", "claims", c.employeeId)))
       .map((c) => ({ id: c.id, ...person(c.employeeId), type: "Reimbursement", detail: `${c.merchant} · ${peso(c.amount)}`, requestedOn: c.filedAt, href: partner ? "/manager/approvals?tab=claims" : "/admin/requests/reimbursement" })),
     ...requests
       .filter((r) => r.status === "pending" && canFor(who, "approve", "attendanceRecords", r.employeeId))
-      .map((r) => ({ id: r.id, ...person(r.employeeId), type: r.type === "overtime" ? "Overtime" : "Undertime", detail: `${r.date} · ${r.minutes} min`, requestedOn: r.filedAt, href: partner ? `/manager/approvals?tab=${r.type}` : `/admin/reports/${r.type}` })),
+      .map((r) => ({ id: r.id, ...person(r.employeeId), type: r.type === "overtime" ? "Overtime" : "Undertime", detail: `${fmtDay(r.date)} · ${r.minutes} min`, requestedOn: r.filedAt, href: partner ? `/manager/approvals?tab=${r.type}` : `/admin/reports/${r.type}` })),
     ...fixes
       .filter((f) => f.status === "pending" && canFor(who, "approve", "attendanceRecords", f.employeeId))
-      .map((f) => ({ id: f.id, ...person(f.employeeId), type: "Time adjustment", detail: `${f.workDate} · time-${f.kind} ${f.time}`, requestedOn: f.filedAt, href: partner ? "/manager/approvals?tab=adjustments" : "/admin/reports/time-adjustments" })),
+      .map((f) => ({ id: f.id, ...person(f.employeeId), type: "Time adjustment", detail: `${fmtDay(f.workDate)} · time-${f.kind} ${f.time}`, requestedOn: f.filedAt, href: partner ? "/manager/approvals?tab=adjustments" : "/admin/reports/time-adjustments" })),
   ];
   return items.sort((a, b) => a.requestedOn.localeCompare(b.requestedOn));
 }

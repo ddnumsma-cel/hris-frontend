@@ -8,7 +8,6 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastContext";
 import { UserPlusIcon } from "@/components/icons";
 import { confirmBenefitEnrollment, fetchEmployeeBenefits, removeEmployeeBenefit } from "@/lib/api";
-import { formatToday } from "@/lib/format";
 import type { BenefitStatus, EmployeeBenefit } from "@/lib/types";
 import { AddBenefitDialog } from "./AddBenefitDialog";
 import { useCreateParam } from "@/lib/useCreateParam";
@@ -45,7 +44,6 @@ export function EmployeeBenefitsPage() {
     <>
       <ContentHead
         title="HMO & Benefits"
-        subtitle={formatToday()}
         actions={
           <Button icon={<UserPlusIcon className="h-3.75 w-3.75" />} onClick={() => setAddOpen(true)}>
             Add benefit / dependent

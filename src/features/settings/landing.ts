@@ -19,8 +19,8 @@ export const LANDING_OPTIONS: Record<Role, { value: string; label: string }[]> =
   ],
   employee: [
     { value: "", label: "Home" },
-    { value: "/employee/leave", label: "My leave" },
-    { value: "/employee/attendance", label: "My attendance" },
+    { value: "/employee/leave", label: "Leave" },
+    { value: "/employee/attendance", label: "Attendance" },
     { value: "/employee/payslips", label: "Payslips" },
     { value: "/employee/201-file", label: "201 File" },
   ],

@@ -1,5 +1,4 @@
 import {
-  adminOverviewStats,
   announcements,
   attendanceRequests,
   attendanceTrend,
@@ -16,14 +15,12 @@ import {
   employeeDirectory,
   employeeDtrSummary,
   employeeThirteenthMonth,
-  headcountByOffice,
   jobRequisitions,
   leaveBalances,
   leaveRequests,
   myDtrLog,
   offboardingCases,
   onLeaveToday,
-  onboardingPipeline,
   payrollCostBreakdown,
   payrollCutoff,
   payrollEntries,
@@ -54,7 +51,6 @@ import {
   setPersonnelProfiles,
   setProfessionalLicenses,
   setTrainingRecords,
-  teamRoster,
   trainingRecords,
   workforceAlerts,
 } from "./mockData";
@@ -96,6 +92,9 @@ import { deny } from "./session";
 import { tellAssigned, tellEmployees } from "./requestNotices";
 import { fileCertificate } from "./certificates";
 import { assertSeatsAvailable } from "./subscription/api";
+import { defaultComplianceCalendar, headcountByOffice, homeStats, newHirePipeline } from "./homeFigures";
+import { teamRosterFromCore } from "./teamFigures";
+import type { AdminOverviewStats } from "./types";
 
 /**
  * Every function here stands in for a real HTTP call. Swap the body for a
@@ -511,7 +510,8 @@ export function fetchWorkforceAlerts() {
 export function fetchTeamRoster() {
   const denied = deny("partnerTools", "view");
   if (denied) return denied;
-  return delay(teamRoster);
+  // The signed-in manager's direct reports, from Core HR.
+  return delay(teamRosterFromCore());
 }
 
 export function fetchPerformanceReviewStatuses() {
@@ -531,7 +531,7 @@ export async function updatePerformanceReviewStatus(employeeId: string, status: 
 export function fetchTeamTrainingRecords() {
   const denied = deny("trainings", "view");
   if (denied) return denied;
-  const teamNames = new Set(teamRoster.map((m) => m.name));
+  const teamNames = new Set(teamRosterFromCore().map((m) => m.name));
   return delay(trainingRecords.filter((t) => teamNames.has(t.employeeName)));
 }
 
@@ -604,10 +604,13 @@ export async function deleteEmployeeCase(id: string): Promise<void> {
 
 // ---- HR Admin ----
 
-export function fetchAdminOverviewStats() {
+export function fetchAdminOverviewStats(): Promise<AdminOverviewStats> {
   const denied = deny("dashboard", "view");
   if (denied) return denied;
-  return delay(adminOverviewStats);
+  // Worked out from the real records (lib/homeFigures.ts).
+  const s = homeStats();
+  const label = new Date().toLocaleDateString("en-PH", { month: "long", year: "numeric" });
+  return delay({ ...s, payrollRunTotal: s.monthlySalaries, payrollCutoffLabel: label });
 }
 
 export function fetchPayrollRunSteps() {
@@ -619,7 +622,7 @@ export function fetchPayrollRunSteps() {
 export function fetchHeadcountByOffice() {
   const denied = deny("dashboard", "view");
   if (denied) return denied;
-  return delay(headcountByOffice);
+  return delay(headcountByOffice());
 }
 
 export function fetchPayrollCostBreakdown() {
@@ -631,6 +634,11 @@ export function fetchPayrollCostBreakdown() {
 export function fetchComplianceCalendar() {
   const denied = deny("dashboard", "view");
   if (denied) return denied;
+  // This month's deadlines are added once; the old sample filings (c-1…c-5) give way to them.
+  const defaults = defaultComplianceCalendar();
+  const kept = complianceCalendar.filter((c) => !/^c-[0-9]$/.test(c.id));
+  const missing = defaults.filter((d) => !kept.some((c) => c.id === d.id));
+  if (missing.length || kept.length !== complianceCalendar.length) setComplianceCalendar([...kept, ...missing]);
   return delay(complianceCalendar);
 }
 
@@ -740,7 +748,7 @@ export async function registerEmployee(input: RegisterEmployeeInput): Promise<Em
 export function fetchOnboardingPipeline() {
   const denied = deny("dashboard", "view");
   if (denied) return denied;
-  return delay(onboardingPipeline);
+  return delay(newHirePipeline());
 }
 
 export function fetchJobRequisitions() {

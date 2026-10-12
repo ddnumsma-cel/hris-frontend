@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ApproverNote } from "./ApproverNote";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
@@ -6,6 +7,8 @@ import { Dialog } from "@/components/ui/Dialog";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastContext";
 import { acknowledgeMyNotice, fileMyFix, fileMyTimeRequest, myAttendance, myNotices } from "@/lib/ess/api";
+import { myWfhDays } from "@/lib/ess/more";
+import { fmtTime } from "@/lib/preferences";
 import type { DayRow } from "@/lib/timekeeping/api";
 import { addDays } from "@/lib/timekeeping/compute";
 import type { FixCause } from "@/lib/timekeeping/types";
@@ -31,7 +34,7 @@ interface RequestRow {
   filedAt: string;
 }
 
-const STATUS = { pending: { tone: "warn", label: "Waiting for HR" }, approved: { tone: "good", label: "Approved" }, declined: { tone: "crit", label: "Declined" } } as const;
+const STATUS = { pending: { tone: "warn", label: "Waiting for your manager" }, approved: { tone: "good", label: "Approved" }, declined: { tone: "crit", label: "Declined" } } as const;
 
 function AskDialog({ ask, onClose }: { ask: Ask; onClose: () => void }) {
   const toast = useToast();
@@ -62,15 +65,16 @@ function AskDialog({ ask, onClose }: { ask: Ask; onClose: () => void }) {
             Cancel
           </Button>
           <Button disabled={send.isPending} onClick={() => send.mutate()}>
-            Send to HR
+            Send to your manager
           </Button>
         </div>
       }
     >
       <div className="flex flex-col gap-3">
+        <ApproverNote />
         <p className="text-sm text-ink-2">
           {shortDate(ask.day.date)}: {ask.kind === "overtime" ? `you worked ${duration(max)} past your shift.` : `you left ${duration(max)} before your shift ended.`}{" "}
-          {ask.kind === "overtime" ? "It's paid as overtime once HR approves it." : "Approval excuses it; the time is still unpaid."}
+          {ask.kind === "overtime" ? "It's paid as overtime once your manager approves it." : "Approval excuses it; the time is still unpaid."}
         </p>
         {ask.kind === "overtime" && (
           <Field id="a-min" label="Minutes to claim" hint={`Up to ${max} minutes.`}>
@@ -137,13 +141,14 @@ function AdjustDialog({ adjust, days, onClose }: { adjust: Adjust; days: DayRow[
             Cancel
           </Button>
           <Button disabled={send.isPending} onClick={() => send.mutate()}>
-            Send to HR
+            Send to your manager
           </Button>
         </div>
       }
     >
       <div className="flex flex-col gap-3">
-        <p className="text-sm text-ink-2">If the biometrics missed your scan, recorded the wrong time, or the system had a bug, tell HR the correct time. It changes your record only once HR or Admin approves it.</p>
+        <ApproverNote />
+        <p className="text-sm text-ink-2">If the biometrics missed your scan, recorded the wrong time, or the system had a bug, give the correct time. It changes your record only once your manager approves it.</p>
         <div className="grid grid-cols-2 gap-3">
           <Field id="adj-date" label="Work day">
             <input id="adj-date" type="date" className={inputClass} max={today} min={addDays(today, -30)} value={date} onChange={(e) => pick(e.target.value, punch)} />
@@ -221,7 +226,8 @@ function Notices() {
 
 export function EmployeeAttendance() {
   const data = useQuery({ queryKey: KEY, queryFn: myAttendance, staleTime: 0 });
-  const [tab, setTab] = useState<"logs" | "requests">("logs");
+  const [tab, setTab] = useState<"logs" | "requests" | "wfh">("logs");
+  const wfh = useQuery({ queryKey: ["ess", "wfh-days"], queryFn: myWfhDays, staleTime: 0 });
   const [ask, setAsk] = useState<Ask | null>(null);
   const [adjust, setAdjust] = useState<Adjust | null>(null);
 
@@ -307,14 +313,13 @@ export function EmployeeAttendance() {
     { label: "Days worked", value: String(worked.length), sub: "Last 2 weeks" },
     { label: "Late arrivals", value: String(late.length), sub: late.length ? `${duration(late.reduce((n, d) => n + d.lateMinutes, 0))} in total` : "Nice, all on time" },
     { label: "Approved overtime", value: `${otHours} hrs`, sub: "Paid in your next payslip" },
-    { label: "Waiting for HR", value: String(waiting), sub: waiting === 1 ? "request" : "requests" },
+    { label: "Waiting for approval", value: String(waiting), sub: waiting === 1 ? "request" : "requests" },
   ];
 
   return (
     <>
       <ContentHead
-        title="My attendance"
-        subtitle="Your time-ins and time-outs from the last 2 weeks. If the biometrics or system got a time wrong, or you worked late, send a request to HR."
+        title="Attendance"
         actions={<Button onClick={() => setAdjust({ punch: "in" })}>Request time adjustment</Button>}
       />
       <Notices />
@@ -334,11 +339,26 @@ export function EmployeeAttendance() {
         onChange={setTab}
         options={[
           { value: "logs", label: "Time logs", count: days.length },
-          { value: "requests", label: "My requests", count: rows.length },
+          { value: "requests", label: "Requests", count: rows.length },
+          { value: "wfh", label: "Work from home", count: wfh.data?.length ?? 0 },
         ]}
       />
       {tab === "logs" ? (
         <SimpleTable rows={days} rowKey={(d) => d.date} cols={dayCols} loading={data.isLoading} empty="No time logs yet." />
+      ) : tab === "wfh" ? (
+        <SimpleTable
+          rows={wfh.data ?? []}
+          rowKey={(d) => d.date}
+          loading={wfh.isLoading}
+          empty="You haven't worked from home yet."
+          cols={[
+            { header: "Day", cell: (d) => <span className="font-medium">{shortDate(d.date)}</span> },
+            { header: "Why", cell: (d) => <span className="text-ink-2">{d.reason}</span> },
+            { header: "Clock in", cell: (d) => (d.inAt ? fmtTime(d.inAt) : <span className="text-ink-3">—</span>) },
+            { header: "Clock out", cell: (d) => (d.outAt ? fmtTime(d.outAt) : <span className="text-ink-3">—</span>) },
+            { header: "Check", cell: (d) => (d.inAt ? <Pill tone="good">{d.located ? "Face scan + location" : "Face scan"}</Pill> : <Pill tone="warn">No clock-in</Pill>) },
+          ]}
+        />
       ) : (
         <SimpleTable rows={rows} rowKey={(r) => r.id} cols={reqCols} loading={data.isLoading} empty="You haven't sent any requests." />
       )}

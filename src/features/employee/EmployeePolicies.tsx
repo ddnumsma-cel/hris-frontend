@@ -69,7 +69,7 @@ export function EmployeePolicies() {
   const waiting = (list.data ?? []).filter((p) => p.requireAck && !p.acknowledgedAt).length;
   return (
     <>
-      <ContentHead title="Company policies" subtitle={waiting ? `${waiting} ${waiting === 1 ? "policy needs" : "policies need"} your confirmation that you've read ${waiting === 1 ? "it" : "them"}.` : "The company's rules and policies."} />
+      <ContentHead title="Company policies" subtitle={waiting ? `${waiting} ${waiting === 1 ? "policy needs" : "policies need"} your confirmation that you've read ${waiting === 1 ? "it" : "them"}.` : undefined} />
       <div className="flex flex-col gap-4">
         {list.data?.length === 0 && (
           <Card>

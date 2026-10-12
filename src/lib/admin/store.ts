@@ -51,6 +51,9 @@ export interface UserAccount {
   failedAttempts: number;
   lockedUntil?: string;
   createdAt: string;
+  /** Who added the account, and their role at the time. */
+  createdBy?: string;
+  createdByRole?: string;
 }
 
 export type RequestKind = "leave" | "overtime" | "undertime" | "correction" | "profile";

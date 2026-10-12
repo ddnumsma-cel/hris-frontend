@@ -22,7 +22,6 @@ import {
   fetchAnnouncements,
   fetchCurrentEmployee,
   fetchEmployeeBenefits,
-  fetchEmployeeThirteenthMonth,
   fetchMyLeaveRequests,
   fetchMyPersonnelChecklist,
   fetchMyProfessionalLicense,
@@ -47,11 +46,16 @@ import { BenefitsCard } from "./BenefitsCard";
 import { AttendanceClock } from "@/components/shared/AttendanceClock";
 import { FileMyLeaveDialog } from "./EmployeeLeave";
 import { myAttendance, myId, myLeave, myPayslips } from "@/lib/ess/api";
+import { whosOutToday } from "@/lib/ess/more";
+import { fmtDay } from "@/lib/preferences";
 import { policiesFor } from "@/lib/policies";
 import { RequestCertificateDialog } from "./RequestCertificateDialog";
 import { printPayslip } from "./printTemplates";
 import type { Payslip } from "@/lib/types";
 
+
+/** Good morning, afternoon or evening, in Filipino, by the clock. */
+const greeting = (h = new Date().getHours()) => (h < 12 ? "Magandang umaga" : h < 18 ? "Magandang hapon" : "Magandang gabi");
 
 export function EmployeeOverview() {
   const navigate = useNavigate();
@@ -98,10 +102,18 @@ export function EmployeeOverview() {
       return { onTimeRatePercent: worked.length ? Math.round((worked.filter((d) => d.lateMinutes === 0).length / worked.length) * 100) : 100, lateCount: days.filter((d) => d.lateMinutes > 0).length, absentCount: days.filter((d) => d.status === "absent").length };
     },
   });
+  // 13th month: basic pay earned this year (less absences) / 12, from the approved payslips.
   const thirteenthMonthQuery = useQuery({
-    queryKey: ["employee", "thirteenth-month"],
-    queryFn: fetchEmployeeThirteenthMonth,
+    queryKey: ["ess", "thirteenth-month"],
+    queryFn: async () => {
+      const year = String(new Date().getFullYear());
+      const slips = (await myPayslips()).filter((p) => p.released && p.period.to.slice(0, 4) === year);
+      const basic = slips.reduce((n, p) => n + p.line.basic - p.line.deductions, 0);
+      const last = slips.reduce<(typeof slips)[number] | undefined>((a, p) => (!a || p.period.to > a.period.to ? p : a), undefined);
+      return { accrued: Math.round((Math.max(0, basic) / 12) * 100) / 100, asOfLabel: last ? last.period.label : null };
+    },
   });
+  const outQuery = useQuery({ queryKey: ["ess", "whos-out"], queryFn: whosOutToday });
   const benefitsQuery = useQuery({ queryKey: ["employee", "benefits"], queryFn: fetchEmployeeBenefits });
   const myTrainingsQuery = useQuery({ queryKey: ["employee", "my-trainings"], queryFn: fetchMyTrainingRecords });
   const myLeaveQuery = useQuery({ queryKey: ["employee", "my-leave-requests"], queryFn: fetchMyLeaveRequests });
@@ -210,7 +222,7 @@ export function EmployeeOverview() {
   return (
     <div className="dash">
       <ContentHead
-        title={employee ? `Magandang umaga, ${employee.name.split(" ")[0]}` : "Magandang umaga"}
+        title={employee ? `${greeting()}, ${employee.name.split(" ")[0]}` : greeting()}
         subtitle={`${formatToday()} · ${employee?.department ?? "…"}, ${employee?.office ?? ""} · ID ${employee?.id ?? ""}`}
         actions={
           <>
@@ -227,7 +239,7 @@ export function EmployeeOverview() {
         <BentoArea area="hero">
           <BentoHero
             title="Take-home pay · last cut-off"
-            value={latestPayslip ? formatPHP(latestPayslip.net) : <Skeleton className="h-10 w-44" />}
+            value={latestPayslip ? formatPHP(latestPayslip.net) : payslipsQuery.isLoading ? <Skeleton className="h-10 w-44" /> : "—"}
             label={<span className="text-good">{latestPayslip?.cutoffLabel ?? ""}</span>}
             action={
               <button
@@ -269,7 +281,7 @@ export function EmployeeOverview() {
                   <Skeleton className="h-7 w-24" />
                 )
               }
-              delta={thirteenthMonthQuery.data ? `as of ${thirteenthMonthQuery.data.asOfLabel}` : undefined}
+              delta={thirteenthMonthQuery.data ? (thirteenthMonthQuery.data.asOfLabel ? `as of ${thirteenthMonthQuery.data.asOfLabel}` : "Builds up with each approved payslip") : undefined}
             />
             <StatTile
               label="On-time rate, last 2 weeks"
@@ -344,10 +356,40 @@ export function EmployeeOverview() {
                 <>
                   <LeaveBar label="Leaves left" used={creditsQuery.data.used + creditsQuery.data.pending} entitlement={creditsQuery.data.total} />
                   <p className="text-xs text-ink-2">
-                    {creditsQuery.data.used} used · {creditsQuery.data.pending} waiting for HR. Each leave uses 1, however many days.
+                    {creditsQuery.data.used} used · {creditsQuery.data.pending} waiting for your manager. Each leave uses 1, however many days.
                   </p>
+                  <details className="text-xs text-ink-2">
+                    <summary className="cursor-pointer font-medium text-ink">How credits are earned</summary>
+                    <ul className="mt-2 flex list-disc flex-col gap-1 pl-4">
+                      <li>Everyone gets 6 leave credits on January 1. Unused credits don't carry over.</li>
+                      <li>One leave uses one credit, whether it's half a day or a full week.</li>
+                      <li>Leave without pay doesn't use a credit.</li>
+                      {creditsQuery.data.adjusted !== 0 && (
+                        <li>
+                          HR {creditsQuery.data.adjusted > 0 ? "added" : "removed"} {Math.abs(creditsQuery.data.adjusted)} this year.
+                        </li>
+                      )}
+                    </ul>
+                  </details>
                 </>
               )}
+              <div className="border-t border-[var(--line)] pt-3">
+                <div className="mb-2 text-[13px] font-semibold">Who's out today in your department</div>
+                {outQuery.isLoading ? (
+                  <Skeleton className="h-5 w-40" />
+                ) : (outQuery.data ?? []).length === 0 ? (
+                  <p className="text-xs text-ink-2">Everyone's in today.</p>
+                ) : (
+                  <ul className="flex flex-col gap-1 text-[13px]">
+                    {outQuery.data!.map((p) => (
+                      <li key={p.id} className="flex justify-between gap-3">
+                        <span>{p.name}</span>
+                        <span className="text-xs text-ink-2">back after {fmtDay(p.until)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </CardBody>
           </Card>
         </BentoArea>

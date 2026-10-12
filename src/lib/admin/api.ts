@@ -46,13 +46,32 @@ function rows(): AccountRow[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** A System Admin sees only Super Admin accounts (no client staff); Super Admins see everyone. */
-export const listAccounts = () => deny("roleAssignment", "view") ?? respond(rows().filter((a) => sessionWho().role !== "system_admin" || roleKeyOf(a.roleId) === "super_admin"));
+/** Every account, for whoever manages users (System Admin creates them, Super Admin oversees them). */
+export const listAccounts = () => deny("roleAssignment", "view") ?? respond(rows());
+
+export interface UserAccountRow extends AccountRow {
+  /** The temporary password, only until the person sets their own (then null: we never show it). */
+  tempPassword: string | null;
+  employeeCode?: string;
+  email?: string;
+}
+
+/** Maintenance → User accounts: every account with its sign-in details, for the Super Admin. */
+export function listUserAccounts(): Promise<UserAccountRow[]> {
+  const denied = deny("userAccounts", "view");
+  if (denied) return denied;
+  return respond(
+    rows().map((r) => {
+      const a = admin.accounts.find((x) => x.id === r.id);
+      const e = core.employees.find((x) => x.id === r.employeeId);
+      return { ...r, tempPassword: a && !a.demo && a.mustChangePassword ? (a.password ?? null) : null, employeeCode: e?.id, email: e?.contact.workEmail };
+    }),
+  );
+}
 
 export function employeesWithoutAccount() {
-  // System Admins don't see client staff.
-  if (sessionWho().role === "system_admin") return [];
-  const taken = new Set(admin.accounts.map((a) => a.employeeId));
+  // Names and work emails only, so System Admins can link a new account to its person without seeing HR records.
+  const taken = new Set(admin.accounts.map((a) => employeeOfAccount(a)));
   return core.employees
     .filter((e) => e.job.status !== "Separated" && !taken.has(e.id))
     .map((e) => ({ id: e.id, name: fullName(e.personal), email: e.contact.workEmail }))
@@ -79,6 +98,7 @@ export async function createAccount(input: { name: string; username: string; rol
   if (denied) return denied;
   const giving = admin.roles.find((r) => r.id === input.roleId)?.key;
   if (!giving || !mayAssign(giving)) return forbidden("You can't give that role.");
+  // HR / Approver / Accounting logins count against the plan's admin accounts (checked below).
   // One person, one account.
   const holder = input.employeeId ? admin.accounts.find((a) => employeeOfAccount(a) === input.employeeId) : undefined;
   if (holder) return fail(`This person already has an account (username ${holder.username}).`);
@@ -92,7 +112,7 @@ export async function createAccount(input: { name: string; username: string; rol
   const overLimit = ADMIN_ROLES.includes(role.key) ? adminLimit() : null;
   if (overLimit) return overLimit;
   const password = tempPassword();
-  const account: UserAccount = { id: `ua-${Date.now().toString(36)}`, name, username, password, employeeId: input.employeeId || undefined, roleId: role.id, status: "active", mustChangePassword: true, failedAttempts: 0, createdAt: new Date().toISOString() };
+  const account: UserAccount = { id: `ua-${Date.now().toString(36)}`, name, username, password, employeeId: input.employeeId || undefined, roleId: role.id, status: "active", mustChangePassword: true, failedAttempts: 0, createdAt: new Date().toISOString(), createdBy: actor, createdByRole: admin.roles.find((r) => r.key === sessionWho().role)?.name };
   saveAdmin({ ...admin, accounts: [...admin.accounts, account] });
   logAdmin({ actor, module: "Administration", action: "Added user", target: username, detail: `${name} as ${role.name}` });
   return respond({ username, password });
@@ -151,7 +171,7 @@ export async function unlockAccount(id: string, actor: string, _actorAccountId?:
 }
 
 export async function resetPassword(id: string, actor: string, _actorAccountId?: string) {
-  const denied = deny("roleAssignment", "edit") ?? (mayAssign(roleKeyOf(admin.accounts.find((x) => x.id === id)?.roleId)) ? null : forbidden());
+  const denied = deny("userAccounts", "edit") === null ? null : (deny("roleAssignment", "edit") ?? (mayAssign(roleKeyOf(admin.accounts.find((x) => x.id === id)?.roleId)) ? null : forbidden()));
   if (denied) return denied;
   const a = admin.accounts.find((x) => x.id === id);
   if (!a) return fail("That account no longer exists");

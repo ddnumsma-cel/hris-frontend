@@ -87,11 +87,21 @@ export interface MyPayslip {
   line: PayLine;
   /** The cut-off has ended and pay is released. */
   released: boolean;
+  /** Allowances, loan installments and reimbursements on this payslip (taxable ones are part of gross). */
+  items: { label: string; amount: number; taxable: boolean; reason: string }[];
 }
 
 /** Payslips come only from payroll runs the CEO approved, so they never change after payday. */
 export async function myPayslips(): Promise<MyPayslip[]> {
-  return respond(approvedLinesFor(myId()).map(({ run, line }) => ({ period: { id: run.id, label: run.label, from: run.from, to: run.to }, line, released: true })));
+  const id = myId();
+  return respond(
+    approvedLinesFor(id).map(({ run, line }) => ({
+      period: { id: run.id, label: run.label, from: run.from, to: run.to },
+      line,
+      released: true,
+      items: [...(run.auto?.[id] ?? []), ...(run.adjustments[id] ?? [])].map((a) => ({ label: a.label, amount: a.amount, taxable: a.taxable, reason: a.reason })),
+    })),
+  );
 }
 
 // ---- Profile ----

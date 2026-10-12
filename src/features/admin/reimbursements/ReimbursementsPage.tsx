@@ -5,8 +5,8 @@ import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/ToastContext";
-import { decideClaim, listClaims, payClaimsByTransfer, type ClaimRow } from "@/lib/reimbursements/api";
-import { CATEGORIES, claimType, type ClaimStatus } from "@/lib/reimbursements/store";
+import { decideClaim, listClaims, releaseClaims, type ClaimRow } from "@/lib/reimbursements/api";
+import { CATEGORIES, PAYOUT_LABEL, claimType, type ClaimStatus, type PayoutMethod } from "@/lib/reimbursements/store";
 import { useOfficeFilter } from "../OfficeFilterContext";
 import { inputClass, useActor } from "../corehr/format";
 import { Detail, ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
@@ -20,20 +20,21 @@ import { ReceiptThumb, ReceiptViewer } from "./receipt";
 type Tab = ClaimStatus | "all" | "topay";
 
 /** Who paid it and how, for approved claims. */
-const paidText = (c: ClaimRow) => (c.paidAt ? `Paid ${shortDate(c.paidAt)} · ${c.payoutMethod === "payroll" ? `with payroll ${c.payoutRef}` : c.payoutMethod === "transfer" ? `bank transfer ${c.payoutRef}` : "in final pay"}` : "Not paid yet: goes out with the next payroll run");
+const paidText = (c: ClaimRow) => (c.paidAt ? `Released ${shortDate(c.paidAt)} · ${PAYOUT_LABEL[c.payoutMethod ?? "transfer"]}${c.payoutRef && c.payoutRef !== "Cash" && c.payoutMethod !== "final pay" ? ` ${c.payoutRef}` : ""}` : "Not released yet: Accounting gives it to the employee directly");
 
 function PayDialog({ picked, onClose, onDone }: { picked: ClaimRow[]; onClose: () => void; onDone: () => void }) {
   const toast = useToast();
   const actor = useActor();
   const refresh = useClaimsRefresh();
   const [reference, setReference] = useState("");
+  const [method, setMethod] = useState<PayoutMethod>("transfer");
   const [paidOn, setPaidOn] = useState(new Date().toISOString().slice(0, 10));
   const total = picked.reduce((n, c) => n + c.amount, 0);
   const pay = useMutation({
-    mutationFn: () => payClaimsByTransfer(picked.map((c) => c.id), reference, paidOn, actor),
+    mutationFn: () => releaseClaims(picked.map((c) => c.id), method, reference, paidOn, actor),
     onSuccess: (n) => {
       refresh();
-      toast.show(`${n} ${n === 1 ? "claim" : "claims"} marked paid. They won't be added to payroll.`);
+      toast.show(`${n} ${n === 1 ? "claim" : "claims"} released to the employee.`);
       onDone();
       onClose();
     },
@@ -42,20 +43,20 @@ function PayDialog({ picked, onClose, onDone }: { picked: ClaimRow[]; onClose: (
     <Dialog
       open
       onClose={onClose}
-      title={`Pay ${picked.length} ${picked.length === 1 ? "claim" : "claims"} by bank transfer`}
+      title={`Release ${picked.length} ${picked.length === 1 ? "claim" : "claims"}`}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button disabled={pay.isPending} onClick={() => pay.mutate()}>
-            Mark {peso(total)} paid
+            Release {peso(total)}
           </Button>
         </div>
       }
     >
       <div className="flex flex-col gap-3">
-        <p className="text-sm text-ink-2">For claims sent separately from payroll. Claims you don't mark here are added to the next payroll run automatically.</p>
+        <p className="text-sm text-ink-2">Give the money to the employee directly, then record how. Reimbursements are not added to payroll.</p>
         <ul className="flex flex-col gap-1 text-sm">
           {picked.map((c) => (
             <li key={c.id} className="flex justify-between gap-2">
@@ -67,10 +68,19 @@ function PayDialog({ picked, onClose, onDone }: { picked: ClaimRow[]; onClose: (
           ))}
         </ul>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field id="pay-ref" label="Transfer reference">
+          <Field id="pay-method" label="Released by" className="sm:col-span-2">
+            <select id="pay-method" className={inputClass} value={method} onChange={(e) => setMethod(e.target.value as PayoutMethod)}>
+              {(["cash", "transfer", "e-wallet", "check"] as PayoutMethod[]).map((m) => (
+                <option key={m} value={m}>
+                  {PAYOUT_LABEL[m]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field id="pay-ref" label={method === "cash" ? "Voucher or receipt no. (optional)" : method === "check" ? "Check number" : "Transfer reference"}>
             <input id="pay-ref" className={inputClass} value={reference} onChange={(e) => setReference(e.target.value)} />
           </Field>
-          <Field id="pay-date" label="Date sent">
+          <Field id="pay-date" label="Date released">
             <input id="pay-date" type="date" className={inputClass} value={paidOn} onChange={(e) => setPaidOn(e.target.value)} />
           </Field>
         </div>
@@ -256,7 +266,7 @@ export function ReimbursementsPage() {
           </span>
         ) : (
           <span className="flex items-center justify-end gap-2">
-            {c.status === "approved" ? <Pill tone={c.paidAt ? "good" : "info"}>{c.paidAt ? "Paid" : "To pay out"}</Pill> : <Pill tone={STATUS[c.status].tone}>{STATUS[c.status].label}</Pill>}
+            {c.status === "approved" ? <Pill tone={c.paidAt ? "good" : "info"}>{c.paidAt ? "Released" : "To release"}</Pill> : <Pill tone={STATUS[c.status].tone}>{STATUS[c.status].label}</Pill>}
             <Button size="sm" variant="ghost" onClick={() => setOpen({ c })}>
               View
             </Button>
@@ -269,7 +279,7 @@ export function ReimbursementsPage() {
     <>
       <ContentHead
         title="Reimbursements"
-        subtitle={`Employees' expense claims with their POS receipts. Their approver approves first, then Accounting gives the final approval; approved claims go out with the next payroll.${waitingTotal ? ` ${peso(waitingTotal)} waiting for you.` : ""}`}
+        subtitle={`Employees' expense claims with their POS receipts. Their approver approves first, then Accounting gives the final approval; Accounting then releases the money directly.${waitingTotal ? ` ${peso(waitingTotal)} waiting for you.` : ""}`}
       />
       <Tabs
         value={tab}
@@ -277,7 +287,7 @@ export function ReimbursementsPage() {
         options={[
           { value: "pending", label: "Waiting for approver", count: count("pending") },
           { value: "endorsed", label: "Waiting for Accounting", count: count("endorsed") },
-          ...(canPay ? [{ value: "topay" as const, label: "To pay out", count: unpaid.length }] : []),
+          ...(canPay ? [{ value: "topay" as const, label: "To release", count: unpaid.length }] : []),
           { value: "approved", label: "Approved", count: count("approved") },
           { value: "rejected", label: "Rejected", count: count("rejected") },
           { value: "all", label: "All", count: matching.length },
@@ -292,12 +302,12 @@ export function ReimbursementsPage() {
               {picked.size === rows.length && rows.length ? "Clear" : "Select all"}
             </Button>
             <Button size="sm" disabled={!picked.size} onClick={() => setPaying(true)}>
-              Pay by transfer{picked.size ? ` (${picked.size})` : ""}
+              Release payment{picked.size ? ` (${picked.size})` : ""}
             </Button>
           </span>
         )}
       </Toolbar>
-      {tab === "topay" && <p className="text-xs text-ink-2">Approved claims not paid yet. They're added to the next payroll run automatically; mark the ones you send by bank transfer instead.</p>}
+      {tab === "topay" && <p className="text-xs text-ink-2">Approved claims not released yet. Give the money directly (cash, bank transfer, e-wallet or check) when it's available, then record it here.</p>}
       <SimpleTable rows={rows} rowKey={(c) => c.id} cols={cols} loading={query.isLoading} empty={tab === "pending" ? "Nothing waiting. You're all caught up." : "Nothing here yet."} />
       {open && <ReviewDialog key={open.c.id} c={open.c} canApprove={canDecide(open.c)} startWith={open.reject ? "reject" : undefined} onClose={() => setOpen(null)} />}
       {paying && <PayDialog picked={rows.filter((c) => picked.has(c.id))} onClose={() => setPaying(false)} onDone={() => setPicked(new Set())} />}

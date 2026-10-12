@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { SearchIcon } from "@/components/icons";
 import { filterSearchClass, filterSelectClass } from "../corehr/format";
 
-export const PAGE_SIZE = 8;
+export const PAGE_SIZE = 15;
 
 export interface Col<T> {
   /** Column title; also its key, so keep it unique within a table. */

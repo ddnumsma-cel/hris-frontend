@@ -57,7 +57,8 @@ const tableHeadClass =
 /** `readOnly` hides verify/edit/remove — for views where another page owns those actions. */
 export function PersonnelDocumentsPanel({ employeeId, readOnly: readOnlyProp = false }: { employeeId: string; readOnly?: boolean }) {
   // Verifying, editing and removing need Documents edit access for this person (lib/permissions.ts).
-  const readOnly = readOnlyProp || !useCan("edit", "documents", employeeId);
+  const canEditDocuments = useCan("edit", "documents", employeeId);
+  const readOnly = readOnlyProp || !canEditDocuments;
   const queryClient = useQueryClient();
   const actor = useAuditActor();
   const [editingDoc, setEditingDoc] = useState<PersonnelDocument | null>(null);

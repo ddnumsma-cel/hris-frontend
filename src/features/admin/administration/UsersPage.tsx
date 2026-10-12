@@ -27,7 +27,7 @@ function useAssignable() {
 function PasswordNote({ username, password }: { username: string; password: string }) {
   return (
     <div className="rounded-xl border border-border bg-surface-2 p-3 text-sm">
-      <p className="text-ink-2">Give these to the person. The password is shown only once.</p>
+      <p className="text-ink-2">Give these to the person. Until they sign in, the Super Admin can also see this password in Maintenance → User accounts.</p>
       <div className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
         <span className="text-ink-2">Username</span>
         <span className="font-mono font-semibold">{username}</span>

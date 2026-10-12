@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import type { Action, Feature } from "@/lib/permissions";
 import { NavLink, useLocation } from "react-router-dom";
 import clsx from "clsx";
@@ -142,6 +142,12 @@ export function SideNav({ groups, desktop = true, create }: { groups: SideNavGro
   const { user } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  // The phone tab bar's More button opens this menu.
+  useEffect(() => {
+    const open = () => setMobileOpen(true);
+    window.addEventListener("open-nav-menu", open);
+    return () => window.removeEventListener("open-nav-menu", open);
+  }, []);
   const [collapsed, setCollapsed] = useSidebarCollapsed();
   const tips = useSidebarTips(collapsed);
 

@@ -364,6 +364,30 @@ function PhFlag() {
   );
 }
 
+const INTRO = { title: "Let's get you set up.", sub: "Register now, sign in once HR approves." };
+const DETAILS = ["Your name, office, position and contact details.", "HR checks it against your hiring papers, usually within a day.", "You'll get an email, then sign in to heyhr."];
+
+/** The welcome text at the bottom of the register panel: each step with what it means. */
+function RegisterIntro() {
+  return (
+    <div>
+      <h3 className="font-display text-2xl font-bold leading-tight tracking-[-0.02em]">{INTRO.title}</h3>
+      <p className="mt-2 text-sm text-white/70">{INTRO.sub}</p>
+      <ol className="mt-5 flex flex-col gap-3">
+        {steps.map((s, i) => (
+          <li key={s} className="flex gap-3 text-sm">
+            <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-white/10 font-num text-xs font-semibold">{i + 1}</span>
+            <span>
+              <span className="block font-medium text-white/90">{s}</span>
+              <span className="block text-xs text-white/55">{DETAILS[i]}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 /** Left-hand brand panel: an illustrated ID-card scene in the MSMA palette. */
 function RegisterArt() {
   return (
@@ -379,18 +403,7 @@ function RegisterArt() {
       <IdCardScene className="relative mx-auto my-8 w-full max-w-[280px]" />
 
       <div className="relative mt-auto">
-        <h3 className="font-display text-2xl font-bold leading-tight tracking-[-0.02em]">Welcome to the team.</h3>
-        <p className="mt-2 text-sm text-white/70">Register once and HR will set up your MSMA workspace.</p>
-        <ol className="mt-5 flex flex-col gap-2.5">
-          {steps.map((step, i) => (
-            <li key={step} className="flex items-center gap-3 text-sm text-white/85">
-              <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-white/10 font-num text-xs font-semibold">
-                {i + 1}
-              </span>
-              {step}
-            </li>
-          ))}
-        </ol>
+        <RegisterIntro />
       </div>
     </div>
   );
@@ -408,8 +421,8 @@ function RegisterBanner() {
           <img src="/brand/msma-mark.png" alt="MSMA" className="h-6 w-auto" />
           <span className="font-display text-sm font-semibold">MSMA</span>
         </div>
-        <h3 className="mt-3 font-display text-lg font-bold leading-tight tracking-[-0.02em]">Welcome to the team.</h3>
-        <p className="mt-1 text-xs text-white/70">Register once and HR will set up your MSMA workspace.</p>
+        <h3 className="mt-3 font-display text-lg font-bold leading-tight tracking-[-0.02em]">{INTRO.title}</h3>
+        <p className="mt-1 text-xs text-white/70">{INTRO.sub}</p>
       </div>
 
       <IdCardScene className="relative -my-3 w-28 flex-none" />

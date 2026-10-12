@@ -1,3 +1,4 @@
+import { ApproverNote } from "./ApproverNote";
 import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
@@ -80,6 +81,9 @@ function NewClaimDialog({ onClose }: { onClose: () => void }) {
       }
     >
       <div className="grid gap-5 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+        <div className="md:col-span-2">
+          <ApproverNote then="Accounting releases the money" />
+        </div>
         <div>
           <span className="mb-1 block text-xs font-semibold text-ink-2">
             Receipt photo<span className="ml-0.5 text-critical" aria-hidden="true">*</span>
@@ -173,33 +177,6 @@ function NewClaimDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Summary({ claims }: { claims: Claim[] }) {
-  const year = isoToday().slice(0, 4);
-  const sum = (xs: Claim[]) => xs.reduce((n, c) => n + c.amount, 0);
-  const pending = claims.filter((c) => c.status === "pending" || c.status === "endorsed");
-  const approved = claims.filter((c) => c.status === "approved" && c.purchaseDate.startsWith(year));
-  const rejected = claims.filter((c) => c.status === "rejected" && c.purchaseDate.startsWith(year));
-  const tiles = [
-    { label: "Waiting for approval", value: peso(sum(pending)), sub: `${pending.length} ${pending.length === 1 ? "claim" : "claims"}`, dot: "bg-warning" },
-    { label: `Approved in ${year}`, value: peso(sum(approved)), sub: `${approved.length} ${approved.length === 1 ? "claim" : "claims"} · paid with payroll`, dot: "bg-good" },
-    { label: `Rejected in ${year}`, value: String(rejected.length), sub: rejected.length ? "See the reason on each claim" : "None so far", dot: "bg-critical" },
-  ];
-  return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      {tiles.map((t) => (
-        <div key={t.label} className="rounded-xl border border-border bg-surface p-4">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-ink-2">
-            <span className={clsx("h-2 w-2 rounded-full", t.dot)} />
-            {t.label}
-          </div>
-          <div className="mt-1.5 font-display text-2xl font-semibold tracking-[-0.01em]">{t.value}</div>
-          <div className="mt-0.5 text-xs text-ink-3">{t.sub}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function EmployeeReimbursements() {
   const data = useQuery({ queryKey: KEY, queryFn: myClaims, staleTime: 0 });
   const [creating, setCreating] = useState(false);
@@ -213,7 +190,6 @@ export function EmployeeReimbursements() {
     <>
       <ContentHead
         title="Reimbursements"
-        subtitle="Claim back what you spent for work. Snap the POS receipt and send it for approval."
         actions={
           <Button icon={<PlusIcon className="h-3.75 w-3.75" />} onClick={() => setCreating(true)}>
             New claim
@@ -221,10 +197,8 @@ export function EmployeeReimbursements() {
         }
       />
 
-      {data.isLoading ? <Skeleton className="h-24" /> : <Summary claims={claims} />}
-
       <div>
-        <h2 className="mb-2 text-sm font-semibold">My claims</h2>
+        <h2 className="mb-2 text-sm font-semibold">Claims</h2>
         <div className="overflow-hidden rounded-xl border border-border bg-surface">
           {data.isLoading ? (
             <div className="p-4">
@@ -255,7 +229,7 @@ export function EmployeeReimbursements() {
                     </div>
                     <div className="mt-1 text-xs text-ink-2 sm:mt-0">{receiptDate(c.purchaseDate)}</div>
                     <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2 sm:mt-0">
-                      {c.status === "approved" ? <Pill tone={c.paidAt ? "good" : "info"}>{c.paidAt ? "Paid" : "Approved · with next payroll"}</Pill> : <Pill tone={STATUS[c.status].tone}>{STATUS[c.status].label}</Pill>}
+                      {c.status === "approved" ? <Pill tone={c.paidAt ? "good" : "info"}>{c.paidAt ? "Released" : "Approved · Accounting will release it"}</Pill> : <Pill tone={STATUS[c.status].tone}>{STATUS[c.status].label}</Pill>}
                       {(c.note ?? c.approverNote) && <span className="min-w-0 truncate text-xs text-ink-3" title={c.note ?? c.approverNote}>{c.note ?? c.approverNote}</span>}
                       {c.status === "endorsed" && c.approverDecidedBy && <span className="min-w-0 truncate text-xs text-ink-3">Approved by {c.approverDecidedBy}</span>}
                     </div>

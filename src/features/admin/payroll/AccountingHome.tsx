@@ -113,7 +113,7 @@ export function AccountingHome() {
               to="/admin/payroll/runs"
             />
             <Tile label="Claims to approve" value={toApprove.length} sub={toApprove.length ? `${peso(sum(toApprove))} approved by managers` : "Nothing waiting"} tone={toApprove.length ? "warn" : undefined} to="/admin/requests/reimbursement" />
-            <Tile label="Claims to pay out" value={toPay.length} sub={toPay.length ? `${peso(sum(toPay))} · with the next payroll unless paid by transfer` : "All paid"} to="/admin/requests/reimbursement" />
+            <Tile label="Claims to release" value={toPay.length} sub={toPay.length ? `${peso(sum(toPay))} · give directly to the employees` : "All released"} to="/admin/requests/reimbursement" />
             <Tile label="Loans running" value={running.length} sub={running.length ? `${peso(running.reduce((n, l) => n + Math.min(l.installment, l.balance), 0))} off the next run` : "None"} to="/admin/payroll/loans" />
           </>
         )}
