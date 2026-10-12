@@ -2,7 +2,7 @@
 
 import { newId } from "../corehr/store";
 import { people, type LeavePerson } from "../leave/api";
-import { CLAIM_WINDOW_DAYS, claims, MAX_AMOUNT, saveClaims, type Category, type Claim } from "./store";
+import { CLAIM_WINDOW_DAYS, claims, MAX_AMOUNT, saveClaims, type Category, type Claim, type PayoutMethod } from "./store";
 import { can, visible } from "../permissions";
 import { deny, forbidden, sessionWho } from "../session";
 
@@ -126,10 +126,10 @@ export async function decideClaim(id: string, approve: boolean, note: string, ac
 }
 
 /**
- * Accounting pays approved claims by bank transfer instead of waiting for payroll. Claims left
- * unpaid go out with the next payroll run automatically (lib/pay/runs.ts).
+ * Accounting releases approved claims straight to the employee (cash, bank transfer, e-wallet or
+ * check) as soon as the money is available. Reimbursements are not added to payroll.
  */
-export async function payClaimsByTransfer(ids: string[], reference: string, paidOn: string, actor: string): Promise<number> {
+export async function releaseClaims(ids: string[], method: PayoutMethod, reference: string, paidOn: string, actor: string): Promise<number> {
   const picked = claims.filter((c) => ids.includes(c.id));
   for (const c of picked) {
     const denied = deny("claims", "final", c.employeeId);
@@ -137,11 +137,11 @@ export async function payClaimsByTransfer(ids: string[], reference: string, paid
   }
   if (!picked.length) return fail("Choose the claims to pay");
   if (picked.some((c) => c.status !== "approved" || c.paidAt)) return fail("Only approved claims that aren't paid yet can be paid out");
-  if (!reference.trim()) return fail("Enter the transfer reference");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(paidOn)) return fail("Enter the date it was sent");
+  if (method !== "cash" && !reference.trim()) return fail(method === "check" ? "Enter the check number" : "Enter the transfer reference");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paidOn)) return fail("Enter the date it was released");
   const at = `${paidOn}T12:00:00`;
   const set = new Set(ids);
-  if (!saveClaims(claims.map((c) => (set.has(c.id) ? { ...c, paidAt: at, paidBy: actor, payoutMethod: "transfer" as const, payoutRef: reference.trim() } : c)))) return fail(FULL_STORAGE);
+  if (!saveClaims(claims.map((c) => (set.has(c.id) ? { ...c, paidAt: at, paidBy: actor, payoutMethod: method, payoutRef: reference.trim() || (method === "cash" ? "Cash" : "") } : c)))) return fail(FULL_STORAGE);
   return respond(picked.length);
 }
 

@@ -25,14 +25,14 @@ export function ContentHead({
   actions,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   actions?: ReactNode;
 }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-4">
       <div>
         <h1 className="font-display text-xl font-semibold tracking-[-0.01em]">{title}</h1>
-        <p className="mt-0.5 text-[13px] text-ink-2">{subtitle}</p>
+        {subtitle && <p className="mt-0.5 text-[13px] text-ink-2">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>

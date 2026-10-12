@@ -14,8 +14,9 @@ import { fetchMyAvatar, fetchMyProfile } from "@/lib/settings/api";
 import { settingsKeyFor, type ThemePreference } from "@/lib/settings/store";
 import { getThemePreference, setThemePreference } from "@/lib/theme";
 import { useThemePreference } from "@/lib/useTheme";
+import { useCan } from "@/lib/useCan";
+import { useWorkspaceName } from "./Brand";
 
-const WORKSPACE = { admin: "HR workspace", manager: "Partner workspace", employee: "Employee workspace" } as const;
 const sectionLabel = "px-5 pb-2 text-[10.5px] font-semibold tracking-[0.1em] text-[var(--nav-label)] uppercase";
 const linkClass = "flex min-h-9 items-center rounded-[var(--radius-control)] px-3 text-[13.5px] text-[var(--text)] transition-colors hover:bg-[var(--nav-hover-bg)]";
 
@@ -27,6 +28,10 @@ export function SettingsMenu({ onClose, onLogout }: { onClose: () => void; onLog
   const saveAppearance = useSaveSettings("appearance", { quiet: true });
   const theme = useThemePreference();
   const areas = useSettingsAreas();
+  const workspace = useWorkspaceName(user?.role ?? "employee");
+  // Clients report problems to our support team; System Admins answer them.
+  const answersTickets = useCan("edit", "support");
+  const canReport = useCan("create", "support") && !answersTickets && user?.role === "admin";
   const key = user ? settingsKeyFor(user) : "none";
   const profile = useQuery({ queryKey: ["settings", "profile", key], queryFn: () => fetchMyProfile(user!), enabled: !!user });
   const avatar = useQuery({ queryKey: ["settings", "avatar", key], queryFn: () => fetchMyAvatar(user!), enabled: !!user });
@@ -65,7 +70,7 @@ export function SettingsMenu({ onClose, onLogout }: { onClose: () => void; onLog
         <div className="min-w-0 leading-tight">
           <div className="truncate text-sm font-semibold text-ink">{name}</div>
           <div className="truncate text-xs text-ink-2">
-            {user.title} · {WORKSPACE[user.role]}
+            {user.title} · {workspace}
           </div>
           {profile.data?.email && <div className="truncate text-xs text-ink-2">{profile.data.email}</div>}
         </div>
@@ -126,6 +131,11 @@ export function SettingsMenu({ onClose, onLogout }: { onClose: () => void; onLog
         <Link to={base} onClick={onClose} className={linkClass}>
           All settings
         </Link>
+        {canReport && (
+          <Link to="/admin/administration/support?create=ticket" onClick={onClose} className={linkClass}>
+            Report a problem
+          </Link>
+        )}
       </nav>
 
       <div className="flex items-center justify-between gap-4 border-t border-[var(--line-strong)] px-5 py-3 text-[13px]">

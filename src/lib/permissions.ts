@@ -29,7 +29,7 @@ export const ROLE_LABEL: Record<RoleKey, string> = {
 };
 
 export const ROLE_DESCRIPTION: Record<RoleKey, string> = {
-  system_admin: "Our development team. Plan and seats, and setting up a client's first Super Admin. No access to client data.",
+  system_admin: "Our team, for maintenance only: the client's subscription and seats, support tickets, and user accounts and roles. No access to HR, pay or attendance data.",
   super_admin: "The client, usually their IT. Full access within the company; handles the initial setup.",
   hr: "HR staff. Employee records, leave setup and balances, attendance setup and rules. Views leave and payroll reports; never sees claims.",
   approver: "Managers and supervisors. Approve their own team's leave, claims, overtime, undertime and time adjustments.",
@@ -64,11 +64,13 @@ export const PERMISSIONS = {
   partnerTools: { label: "Partner tools (team calendar, workforce, performance, cases)", system_admin: "none", super_admin: "full", hr: "view", approver: "manage:team", accounting: "none", employee: "none" },
   selfService: { label: "Employee self-service (certificates, HMO & benefits)", system_admin: "none", super_admin: "full", hr: "manage", approver: "none", accounting: "none", employee: "own" },
   announcements: { label: "Announcements", system_admin: "none", super_admin: "full", hr: "manage", approver: "view", accounting: "view", employee: "view" },
+  userAccounts: { label: "Maintenance › User accounts (sign-in details of every account)", system_admin: "none", super_admin: "full", hr: "none", approver: "none", accounting: "none", employee: "none" },
   roleAssignment: { label: "Role assignment (Users)", system_admin: "manage", super_admin: "full", hr: "none", approver: "none", accounting: "none", employee: "none" },
   audit: { label: "Audit trail", system_admin: "view", super_admin: "view", hr: "view", approver: "none", accounting: "view", employee: "none" },
   systemSettings: { label: "System settings (company details, sign-in rules)", system_admin: "none", super_admin: "full", hr: "none", approver: "none", accounting: "none", employee: "none" },
   personalSettings: { label: "Personal settings", system_admin: "own", super_admin: "own", hr: "own", approver: "own", accounting: "own", employee: "own" },
   subscription: { label: "Subscription plan & seat count", system_admin: "full", super_admin: "view", hr: "none", approver: "none", accounting: "none", employee: "none" },
+  support: { label: "Support tickets (report a problem to us)", system_admin: "full", super_admin: "own", hr: "own", approver: "none", accounting: "own", employee: "none" },
 } satisfies Record<string, Row & { label: string }>;
 
 export type Feature = keyof typeof PERMISSIONS;
@@ -76,9 +78,9 @@ export const FEATURES = Object.keys(PERMISSIONS) as Feature[];
 
 /** Narrower rules that sit inside a cell. */
 export const LIMITS = {
-  /** Roles a role may give on the Users screen. system_admin only sets up a client's Super Admin. */
+  /** Roles a role may give on the Users screen. system_admin creates and maintains every account. */
   assignableRoles: {
-    system_admin: ["super_admin"],
+    system_admin: ["system_admin", "super_admin", "hr", "approver", "accounting", "employee"],
     super_admin: ["super_admin", "hr", "approver", "accounting", "employee"],
     hr: [],
     approver: [],
@@ -87,7 +89,7 @@ export const LIMITS = {
   } as Record<RoleKey, RoleKey[]>,
   /** Audit trail areas each role sees ("all" = everything). */
   auditAreas: {
-    system_admin: ["Sign-in", "Administration"],
+    system_admin: ["Sign-in", "Administration", "Support"],
     super_admin: "all",
     hr: ["People", "Timekeeping", "Leave"],
     approver: [],

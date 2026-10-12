@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { DownloadIcon } from "@/components/icons";
 import { admin } from "@/lib/admin/store";
 import { myName, myPayslips, type MyPayslip } from "@/lib/ess/api";
+import { my2316, myBank, myLoans } from "@/lib/ess/more";
+import { print2316 } from "../admin/payroll/YearEndPage";
 import { formatPHP } from "@/lib/format";
 import { escapeHtml, openPrintDocument } from "@/lib/printDocument";
 import { LoadError, Pill } from "../admin/corehr/ui";
@@ -34,7 +36,11 @@ function lines(p: MyPayslip) {
       ...(l.overtime ? [["Overtime", l.overtime] as const] : []),
       ...(l.premiums ? [["Holiday and night pay", l.premiums] as const] : []),
       ...(l.deductions ? [["Less absences and undertime", -l.deductions] as const] : []),
+      // Taxable allowances or corrections added on the run are part of gross pay.
+      ...p.items.filter((i) => i.taxable).map((i) => [i.label, i.amount] as const),
     ] as [string, number][],
+    // Added or taken after tax: reimbursements, non-taxable allowances, loan installments.
+    afterTax: p.items.filter((i) => !i.taxable).map((i) => [i.label, i.amount] as [string, number]),
     deductions: [
       ["SSS", l.sssEe],
       ["PhilHealth", l.phEe],
@@ -89,7 +95,7 @@ const SLIP_STYLES = `
 `;
 
 function printSlip(p: MyPayslip) {
-  const { earnings, deductions } = lines(p);
+  const { earnings, deductions, afterTax } = lines(p);
   const l = p.line;
   const s = admin.settings;
   const origin = window.location.origin;
@@ -138,6 +144,8 @@ function printSlip(p: MyPayslip) {
          </div>
        </div>
 
+       ${afterTax.length ? `<div class="card" style="margin-top:16px"><h2>After tax: loans and other items</h2><table><tbody>${afterTax.map(row).join("")}</tbody></table></div>` : ""}
+
        <div class="time">
          <h2>Time &amp; attendance</h2>
          <div class="chips">${timeLines(p).map(([k, v]) => `<div class="chip"><div class="label">${escapeHtml(k)}</div><div class="value">${escapeHtml(v)}</div></div>`).join("")}</div>
@@ -163,7 +171,7 @@ function Row({ k, v, strong }: { k: string; v: number; strong?: boolean }) {
 }
 
 function Breakdown({ p }: { p: MyPayslip }) {
-  const { earnings, deductions } = lines(p);
+  const { earnings, deductions, afterTax } = lines(p);
   const totalDed = deductions.reduce((n, [, v]) => n + v, 0);
   return (
     <section className="flex min-w-0 flex-col rounded-xl border border-border bg-surface p-5">
@@ -197,6 +205,15 @@ function Breakdown({ p }: { p: MyPayslip }) {
           </div>
         </div>
       </div>
+      {afterTax.length > 0 && (
+        <div className="mt-6">
+          <h3 className="mb-1 text-xs font-semibold tracking-wide text-ink-3 uppercase">After tax: loans and other items</h3>
+          {afterTax.map(([k, v], i) => (
+            <Row key={k + i} k={k} v={v} />
+          ))}
+          <p className="mt-1 text-xs text-ink-3">Take-home pay = gross pay − deductions {afterTax.some(([, v]) => v > 0) ? "+ reimbursements " : ""}{afterTax.some(([, v]) => v < 0) ? "− loan installments" : ""}.</p>
+        </div>
+      )}
       <div className="mt-6">
         <h3 className="mb-1 text-xs font-semibold tracking-wide text-ink-3 uppercase">Time &amp; attendance</h3>
         <div className="grid gap-x-6 sm:grid-cols-2">
@@ -208,8 +225,113 @@ function Breakdown({ p }: { p: MyPayslip }) {
           ))}
         </div>
       </div>
-      <p className="mt-auto pt-4 text-xs text-ink-3">Hours worked leave out the unpaid lunch break, which is recorded automatically from your shift. Government contributions are split across the two cut-offs of each month. Questions about your pay? Ask HR.</p>
     </section>
+  );
+}
+
+/** Below the payslips: where pay goes, running loans, and the year's BIR 2316. */
+function PayExtras() {
+  const bank = useQuery({ queryKey: ["ess", "bank"], queryFn: myBank });
+  const loans = useQuery({ queryKey: ["ess", "loans"], queryFn: myLoans });
+  const year = new Date().getFullYear();
+  const [formYear, setFormYear] = useState(year);
+  const form = useQuery({ queryKey: ["ess", "2316", formYear], queryFn: () => my2316(formYear) });
+  const masked = (n: string) => {
+    const d = n.replace(/\D/g, "");
+    return d.length > 4 ? `•••• ${d.slice(-4)}` : n;
+  };
+  const card = "flex flex-col gap-3 rounded-xl border border-border bg-surface p-5";
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <section className={card}>
+        <h2 className="text-sm font-semibold">Where your pay goes</h2>
+        {bank.data ? (
+          <dl className="flex flex-col gap-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink-2">Bank</dt>
+              <dd className="font-medium">{bank.data.bank}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink-2">Account name</dt>
+              <dd className="truncate font-medium">{bank.data.accountName}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink-2">Account number</dt>
+              <dd className="font-num font-medium">{masked(bank.data.accountNumber)}</dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="text-sm text-ink-2">{bank.isLoading ? "Loading…" : "No bank account on file yet, so your pay is released by check or cash."}</p>
+        )}
+      </section>
+
+      <section className={card}>
+        <h2 className="text-sm font-semibold">Loans</h2>
+        {(loans.data ?? []).length === 0 ? (
+          <p className="text-sm text-ink-2">{loans.isLoading ? "Loading…" : "No loans or deductions from your pay."}</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {loans.data!.map((l) => {
+              const pct = l.principal ? Math.round((l.paid / l.principal) * 100) : 0;
+              return (
+                <li key={l.id} className="text-sm">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-medium">{l.kind}</span>
+                    <span className="text-xs text-ink-2">{l.status}</span>
+                  </div>
+                  <div className="text-xs text-ink-2">
+                    {l.reference} · {formatPHP(l.installment)} per cutoff
+                  </div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                    <div className="h-full rounded-full bg-good" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="mt-1 flex justify-between text-xs text-ink-2">
+                    <span>Paid {formatPHP(l.paid)}</span>
+                    <span className="font-medium text-ink">Balance {formatPHP(l.balance)}</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className={card}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold">BIR 2316</h2>
+          <select aria-label="Year" value={formYear} onChange={(e) => setFormYear(Number(e.target.value))} className="rounded-[var(--radius-control)] border border-border bg-surface px-2 py-1 text-xs">
+            {[year, year - 1].map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
+        {form.data ? (
+          <>
+            <dl className="flex flex-col gap-2 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-ink-2">Gross compensation</dt>
+                <dd className="font-num">{formatPHP(form.data.gross)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-ink-2">Tax withheld</dt>
+                <dd className="font-num">{formatPHP(form.data.withheld)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-ink-2">{form.data.adjustment >= 0 ? "Refund due to you" : "Still to be withheld"}</dt>
+                <dd className="font-num font-medium">{formatPHP(Math.abs(form.data.adjustment))}</dd>
+              </div>
+            </dl>
+            <Button size="sm" variant="ghost" className="mt-auto self-start" onClick={() => print2316([form.data!], formYear)}>
+              <DownloadIcon className="h-3.5 w-3.5" /> Print or save as PDF
+            </Button>
+          </>
+        ) : (
+          <p className="text-sm text-ink-2">{form.isLoading ? "Loading…" : `No pay recorded for ${formYear}.`}</p>
+        )}
+      </section>
+    </div>
   );
 }
 
@@ -223,7 +345,7 @@ export function EmployeePayslips() {
 
   return (
     <>
-      <ContentHead title="Payslips" subtitle="Your pay for each cut-off: what you earned, what was deducted, and what you take home." />
+      <ContentHead title="Payslips" />
       {slips.isLoading ? (
         <Skeleton className="h-96 w-full" />
       ) : list.length === 0 ? (
@@ -251,6 +373,7 @@ export function EmployeePayslips() {
           {selected && <Breakdown p={selected} />}
         </div>
       )}
+      <PayExtras />
     </>
   );
 }

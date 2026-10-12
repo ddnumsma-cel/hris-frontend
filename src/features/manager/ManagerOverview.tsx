@@ -18,29 +18,28 @@ import { AlertTriangleIcon, ClockIcon, GraduationCapIcon, IdCardIcon } from "@/c
 import { AttentionPanel, type AttentionItem } from "@/components/shared/AttentionPanel";
 import {
   fetchAllPersonnelDocuments,
-  fetchAttendanceTrend,
-  fetchOnLeaveToday,
   fetchPerformanceReviewStatuses,
   fetchTeamRoster,
   fetchTeamTrainingRecords,
-  fetchWorkforceAlerts,
 } from "@/lib/api";
 import { getExpiringPersonnelFields, isTrainingOverdue } from "@/lib/automation";
 import { formatToday } from "@/lib/format";
-import { currentManager, managerTeamStats } from "@/lib/mockData";
+import { managerProfile, teamAttendanceTrend, teamLeaveThisWeek, teamOnLeaveToday, teamSize } from "@/lib/teamFigures";
 import { ApprovalsQueue } from "./ApprovalsQueue";
 import { AttendanceChart } from "./AttendanceChart";
 import { TeamRoster } from "./TeamRoster";
-import { WorkforceAlerts } from "./WorkforceAlerts";
 
 const APPROVAL_AGING_WARN_DAYS = 2;
 
 export function ManagerOverview() {
   const navigate = useNavigate();
-  const attendanceQuery = useQuery({ queryKey: ["manager", "attendance-trend"], queryFn: fetchAttendanceTrend });
-  const onLeaveQuery = useQuery({ queryKey: ["manager", "on-leave-today"], queryFn: fetchOnLeaveToday });
+  // The signed-in manager's own team (direct reports), from the real records.
+  const attendanceQuery = useQuery({ queryKey: ["manager", "attendance-trend"], queryFn: teamAttendanceTrend });
+  const onLeaveQuery = useQuery({ queryKey: ["manager", "on-leave-today"], queryFn: async () => teamOnLeaveToday() });
+  const me = managerProfile();
+  const headcount = teamSize();
+  const leaveThisWeek = teamLeaveThisWeek();
   const approvalsQuery = useQuery({ queryKey: ["approvals-queue"], queryFn: listMyApprovals });
-  const workforceAlertsQuery = useQuery({ queryKey: ["manager", "workforce-alerts"], queryFn: fetchWorkforceAlerts });
   const teamTrainingsQuery = useQuery({ queryKey: ["manager", "team-trainings"], queryFn: fetchTeamTrainingRecords });
   const rosterQuery = useQuery({ queryKey: ["manager", "team-roster"], queryFn: fetchTeamRoster });
   const reviewStatusesQuery = useQuery({
@@ -113,8 +112,8 @@ export function ManagerOverview() {
   return (
     <div className="dash">
       <ContentHead
-        title="Audit & Assurance — Team Overview"
-        subtitle={`${currentManager.name}, ${currentManager.title} · ${currentManager.office} · ${formatToday()}`}
+        title={me ? `${me.department} — Team Overview` : "Team Overview"}
+        subtitle={me ? `${me.name}${me.title ? `, ${me.title}` : ""}${me.office ? ` · ${me.office}` : ""} · ${formatToday()}` : formatToday()}
       />
 
       <div className="bento bento-manager">
@@ -122,7 +121,7 @@ export function ManagerOverview() {
         <BentoArea area="hero">
           <BentoHero
             title="Team attendance — last 14 days"
-            value={`${managerTeamStats.attendanceRate}%`}
+            value={attendanceQuery.data ? `${attendanceQuery.data.rate}%` : "—"}
             label="Attendance rate · on-time rate per day"
             legend={[
               { color: "var(--grad-chart)", label: "Latest day" },
@@ -130,7 +129,7 @@ export function ManagerOverview() {
             ]}
           >
             {attendanceQuery.data ? (
-              <AttendanceChart data={attendanceQuery.data} variant="bars" />
+              <AttendanceChart data={attendanceQuery.data.points} variant="bars" />
             ) : (
               <Skeleton className="h-56 w-full" />
             )}
@@ -141,8 +140,8 @@ export function ManagerOverview() {
           <KpiStack>
             <StatTile
               label="Team headcount"
-              value={managerTeamStats.teamHeadcount}
-              delta={`${managerTeamStats.onLeaveToday} on leave today`}
+              value={headcount}
+              delta={`${onLeaveQuery.data?.length ?? 0} on leave today`}
             />
             <StatTile
               label="Pending approvals"
@@ -152,14 +151,10 @@ export function ManagerOverview() {
               icon={<ClockIcon className="h-3 w-3" />}
             />
             <StatTile
-              label="Workforce patterns flagged"
-              value={workforceAlertsQuery.data?.length ?? <Skeleton className="h-7 w-8" />}
-              delta={
-                workforceAlertsQuery.data?.some((a) => a.severity === "crit")
-                  ? "Needs attention"
-                  : "Auto-detected this week"
-              }
-              tone={workforceAlertsQuery.data?.some((a) => a.severity === "crit") ? "crit" : "warn"}
+              label="Late arrivals, last 7 days"
+              value={attendanceQuery.data ? attendanceQuery.data.lateThisWeek : <Skeleton className="h-7 w-8" />}
+              delta={attendanceQuery.data?.lateThisWeek ? "Across your team" : "Everyone on time"}
+              tone={attendanceQuery.data?.lateThisWeek ? "warn" : "good"}
               icon={<AlertTriangleIcon className="h-3 w-3" />}
             />
           </KpiStack>
@@ -178,7 +173,7 @@ export function ManagerOverview() {
               <div className="mt-3 rounded-[10px] bg-surface-2 px-3.5 py-3">
                 <div className="mb-1 text-xs text-ink-2">This week</div>
                 <div className="text-[13px]">
-                  4 of {managerTeamStats.teamHeadcount} team members have leave scheduled
+                  {leaveThisWeek} of {headcount} team members have leave scheduled
                 </div>
               </div>
             </CardBody>
@@ -189,7 +184,7 @@ export function ManagerOverview() {
         <BentoArea area="review">
           <Card className="h-full">
             <CardHeader
-              title="Q3 2026 mid-year review"
+              title="Performance reviews"
               action={<span className="font-num text-[15px] font-semibold">{reviewProgressPercent}%</span>}
             />
             <CardBody>
@@ -199,8 +194,7 @@ export function ManagerOverview() {
                 end={`${reviewsTotal} total`}
               />
               <p className="mt-3 text-xs text-ink-2">
-                {reviewsCompleted} of {reviewsTotal} self-assessments and manager reviews submitted. Deadline Oct 15,
-                2026.
+                {reviewsCompleted} of {reviewsTotal} self-assessments and manager reviews submitted for your team.
               </p>
             </CardBody>
           </Card>
@@ -211,11 +205,7 @@ export function ManagerOverview() {
         </BentoArea>
       </div>
 
-      {/* Two short lists side by side on wide screens, so their actions sit next to the text. */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <AttentionPanel items={attentionItems} />
-        <WorkforceAlerts />
-      </div>
+      <AttentionPanel items={attentionItems} />
 
       <TeamRoster />
     </div>

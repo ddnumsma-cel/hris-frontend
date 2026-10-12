@@ -8,8 +8,8 @@ import { payroll, periodsFor, type PayLine, type Period } from "../reports/api";
 import { tk, todayIso } from "../timekeeping/store";
 import type { Adjustment } from "./engine";
 import { canFor, scopeFor } from "../permissions";
-import { claims, claimType, saveClaims } from "../reimbursements/store";
-import { allLoans, claimAdjustmentId, loanAdjustmentId } from "./loanStore";
+import { claims, saveClaims } from "../reimbursements/store";
+import { allLoans, loanAdjustmentId } from "./loanStore";
 import { deny, forbidden, sessionWho } from "../session";
 import { notifyEmployee } from "../outbox";
 
@@ -92,10 +92,7 @@ function autoAdjustments(run: { id?: string; from: string; to: string }): Record
     const amount = Math.min(l.installment, balance);
     add(l.employeeId, { id: loanAdjustmentId(l.id), label: l.kind, amount: -amount, taxable: false, reason: `${l.reference} · balance ${money(balance - amount)} after this` });
   }
-  for (const c of claims) {
-    if (c.status !== "approved" || c.paidAt) continue;
-    add(c.employeeId, { id: claimAdjustmentId(c.id), label: `Reimbursement: ${claimType(c)}`, amount: c.amount, taxable: false, reason: c.merchant });
-  }
+  // Reimbursements aren't paid through payroll: Accounting releases them directly (lib/reimbursements/api.ts).
   return out;
 }
 

@@ -32,13 +32,18 @@ export interface Claim {
   decidedBy?: string;
   decidedAt?: string;
   note?: string;
-  /** Paid out: with a payroll run (added to take-home pay), by bank transfer, or in final pay. */
+  /** Released by Accounting directly (cash, bank transfer, e-wallet or check), or in final pay.
+   *  "payroll" is only on older claims that went out with a payroll run. */
   paidAt?: string;
   paidBy?: string;
-  payoutMethod?: "payroll" | "transfer" | "final pay";
-  /** The run label, the transfer reference, or "Final pay". */
+  payoutMethod?: PayoutMethod | "payroll" | "final pay";
+  /** The receipt/transfer/check reference, the run label, or "Final pay". */
   payoutRef?: string;
 }
+
+/** How Accounting hands the money over. Reimbursements never go through payroll. */
+export type PayoutMethod = "cash" | "transfer" | "e-wallet" | "check";
+export const PAYOUT_LABEL: Record<PayoutMethod | "payroll" | "final pay", string> = { cash: "Cash", transfer: "Bank transfer", "e-wallet": "GCash / e-wallet", check: "Check", payroll: "With payroll", "final pay": "In final pay" };
 
 /** The expense name to show: what they typed for "Other", else the category. */
 export const claimType = (c: Pick<Claim, "category" | "otherType">) => (c.category === "Other" && c.otherType ? c.otherType : c.category);
@@ -73,7 +78,7 @@ function seed(): Claim[] {
     employeeId ? [{ id, employeeId, category, merchant, purchaseDate: daysAgo(ago), description, status, filedAt: `${daysAgo(Math.max(0, ago - 1))}T09:30:00`, ...sampleReceipt(merchant, daysAgo(ago), lines), ...extra }] : [];
   return [
     ...mk("rb-1", "MSMA-00482", "Office supplies", "National Book Store", 3, [["Bond paper A4 x2", 590], ["Ballpen black x12", 216], ["Folder long x20", 340]], "Supplies for the Q4 tax filing binders", "pending"),
-    ...mk("rb-2", "MSMA-00482", "Transportation", "Grab Philippines", 18, [["GrabCar BIR RDO 81", 285], ["Booking fee", 25]], "Ride to BIR Cebu to file a client's 1702-Q", "approved", { decidedBy: "Dinah Marquez", decidedAt: `${daysAgo(16)}T14:10:00`, note: "Included in the next payroll." }),
+    ...mk("rb-2", "MSMA-00482", "Transportation", "Grab Philippines", 18, [["GrabCar BIR RDO 81", 285], ["Booking fee", 25]], "Ride to BIR Cebu to file a client's 1702-Q", "approved", { decidedBy: "Dinah Marquez", decidedAt: `${daysAgo(16)}T14:10:00`, note: "Approved." }),
     ...mk("rb-3", others[0], "Meals & client meetings", "Casa Verde Lahug", 2, [["Brian's Ribs", 595], ["Pasta Pomodoro", 385], ["Iced tea x3", 285]], "Lunch meeting with a new audit client", "pending"),
     ...mk("rb-4", others[1], "Communication", "Smart Communications", 5, [["Prepaid load (client calls)", 500]], "Load for client follow-ups while on field work", "pending"),
     ...mk("rb-5", others[2], "Training & seminars", "PICPA Cebu Chapter", 25, [["CPD seminar: TRAIN law update", 2500]], "CPD units for license renewal", "approved", { decidedBy: "Dinah Marquez", decidedAt: `${daysAgo(22)}T10:00:00` }),

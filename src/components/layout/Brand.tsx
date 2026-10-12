@@ -1,11 +1,17 @@
 import clsx from "clsx";
 import type { Role } from "@/lib/types";
+import { useWho } from "@/lib/useCan";
 
 const roleLabels: Record<Role, string> = {
   employee: "Employee",
   manager: "Partner",
   admin: "HR",
 };
+
+/** "HR workspace", or "System workspace" for our System Admins, who share the HR workspace's layout. */
+export function useWorkspaceName(role: Role) {
+  return useWho().role === "system_admin" ? "System workspace" : `${roleLabels[role]} workspace`;
+}
 
 /** HeyHR wordmark. The SVG recolors itself per color scheme; index.css (.brand-wordmark) passes it the app's theme. */
 export function BrandName({ className }: { className?: string }) {
@@ -28,7 +34,7 @@ export function WorkspaceLabel({
 }) {
   return (
     <span className={clsx(variant === "pill" ? "topbar-field" : "brand-caption", className)}>
-      {roleLabels[role]} workspace
+      {useWorkspaceName(role)}
     </span>
   );
 }

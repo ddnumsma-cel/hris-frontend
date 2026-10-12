@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { RolePage } from "@/components/layout/RolePage";
 import { SideNav, type CreateGroup, type SideNavGroup } from "@/components/layout/SideNav";
 import {
+  LockIcon,
   CalendarIcon,
   AttendanceIcon,
   BuildingIcon,
@@ -36,6 +37,7 @@ const GROUPS: SideNavGroup[] = [
     icon: <MaintenanceIcon />,
     items: [
       { label: "People", to: "/admin/maintenance/people", icon: <UsersIcon /> },
+      { label: "User accounts", short: "Accounts", to: "/admin/maintenance/user-accounts", icon: <LockIcon /> },
       { label: "Departments", to: "/admin/maintenance/departments", icon: <BuildingIcon /> },
       { label: "Locations", to: "/admin/maintenance/locations", icon: <MapPinIcon /> },
       { label: "Org chart", to: "/admin/maintenance/org-chart", icon: <OrgChartIcon /> },
@@ -125,7 +127,8 @@ const GROUPS: SideNavGroup[] = [
         ],
       },
       {
-        label: "Requests",
+        label: "Request reports",
+        short: "Requests",
         to: "/admin/reports/leave",
         icon: <ReceiptIcon />,
         children: [
@@ -136,7 +139,8 @@ const GROUPS: SideNavGroup[] = [
         ],
       },
       {
-        label: "Payroll",
+        label: "Payroll reports",
+        short: "Payroll",
         to: "/admin/reports/payroll",
         icon: <PayrollIcon />,
         children: [{ label: "Payroll report", to: "/admin/reports/payroll" }],
@@ -180,6 +184,7 @@ const GROUPS: SideNavGroup[] = [
           { label: "System settings", to: "/admin/administration/settings" },
           { label: "Email & text outbox", to: "/admin/administration/outbox" },
           { label: "Subscription & seats", to: "/admin/administration/subscription" },
+          { label: "Support tickets", to: "/admin/administration/support" },
         ],
       },
     ],
@@ -236,6 +241,7 @@ const CREATE: CreateGroup[] = [
     title: "Other",
     items: [
       { label: "Add user", to: "/admin/administration/users?create=user" },
+      { label: "Report a problem", to: "/admin/administration/support?create=ticket", action: "create" },
       { label: "Edit approval workflows", to: "/admin/maintenance/rules", action: "edit" },
       { label: "View HR report", to: "/admin/reports/hr" },
       { label: "View attendance report", to: "/admin/reports/attendance" },

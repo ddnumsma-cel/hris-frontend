@@ -1,7 +1,6 @@
 import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { DownloadIcon, EditIcon } from "@/components/icons";
-import { formatToday } from "@/lib/format";
 import { File201View } from "./file201/File201View";
 import { useFile201 } from "./file201/useFile201";
 
@@ -11,7 +10,6 @@ export function Employee201File() {
     <>
       <ContentHead
         title="201 File"
-        subtitle={formatToday()}
         actions={
           <>
             <Button variant="ghost" icon={<EditIcon className="h-3.75 w-3.75" />} onClick={f.editProfile} disabled={!f.employee}>

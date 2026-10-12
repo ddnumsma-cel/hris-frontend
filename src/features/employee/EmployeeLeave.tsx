@@ -1,3 +1,4 @@
+import { ApproverNote } from "./ApproverNote";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
@@ -63,12 +64,15 @@ export function FileMyLeaveDialog({ onClose }: { onClose: () => void }) {
               if (!preview.errors.length && form.reason.trim()) file.mutate();
             }}
           >
-            Send to HR
+            Send to your manager
           </Button>
         </div>
       }
     >
       <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+        <div className="col-span-2">
+          <ApproverNote />
+        </div>
         <Field id="my-type" label="Leave type" required className="col-span-2">
           <select id="my-type" className={inputClass} value={form.typeId} onChange={(e) => set({ typeId: e.target.value })}>
             {types.map((t) => (
@@ -196,7 +200,7 @@ function CreditsCard({ data }: { data: MyLeave }) {
           <span className="h-2.5 w-2.5 rounded-full bg-brand" /> Used <b className="font-semibold text-ink">{used}</b>
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-warning" /> Waiting for HR <b className="font-semibold text-ink">{pending}</b>
+          <span className="h-2.5 w-2.5 rounded-full bg-warning" /> Waiting for your manager <b className="font-semibold text-ink">{pending}</b>
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full border border-dashed border-ink-3" /> Available <b className="font-semibold text-ink">{available}</b>
@@ -235,7 +239,7 @@ export function EmployeeLeave() {
       header: "Status",
       cell: (r) => (
         <span className="flex items-center gap-2" title={r.note}>
-          <Pill tone={STATUS[r.status].tone}>{r.status === "pending" ? "Waiting for HR" : STATUS[r.status].label}</Pill>
+          <Pill tone={STATUS[r.status].tone}>{r.status === "pending" ? "Waiting for your manager" : STATUS[r.status].label}</Pill>
           {r.note && r.status !== "cancelled" && <span className="max-w-48 truncate text-xs text-ink-3">{r.note}</span>}
         </span>
       ),
@@ -255,8 +259,7 @@ export function EmployeeLeave() {
   return (
     <>
       <ContentHead
-        title="My leave"
-        subtitle="Your leave credits for this year and the leave you've asked for. HR approves every request."
+        title="Leave"
         actions={
           <Button icon={<CalendarIcon className="h-3.75 w-3.75" />} onClick={() => setFiling(true)}>
             File leave
@@ -265,7 +268,7 @@ export function EmployeeLeave() {
       />
       {data.data ? <CreditsCard data={data.data} /> : <Skeleton className="h-36" />}
       <div>
-        <h2 className="mb-2 text-sm font-semibold">My requests</h2>
+        <h2 className="mb-2 text-sm font-semibold">Requests</h2>
         <SimpleTable rows={data.data?.requests ?? []} rowKey={(r) => r.id} cols={cols} loading={data.isLoading} empty="You haven't filed any leave yet." />
       </div>
 

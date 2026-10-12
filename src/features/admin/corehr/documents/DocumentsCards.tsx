@@ -4,9 +4,9 @@ import clsx from "clsx";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { CheckIcon } from "@/components/icons";
+import { CheckIcon, GridIcon, ListIcon } from "@/components/icons";
 import type { EmployeeSummary } from "@/lib/corehr/api";
-import { SearchBox, Toolbar } from "../../timekeeping/common";
+import { SearchBox, SimpleTable, Toolbar } from "../../timekeeping/common";
 import { DocumentDrawer } from "../DocumentDrawer";
 import { documentState, formatDate } from "../format";
 import { StatusText } from "../SplitView";
@@ -14,6 +14,29 @@ import { Drawer, FilterChip, Initials, LoadError } from "../ui";
 import { stageOf, useDocuments, type DocRow } from "./data";
 
 type Filter = "all" | "check" | "missing" | "expiring" | "done";
+type View = "cards" | "table";
+
+// Cards or table, remembered in this browser (like People).
+const VIEW_KEY = "heyhr-documents-view";
+function loadView(): View {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "table" ? "table" : "cards";
+  } catch {
+    return "cards";
+  }
+}
+
+/** The status pills for one person: to check, missing, expiring, complete. */
+function Badges({ p }: { p: { total: number; done: number; check: number; missing: number; expiring: number } }) {
+  return (
+    <>
+      {p.check > 0 && <span className="rounded-full bg-[color-mix(in_srgb,var(--color-brand)_14%,transparent)] px-2 py-0.5 text-[0.7rem] font-semibold text-brand-ink">{p.check} to check</span>}
+      {p.missing > 0 && <span className="rounded-full bg-critical-tint px-2 py-0.5 text-[0.7rem] font-semibold text-critical">{p.missing} missing</span>}
+      {p.expiring > 0 && <span className="rounded-full bg-warning-tint px-2 py-0.5 text-[0.7rem] font-semibold text-warning">{p.expiring} expiring</span>}
+      {p.total > 0 && p.done === p.total && <span className="rounded-full bg-good-tint px-2 py-0.5 text-[0.7rem] font-semibold text-good">Complete</span>}
+    </>
+  );
+}
 
 /** One card per employee; review someone's whole 201 file in a side panel. */
 export function DocumentsCards() {
@@ -22,6 +45,15 @@ export function DocumentsCards() {
   const [query, setQuery] = useState("");
   const [personId, setPersonId] = useState<string | null>(null);
   const [docId, setDocId] = useState<string | null>(null);
+  const [view, setView] = useState<View>(loadView);
+  const changeView = (v: View) => {
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      // Not remembered; fine.
+    }
+  };
 
   if (docs.error) return <LoadError onRetry={docs.retry} />;
 
@@ -43,7 +75,25 @@ export function DocumentsCards() {
 
   return (
     <>
-      <ContentHead title="Documents" subtitle={`201 file paperwork for ${docs.people.size} employees · ${docs.checked} of ${docs.required} checked (${pct}%). Click Review to go through someone's documents.`} />
+      <ContentHead
+        title="Documents"
+        subtitle={`201 file paperwork for ${docs.people.size} employees · ${docs.checked} of ${docs.required} checked (${pct}%). Click Review to go through someone's documents.`}
+        actions={
+          <div role="group" aria-label="View" className="flex rounded-full border border-border bg-surface p-0.5">
+            {(
+              [
+                ["cards", "Cards", GridIcon],
+                ["table", "Table", ListIcon],
+              ] as const
+            ).map(([id, label, Icon]) => (
+              <button key={id} type="button" aria-pressed={view === id} onClick={() => changeView(id)} className={clsx("flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors", view === id ? "bg-ink text-bg" : "text-ink-2 hover:text-ink")}>
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
+        }
+      />
       <Toolbar>
         <SearchBox value={query} onChange={setQuery} placeholder="Search employee or department" />
         <span className="flex flex-wrap gap-1.5">
@@ -65,7 +115,63 @@ export function DocumentsCards() {
         </span>
       </Toolbar>
 
-      {docs.loading ? (
+      {view === "table" ? (
+        <SimpleTable
+          rows={shown}
+          rowKey={(p) => p.e.id}
+          loading={docs.loading}
+          empty="No one matches."
+          cols={[
+            {
+              header: "Employee",
+              cell: (p) => (
+                <span className="flex items-center gap-3">
+                  <Initials initials={p.e.initials} size="sm" />
+                  <span className="min-w-0">
+                    <Link to={`/admin/maintenance/people/${p.e.id}#documents`} className="block truncate font-medium hover:underline">
+                      {p.e.name}
+                    </Link>
+                    <span className="block truncate text-xs text-ink-3">{p.e.departmentName}</span>
+                  </span>
+                </span>
+              ),
+            },
+            {
+              header: "Checked",
+              cell: (p) => {
+                const ppct = p.total ? Math.round((p.done / p.total) * 100) : 0;
+                return (
+                  <span className="flex items-center gap-3">
+                    <span className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-2">
+                      <span className="block h-full rounded-full bg-good" style={{ width: `${ppct}%` }} />
+                    </span>
+                    <span className="text-xs text-ink-2">
+                      <span className="font-semibold text-ink">{p.done}</span> of {p.total}
+                    </span>
+                  </span>
+                );
+              },
+            },
+            {
+              header: "Status",
+              cell: (p) => (
+                <span className="flex flex-wrap gap-1">
+                  <Badges p={p} />
+                </span>
+              ),
+            },
+            {
+              header: "",
+              align: "right",
+              cell: (p) => (
+                <Button size="sm" variant={p.check ? "primary" : "ghost"} onClick={() => setPersonId(p.e.id)}>
+                  {p.check ? `Review ${p.check}` : "View documents"}
+                </Button>
+              ),
+            },
+          ]}
+        />
+      ) : docs.loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           {Array.from({ length: 10 }, (_, i) => (
             <Skeleton key={i} className="h-48" />
@@ -95,10 +201,7 @@ export function DocumentsCards() {
                   <span className="font-semibold text-ink">{p.done}</span> of {p.total} checked
                 </div>
                 <div className="mt-2 flex min-h-6 flex-wrap gap-1">
-                  {p.check > 0 && <span className="rounded-full bg-[color-mix(in_srgb,var(--color-brand)_14%,transparent)] px-2 py-0.5 text-[0.7rem] font-semibold text-brand-ink">{p.check} to check</span>}
-                  {p.missing > 0 && <span className="rounded-full bg-critical-tint px-2 py-0.5 text-[0.7rem] font-semibold text-critical">{p.missing} missing</span>}
-                  {p.expiring > 0 && <span className="rounded-full bg-warning-tint px-2 py-0.5 text-[0.7rem] font-semibold text-warning">{p.expiring} expiring</span>}
-                  {p.total > 0 && p.done === p.total && <span className="rounded-full bg-good-tint px-2 py-0.5 text-[0.7rem] font-semibold text-good">Complete</span>}
+                  <Badges p={p} />
                 </div>
                 <Button size="sm" variant={p.check ? "primary" : "ghost"} className="mt-3 w-full justify-center" onClick={() => setPersonId(p.e.id)}>
                   {p.check ? `Review ${p.check}` : "View documents"}

@@ -107,7 +107,7 @@ function NoticeDialog({ target, onClose }: { target: NoticeTarget; onClose: () =
       }
     >
       <div className="flex flex-col gap-3">
-        <p className="text-xs text-ink-2">The employee sees this on their My attendance page and confirms they read it. It doesn&#39;t change their pay.</p>
+        <p className="text-xs text-ink-2">The employee sees this on their Attendance page and confirms they read it. It doesn&#39;t change their pay.</p>
         <Field id="nt-subject" label="Subject">
           <input id="nt-subject" className={inputClass} value={subject} onChange={(e) => setSubject(e.target.value)} />
         </Field>

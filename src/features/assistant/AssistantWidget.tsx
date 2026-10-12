@@ -54,13 +54,13 @@ export function AssistantWidget() {
         data-tour="assistant-button"
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Close AI assistant" : "Open AI assistant"}
-        className="fixed bottom-5 right-5 z-90 flex h-13 w-13 items-center justify-center accent-fill rounded-full shadow-[var(--shadow-primary)] transition-transform active:scale-95"
+        className="assistant-fab fixed bottom-5 right-5 z-90 flex h-13 w-13 items-center justify-center accent-fill rounded-full shadow-[var(--shadow-primary)] transition-transform active:scale-95"
       >
         {open ? <XIcon className="h-5 w-5" /> : <SparkleIcon className="h-5.5 w-5.5" />}
       </button>
 
       {open && (
-        <div className="panel-enter fixed bottom-21 right-5 z-90 flex h-[min(560px,70vh)] w-[min(380px,92vw)] glass-surface flex-col overflow-hidden rounded-[var(--radius-modal)]">
+        <div className="assistant-panel panel-enter fixed bottom-21 right-5 z-90 flex h-[min(560px,70vh)] w-[min(380px,92vw)] glass-surface flex-col overflow-hidden rounded-[var(--radius-modal)]">
           <div className="flex items-center gap-2 border-b border-border bg-brand-dark px-4 py-3 text-white">
             <SparkleIcon className="h-4 w-4 text-[#8fc93f]" />
             <div>

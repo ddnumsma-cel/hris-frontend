@@ -13,7 +13,7 @@ import { Choice, Name, SearchBox, SimpleTable, Toolbar } from "../timekeeping/co
 const peso = (n: number) => `${n < 0 ? "−" : ""}₱${Math.abs(n).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const shortDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
 
-function print2316(forms: Form2316[], year: number) {
+export function print2316(forms: Form2316[], year: number) {
   const company = admin.settings.companyName;
   const page = (f: Form2316) => {
     const row = (label: string, v: number | string) => `<tr><td>${escapeHtml(label)}</td><td class="num">${escapeHtml(typeof v === "number" ? peso(v) : v)}</td></tr>`;

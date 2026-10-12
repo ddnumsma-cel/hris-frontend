@@ -138,7 +138,9 @@ export const adminOverviewStats: AdminOverviewStats = {
   totalHeadcount: 312,
   newHiresThisMonth: 6,
   attritionRateYtd: 4.2,
-  openPositions: { audit: 3, tax: 4, legal: 2 },
+  separationsYtd: 24,
+  openPositions: { total: 9, byDepartment: [{ name: "Tax", count: 4 }, { name: "Audit", count: 3 }, { name: "Legal", count: 2 }] },
+  onLeaveToday: 0,
   payrollRunTotal: 13_400_000,
   payrollCutoffLabel: "Oct 25",
 };

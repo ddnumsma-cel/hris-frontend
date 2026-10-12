@@ -17,6 +17,7 @@ export function featureForPath(pathname: string): Feature | null {
     if (!seg) return "dashboard";
     if (seg === "maintenance") {
       if (sub === "people") return "people";
+      if (sub === "user-accounts") return "userAccounts";
       if (sub === "departments") return "departments";
       if (sub === "locations") return "locations";
       if (sub === "org-chart") return "orgChart";
@@ -40,6 +41,7 @@ export function featureForPath(pathname: string): Feature | null {
       if (sub === "audit") return "audit";
       if (sub === "settings" || sub === "outbox") return "systemSettings";
       if (sub === "subscription") return "subscription";
+      if (sub === "support") return "support";
     }
     return null;
   }
@@ -62,6 +64,7 @@ export function featureForPath(pathname: string): Feature | null {
     if (seg === "certificates" || seg === "benefits") return "selfService";
     if (seg === "trainings") return "trainings";
     if (seg === "reimbursements") return "claims";
+    if (seg === "requests") return "selfService";
     return null;
   }
   return null;

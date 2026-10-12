@@ -16,7 +16,7 @@ import { EmployeeCard } from "./EmployeeCard";
 import { Initials, LoadError } from "./ui";
 
 /** Table rows per page. Cards show everyone and the page scrolls. */
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 15;
 
 type View = "cards" | "table";
 type SortKey = "name" | "job" | "department" | "branch" | "status" | "hired" | "documents";
@@ -70,11 +70,12 @@ export function PeoplePage() {
   const unitsQuery = useQuery({ queryKey: keys.units, queryFn: listUnits });
   const [query, setQuery] = useState(params.get("q") ?? "");
   const [departmentId, setDepartmentId] = useState("");
+  const [showing, setShowing] = useState<"current" | "separated">("current");
   const [view, setView] = useState<View>(loadView);
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: "name", asc: true });
   const [page, setPage] = useState(0);
   // A new search, filter or sort starts again from the first page.
-  const filterKey = `${query}|${departmentId}|${sort.key}|${sort.asc}|${office}|${view}`;
+  const filterKey = `${showing}|${query}|${departmentId}|${sort.key}|${sort.asc}|${office}|${view}`;
   const [seenKey, setSeenKey] = useState(filterKey);
   if (seenKey !== filterKey) {
     setSeenKey(filterKey);
@@ -98,12 +99,13 @@ export function PeoplePage() {
     .sort((a, b) => a.name.localeCompare(b.name));
   const branchOf = (id: string) => units.find((u) => u.id === units.find((d) => d.id === id)?.parentId)?.name;
   const current = all.filter((e) => e.status !== "Separated");
+  const separated = all.length - current.length;
 
   const q = query.trim().toLowerCase();
   const value = (e: EmployeeSummary, k: SortKey): string | number =>
     k === "name" ? e.name : k === "job" ? e.positionTitle : k === "department" ? e.departmentName : k === "branch" ? e.branchName : k === "status" ? e.status : k === "hired" ? e.dateHired : e.documents.required ? e.documents.verified / e.documents.required : 1;
   const rows = all
-    .filter((e) => e.status !== "Separated" && (!departmentId || e.departmentId === departmentId) && (!q || e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q) || e.positionTitle.toLowerCase().includes(q) || e.workEmail.toLowerCase().includes(q)))
+    .filter((e) => (showing === "separated" ? e.status === "Separated" : e.status !== "Separated") && (!departmentId || e.departmentId === departmentId) && (!q || e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q) || e.positionTitle.toLowerCase().includes(q) || e.workEmail.toLowerCase().includes(q)))
     .sort((a, b) => {
       const x = value(a, sort.key);
       const y = value(b, sort.key);
@@ -140,6 +142,11 @@ export function PeoplePage() {
           <SearchIcon className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-ink-3" />
           <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, ID, job or email" aria-label="Search employees" className={filterSearchClass} />
         </div>
+        {/* People who have left stay findable here (to cancel a separation or look up their 201 file). */}
+        <select aria-label="Show" value={showing} onChange={(e) => setShowing(e.target.value as "current" | "separated")} className={filterSelectClass}>
+          <option value="current">Current employees ({current.length})</option>
+          <option value="separated">Separated ({separated})</option>
+        </select>
         <select aria-label="Department" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} className={filterSelectClass}>
           <option value="">All departments</option>
           {departments.map((d) => (

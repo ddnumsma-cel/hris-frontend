@@ -561,6 +561,55 @@ body {
     0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
+/* Sign-in page panel art (decorative only): soft brand glows and a fading dot grid. */
+.login-hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.login-hero > * {
+  position: relative;
+  z-index: 1;
+}
+.login-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(40rem 28rem at 105% -10%, color-mix(in srgb, var(--sky) 34%, transparent), transparent 62%),
+    radial-gradient(36rem 30rem at -15% 112%, color-mix(in srgb, var(--indigo) 28%, transparent), transparent 62%);
+}
+.login-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(color-mix(in srgb, white 16%, transparent) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse 65% 55% at 25% 45%, black, transparent 78%);
+}
+/* The preview cards on the sign-in panel drift gently, one after another. */
+.login-float {
+  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.55);
+  animation: login-float 6s ease-in-out infinite;
+}
+.login-float:nth-child(2) {
+  animation-delay: -2s;
+}
+.login-float:nth-child(3) {
+  animation-delay: -4s;
+}
+@keyframes login-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
 /* App background: a plain --bg layer fixed behind all content. */
 .app-background {
   position: fixed;
@@ -1653,4 +1702,17 @@ html::-webkit-scrollbar {
   .step-forward, .step-back, .step-pop, .drawer-enter, .rise-in, .grow-x { animation: none; }
   .step-line, .lift { transition: none; }
   .lift:hover { transform: none; }
+}
+
+/* Phones with the bottom tab bar (employee workspace): keep the page and the assistant clear of it. */
+@media (max-width: 639px) {
+  body:has(.bottom-tabs) main {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+  body:has(.bottom-tabs) .assistant-fab {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+  body:has(.bottom-tabs) .assistant-panel {
+    bottom: calc(148px + env(safe-area-inset-bottom));
+  }
 }

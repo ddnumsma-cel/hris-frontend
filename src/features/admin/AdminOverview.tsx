@@ -21,48 +21,30 @@ import {
 import { useToast } from "@/components/ui/ToastContext";
 import {
   BellIcon,
-  CheckIcon,
-  ClockIcon,
   DownloadIcon,
-  FileQuestionIcon,
-  IdCardIcon,
   ShieldIcon,
   UserPlusIcon,
   UsersIcon,
 } from "@/components/icons";
-import { AttentionPanel, type AttentionItem } from "@/components/shared/AttentionPanel";
 import {
   fetchAdminOverviewStats,
-  fetchCertificateRequestsForReview,
   fetchComplianceCalendar,
   fetchEmployeeDirectory,
   fetchEmployeeHireDates,
   fetchHeadcountByOffice,
   fetchOnboardingPipeline,
-  fetchAllPersonnelDocuments,
-  fetchAllPersonnelProfiles,
-  fetchPayrollCostBreakdown,
-  fetchPayrollRunSteps,
-  fetchProfessionalLicenses,
 } from "@/lib/api";
 import {
-  getAge,
-  getCpdStatus,
   getEffectiveCompliance,
-  getEffectivePayrollSteps,
-  getExpiringPersonnelFields,
-  OPTIONAL_RETIREMENT_AGE,
 } from "@/lib/automation";
 import { downloadTextFile, toCsv } from "@/lib/download";
-import { formatPHPCompact, formatToday } from "@/lib/format";
-import { listAwolFlags, listTardinessFlags, remoteAttendanceToday } from "@/lib/timekeeping/api";
+import { formatToday } from "@/lib/format";
+import { listDays } from "@/lib/timekeeping/api";
+import { headcountByDepartment } from "@/lib/homeFigures";
 import { useCan } from "@/lib/useCan";
 import { AddEmployeeDialog } from "./AddEmployeeDialog";
 import { HeadcountChart, RecentlyJoined } from "./HeadcountChart";
-import { PayrollCostChart } from "./PayrollCostChart";
 import { PostAnnouncementDialog } from "./PostAnnouncementDialog";
-import { RecruitmentPipeline } from "./RecruitmentPipeline";
-import { tkKeys } from "./timekeeping/format";
 import { useCreateParam } from "@/lib/useCreateParam";
 
 const complianceVariant: Record<string, ChipVariant> = {
@@ -83,144 +65,22 @@ export function AdminOverview() {
   useCreateParam("announcement", () => canAnnounce && setAnnouncementOpen(true));
 
   const statsQuery = useQuery({ queryKey: ["admin", "overview-stats"], queryFn: fetchAdminOverviewStats });
-  const runStepsQuery = useQuery({ queryKey: ["admin", "payroll-run-steps"], queryFn: fetchPayrollRunSteps });
   const headcountQuery = useQuery({ queryKey: ["admin", "headcount-by-office"], queryFn: fetchHeadcountByOffice });
-  const costQuery = useQuery({ queryKey: ["admin", "payroll-cost"], queryFn: fetchPayrollCostBreakdown });
   const complianceQuery = useQuery({ queryKey: ["admin", "compliance-calendar"], queryFn: fetchComplianceCalendar });
   const directoryQuery = useQuery({ queryKey: ["admin", "employee-directory"], queryFn: fetchEmployeeDirectory });
   const hireDatesQuery = useQuery({ queryKey: ["admin", "employee-hire-dates"], queryFn: fetchEmployeeHireDates });
   const onboardingQuery = useQuery({ queryKey: ["admin", "onboarding-pipeline"], queryFn: fetchOnboardingPipeline });
-  const certificatesQuery = useQuery({
-    queryKey: ["admin", "certificate-requests"],
-    queryFn: fetchCertificateRequestsForReview,
-  });
-  const licensesQuery = useQuery({
-    queryKey: ["admin", "professional-licenses"],
-    queryFn: fetchProfessionalLicenses,
-  });
-  const personnelDocumentsQuery = useQuery({
-    queryKey: ["admin", "personnel-documents"],
-    queryFn: fetchAllPersonnelDocuments,
-  });
-  const personnelProfilesQuery = useQuery({
-    queryKey: ["admin", "personnel-profiles"],
-    queryFn: fetchAllPersonnelProfiles,
-  });
   const seesTime = useCan("view", "attendanceRecords");
-  const seesRemoteDays = useCan("view", "remoteDays");
-  const tardinessQuery = useQuery({ queryKey: tkKeys.tardinessFlags, queryFn: listTardinessFlags, enabled: seesTime });
-  const awolQuery = useQuery({ queryKey: ["timekeeping", "awol-flags"], queryFn: listAwolFlags, enabled: seesTime });
-  const remoteQuery = useQuery({ queryKey: ["timekeeping", "remote-days", "today"], queryFn: remoteAttendanceToday, enabled: seesTime && seesRemoteDays, staleTime: 0 });
+  const todayIso = new Date().toLocaleDateString("en-CA");
+  const todayQuery = useQuery({ queryKey: ["timekeeping", "days", todayIso, todayIso], queryFn: () => listDays(todayIso, todayIso), enabled: seesTime, staleTime: 0 });
+  const departments = headcountByDepartment();
 
   const stats = statsQuery.data;
-  const payrollSteps = runStepsQuery.data ? getEffectivePayrollSteps(runStepsQuery.data) : undefined;
 
   const effectiveCompliance = (complianceQuery.data ?? []).map((item) => ({
     item,
     ...getEffectiveCompliance(item),
   }));
-
-  const attentionItems: AttentionItem[] = [];
-  for (const { item, status, note } of effectiveCompliance) {
-    if (status === "Overdue" || status === "Due soon") {
-      attentionItems.push({
-        id: `compliance-${item.id}`,
-        icon: <ShieldIcon className="h-4 w-4" />,
-        title: `${item.filing} (${item.agency}) is ${status.toLowerCase()}`,
-        detail: note,
-        tone: status === "Overdue" ? "crit" : "warn",
-        action: { label: "Review", onClick: () => navigate("/admin/compliance") },
-      });
-    }
-  }
-  for (const r of certificatesQuery.data ?? []) {
-    if (r.status !== "Pending") continue;
-    const ageDays = Math.max(0, Math.round((Date.now() - new Date(r.requestedOn).getTime()) / 86_400_000));
-    if (ageDays >= 3) {
-      attentionItems.push({
-        id: `cert-${r.id}`,
-        icon: <FileQuestionIcon className="h-4 w-4" />,
-        title: `${r.type} request has waited ${ageDays} days`,
-        detail: r.purpose,
-        tone: ageDays >= 5 ? "crit" : "warn",
-        action: { label: "Process", onClick: () => navigate("/admin/certificates") },
-      });
-    }
-  }
-  for (const license of licensesQuery.data ?? []) {
-    const cpd = getCpdStatus(license);
-    if (cpd.status === "Overdue" || cpd.status === "Due soon") {
-      attentionItems.push({
-        id: `cpd-${license.id}`,
-        icon: <ShieldIcon className="h-4 w-4" />,
-        title: `${license.employeeName}'s CPD units are ${cpd.status === "Overdue" ? "past deadline" : "due soon"}`,
-        detail: cpd.note,
-        tone: cpd.status === "Overdue" ? "crit" : "warn",
-        action: { label: "Review", onClick: () => navigate("/admin/compliance") },
-      });
-    }
-  }
-  const employeeNameById = new Map((directoryQuery.data ?? []).map((e) => [e.id, e.name]));
-  for (const doc of personnelDocumentsQuery.data ?? []) {
-    for (const field of getExpiringPersonnelFields(doc)) {
-      attentionItems.push({
-        id: `personnel-${doc.id}-${field.label}`,
-        icon: <IdCardIcon className="h-4 w-4" />,
-        title: `${employeeNameById.get(doc.employeeId) ?? doc.employeeId}'s ${field.label} is ${field.status === "Overdue" ? "expired" : "expiring soon"}`,
-        detail: field.note,
-        tone: field.status === "Overdue" ? "crit" : "warn",
-        action: { label: "Review", onClick: () => navigate("/admin/directory") },
-      });
-    }
-  }
-  for (const profile of personnelProfilesQuery.data ?? []) {
-    if (!profile.birthDate) continue;
-    const age = getAge(profile.birthDate);
-    if (age !== null && age >= OPTIONAL_RETIREMENT_AGE) {
-      attentionItems.push({
-        id: `retirement-${profile.employeeId}`,
-        icon: <UsersIcon className="h-4 w-4" />,
-        title: `${employeeNameById.get(profile.employeeId) ?? profile.employeeId} is retirement-eligible`,
-        detail: `${age} years old — optional retirement age under RA 7641`,
-        tone: "info",
-        action: { label: "Review", onClick: () => navigate(`/admin/directory?employee=${profile.employeeId}`) },
-      });
-    }
-  }
-
-  const remote = remoteQuery.data;
-  if (remote && remote.covered.length) {
-    const done = remote.covered.filter((p) => remote.clockedIn.includes(p.id)).length;
-    attentionItems.push({
-      id: "remote-day",
-      icon: <ClockIcon className="h-4 w-4" />,
-      title: `Remote work day: ${done} of ${remote.covered.length} clocked in from home`,
-      detail: "Everyone covered clocks in with a face scan today; the office scanners aren't used.",
-      tone: done === remote.covered.length ? "info" : "warn",
-      action: { label: "See who", onClick: () => navigate("/admin/timekeeping/remote") },
-    });
-  }
-  for (const f of awolQuery.data ?? []) {
-    attentionItems.push({
-      id: `awol-${f.person.id}`,
-      icon: <ClockIcon className="h-4 w-4" />,
-      title: `${f.person.name} is AWOL (${f.dates.length} ${f.dates.length === 1 ? "day" : "days"})`,
-      detail: "Absent 3 or more workdays in a row without approved leave. Send a notice.",
-      tone: "crit",
-      action: { label: "Review", onClick: () => navigate("/admin/reports/tardiness?tab=habitual") },
-    });
-  }
-  for (const f of tardinessQuery.data ?? []) {
-    const run = f.streaks[0];
-    attentionItems.push({
-      id: `tardy-${f.person.id}`,
-      icon: <ClockIcon className="h-4 w-4" />,
-      title: run ? `${f.person.name} was late ${run.days} work days in a row` : `${f.person.name} was late ${f.thisMonth} times this month`,
-      detail: run && f.thisMonth ? `Also late ${f.thisMonth} times this month. Follow up; pay isn't affected.` : "Follow up with the employee; pay isn't affected.",
-      tone: run ? "crit" : "warn",
-      action: { label: "Review", onClick: () => navigate("/admin/reports/tardiness?tab=habitual") },
-    });
-  }
 
   function handleExportReport() {
     if (!directoryQuery.data) return;
@@ -241,7 +101,7 @@ export function AdminOverview() {
     <div className="dash">
       <ContentHead
         title="People Operations — MSMA Group"
-        subtitle={`All offices · Cebu HQ, Manila, Davao · ${formatToday()}`}
+        subtitle={`All offices${headcountQuery.data?.length ? ` · ${headcountQuery.data.map((o) => o.office).join(", ")}` : ""} · ${formatToday()}`}
         actions={
           <>
             {canAddEmployee && (
@@ -260,7 +120,7 @@ export function AdminOverview() {
             title="Total employees"
             value={stats?.totalHeadcount ?? <Skeleton className="h-10 w-24" />}
             label={
-              stats ? (
+              stats?.newHiresThisMonth ? (
                 <span className="inline-flex rounded-[var(--radius-pill)] bg-good-tint px-2.5 py-[3px] text-[11px] font-medium text-good">
                   +{stats.newHiresThisMonth} this month
                 </span>
@@ -287,28 +147,17 @@ export function AdminOverview() {
             <StatTile
               label="Attrition rate, YTD"
               value={stats ? `${stats.attritionRateYtd}%` : <Skeleton className="h-7 w-14" />}
-              delta="24 separations / 2026"
+              delta={stats ? `${stats.separationsYtd} ${stats.separationsYtd === 1 ? "separation" : "separations"} / ${new Date().getFullYear()}` : undefined}
             />
             <StatTile
               label="Open positions"
-              value={
-                stats ? (
-                  stats.openPositions.audit + stats.openPositions.tax + stats.openPositions.legal
-                ) : (
-                  <Skeleton className="h-7 w-10" />
-                )
-              }
-              delta={
-                stats
-                  ? `${stats.openPositions.audit} Audit · ${stats.openPositions.tax} Tax · ${stats.openPositions.legal} Legal`
-                  : undefined
-              }
+              value={stats ? stats.openPositions.total : <Skeleton className="h-7 w-10" />}
+              delta={stats ? (stats.openPositions.byDepartment.length ? stats.openPositions.byDepartment.slice(0, 3).map((d) => `${d.count} ${d.name}`).join(" · ") : "All positions filled") : undefined}
             />
             <StatTile
-              label="October payroll"
-              value={stats ? formatPHPCompact(stats.payrollRunTotal) : <Skeleton className="h-7 w-20" />}
-              delta={stats ? `Cutoff ${stats.payrollCutoffLabel}` : undefined}
-              tone="warn"
+              label="On leave today"
+              value={stats ? stats.onLeaveToday : <Skeleton className="h-7 w-10" />}
+              delta={stats ? (stats.onLeaveToday ? "Approved leave" : "Everyone's in") : undefined}
             />
           </KpiStack>
         </BentoArea>
@@ -339,7 +188,7 @@ export function AdminOverview() {
 
         <BentoArea area="feed">
           <Card className="h-full">
-            <CardHeader title="Compliance calendar" meta="September–October 2026" />
+            <CardHeader title="Compliance calendar" meta={new Date().toLocaleDateString("en-PH", { month: "long", year: "numeric" })} />
             <CardBody className="flex flex-col gap-1">
               {complianceQuery.isLoading && <ListRowSkeletons count={4} />}
               {complianceQuery.data?.length === 0 && <EmptyNote>No filings on the calendar.</EmptyNote>}
@@ -361,61 +210,65 @@ export function AdminOverview() {
           </Card>
         </BentoArea>
 
-        {/* Progress: payroll run steps. */}
+        {/* Today's attendance from the office scanners and clock-ins from home. */}
         <BentoArea area="payroll">
           <Card className="h-full">
-            <CardHeader title="October 2026 payroll run" action={<Chip variant="warn">In progress</Chip>} />
+            <CardHeader title="Today's attendance" meta={formatToday()} />
             <CardBody className="flex flex-col gap-4">
-              {payrollSteps ? (
-                <ProgressMeter
-                  percent={(payrollSteps.filter((s) => s.status === "done").length / payrollSteps.length) * 100}
-                  start={`${payrollSteps.filter((s) => s.status === "done").length} done`}
-                  end={`${payrollSteps.length} steps`}
-                />
-              ) : (
-                <Skeleton className="h-3.5 w-full" />
-              )}
-              <div className="grid gap-2.5 sm:grid-cols-2">
-                {payrollSteps?.map((step) => (
-                  <div
-                    key={step.label}
-                    className={`flex items-center gap-2.5 text-sm ${step.status === "pending" ? "text-ink-3" : ""}`}
-                  >
-                    <span
-                      className={`flex h-5 w-5 flex-none items-center justify-center rounded-full text-xs font-semibold ${
-                        step.status === "done"
-                          ? "bg-good-tint text-good"
-                          : step.status === "current"
-                            ? "bg-brand-tint text-brand-ink"
-                            : "bg-surface-2 text-ink-3"
-                      }`}
-                    >
-                      {step.status === "done" ? <CheckIcon className="h-3 w-3" /> : null}
-                    </span>
-                    {step.label}
-                  </div>
-                ))}
-              </div>
+              {(() => {
+                const days = (todayQuery.data ?? []).filter((d) => d.kind === "work" || d.kind === "leave");
+                const working = days.filter((d) => d.kind === "work");
+                const inNow = working.filter((d) => d.status === "done" || d.status === "working").length;
+                const late = working.filter((d) => d.lateMinutes > 0).length;
+                const notIn = working.filter((d) => d.status === "not-in" || d.status === "absent").length;
+                const onLeave = days.filter((d) => d.kind === "leave").length;
+                if (!seesTime) return <EmptyNote>Attendance isn't part of your access.</EmptyNote>;
+                if (todayQuery.isLoading) return <Skeleton className="h-20 w-full" />;
+                if (!working.length && !onLeave) return <EmptyNote>No one is scheduled to work today.</EmptyNote>;
+                return (
+                  <>
+                    <ProgressMeter percent={working.length ? (inNow / working.length) * 100 : 0} start={`${inNow} in`} end={`${working.length} scheduled`} />
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      {[
+                        { label: "In", value: inNow, tone: "text-good" },
+                        { label: "Late", value: late, tone: late ? "text-warning" : "" },
+                        { label: "Not in yet", value: notIn, tone: notIn ? "text-critical" : "" },
+                        { label: "On leave", value: onLeave, tone: "" },
+                      ].map((t) => (
+                        <div key={t.label} className="rounded-[var(--radius-control)] bg-surface-2 p-3">
+                          <div className="text-xs text-ink-2">{t.label}</div>
+                          <div className={`font-display text-xl font-semibold ${t.tone}`}>{t.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
             </CardBody>
           </Card>
         </BentoArea>
 
-        {/* Breakdown: segmented bar with a percentage legend. */}
+        {/* Where people work: headcount per department. */}
         <BentoArea area="cost">
           <Card className="h-full">
-            <CardHeader
-              title="Payroll cost breakdown"
-              meta={stats ? `Oct cutoff · ${formatPHPCompact(stats.payrollRunTotal)}` : undefined}
-            />
-            <CardBody>
-              {costQuery.data ? <PayrollCostChart data={costQuery.data} /> : <Skeleton className="h-9 w-full" />}
+            <CardHeader title="Headcount by department" meta={stats ? `${stats.totalHeadcount} people` : undefined} />
+            <CardBody className="flex flex-col gap-2.5">
+              {departments.slice(0, 6).map((d) => (
+                <div key={d.name} className="flex items-center gap-3 text-[13px]">
+                  <span className="w-32 flex-none truncate text-ink-2">{d.name}</span>
+                  <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
+                    <span className="block h-full rounded-full bg-[var(--color-cat-1)]" style={{ width: `${(d.count / Math.max(1, departments[0]!.count)) * 100}%` }} />
+                  </span>
+                  <span className="w-6 text-right font-semibold">{d.count}</span>
+                </div>
+              ))}
             </CardBody>
           </Card>
         </BentoArea>
 
         <BentoArea area="onboarding">
           <Card className="h-full">
-            <CardHeader title="Onboarding pipeline" meta="September batch" />
+            <CardHeader title="New hires" meta="Last 90 days" />
             <div className="flex divide-x divide-dashed divide-border px-2 pb-4">
               {onboardingQuery.data?.map((stage) => (
                 <div key={stage.stage} className="flex-1 px-2 py-3 text-center">
@@ -430,11 +283,6 @@ export function AdminOverview() {
         </BentoArea>
       </div>
 
-      {/* Two short lists side by side on wide screens, so their actions sit next to the text. */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <AttentionPanel items={attentionItems} />
-        <RecruitmentPipeline />
-      </div>
       <AddEmployeeDialog
         open={addEmployeeOpen}
         onClose={() => setAddEmployeeOpen(false)}

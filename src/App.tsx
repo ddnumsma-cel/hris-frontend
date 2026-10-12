@@ -53,6 +53,8 @@ const StatutoryReportsPage = lazy(() => import("@/features/admin/reports/ReportP
 const ManagementReportsPage = lazy(() => import("@/features/admin/reports/ReportPage").then((m) => ({ default: m.ManagementReportsPage })));
 const UsersPage = lazy(() => import("@/features/admin/administration/UsersPage").then((m) => ({ default: m.UsersPage })));
 const OutboxPage = lazy(() => import("@/features/admin/administration/OutboxPage").then((m) => ({ default: m.OutboxPage })));
+const UserAccountsPage = lazy(() => import("@/features/admin/maintenance/UserAccountsPage").then((m) => ({ default: m.UserAccountsPage })));
+const SupportPage = lazy(() => import("@/features/admin/administration/SupportPage").then((m) => ({ default: m.SupportPage })));
 const SubscriptionPage = lazy(() => import("@/features/admin/administration/SubscriptionPage").then((m) => ({ default: m.SubscriptionPage })));
 const RolesPage = lazy(() => import("@/features/admin/administration/RolesPage").then((m) => ({ default: m.RolesPage })));
 const AuditTrailPage = lazy(() => import("@/features/admin/administration/AuditTrailPage").then((m) => ({ default: m.AuditTrailPage })));
@@ -99,6 +101,7 @@ const EmployeeBenefitsPage = lazy(() =>
 const EmployeeReimbursements = lazy(() =>
   import("@/features/employee/EmployeeReimbursements").then((m) => ({ default: m.EmployeeReimbursements })),
 );
+const EmployeeRequests = lazy(() => import("@/features/employee/EmployeeRequests").then((m) => ({ default: m.EmployeeRequests })));
 const EmployeePolicies = lazy(() => import("@/features/employee/EmployeePolicies").then((m) => ({ default: m.EmployeePolicies })));
 const EmployeeTrainings = lazy(() =>
   import("@/features/employee/EmployeeTrainings").then((m) => ({ default: m.EmployeeTrainings })),
@@ -218,6 +221,7 @@ function App() {
               <Route path="trainings" element={<EmployeeTrainings />} />
               <Route path="policies" element={<EmployeePolicies />} />
               <Route path="reimbursements" element={<EmployeeReimbursements />} />
+              <Route path="requests" element={<EmployeeRequests />} />
               {settingsRoutes()}
             </Route>
 
@@ -257,6 +261,7 @@ function App() {
               {/* Maintenance: Core HR, Leave and Rules */}
               <Route path="maintenance" element={<Navigate to="/admin/maintenance/people" replace />} />
               <Route path="maintenance/people" element={<PeoplePage />} />
+              <Route path="maintenance/user-accounts" element={<UserAccountsPage />} />
               <Route path="maintenance/people/new" element={<NewEmployeePage />} />
               <Route path="maintenance/people/:employeeId" element={<EmployeePage />} />
               <Route path="maintenance/departments" element={<DepartmentsPage />} />
@@ -317,6 +322,7 @@ function App() {
               <Route path="administration/audit" element={<AuditTrailPage />} />
               <Route path="administration/settings" element={<SystemSettingsPage />} />
               <Route path="administration/subscription" element={<SubscriptionPage />} />
+              <Route path="administration/support" element={<SupportPage />} />
               <Route path="administration/outbox" element={<OutboxPage />} />
               <Route path="directory" element={<DirectoryRedirect />} />
 

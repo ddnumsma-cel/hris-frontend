@@ -10,7 +10,6 @@ import { useToast } from "@/components/ui/ToastContext";
 import { FileIcon, FileQuestionIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cancelCertificateRequest, fetchCertificateRequests, fetchCurrentEmployee } from "@/lib/api";
-import { formatToday } from "@/lib/format";
 import type { CertificateRequest, CertificateRequestStatus } from "@/lib/types";
 import { RequestCertificateDialog } from "./RequestCertificateDialog";
 import { printCertificate } from "./printTemplates";
@@ -45,7 +44,6 @@ export function EmployeeCertificates() {
     <>
       <ContentHead
         title="Certificates"
-        subtitle={formatToday()}
         actions={
           <Button icon={<FileIcon className="h-3.75 w-3.75" />} onClick={() => setDialogOpen(true)}>
             Request certificate
