@@ -7,6 +7,7 @@ import type { Balance, LeaveRequest, LeaveType } from "./types";
 import { can, canFor, visible } from "../permissions";
 import { deny, forbidden, sessionWho } from "../session";
 import { managerOf, nameOf, notifyEmployee } from "../outbox";
+import { dates, tellApprover, tellEmployees, who as nameFor } from "../requestNotices";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -158,8 +159,15 @@ export async function fileLeave(input: FileInput, actor: string, approveNow = fa
     ...(approveNow ? { decidedBy: actor, decidedAt: now } : {}),
   };
   saveLeave({ ...leave, requests: [req, ...leave.requests] });
+  const filedType = leave.types.find((t) => t.id === req.typeId)?.name ?? "Leave";
+  const dayCount = `${req.days} ${req.days === 1 ? "day" : "days"}`;
   if (req.status === "pending") {
-    const typeName = leave.types.find((t) => t.id === req.typeId)?.name ?? "Leave";
+    tellApprover(req.employeeId, "leave", "request", `${nameFor(req.employeeId)} filed ${filedType}`, `${dates(req.start, req.end)} · ${dayCount}. “${req.reason}” Review it under Approvals.`, req.days);
+  } else {
+    tellEmployees(req.employeeId, "leave", "approved", `${filedType} filed and approved for you`, `${actor} filed ${filedType} for you, ${dates(req.start, req.end)} (${dayCount}). It's already approved.`);
+  }
+  if (req.status === "pending") {
+    const typeName = filedType;
     notifyEmployee(managerOf(req.employeeId), "leaveSubmitted", `Leave request from ${nameOf(req.employeeId)}`, `${nameOf(req.employeeId)} filed ${typeName}, ${req.start} to ${req.end} (${req.days} ${req.days === 1 ? "day" : "days"}). Approve or decline it on heyhr under Approvals.`);
   }
   return respond(req);
@@ -183,6 +191,7 @@ export async function decideRequest(id: string, approve: boolean, note: string, 
   saveLeave({ ...leave, requests: leave.requests.map((x) => (x.id === id ? next : x)) });
   const typeName = leave.types.find((t) => t.id === next.typeId)?.name ?? "leave";
   const verdict = next.status === "approved" ? "approved" : "declined";
+  tellEmployees(next.employeeId, "leave", approve ? "approved" : "rejected", `Your ${typeName} was ${verdict}`, `${dates(next.start, next.end)} · ${verdict} by ${actor}.${next.note ? ` “${next.note}”` : ""}`);
   notifyEmployee(next.employeeId, "leaveDecided", `Your ${typeName} was ${verdict}`, `Your ${typeName}, ${next.start} to ${next.end}, was ${verdict} by ${actor}.${next.note ? ` Note: ${next.note}` : ""}`, `heyhr: your ${typeName} (${next.start}) was ${verdict}.`);
   return respond(next);
 }
@@ -199,6 +208,9 @@ export async function cancelRequest(id: string, note: string, actor: string): Pr
   if (!note.trim()) return fail("Say why it's being cancelled");
   const next: LeaveRequest = { ...r, status: "cancelled", decidedBy: actor, decidedAt: new Date().toISOString(), note: note.trim() };
   saveLeave({ ...leave, requests: leave.requests.map((x) => (x.id === id ? next : x)) });
+  const cancelledType = leave.types.find((t) => t.id === next.typeId)?.name ?? "Leave";
+  if (next.employeeId === who.employeeId) tellApprover(next.employeeId, "leave", "update", `${nameFor(next.employeeId)} withdrew ${cancelledType}`, `${dates(next.start, next.end)}. “${next.note}”`, next.days);
+  else tellEmployees(next.employeeId, "leave", "rejected", `Your ${cancelledType} was cancelled`, `${dates(next.start, next.end)} · cancelled by ${actor}. “${next.note}”`);
   return respond(next);
 }
 
@@ -241,6 +253,7 @@ export async function adjustCredits(input: { employeeId: string; leaves: number;
   if (c.available + input.leaves < 0) return fail(`They only have ${fmtCredits(c.available)} left`);
   const adj = { id: newId("la"), employeeId: input.employeeId, typeId: CREDITS_ADJUSTMENT, days: input.leaves, reason: input.reason.trim(), by: actor, at: new Date().toISOString() };
   saveLeave({ ...leave, adjustments: [adj, ...leave.adjustments] });
+  tellEmployees(input.employeeId, "leave", "update", input.leaves > 0 ? `${fmtCredits(input.leaves)} added to your balance` : `${fmtCredits(-input.leaves)} taken from your balance`, `${actor}: “${adj.reason}” You now have ${fmtCredits(c.available + input.leaves)} left this year.`);
   return respond(adj);
 }
 

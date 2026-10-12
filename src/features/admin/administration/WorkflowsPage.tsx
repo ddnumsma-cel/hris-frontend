@@ -91,7 +91,7 @@ function WorkflowDialog({ initial, onClose }: { initial: Workflow; onClose: () =
                 <Button size="sm" variant="ghost" disabled={i === w.steps.length - 1} onClick={() => move(i, 1)} aria-label="Move down">
                   ↓
                 </Button>
-                <Button size="sm" variant="ghost" disabled={w.steps.length === 1} onClick={() => setW({ ...w, steps: w.steps.filter((_, j) => j !== i) })}>
+                <Button size="sm" variant="remove" disabled={w.steps.length === 1} onClick={() => setW({ ...w, steps: w.steps.filter((_, j) => j !== i) })}>
                   Remove
                 </Button>
               </span>

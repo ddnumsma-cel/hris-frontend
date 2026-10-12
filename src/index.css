@@ -105,6 +105,15 @@
   --success-bg: #e3f3ea;
   --warning-text: #8a5a12;
   --warning-bg: #fbf0dc;
+  /* Caution (orange): running low on something, before it blocks (the seat button). */
+  /* Scrollbars inside panels and lists (the page itself draws none). */
+  --scrollbar-thumb: rgba(30, 41, 59, 0.22);
+  --scrollbar-thumb-hover: rgba(30, 41, 59, 0.38);
+  --caution-text: #ea580c;
+  --caution-bg: #fff3e6;
+  --caution-solid: #fdba74;
+  --caution-bar: #ea580c;
+  --on-caution: #1e293b;
   --danger-text: #a3261f;
   --danger-bg: #fbe4e3;
   --info: #2f6db5;
@@ -170,6 +179,13 @@
     --success-bg: #1b3a2d;
     --warning-text: #f0c066;
     --warning-bg: #3b2f1a;
+    --scrollbar-thumb: rgba(233, 238, 243, 0.2);
+    --scrollbar-thumb-hover: rgba(233, 238, 243, 0.34);
+    --caution-text: #fb923c;
+    --caution-bg: #3a2a1e;
+    --caution-solid: #fdba74;
+    --caution-bar: #fb923c;
+    --on-caution: #1a212b;
     --danger-text: #f58c86;
     --danger-bg: #3f2327;
     --info: #9cd3f7;
@@ -234,6 +250,13 @@
   --success-bg: #1b3a2d;
   --warning-text: #f0c066;
   --warning-bg: #3b2f1a;
+  --scrollbar-thumb: rgba(233, 238, 243, 0.2);
+  --scrollbar-thumb-hover: rgba(233, 238, 243, 0.34);
+  --caution-text: #fb923c;
+  --caution-bg: #3a2a1e;
+  --caution-solid: #fdba74;
+  --caution-bar: #fb923c;
+  --on-caution: #1a212b;
   --danger-text: #f58c86;
   --danger-bg: #3f2327;
   --info: #9cd3f7;
@@ -322,6 +345,40 @@ body {
 /* Tailwind v4's preflight no longer gives buttons a pointer cursor; restore it
    app-wide for every clickable control. */
 @layer base {
+  /* Slim, rounded scrollbars with no arrow buttons, in both themes. */
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--scrollbar-thumb) padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover) padding-box;
+  }
+
+  *::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
+  }
+
   /* Form controls don't inherit the page font by default. */
   button,
   input,
@@ -897,6 +954,63 @@ body {
     background: var(--sb-mark);
   }
 
+  /* Notifications panel (`NotificationsPanel`): round type icons, unread rows lightly tinted,
+     the selected All / Unread tab raised like the active sidebar item. */
+  .notif-tab[aria-selected="true"] {
+    background: var(--nav-active-bg);
+    color: var(--nav-active-text);
+    box-shadow: var(--nav-active-shadow);
+  }
+
+  /* The row's action ("Review" for requests, "View" otherwise); the whole row is the link. */
+  .notif-action {
+    border: 1px solid var(--line-strong);
+    background: var(--field-bg);
+    color: var(--text);
+  }
+
+  .notif-action-primary {
+    border-color: transparent;
+    background: var(--grad-primary);
+    color: var(--on-accent);
+  }
+
+  .notif-unread {
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+  }
+
+  .notif-icon-seat {
+    background: var(--caution-bg);
+    color: var(--caution-text);
+  }
+
+  .notif-icon-alert {
+    background: var(--accent-tint);
+    color: var(--color-brand-ink);
+  }
+
+  .notif-icon-team {
+    background: var(--success-bg);
+    color: var(--success-text);
+  }
+
+  .notif-icon-rejected {
+    background: var(--danger-bg);
+    color: var(--danger-text);
+  }
+
+  .notif-icon-news {
+    background: color-mix(in srgb, var(--cat-3) 18%, transparent);
+    color: var(--cat-3);
+  }
+
+  /* Unread count on the bell: a red circle with a white number and a ring in the page colour. */
+  .bell-badge {
+    border: 2px solid var(--bg);
+    background: var(--danger);
+    color: var(--on-danger);
+  }
+
   .topbar-avatar {
     background: var(--grad-avatar);
     color: var(--on-accent);
@@ -996,6 +1110,79 @@ body {
 
   .btn-danger:hover:not(:disabled) {
     filter: brightness(1.08);
+  }
+
+  /* Delete / remove controls everywhere: light red, so they read as destructive before you hover.
+     `.btn-remove` is the <Button variant="remove"> look; `.delete-action` is for icon buttons, menu
+     items and text links. The solid `.btn-danger` stays for the final "Delete" in a confirm dialog. */
+  .btn-remove,
+  .delete-action {
+    border-color: color-mix(in srgb, var(--danger-text) 22%, transparent);
+    background: var(--danger-bg);
+    color: var(--danger-text);
+  }
+
+  .btn-remove:hover:not(:disabled),
+  .delete-action:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--danger-text) 40%, transparent);
+    background: color-mix(in srgb, var(--danger-text) 16%, var(--danger-bg));
+    color: var(--danger-text);
+  }
+
+  /* Seat pill in the top bar (`SeatChip`): "⚠ 17 / 20 seats" on the field fill, like the other
+     top-bar controls, with an orange warning icon (red once every seat is used); its panel matches. */
+  .seat-chip {
+    border: 1px solid var(--line-strong);
+    background: var(--field-bg);
+    color: var(--text);
+    transition: border-color var(--ease-fast), background-color var(--ease-fast);
+  }
+
+  .seat-chip:hover,
+  .seat-chip[aria-expanded="true"] {
+    border-color: var(--caution-bar);
+  }
+
+  .seat-chip[data-full]:hover,
+  .seat-chip[data-full][aria-expanded="true"] {
+    border-color: var(--danger-text);
+  }
+
+  /* Warning icon: orange while seats run low, red once they're all used. */
+  .seat-icon {
+    color: var(--caution-bar);
+  }
+
+  .seat-chip[data-full] .seat-icon {
+    color: var(--danger-text);
+  }
+
+  .seat-text {
+    color: var(--caution-text);
+  }
+
+  .seat-bar {
+    background: var(--caution-bar);
+  }
+
+  .seat-track {
+    background: var(--caution-bg);
+  }
+
+  /* Dark slate action (Request upgrade in the seat panel). */
+  .btn-strong {
+    background: var(--surface-strong);
+    color: var(--on-danger);
+  }
+
+  .btn-strong:hover:not(:disabled) {
+    filter: brightness(1.25);
+  }
+
+  /* Bottom-right messages stack above the assistant button (84px up); the seat notice sets
+     --seat-notice-h (its height plus a 12px gap) so the sign-in message sits above it. */
+  .corner-stack {
+    bottom: calc(84px + var(--seat-notice-h, 0px));
   }
 
   /* Solid accent surface carrying white text or an icon (chat bubbles, step dots, launcher). */

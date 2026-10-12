@@ -10,6 +10,7 @@ import { payroll, type Period } from "../reports/api";
 import { round2, THIRTEENTH_MONTH_EXEMPT } from "../reports/statutory";
 import { claims, claimType, saveClaims } from "../reimbursements/store";
 import { deny } from "../session";
+import { tellAssigned, tellEmployees } from "../requestNotices";
 import { outstandingLoans, settleLoans } from "./loans";
 import { loadCases, saveCases, type FinalPayCase, type FinalPayItem } from "./finalPayStore";
 import { approvedRuns } from "./runs";
@@ -164,6 +165,8 @@ export async function releaseFinalPay(row: Pick<FinalPayRow, "employeeId" | "las
   save(existing ? cases.map((x) => (x.id === c.id ? c : x)) : [c, ...cases]);
   settleLoans(row.employeeId, actor);
   saveClaims(claims.map((x) => (x.employeeId === row.employeeId && x.status === "approved" && !x.paidAt ? { ...x, paidAt: now, paidBy: actor, payoutMethod: "final pay" as const, payoutRef: "Final pay" } : x)));
+  tellEmployees(row.employeeId, "payslip", "approved", "Your final pay was released", `${money(total)} · reference ${reference.trim()}.`);
+  tellAssigned("edit", "people", "separation", "update", `Final pay released for ${fullName(e.personal)}`, `${money(total)} by ${actor} (${reference.trim()}).`);
   logAdmin({ actor, module: "Payroll", action: "Released final pay", target: fullName(e.personal), detail: `${money(total)} · ${reference.trim()}` });
   return respond(c);
 }

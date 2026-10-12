@@ -1,24 +1,27 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import clsx from "clsx";
+import { Link, useSearchParams } from "react-router-dom";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { CheckIcon } from "@/components/icons";
-import type { EmployeeSummary } from "@/lib/corehr/api";
-import { SearchBox, Toolbar } from "../../timekeeping/common";
+import { SearchBox, Tabs, Toolbar } from "../../timekeeping/common";
+import { DocumentChecklist } from "../DocumentChecklist";
 import { DocumentDrawer } from "../DocumentDrawer";
-import { documentState, formatDate } from "../format";
-import { StatusText } from "../SplitView";
-import { Drawer, FilterChip, Initials, LoadError } from "../ui";
-import { stageOf, useDocuments, type DocRow } from "./data";
+import { Drawer, Initials, LoadError } from "../ui";
+import { stageOf, useDocuments } from "./data";
+import { NotifyButton } from "./NotifyDialog";
+import { useCan } from "@/lib/useCan";
 
-type Filter = "all" | "check" | "missing" | "expiring" | "done";
+type Filter = "all" | "todo" | "check" | "missing" | "expiring" | "done";
+const FILTERS: Filter[] = ["all", "todo", "check", "missing", "expiring", "done"];
 
-/** One card per employee; review someone's whole 201 file in a side panel. */
+/** One card per employee: the company-wide to-do list. Review opens the same view as the Documents tab on their record. */
 export function DocumentsCards() {
   const docs = useDocuments();
-  const [filter, setFilter] = useState<Filter>("all");
+  const canNotify = useCan("edit", "documents");
+  // People › "… with 201 documents to sort out" links here with ?filter=todo.
+  const [params] = useSearchParams();
+  const initial = params.get("filter") as Filter | null;
+  const [filter, setFilter] = useState<Filter>(initial && FILTERS.includes(initial) ? initial : "all");
   const [query, setQuery] = useState("");
   const [personId, setPersonId] = useState<string | null>(null);
   const [docId, setDocId] = useState<string | null>(null);
@@ -33,7 +36,7 @@ export function DocumentsCards() {
   const q = query.trim().toLowerCase();
   const shown = people
     .filter((p) => {
-      const match = filter === "all" || (filter === "check" && p.check > 0) || (filter === "missing" && p.missing > 0) || (filter === "expiring" && p.expiring > 0) || (filter === "done" && p.total > 0 && p.done === p.total);
+      const match = filter === "all" || (filter === "todo" && p.check + p.missing + p.expiring > 0) || (filter === "check" && p.check > 0) || (filter === "missing" && p.missing > 0) || (filter === "expiring" && p.expiring > 0) || (filter === "done" && p.total > 0 && p.done === p.total);
       return match && (!q || `${p.e.name} ${p.e.departmentName}`.toLowerCase().includes(q));
     })
     .sort((a, b) => b.check - a.check || a.e.name.localeCompare(b.e.name));
@@ -43,26 +46,26 @@ export function DocumentsCards() {
 
   return (
     <>
-      <ContentHead title="Documents" subtitle={`201 file paperwork for ${docs.people.size} employees · ${docs.checked} of ${docs.required} checked (${pct}%). Click Review to go through someone's documents.`} />
+      <ContentHead title="201 documents" subtitle={`201 file paperwork for ${docs.people.size} employees · ${docs.checked} of ${docs.required} checked (${pct}%). Click Review to go through someone's documents.`} />
+      <Tabs
+        value={filter}
+        onChange={setFilter}
+        options={[
+          { value: "all", label: "Everyone", count: people.length },
+          { value: "todo", label: "Needs action", count: people.filter((p) => p.check + p.missing + p.expiring > 0).length },
+          { value: "check", label: "Has documents to check", count: people.filter((p) => p.check).length },
+          { value: "missing", label: "Missing documents", count: people.filter((p) => p.missing).length },
+          { value: "expiring", label: "Expiring or expired", count: people.filter((p) => p.expiring).length },
+          { value: "done", label: "Complete", count: people.filter((p) => p.total && p.done === p.total).length },
+        ]}
+      />
       <Toolbar>
         <SearchBox value={query} onChange={setQuery} placeholder="Search employee or department" />
-        <span className="flex flex-wrap gap-1.5">
-          <FilterChip active={filter === "all"} onClick={() => setFilter("all")} count={people.length}>
-            Everyone
-          </FilterChip>
-          <FilterChip active={filter === "check"} onClick={() => setFilter("check")} count={people.filter((p) => p.check).length}>
-            Has documents to check
-          </FilterChip>
-          <FilterChip active={filter === "missing"} onClick={() => setFilter("missing")} count={people.filter((p) => p.missing).length}>
-            Missing documents
-          </FilterChip>
-          <FilterChip active={filter === "expiring"} onClick={() => setFilter("expiring")} count={people.filter((p) => p.expiring).length}>
-            Expiring or expired
-          </FilterChip>
-          <FilterChip active={filter === "done"} onClick={() => setFilter("done")} count={people.filter((p) => p.total && p.done === p.total).length}>
-            Complete
-          </FilterChip>
-        </span>
+        {canNotify && (
+          <span className="ml-auto">
+            <NotifyButton />
+          </span>
+        )}
       </Toolbar>
 
       {docs.loading ? (
@@ -110,57 +113,25 @@ export function DocumentsCards() {
         </div>
       )}
 
-      {person && !openDoc && <PersonPanel e={person.e} rows={person.mine} onClose={() => setPersonId(null)} onOpen={setDocId} verify={docs.verify} />}
+      {person && !openDoc && (
+        <Drawer
+          open
+          onClose={() => setPersonId(null)}
+          title={person.e.name}
+          subtitle={`${person.e.positionTitle} · ${person.e.departmentName}`}
+          footer={
+            <span className="flex justify-end pr-16">
+              <Link to={`/admin/maintenance/people/${person.e.id}#documents`} className="text-sm font-medium text-brand hover:underline">
+                Open their record
+              </Link>
+            </span>
+          }
+        >
+          {/* The same view as the Documents tab on their record. */}
+          <DocumentChecklist employeeId={person.e.id} employeeName={person.e.name} columns={1} onOpen={(d) => setDocId(d.id)} />
+        </Drawer>
+      )}
       {openDoc && <DocumentDrawer key={openDoc.d.id + openDoc.d.status} document={openDoc.d} employeeName={openDoc.e.name} onClose={() => setDocId(null)} />}
     </>
-  );
-}
-
-function PersonPanel({ e, rows, onClose, onOpen, verify }: { e: EmployeeSummary; rows: DocRow[]; onClose: () => void; onOpen: (id: string) => void; verify: ReturnType<typeof useDocuments>["verify"] }) {
-  const toCheck = rows.filter((r) => stageOf(r.d) === "check");
-  const order = { check: 0, missing: 1, expired: 2, expiring: 3, done: 4 } as const;
-  const sorted = [...rows].sort((a, b) => (order[stageOf(a.d) ?? "done"] ?? 5) - (order[stageOf(b.d) ?? "done"] ?? 5));
-  return (
-    <Drawer
-      open
-      onClose={onClose}
-      title={e.name}
-      subtitle={`${e.positionTitle} · ${e.departmentName}`}
-      footer={
-        <span className="flex justify-end gap-2 pr-16">
-          {toCheck.length > 1 && (
-            <Button icon={<CheckIcon className="h-4 w-4" />} disabled={verify.isPending} onClick={() => verify.mutate(toCheck.map((r) => r.d.id))}>
-              Mark all {toCheck.length} as checked
-            </Button>
-          )}
-        </span>
-      }
-    >
-      <ul className="flex flex-col gap-2">
-        {sorted.map((r) => {
-          const state = documentState(r.d);
-          const stage = stageOf(r.d);
-          return (
-            <li key={r.d.id} className={clsx("flex items-center gap-3 rounded-xl border px-3 py-2.5", stage === "check" ? "border-ink/30" : "border-border")}>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{r.d.type}</div>
-                <div className="text-xs">
-                  <StatusText tone={state.tone}>{state.label}</StatusText>
-                  {r.d.expiresOn && <span className="text-ink-3"> · expires {formatDate(r.d.expiresOn)}</span>}
-                </div>
-              </div>
-              <Button size="sm" variant="ghost" onClick={() => onOpen(r.d.id)}>
-                {stage === "missing" ? "Upload" : "Open"}
-              </Button>
-              {stage === "check" && (
-                <Button size="sm" disabled={verify.isPending} onClick={() => verify.mutate([r.d.id])}>
-                  Check
-                </Button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </Drawer>
   );
 }

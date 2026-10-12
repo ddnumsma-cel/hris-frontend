@@ -82,6 +82,28 @@ The access matrix is `src/lib/permissions.ts` (`PERMISSIONS`, `LIMITS`); a real 
 - `GET /exports/{employees|leave|accounts|audit}.csv` (`exportDataset`).
 - Still to build on the server: deleting records older than the retention period; currency conversion (payroll is PHP-only); monthly/per-payroll leave accrual; a schedule publishing step; printing the company logo on documents.
 
+## Subscription & seat limits
+
+`src/lib/subscription/` (store + API), `src/lib/notifications.ts` (in-app notifications). Run `npm run check:subscription` to see the rules exercised as each demo account.
+
+**Tables.** `plans (id, name, employee_seat_limit, admin_account_limit, grace_percent default 5)`; `clients (id, name, plan_id, renewal_date, seat_limit_override null, extension_seats null, extension_until null, last_seat_level 0|80|90|100)`; `subscription_events (client_id, kind, message, by, at, seats, admins)`; `notifications (to_roles, title, body, links, at)` + read receipts per account. Today there's one client, MSMA Group (`org-msma`); every user and employee belongs to it, so a multi-tenant backend adds `client_id` to employees and accounts.
+
+**Counting, never stored.** Seats = employees whose status isn't `Separated` (On leave and Suspended count). Admin accounts = active logins with the hr, approver or accounting role. Effective seat limit = override ?? plan limit, plus extension seats while `extension_until >= today`. Cap = limit + floor(limit × grace% / 100).
+
+**Enforcement.** Only adding is ever blocked; payroll, attendance, leave, reports and edits never check seats.
+- `POST /employees` (`createEmployee` in both `lib/corehr/api.ts` and the older `lib/api.ts`), `POST /register` (`registerEmployee`), and reactivating a separated employee (`cancelSeparation`) call `assertSeatsAvailable(1)`. Over the cap: **409 `{ code: "SEAT_LIMIT_REACHED" }`**. Do the check and the insert in one transaction that locks the client row (`SELECT … FOR UPDATE`), so two requests can't both take the last seat.
+- `POST /employees/import` (`importEmployees`): checks the whole batch first ("This import has 30 employees but only 12 seats are available.") and adds nobody when it doesn't fit.
+- `GET /subscription/seat-check` (`checkSeatAvailable`): asked when Add employee is clicked or the form opens; same 409.
+- Creating, promoting or re-enabling an hr / approver / accounting login past the admin cap: **409 `ADMIN_LIMIT_REACHED`** (`createAccount`, `setAccountRole`, `setAccountStatus`).
+- Every refused add is logged (`subscription_events.kind = blocked`) and notifies system_admin with client, plan and usage.
+
+**Alerts, once per crossing** (`checkSeatThresholds`, run after anything that changes the count and on reads): 80% → banner for super_admin and hr (logged, no notification); 90% → notification to super_admin, hr and system_admin; 100% → notification to system_admin. `last_seat_level` remembers what was sent; dropping below a threshold re-arms it.
+
+**Endpoints** (each checks `deny()` first; approver, accounting and employee get 403 on all of them):
+- `GET /subscription` (`getSubscription`): super_admin, hr. `POST /subscription/upgrade-request` (`requestUpgrade`): super_admin only; notifies system_admin.
+- `GET /clients`, `GET /plans`, `GET /subscription/events`, `PUT /clients/{id}/plan`, `PUT /clients/{id}/seat-override`, `PUT /clients/{id}/extension` (`listClients`, `listPlans`, `listSubscriptionEvents`, `changePlan`, `setSeatOverride`, `grantExtension`): system_admin only (feature `clients`).
+- `GET /notifications/me`, `POST /notifications/me/read` (`listMyNotifications`, `markMyNotificationsRead`).
+
 ## What still needs real design, not just an endpoint
 
 - **Auth** — `credentials.ts` is a hardcoded array match. Needs a real login endpoint, session/JWT handling, and `AuthContext` updated to store a token instead of a mock user object.
@@ -93,3 +115,13 @@ The access matrix is `src/lib/permissions.ts` (`PERMISSIONS`, `LIMITS`); a real 
 ## Suggested convention
 
 Add a `VITE_API_BASE_URL` env var (`.env.local`, gitignored) and read it in `api.ts` via `import.meta.env.VITE_API_BASE_URL` instead of hardcoding a host.
+
+## Notifications (bell)
+
+The mock API sends an in-app notification whenever something is filed, decided or changed (`lib/requestNotices.ts`, stored by `lib/notifications.ts`). The server should do the same when the record changes:
+
+- **Table:** `notifications (id, kind, title, body, to_roles[], to_employee_ids[], links jsonb (role → path), created_by_account, created_at)` plus `notification_reads (notification_id, account_id, read_at)`.
+- **Kinds:** `request` (something to act on), `approved`, `rejected`, `update`, `seat`, `alert` — the bell picks an icon from it.
+- **Who gets what:** a filed leave / overtime / undertime / time adjustment → whoever the approval workflow assigns (each applicable step: supervisor with an Approver login, else Super Admins; department head, else HR; or the step's role). A claim → the supervisor. Next steps go to the roles the access matrix assigns that action (final approval of claims → Accounting, checking documents → HR). A decision → the employee, with the note. An endorsed claim → Accounting. An employee's 201 upload or certificate request → HR. A separation → the manager and Accounting. HR changes to a person's credits, schedule, shift, loans, payslips, documents, manager or role → that person. Remote work days and published policies → everyone.
+- **Never** notify the account that performed the action (`created_by_account`).
+- Respect each person's notification settings for email/SMS; the bell always records it.

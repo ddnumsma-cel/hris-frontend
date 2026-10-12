@@ -1,5 +1,9 @@
 import type { SVGProps } from "react";
 import {
+  Copy,
+  RefreshCw,
+  Megaphone,
+  Eye,
   Banknote,
   CalendarClock,
   ChartPie,
@@ -90,6 +94,10 @@ export function FolderIcon(props: IconProps) {
   return <Folder strokeWidth={strokeWidth} {...props} />;
 }
 
+export function EyeIcon(props: IconProps) {
+  return <Eye strokeWidth={strokeWidth} {...props} />;
+}
+
 export function FileIcon(props: IconProps) {
   return <FileText strokeWidth={strokeWidth} {...props} />;
 }
@@ -120,6 +128,14 @@ export function UserPlusIcon(props: IconProps) {
 
 export function BellIcon(props: IconProps) {
   return <Bell strokeWidth={strokeWidth} {...props} />;
+}
+
+export function RefreshIcon(props: IconProps) {
+  return <RefreshCw strokeWidth={strokeWidth} {...props} />;
+}
+
+export function MegaphoneIcon(props: IconProps) {
+  return <Megaphone strokeWidth={strokeWidth} {...props} />;
 }
 
 export function SearchIcon(props: IconProps) {
@@ -317,6 +333,10 @@ export function MailIcon(props: IconProps) {
 
 export function MapPinIcon(props: IconProps) {
   return <MapPin strokeWidth={strokeWidth} {...props} />;
+}
+
+export function CopyIcon(props: IconProps) {
+  return <Copy strokeWidth={strokeWidth} {...props} />;
 }
 
 export function MoreVerticalIcon(props: IconProps) {

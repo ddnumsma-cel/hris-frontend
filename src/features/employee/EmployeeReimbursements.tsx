@@ -92,7 +92,7 @@ function NewClaimDialog({ onClose }: { onClose: () => void }) {
                 <Button size="sm" variant="ghost" className="flex-1 justify-center" onClick={() => fileInput.current?.click()}>
                   Replace
                 </Button>
-                <Button size="sm" variant="ghost" className="flex-1 justify-center" onClick={() => set({ receipt: "" })}>
+                <Button size="sm" variant="remove" className="flex-1 justify-center" onClick={() => set({ receipt: "" })}>
                   Remove
                 </Button>
               </div>

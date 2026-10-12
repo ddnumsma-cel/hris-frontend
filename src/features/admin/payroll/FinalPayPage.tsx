@@ -212,7 +212,7 @@ export function FinalPayPage() {
             cell: (r) => (
               <span className="flex justify-end gap-2">
                 {!r.released && r.caseId && canCreate && (
-                  <Button size="sm" variant="ghost" onClick={() => window.confirm(`Remove the final pay case for ${r.name}?`) && remove.mutate(r.caseId!)}>
+                  <Button size="sm" variant="remove" onClick={() => window.confirm(`Remove the final pay case for ${r.name}?`) && remove.mutate(r.caseId!)}>
                     Remove
                   </Button>
                 )}

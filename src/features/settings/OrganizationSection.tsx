@@ -106,7 +106,7 @@ export function OrganizationSection() {
               Upload
             </Button>
             {draft.logo && (
-              <Button variant="ghost" size="sm" onClick={() => set({ logo: "" })}>
+              <Button variant="remove" size="sm" onClick={() => set({ logo: "" })}>
                 Remove
               </Button>
             )}

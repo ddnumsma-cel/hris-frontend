@@ -8,7 +8,7 @@ import { can } from "./permissions";
 import { sessionWho } from "./session";
 import { settingsFor, type NotificationEvent } from "./settings/store";
 
-export type MessageEvent = NotificationEvent | "wfh" | "payslip" | "policy" | "separation";
+export type MessageEvent = NotificationEvent | "wfh" | "payslip" | "policy" | "separation" | "documents";
 
 export interface OutboxMessage {
   id: string;

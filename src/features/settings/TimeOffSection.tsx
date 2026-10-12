@@ -107,7 +107,7 @@ export function TimeOffSection() {
         {holidays.data?.length === 0 && <p className="px-5 py-4 text-[13px] text-ink-2">No company holidays yet.</p>}
         {holidays.data?.map((h) => (
           <SettingsRow key={h.date} label={h.name} help={`${fmtDay(h.date)} · ${h.type === "regular" ? "Regular holiday" : "Special non-working day"}`}>
-            <Button variant="ghost" size="sm" onClick={() => setRemoving(h)}>
+            <Button variant="remove" size="sm" onClick={() => setRemoving(h)}>
               Remove
             </Button>
           </SettingsRow>

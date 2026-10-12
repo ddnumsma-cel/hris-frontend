@@ -197,7 +197,7 @@ export function CompanyPolicies() {
                 )}
                 {canEdit && r.status === "draft" && (
                   <>
-                    <Button size="sm" variant="ghost" disabled={remove.isPending} onClick={() => window.confirm(`Delete the draft "${r.title}"?`) && remove.mutate(r)}>
+                    <Button size="sm" variant="remove" disabled={remove.isPending} onClick={() => window.confirm(`Delete the draft "${r.title}"?`) && remove.mutate(r)}>
                       Delete
                     </Button>
                     <Button size="sm" disabled={status.isPending} onClick={() => status.mutate({ r, s: "published" })}>

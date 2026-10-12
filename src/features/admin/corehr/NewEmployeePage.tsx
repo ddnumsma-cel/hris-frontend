@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { useForm, useWatch, type FieldPath, type RegisterOptions } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +21,8 @@ import type { ScannedIdFields } from "@/lib/idScan";
 import { IdScanCard } from "./IdScanCard";
 import { PlaceFields } from "./PlaceFields";
 import { ErrorNote, Field, Initials, Stepper } from "./ui";
+import { isSeatLimitError } from "@/lib/subscription/api";
+import { SeatLimitDialog, seatCheck } from "@/features/subscription/shared";
 
 const SCANNABLE = ["firstName", "middleName", "lastName", "suffix", "birthDate", "sex"] as const;
 
@@ -93,6 +95,16 @@ export function NewEmployeePage() {
   const [scannedId, setScannedId] = useState<{ idType: string; idNumber?: string; idExpiry?: string; fileName: string } | null>(null);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [branchId, setBranchId] = useState("");
+  // Seat limit: say so as soon as the form opens when no seats are left (links like the Create
+  // menu come straight here); saving is refused by the API anyway.
+  const [seatBlocked, setSeatBlocked] = useState<string | null>(null);
+  // Once per visit: a refused check is logged and tells System Admins, so don't repeat it.
+  const seatChecked = useRef(false);
+  useEffect(() => {
+    if (seatChecked.current) return;
+    seatChecked.current = true;
+    void seatCheck().then((refused) => refused && setSeatBlocked(refused));
+  }, []);
 
   const {
     register: baseRegister,
@@ -131,6 +143,9 @@ export function NewEmployeePage() {
       // Timekeeping starts using their shift right away.
       if (v.job.shiftId) await setUsualShift([e.id], v.job.shiftId, actor);
       return e;
+    },
+    onError: (err) => {
+      if (isSeatLimitError(err)) setSeatBlocked(err.message);
     },
     onSuccess: (e) => {
       queryClient.invalidateQueries({ queryKey: ["timekeeping"] });
@@ -403,7 +418,7 @@ export function NewEmployeePage() {
                 <div className="rounded-xl border border-dashed border-border px-4 py-3 text-sm text-ink-2">
                   <span className="font-medium text-ink">When you create the employee:</span> they get an employee ID and a 201 document checklist, appear in People and Timekeeping, and can sign in with their work email.
                 </div>
-                <ErrorNote error={mutation.error} />
+                <ErrorNote error={isSeatLimitError(mutation.error) ? null : mutation.error} />
               </div>
             )}
           </div>
@@ -439,6 +454,11 @@ export function NewEmployeePage() {
           </div>
         </form>
       </div>
+      <SeatLimitDialog
+        open={seatBlocked !== null}
+        message={seatBlocked ?? undefined}
+        onClose={() => setSeatBlocked(null)}
+      />
     </div>
   );
 }

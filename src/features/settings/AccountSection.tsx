@@ -112,7 +112,7 @@ export function AccountSection() {
               Upload
             </Button>
             {draft.profile.photo && !isEmployee && (
-              <Button variant="ghost" size="sm" onClick={() => setP({ photo: null })}>
+              <Button variant="remove" size="sm" onClick={() => setP({ photo: null })}>
                 Remove
               </Button>
             )}

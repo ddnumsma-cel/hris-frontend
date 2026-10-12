@@ -2,10 +2,27 @@ import type { OrgChart } from "@/lib/corehr/api";
 
 export type Person = OrgChart["people"][number];
 
-/** Who each person reports to on the chart: their supervisor, or the head of the company if none is set. */
+/**
+ * Who each person reports to on the chart: their supervisor, or the head of the company if none is
+ * set. A head or supervisor who is no longer on the chart (deleted, separated) is ignored, so the
+ * people under them move up instead of disappearing.
+ */
 export function buildTree(chart: OrgChart) {
   const ids = new Set(chart.people.map((p) => p.id));
-  const parentOf = (p: Person) => (p.id === chart.headId ? undefined : p.supervisorId && ids.has(p.supervisorId) ? p.supervisorId : chart.headId);
+  const headId = chart.headId && ids.has(chart.headId) ? chart.headId : undefined;
+  const sup = new Map(chart.people.map((p) => [p.id, p.supervisorId && ids.has(p.supervisorId) ? p.supervisorId : undefined]));
+  // A loop in who-reports-to-whom (A → B → A) would hide everyone in it: put one of them at the top.
+  for (const p of chart.people) {
+    const seen = new Set<string>();
+    for (let id: string | undefined = p.id; id && id !== headId; id = sup.get(id)) {
+      if (seen.has(id)) {
+        sup.set(id, undefined);
+        break;
+      }
+      seen.add(id);
+    }
+  }
+  const parentOf = (p: Person) => (p.id === headId ? undefined : (sup.get(p.id) ?? headId));
   const kids = new Map<string | undefined, Person[]>();
   for (const p of chart.people) {
     const parent = parentOf(p);
@@ -22,7 +39,7 @@ export function buildTree(chart: OrgChart) {
     return out;
   };
   /** The top of the chart: the head, or everyone without a manager when no head is set. */
-  const roots = chart.headId && byId.has(chart.headId) ? [byId.get(chart.headId)!] : (kids.get(undefined) ?? []);
+  const roots = headId ? [byId.get(headId)!] : (kids.get(undefined) ?? []);
   return { kidsOf: (id: string | undefined) => kids.get(id) ?? [], count, parentOf, chainOf, roots, byId };
 }
 

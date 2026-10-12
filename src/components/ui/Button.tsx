@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import clsx from "clsx";
 
-type Variant = "primary" | "ghost" | "danger";
+type Variant = "primary" | "ghost" | "danger" | "remove";
 type Size = "md" | "sm";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -14,6 +14,7 @@ const variantClasses: Record<Variant, string> = {
   primary: "btn-primary font-semibold",
   ghost: "btn-secondary font-medium",
   danger: "btn-danger font-semibold",
+  remove: "btn-remove font-medium",
 };
 
 const sizeClasses: Record<Size, string> = {

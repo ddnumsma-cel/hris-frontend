@@ -22,6 +22,7 @@ import {
 import { AppNav } from "@/components/layout/AppNav";
 import { REQUEST_TYPES } from "@/lib/requests/types";
 import { NoAccess } from "@/components/layout/NoAccess";
+import { SeatNotice } from "@/features/subscription/shared";
 import { filterNav, useCreateAllowed, usePageAllowed } from "./administration/access";
 
 const GROUPS: SideNavGroup[] = [
@@ -39,7 +40,7 @@ const GROUPS: SideNavGroup[] = [
       { label: "Departments", to: "/admin/maintenance/departments", icon: <BuildingIcon /> },
       { label: "Locations", to: "/admin/maintenance/locations", icon: <MapPinIcon /> },
       { label: "Org chart", to: "/admin/maintenance/org-chart", icon: <OrgChartIcon /> },
-      { label: "Documents", to: "/admin/maintenance/documents", icon: <FolderIcon /> },
+      { label: "201 documents", short: "201 docs", to: "/admin/maintenance/documents", icon: <FolderIcon /> },
       {
         label: "Leave",
         to: "/admin/maintenance/leave",
@@ -179,7 +180,7 @@ const GROUPS: SideNavGroup[] = [
           { label: "Audit trail", to: "/admin/administration/audit" },
           { label: "System settings", to: "/admin/administration/settings" },
           { label: "Email & text outbox", to: "/admin/administration/outbox" },
-          { label: "Subscription & seats", to: "/admin/administration/subscription" },
+          { label: "Clients & Subscriptions", to: "/admin/administration/subscription" },
         ],
       },
     ],
@@ -282,6 +283,7 @@ export function AdminLayout() {
         </>
       }
     >
+      <SeatNotice />
       {allowed(pathname) ? <Outlet /> : pathname === "/admin" && groups[0] ? <Navigate to={groups[0].items[0]!.children?.[0]?.to ?? groups[0].items[0]!.to} replace /> : <NoAccess />}
     </RolePage>
   );

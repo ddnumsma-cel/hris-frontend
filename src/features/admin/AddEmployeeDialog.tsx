@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { IdCardIcon, LoaderIcon, UploadIcon, XIcon } from "@/components/icons";
 import { createEmployee } from "@/lib/api";
+import { isSeatLimitError } from "@/lib/subscription/api";
+import { SeatLimitDialog } from "@/features/subscription/shared";
 import { idTypeOptions, scanIdImage, type ScannedIdFields, type ScanProgress } from "@/lib/idScan";
 import {
   addEmployeeSchema,
@@ -88,8 +90,12 @@ export function AddEmployeeDialog({
     };
   }, [idPreviewUrl]);
 
+  const [seatBlocked, setSeatBlocked] = useState<string | null>(null);
   const mutation = useMutation({
     mutationFn: createEmployee,
+    onError: (err) => {
+      if (isSeatLimitError(err)) setSeatBlocked(err.message);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "employee-directory"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "overview-stats"] });
@@ -325,7 +331,7 @@ export function AddEmployeeDialog({
                     onClick={removeIdFile}
                     aria-label="Remove uploaded ID"
                     title="Remove"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-2 hover:bg-surface-2 hover:text-ink"
+                    className="delete-action flex h-8 w-8 items-center justify-center rounded-lg border"
                   >
                     <XIcon className="h-4 w-4" />
                   </button>
@@ -529,6 +535,7 @@ export function AddEmployeeDialog({
         onConfirm={close}
         onClose={() => setConfirmDiscard(false)}
       />
+      <SeatLimitDialog open={seatBlocked !== null} message={seatBlocked ?? undefined} onClose={() => setSeatBlocked(null)} />
     </>
   );
 }

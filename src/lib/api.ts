@@ -93,6 +93,9 @@ import { getCredential, getCredentials, setCredential } from "./credentials";
 import { buildEmployeeFileRecords } from "./employmentRecords";
 import { teamReports, type ReportId } from "./reportsData";
 import { deny } from "./session";
+import { tellAssigned, tellEmployees } from "./requestNotices";
+import { fileCertificate } from "./certificates";
+import { assertSeatsAvailable } from "./subscription/api";
 
 /**
  * Every function here stands in for a real HTTP call. Swap the body for a
@@ -280,6 +283,7 @@ export async function updatePersonnelDocument(id: string, input: UpdatePersonnel
   const next = personnelDocuments.map((d) => (d.id === id ? { ...d, ...input } : d));
   const updated = next.find((d) => d.id === id)!;
   setPersonnelDocuments(next);
+  if (input.status === "Verified") tellEmployees(updated.employeeId, "documents", "approved", `Your ${updated.type} was checked`, "HR verified it against the original. Nothing else to do.");
   if (actor) {
     logPersonnelAccess(
       updated.employeeId,
@@ -310,6 +314,7 @@ export async function removePersonnelDocument(id: string, actor?: AuditActor) {
       : d,
   );
   setPersonnelDocuments(next);
+  if (target) tellEmployees(target.employeeId, "documents", "rejected", `Your ${target.type} was sent back`, "HR asked for it again. Upload a new one from your 201 file.");
   if (actor && target) logPersonnelAccess(target.employeeId, actor, "Removed", target.type, "Reset to Missing");
   return delay(next.find((d) => d.id === id)!);
 }
@@ -375,7 +380,9 @@ export async function uploadMyPersonnelDocument(id: string, fileName: string) {
       : d,
   );
   setPersonnelDocuments(next);
-  return delay(toChecklistItem(next.find((d) => d.id === id)!));
+  const uploaded = next.find((d) => d.id === id)!;
+  tellAssigned("edit", "documents", "documents", "request", `${currentEmployee.name} uploaded their ${uploaded.type}`, "Check it against the original on the 201 documents page.");
+  return delay(toChecklistItem(uploaded));
 }
 
 /** Employee undoing their own submission — only allowed before HR verifies
@@ -408,8 +415,11 @@ export async function createCertificateRequest(
     purpose: input.purpose,
     status: "Pending",
     requestedOn: new Date().toISOString().slice(0, 10),
+    employeeId: currentEmployee.id,
+    employeeName: currentEmployee.name,
   };
   setCertificateRequests([request, ...certificateRequests]);
+  tellAssigned("edit", "selfService", "certificate", "request", `${currentEmployee.name} requested a ${input.type}`, `${input.purpose ? `For: ${input.purpose}. ` : ""}Prepare it and mark it ready for pickup under Requests › Certificates.`);
   return delay(request);
 }
 
@@ -669,6 +679,11 @@ function initialsFor(name: string) {
 export async function createEmployee(input: CreateEmployeeInput): Promise<Employee> {
   const denied = deny("people", "create");
   if (denied) return denied;
+  try {
+    assertSeatsAvailable(1);
+  } catch (err) {
+    return Promise.reject(err);
+  }
   const name = formatEmployeeName(input);
   const employee: Employee = {
     id: `MSMA-${Math.floor(10_000 + Math.random() * 89_999)}`,
@@ -700,6 +715,12 @@ export interface RegisterEmployeeInput {
 }
 
 export async function registerEmployee(input: RegisterEmployeeInput): Promise<Employee> {
+  // No sign-in here (self-registration), but it still takes a seat.
+  try {
+    assertSeatsAvailable(1);
+  } catch (err) {
+    return Promise.reject(err);
+  }
   const employee: Employee = {
     id: `MSMA-${Math.floor(10_000 + Math.random() * 89_999)}`,
     name: input.name,
@@ -864,19 +885,79 @@ export function fetchCertificateRequestsForReview() {
 
 const certificateStatusOrder: CertificateRequestStatus[] = ["Pending", "Ready for pickup", "Released"];
 
+function handleCertificate(id: string, from: CertificateRequestStatus[], change: Partial<CertificateRequest>, actor: string) {
+  const target = certificateRequests.find((r) => r.id === id);
+  if (!target) return { error: "That request no longer exists" } as const;
+  if (!from.includes(target.status)) return { error: `This request is already ${target.status.toLowerCase()}` } as const;
+  const updated: CertificateRequest = { ...target, ...change, handledBy: actor, handledAt: new Date().toISOString() };
+  setCertificateRequests(certificateRequests.map((r) => (r.id === id ? updated : r)));
+  return { updated } as const;
+}
+
+/** HR sends the certificate as a digital copy: released at once, the employee downloads or prints it. */
+export async function issueCertificate(id: string, actor: string): Promise<CertificateRequest> {
+  const denied = deny("selfService", "edit");
+  if (denied) return denied;
+  const target = certificateRequests.find((x) => x.id === id);
+  const person = employeeDirectory.find((e) => e.id === target?.employeeId);
+  if (target && !person) return Promise.reject(new Error("This request isn't linked to an employee record, so a certificate can't be made. Prepare a signed copy for pickup instead."));
+  const r = handleCertificate(id, ["Pending", "Ready for pickup"], { status: "Released", delivery: "digital", ...(target && person ? { issued: target.issued ?? fileCertificate(person, target, certificateRequests, actor) } : {}) }, actor);
+  if ("error" in r) return Promise.reject(new Error(r.error));
+  if (r.updated.employeeId) tellEmployees(r.updated.employeeId, "certificate", "approved", `Your ${r.updated.type} is ready`, `${actor} sent it (No. ${r.updated.issued?.number}). Download or print it from Certificates.`);
+  return delay(r.updated);
+}
+
+/** HR prepares a signed paper copy for the employee to collect. */
+export async function markCertificateReady(id: string, actor: string): Promise<CertificateRequest> {
+  const denied = deny("selfService", "edit");
+  if (denied) return denied;
+  const r = handleCertificate(id, ["Pending"], { status: "Ready for pickup", delivery: "pickup" }, actor);
+  if ("error" in r) return Promise.reject(new Error(r.error));
+  if (r.updated.employeeId) tellEmployees(r.updated.employeeId, "certificate", "approved", `Your ${r.updated.type} is ready for pickup`, `${actor} prepared a signed copy. Pick it up from HR.`);
+  return delay(r.updated);
+}
+
+/** The signed copy was handed over. */
+export async function markCertificateReleased(id: string, actor: string): Promise<CertificateRequest> {
+  const denied = deny("selfService", "edit");
+  if (denied) return denied;
+  const target = certificateRequests.find((x) => x.id === id);
+  const person = employeeDirectory.find((e) => e.id === target?.employeeId);
+  const r = handleCertificate(id, ["Ready for pickup"], { status: "Released", ...(target && person && !target.issued ? { issued: fileCertificate(person, target, certificateRequests, actor) } : {}) }, actor);
+  if ("error" in r) return Promise.reject(new Error(r.error));
+  if (r.updated.employeeId) tellEmployees(r.updated.employeeId, "certificate", "update", `You received your ${r.updated.type}`, `Released by ${actor}. A digital copy is on your Certificates page too.`);
+  return delay(r.updated);
+}
+
+/** HR can't issue it; the employee is told why. */
+export async function declineCertificate(id: string, reason: string, actor: string): Promise<CertificateRequest> {
+  const denied = deny("selfService", "edit");
+  if (denied) return denied;
+  if (!reason.trim()) return Promise.reject(new Error("Say why, so the employee knows"));
+  const r = handleCertificate(id, ["Pending"], { status: "Declined", note: reason.trim() }, actor);
+  if ("error" in r) return Promise.reject(new Error(r.error));
+  if (r.updated.employeeId) tellEmployees(r.updated.employeeId, "certificate", "rejected", `Your ${r.updated.type} request was declined`, `${actor}: “${reason.trim()}”`);
+  return delay(r.updated);
+}
+
 export function nextCertificateStatus(status: CertificateRequestStatus): CertificateRequestStatus | null {
   const idx = certificateStatusOrder.indexOf(status);
   return idx < certificateStatusOrder.length - 1 ? certificateStatusOrder[idx + 1] : null;
 }
 
-export async function advanceCertificateRequest(id: string) {
+/** Older one-step flow (Pending → Ready for pickup → Released); the Certificates page uses issue / ready / released / decline. */
+export async function advanceCertificateRequest(id: string, actor = "HR") {
   const denied = deny("selfService", "edit");
   if (denied) return denied;
   const target = certificateRequests.find((r) => r.id === id);
   const nextStatus = target ? nextCertificateStatus(target.status) : null;
-  if (!nextStatus) return delay(target!);
-  const next = certificateRequests.map((r) => (r.id === id ? { ...r, status: nextStatus } : r));
+  if (!target || !nextStatus) return delay(target!);
+  const next = certificateRequests.map((r) => (r.id === id ? { ...r, status: nextStatus, handledBy: actor, handledAt: new Date().toISOString() } : r));
   setCertificateRequests(next);
+  if (target.employeeId) {
+    if (nextStatus === "Ready for pickup") tellEmployees(target.employeeId, "certificate", "approved", `Your ${target.type} is ready for pickup`, `${actor} prepared it. Pick it up from HR.`);
+    else tellEmployees(target.employeeId, "certificate", "update", `Your ${target.type} was released`, `Released by ${actor}.`);
+  }
   return delay(next.find((r) => r.id === id)!);
 }
 

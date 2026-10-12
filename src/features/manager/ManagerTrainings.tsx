@@ -119,7 +119,7 @@ export function ManagerTrainings() {
                   <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5 text-xs">
                     <span className="text-ink-3">Due {r.dueDate}</span>
                     {canRemove && (
-                      <button type="button" onClick={() => setDeletingRecord(r)} className="font-semibold text-critical">
+                      <button type="button" onClick={() => setDeletingRecord(r)} className="delete-action rounded-full border px-3 py-1 font-semibold">
                         Remove
                       </button>
                     )}
@@ -160,7 +160,7 @@ export function ManagerTrainings() {
                       </td>
                       <td className="border-b border-border px-4 py-2.5">
                         {canRemove && (
-                          <button type="button" onClick={() => setDeletingRecord(r)} className="font-semibold text-critical">
+                          <button type="button" onClick={() => setDeletingRecord(r)} className="delete-action rounded-full border px-3 py-1 font-semibold">
                             Remove
                           </button>
                         )}

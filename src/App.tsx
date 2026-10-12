@@ -141,6 +141,7 @@ const TimeOffSection = lazy(() => import("@/features/settings/TimeOffSection").t
 const SchedulingSection = lazy(() => import("@/features/settings/SchedulingSection").then((m) => ({ default: m.SchedulingSection })));
 const RolesSection = lazy(() => import("@/features/settings/RolesSection").then((m) => ({ default: m.RolesSection })));
 const DataSection = lazy(() => import("@/features/settings/DataSection").then((m) => ({ default: m.DataSection })));
+const SubscriptionSection = lazy(() => import("@/features/settings/SubscriptionSection").then((m) => ({ default: m.SubscriptionSection })));
 
 /** The Settings routes inside a workspace. Workspace sections exist for HR only and are guarded. */
 function settingsRoutes(admin = false) {
@@ -158,6 +159,7 @@ function settingsRoutes(admin = false) {
           <Route path="scheduling" element={<WorkspaceGuard section="scheduling"><SchedulingSection /></WorkspaceGuard>} />
           <Route path="roles" element={<WorkspaceGuard section="roles"><RolesSection /></WorkspaceGuard>} />
           <Route path="data" element={<WorkspaceGuard section="data"><DataSection /></WorkspaceGuard>} />
+          <Route path="subscription" element={<WorkspaceGuard section="subscription"><SubscriptionSection /></WorkspaceGuard>} />
         </>
       )}
       <Route path="*" element={<ToMyAccount />} />

@@ -170,7 +170,7 @@ export interface AuditEntry {
   id: string;
   employeeId: string;
   actor: string;
-  action: "Created" | "Edited" | "Viewed" | "Uploaded" | "Verified" | "Recorded";
+  action: "Created" | "Edited" | "Viewed" | "Uploaded" | "Verified" | "Recorded" | "Deleted";
   section: string;
   summary: string;
   at: string;

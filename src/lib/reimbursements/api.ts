@@ -5,6 +5,10 @@ import { people, type LeavePerson } from "../leave/api";
 import { CLAIM_WINDOW_DAYS, claims, MAX_AMOUNT, saveClaims, type Category, type Claim } from "./store";
 import { can, visible } from "../permissions";
 import { deny, forbidden, sessionWho } from "../session";
+import { tellApprover, tellAssigned, tellEmployees, who as nameFor } from "../requestNotices";
+
+const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const what = (c: Claim) => (c.category === "Other" ? (c.otherType ?? "Other") : c.category);
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -72,6 +76,7 @@ export async function fileClaim(input: ClaimInput): Promise<Claim> {
     filedAt: new Date().toISOString(),
   };
   if (!saveClaims([claim, ...claims])) return fail(FULL_STORAGE);
+  tellApprover(claim.employeeId, "claim", "request", `${nameFor(claim.employeeId)} filed a ${what(claim)} claim`, `${peso(claim.amount)} at ${claim.merchant}. Review it under Approvals.`);
   return respond(claim);
 }
 
@@ -122,6 +127,15 @@ export async function decideClaim(id: string, approve: boolean, note: string, ac
       ? { ...c, status: approve ? "endorsed" : "rejected", approverDecidedBy: actor, approverDecidedAt: at, approverNote: why, ...(approve ? {} : { decidedBy: actor, decidedAt: at, note: why }) }
       : { ...c, status: approve ? "approved" : "rejected", decidedBy: actor, decidedAt: at, note: why };
   if (!saveClaims(claims.map((x) => (x.id === id ? next : x)))) return fail(FULL_STORAGE);
+  const label = `${what(next)} claim (${peso(next.amount)})`;
+  if (next.status === "endorsed") {
+    tellEmployees(next.employeeId, "claim", "update", `Your ${label} was endorsed`, `${actor} endorsed it. Accounting gives the final approval next.`);
+    tellAssigned("final", "claims", "claim", "request", `${nameFor(next.employeeId)}'s ${label} is ready for final approval`, `Endorsed by ${actor}. ${next.merchant}.`);
+  } else if (next.status === "approved") {
+    tellEmployees(next.employeeId, "claim", "approved", `Your ${label} was approved`, `${actor} approved it. It's paid with the next payroll or by bank transfer.`);
+  } else {
+    tellEmployees(next.employeeId, "claim", "rejected", `Your ${label} was rejected`, `Rejected by ${actor}.${why ? ` “${why}”` : ""}`);
+  }
   return respond(next);
 }
 
@@ -142,6 +156,7 @@ export async function payClaimsByTransfer(ids: string[], reference: string, paid
   const at = `${paidOn}T12:00:00`;
   const set = new Set(ids);
   if (!saveClaims(claims.map((c) => (set.has(c.id) ? { ...c, paidAt: at, paidBy: actor, payoutMethod: "transfer" as const, payoutRef: reference.trim() } : c)))) return fail(FULL_STORAGE);
+  for (const c of picked) tellEmployees(c.employeeId, "claim", "approved", `Your ${what(c)} claim was paid`, `${peso(c.amount)} sent by bank transfer (ref. ${reference.trim()}).`);
   return respond(picked.length);
 }
 

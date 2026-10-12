@@ -142,7 +142,7 @@ export function EditPersonnelProfileDialog({
                   type="button"
                   aria-label="Remove dependent"
                   onClick={() => removeDependent(d.id)}
-                  className="flex-none text-critical"
+                  className="delete-action flex h-8 w-8 flex-none items-center justify-center rounded-lg border"
                 >
                   <XIcon className="h-4 w-4" />
                 </button>

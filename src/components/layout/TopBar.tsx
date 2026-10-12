@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { useAuth } from "@/features/auth/AuthContext";
 import { hasHrAccess } from "@/lib/admin/auth";
@@ -8,9 +8,14 @@ import { useOfficeFilter, type OfficeFilter } from "@/features/admin/OfficeFilte
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { fetchAnnouncements, fetchMyPhoto } from "@/lib/api";
 import { teamNotices } from "@/lib/teamNotices";
+import { listMyNotifications, markMyNotificationsRead } from "@/lib/notifications";
+import { fmtDay } from "@/lib/preferences";
 import { BellIcon, BuildingIcon, CheckIcon, ChevronDownIcon, LogOutIcon, SearchIcon, SettingsIcon } from "../icons";
 import { BrandName, WorkspaceLabel } from "./Brand";
 import { SettingsMenu } from "./SettingsMenu";
+import { NotificationsPanel, type NotificationItem, type NotificationKind } from "./NotificationsPanel";
+import { timeAgo } from "@/lib/timeAgo";
+import { SeatChip } from "@/features/subscription/shared";
 import { useMySettings } from "@/features/settings/useSettings";
 import { fetchMyAvatar } from "@/lib/settings/api";
 import { settingsKeyFor } from "@/lib/settings/store";
@@ -74,7 +79,39 @@ export function TopBar() {
   const announcementsQuery = useQuery({ queryKey: ["employee", "announcements"], queryFn: fetchAnnouncements });
   // Team alerts (a manager's people working from home today) come first.
   const teamQuery = useQuery({ queryKey: ["team-notices"], queryFn: teamNotices, refetchInterval: 60_000 });
-  const notifications = [...(teamQuery.data ?? []), ...(announcementsQuery.data ?? [])];
+  // Stored alerts (seat limits, upgrade requests…) for the signed-in role, newest first.
+  const queryClient = useQueryClient();
+  const myQuery = useQuery({ queryKey: ["notifications", user?.accountId], queryFn: listMyNotifications, refetchInterval: 30_000 });
+  const alerts = (myQuery.data ?? []).map((n) => ({ id: n.id, title: n.title, link: n.link, unread: n.unread }));
+  const unread = alerts.some((a) => a.unread);
+  const items: NotificationItem[] = [
+    ...(myQuery.data ?? []).map((n) => ({ id: n.id, kind: (n.kind === "alert" || !n.kind ? (/seat/i.test(n.title) ? "seat" : "alert") : n.kind) as NotificationKind, title: n.title, body: n.body, time: timeAgo(n.at, fmtDay), link: n.link })),
+    ...(teamQuery.data ?? []).map((n) => ({ id: n.id, kind: "team" as const, title: n.title, body: n.postedOn, time: "Today" })),
+    ...(announcementsQuery.data ?? []).map((n) => ({ id: n.id, kind: "news" as const, title: n.title, time: n.postedOn.replace(/^Posted\s+/, "") })),
+  ];
+  // What was new when the bell was opened, so it stays highlighted until the panel closes.
+  const [openNew, setOpenNew] = useState<Set<string>>(new Set());
+  // The bell's count: unread stored alerts, plus announcements and team notices not seen yet
+  // (remembered per account in this browser; opening the bell counts as seeing them).
+  const seenKey = `heyhr-bell-seen-${user?.accountId ?? "anon"}`;
+  const [seen, setSeen] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(seenKey) ?? "[]") as string[];
+    } catch {
+      return [];
+    }
+  });
+  const others = [...(teamQuery.data ?? []), ...(announcementsQuery.data ?? [])];
+  const unreadCount = alerts.filter((a) => a.unread).length + others.filter((n) => !seen.includes(n.id)).length;
+  const markSeen = () => {
+    const ids = others.map((n) => n.id);
+    setSeen(ids);
+    try {
+      localStorage.setItem(seenKey, JSON.stringify(ids));
+    } catch {
+      // Blocked storage: the count comes back next visit.
+    }
+  };
   const photoQuery = useQuery({
     queryKey: ["employee", "my-photo"],
     queryFn: fetchMyPhoto,
@@ -186,6 +223,7 @@ export function TopBar() {
       </div>
 
       <div className="ml-auto flex items-center justify-end gap-1.5 sm:ml-0 sm:gap-2">
+        {user.role === "admin" && <SeatChip />}
 
         <ThemeToggle className="topbar-icon-button !h-9 !w-9 [&_svg]:h-[17px] [&_svg]:w-[17px]" />
 
@@ -199,12 +237,19 @@ export function TopBar() {
               setNotifOpen((v) => !v);
               setOfficeMenuOpen(false);
               setSettingsOpen(false);
+              // Opening the bell counts as reading the stored alerts; they stay listed.
+              if (!notifOpen) setOpenNew(new Set([...alerts.filter((a) => a.unread).map((a) => a.id), ...others.filter((n) => !seen.includes(n.id)).map((n) => n.id)]));
+              if (!notifOpen && unread) void markMyNotificationsRead().then(() => queryClient.invalidateQueries({ queryKey: ["notifications"] }));
+              if (!notifOpen) markSeen();
             }}
+            aria-description={notificationsOn && unreadCount > 0 ? `${unreadCount} new` : undefined}
             className="topbar-icon-button relative flex h-9 w-9 items-center justify-center"
           >
             <BellIcon className="h-[17px] w-[17px]" />
-            {notificationsOn && notifications.length > 0 && (
-              <span className="topbar-dot absolute right-2 top-2 h-2 w-2 rounded-full" />
+            {notificationsOn && unreadCount > 0 && (
+              <span aria-hidden="true" className="bell-badge absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] leading-none font-bold">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
             )}
           </button>
           {notifOpen && (
@@ -215,25 +260,7 @@ export function TopBar() {
                 className="fixed inset-0 z-40 cursor-default"
                 onClick={() => setNotifOpen(false)}
               />
-              <div className="glass-surface panel-enter absolute right-0 top-full z-50 mt-1.5 w-72 rounded-[var(--radius-dropdown)]">
-                <div className="border-b border-[var(--line)] px-3.5 py-2.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-2">
-                  Notifications
-                </div>
-                <div className="flex max-h-72 flex-col overflow-y-auto">
-                  {!notificationsOn && (
-                    <p className="px-3.5 py-4 text-sm text-ink-2">Notifications are turned off. Turn them on from the settings menu.</p>
-                  )}
-                  {notificationsOn && notifications.length === 0 && (
-                    <p className="px-3.5 py-4 text-sm text-ink-2">You're all caught up.</p>
-                  )}
-                  {notificationsOn && notifications.map((a) => (
-                    <div key={a.id} className="border-b border-border px-3.5 py-2.5 last:border-b-0">
-                      <div className="text-[0.82rem] font-semibold">{a.title}</div>
-                      <div className="text-xs text-ink-3">{a.postedOn}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <NotificationsPanel items={items} newIds={openNew} enabled={notificationsOn} settingsLink={`/${user.role}/settings/notifications`} onClose={() => setNotifOpen(false)} />
             </>
           )}
         </div>

@@ -6,6 +6,20 @@ import { tk } from "../timekeeping/store";
 import { admin, logAdmin, saveAdmin, type Access, type ModuleKey, type RequestKind, type Settings, type SystemRole, type UserAccount, type Workflow } from "./store";
 import { LIMITS, type RoleKey } from "../permissions";
 import { deny, employeeOfAccount, forbidden, sessionWho } from "../session";
+import { assertAdminAccountAvailable } from "../subscription/api";
+import { ADMIN_ROLES } from "../subscription/store";
+import { tellEmployees } from "../requestNotices";
+import { departmentHeadOf, supervisorOf } from "./approvers";
+
+/** Checks the plan's admin-account limit; returns a rejected promise (409) when it's used up. */
+function adminLimit(): Promise<never> | null {
+  try {
+    assertAdminAccountAvailable();
+    return null;
+  } catch (err) {
+    return Promise.reject(err);
+  }
+}
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -75,6 +89,8 @@ export async function createAccount(input: { name: string; username: string; rol
   if (admin.accounts.some((a) => a.username === username) || ["admin", "admin1", "admin2"].includes(username)) return fail("That username is taken");
   const role = admin.roles.find((r) => r.id === input.roleId);
   if (!role) return fail("Choose a role");
+  const overLimit = ADMIN_ROLES.includes(role.key) ? adminLimit() : null;
+  if (overLimit) return overLimit;
   const password = tempPassword();
   const account: UserAccount = { id: `ua-${Date.now().toString(36)}`, name, username, password, employeeId: input.employeeId || undefined, roleId: role.id, status: "active", mustChangePassword: true, failedAttempts: 0, createdAt: new Date().toISOString() };
   saveAdmin({ ...admin, accounts: [...admin.accounts, account] });
@@ -99,8 +115,12 @@ export async function setAccountRole(id: string, roleId: string, actor: string, 
   if (!a || !role) return fail("Choose a role");
   const next = admin.accounts.map((x) => (x.id === id ? { ...x, roleId } : x));
   const problem = guard(id, actorAccountId, next);
+  // Moving an active login into HR / Approver / Accounting takes an admin account.
+  const overLimit = !problem && a.status === "active" && ADMIN_ROLES.includes(role.key) && !ADMIN_ROLES.includes(roleKeyOf(a.roleId) as RoleKey) ? adminLimit() : null;
+  if (overLimit) return overLimit;
   if (problem) return fail(problem);
   saveAdmin({ ...admin, accounts: next });
+  tellEmployees([a.employeeId ?? employeeOfAccount(a)], "account", "update", `Your role is now ${role.name}`, `${actor} changed it. What you can see and do changes the next time you sign in.`);
   logAdmin({ actor, module: "Administration", action: "Changed role", target: a.username, detail: `${admin.roles.find((r) => r.id === a.roleId)?.name ?? "None"} → ${role.name}` });
   return respond(undefined);
 }
@@ -113,6 +133,8 @@ export async function setAccountStatus(id: string, status: UserAccount["status"]
   const next = admin.accounts.map((x) => (x.id === id ? { ...x, status } : x));
   const problem = guard(id, actorAccountId, next);
   if (problem) return fail(problem);
+  const overLimit = status === "active" && a.status !== "active" && ADMIN_ROLES.includes(roleKeyOf(a.roleId) as RoleKey) ? adminLimit() : null;
+  if (overLimit) return overLimit;
   saveAdmin({ ...admin, accounts: next });
   logAdmin({ actor, module: "Administration", action: status === "active" ? "Turned on account" : "Turned off account", target: a.username, detail: a.name });
   return respond(undefined);
@@ -192,7 +214,6 @@ export function describeSteps(w: Workflow) {
   return w.steps.map((s) => `${approverName(s)}${s.overDays ? ` (if over ${s.overDays} days)` : ""}`).join(" → ");
 }
 
-const LEVEL_RANK: Record<string, number> = { Executive: 3, Manager: 2, Supervisor: 1 };
 
 /** Who actually approves a request from this employee, step by step. */
 export function approvalPath(kind: RequestKind, employeeId: string, days = 0): { step: string; who: string }[] {
@@ -203,24 +224,13 @@ export function approvalPath(kind: RequestKind, employeeId: string, days = 0): {
     .filter((s) => !s.overDays || days > s.overDays)
     .map((s) => {
       if (s.approver === "supervisor") {
-        const sup = core.employees.find((x) => x.id === e.job.supervisorId);
         // Only a supervisor with an active Approver login can decide; otherwise the Super Admin does.
-        const canApprove = !!sup && admin.accounts.some((a) => a.employeeId === sup.id && a.roleId === "approver" && a.status === "active");
+        const { sup, canApprove } = supervisorOf(employeeId);
         return { step: "Manager or supervisor", who: !sup ? "No supervisor set: Super Admin decides" : canApprove ? fullName(sup.personal) : `${fullName(sup.personal)} has no Approver login: Super Admin decides` };
       }
       if (s.approver === "department-head") {
-        const unitOf = (id: string) => core.units.find((u) => u.id === id);
-        const deptId = (unitId: string) => {
-          let u = unitOf(unitId);
-          while (u && u.type !== "department") u = u.parentId ? unitOf(u.parentId) : undefined;
-          return u?.id;
-        };
-        const dept = deptId(e.job.unitId);
-        const head = core.employees
-          .filter((x) => x.id !== e.id && x.job.status !== "Separated" && deptId(x.job.unitId) === dept)
-          .map((x) => ({ x, rank: LEVEL_RANK[core.positions.find((p) => p.id === x.job.positionId)?.level ?? ""] ?? 0 }))
-          .sort((a, b) => b.rank - a.rank)[0];
-        return { step: "Department head", who: head && head.rank > 0 ? fullName(head.x.personal) : "No department head: goes to HR" };
+        const head = departmentHeadOf(employeeId);
+        return { step: "Department head", who: head ? fullName(head.personal) : "No department head: goes to HR" };
       }
       const role = admin.roles.find((r) => r.id === s.roleId);
       const people = admin.accounts.filter((a) => a.roleId === s.roleId && a.status === "active").map((a) => a.name);

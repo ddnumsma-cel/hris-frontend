@@ -238,7 +238,7 @@ export function IdScanCard({ onScanned, onCleared }: { onScanned: (fields: Scann
             </Button>
           )}
           {file && scan.status !== "scanning" && (
-            <button type="button" onClick={clear} aria-label="Remove uploaded ID" title="Remove" className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-2 hover:bg-surface hover:text-ink">
+            <button type="button" onClick={clear} aria-label="Remove uploaded ID" title="Remove" className="delete-action flex h-8 w-8 items-center justify-center rounded-lg border">
               <XIcon className="h-4 w-4" />
             </button>
           )}

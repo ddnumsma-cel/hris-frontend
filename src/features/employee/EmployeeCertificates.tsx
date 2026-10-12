@@ -20,6 +20,7 @@ const statusVariant: Record<CertificateRequestStatus, ChipVariant> = {
   Pending: "warn",
   "Ready for pickup": "good",
   Released: "neutral",
+  Declined: "crit",
 };
 
 export function EmployeeCertificates() {
@@ -88,6 +89,8 @@ export function EmployeeCertificates() {
                   <td className="border-b border-border px-4 py-2.5">{r.requestedOn}</td>
                   <td className="border-b border-border px-4 py-2.5">
                     <Chip variant={statusVariant[r.status]}>{r.status}</Chip>
+                    {r.status === "Declined" && r.note && <span className="mt-1 block text-xs text-ink-2">HR: “{r.note}”</span>}
+                    {r.status === "Ready for pickup" && <span className="mt-1 block text-xs text-ink-2">A signed copy is waiting at HR.</span>}
                   </td>
                   <td className="border-b border-border px-4 py-2.5">
                     {r.status === "Pending" && (
@@ -100,13 +103,9 @@ export function EmployeeCertificates() {
                       </button>
                     )}
                     {r.status === "Released" && employeeQuery.data && (
-                      <button
-                        type="button"
-                        onClick={() => printCertificate(employeeQuery.data, r)}
-                        className="text-xs font-semibold text-brand-ink"
-                      >
-                        Print
-                      </button>
+                      <Button size="sm" variant="ghost" icon={<FileIcon className="h-3.5 w-3.5" />} onClick={() => printCertificate(employeeQuery.data, r)}>
+                        Download or print
+                      </Button>
                     )}
                   </td>
                 </tr>

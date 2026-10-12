@@ -143,7 +143,7 @@ export function AdminOverview() {
         title: `${r.type} request has waited ${ageDays} days`,
         detail: r.purpose,
         tone: ageDays >= 5 ? "crit" : "warn",
-        action: { label: "Process", onClick: () => navigate("/admin/certificates") },
+        action: { label: "Process", onClick: () => navigate("/admin/requests/certificates") },
       });
     }
   }

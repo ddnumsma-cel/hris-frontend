@@ -14,6 +14,7 @@ export interface RequestType {
 
 export const REQUEST_TYPES: RequestType[] = [
   { id: "reimbursement", label: "Reimbursements", description: "Expense claims with their receipts.", feature: "claims" },
+  { id: "certificates", label: "Certificates", description: "Certificates employees ask for, like a Certificate of Employment.", feature: "selfService" },
 ];
 
 export const requestTypeById = (id: string | null) => REQUEST_TYPES.find((t) => t.id === id);

@@ -9,6 +9,10 @@ import { awolDates } from "../pay/engine";
 import { can, canFor, visible } from "../permissions";
 import { deny, forbidden, sessionWho } from "../session";
 import { managerOf, nameOf, notifyEmployee } from "../outbox";
+import { dates as when, EVERYONE, tellApprover, tellEmployees, tellRoles, who as nameFor } from "../requestNotices";
+
+/** "1h 30m" for a notification. */
+const span = (minutes: number) => [Math.floor(minutes / 60) && `${Math.floor(minutes / 60)}h`, minutes % 60 && `${minutes % 60}m`].filter(Boolean).join(" ") || "0m";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -241,6 +245,7 @@ export async function setUsualShift(employeeIds: string[], shiftId: string | nul
   for (const id of employeeIds) usualShift[id] = shiftId;
   const name = tk.shifts.find((s) => s.id === shiftId)?.name ?? "no shift";
   save({ ...tk, usualShift, audit: [...employeeIds.map((id) => audit(id, todayIso(), actor, "Changed usual shift", `Now on ${name}`)), ...tk.audit] });
+  tellEmployees(employeeIds, "schedule", "update", "Your usual shift changed", shiftId ? `You're now on ${name}. Check your schedule before your next workday.` : `${actor} removed your usual shift. Ask HR for your schedule.`);
   return respond(undefined);
 }
 
@@ -254,6 +259,7 @@ export async function setDayShift(employeeId: string, date: string, value: strin
   else overrides[k] = value;
   const label = value === null ? "back to usual schedule" : value === "rest" ? "rest day" : (tk.shifts.find((s) => s.id === value)?.name ?? value);
   save({ ...tk, overrides, audit: [audit(employeeId, date, actor, "Changed schedule", label), ...tk.audit] });
+  tellEmployees(employeeId, "schedule", "update", `Your schedule for ${when(date)} changed`, `It's now ${label}.`);
   return respond(undefined);
 }
 
@@ -354,6 +360,7 @@ export async function decideRequest(id: string, approve: boolean, note: string, 
     requests: tk.requests.map((x) => (x.id === id ? next : x)),
     audit: [audit(r.employeeId, r.date, actor, approve ? `Approved ${r.type}` : `Declined ${r.type}`, `${r.minutes} min${note.trim() ? `: ${note.trim()}` : ""}`), ...tk.audit],
   });
+  tellEmployees(r.employeeId, r.type, approve ? "approved" : "rejected", `Your ${r.type} was ${approve ? "approved" : "declined"}`, `${span(r.minutes)} on ${when(r.date)} · ${approve ? "approved" : "declined"} by ${actor}.${note.trim() ? ` “${note.trim()}”` : ""}`);
   return respond(next);
 }
 
@@ -365,6 +372,7 @@ export async function fileRequest(input: { employeeId: string; date: string; typ
   if (tk.requests.some((r) => r.employeeId === input.employeeId && r.date === input.date && r.type === input.type && r.status !== "declined")) return fail("There's already a request for that day");
   const req: TimeRequest = { id: newId("rq"), ...input, reason: input.reason.trim(), status: "pending", filedBy: actor, filedAt: new Date().toISOString() };
   save({ ...tk, requests: [req, ...tk.requests], audit: [audit(input.employeeId, input.date, actor, `Filed ${input.type}`, `${input.minutes} min: ${input.reason.trim()}`), ...tk.audit] });
+  tellApprover(input.employeeId, input.type, "request", `${nameFor(input.employeeId)} filed ${input.type}`, `${span(input.minutes)} on ${when(input.date)}. “${req.reason}” Review it under Approvals.`);
   return respond(req);
 }
 
@@ -469,6 +477,7 @@ export async function declareRemoteDay(input: Pick<RemoteDay, "from" | "to" | "o
   if ((tk.remoteDays ?? []).some((d) => d.from <= input.to && d.to >= input.from && covers(d))) return fail("Some of those days are already remote work days for these offices");
   const day: RemoteDay = { id: newId("rd"), from: input.from, to: input.to, offices: input.offices, reason: input.reason.trim(), declaredBy: actor, declaredAt: new Date().toISOString() };
   save({ ...tk, remoteDays: [day, ...(tk.remoteDays ?? [])] });
+  tellRoles(EVERYONE, "attendance", "update", `Remote work day: ${when(day.from, day.to)}`, `${day.offices.length ? `${day.offices.join(", ")} offices` : "Everyone"} works from home. “${day.reason}” Clock in from home with a face scan.`);
   return respond(day);
 }
 
@@ -525,6 +534,7 @@ export async function setWorkFromHome(employeeId: string, on: boolean, actor = "
   const at = new Date().toISOString();
   const voided = on ? tk.voided : { ...tk.voided, ...Object.fromEntries(today.map((p) => [p.id, { reason: "Switched back to an office day", by: actor, at }])) };
   save({ ...tk, voided, wfh: on ? [...rest, { id: newId("wfh"), employeeId, date, declaredAt: at }] : rest });
+  if (on) tellApprover(employeeId, "attendance", "update", `${nameFor(employeeId)} is working from home today`, "They clock in with a face scan. You can see their times in Team Attendance.");
   if (on) notifyEmployee(managerOf(employeeId), "wfh", `${nameOf(employeeId)} is working from home today`, `${nameOf(employeeId)} switched ${date} to a work-from-home day and clocks in with a face scan. You can see their times in Team Attendance.`);
   return respond(undefined);
 }
@@ -583,6 +593,7 @@ export async function sendNotice(input: Pick<AttendanceNotice, "employeeId" | "k
   const notice: AttendanceNotice = { id: newId("nt"), ...input, subject: input.subject.trim(), message: input.message.trim(), sentBy: actor, sentAt: new Date().toISOString() };
   const workDate = input.dates[0] ?? todayIso();
   save({ ...tk, notices: [notice, ...(tk.notices ?? [])], audit: [audit(input.employeeId, workDate, actor, `Sent ${input.kind === "awol" ? "AWOL" : "tardiness"} notice`, notice.subject), ...tk.audit] });
+  tellEmployees(input.employeeId, "attendance", "alert", `${input.kind === "awol" ? "AWOL" : "Tardiness"} notice: ${notice.subject}`, `From ${actor}. Read it and acknowledge it on your Attendance page.`);
   return respond(notice);
 }
 
@@ -627,6 +638,7 @@ export async function fileFix(input: { employeeId: string; workDate: string; kin
   if (tk.fixRequests.some((r) => r.employeeId === input.employeeId && r.workDate === input.workDate && r.kind === input.kind && r.status === "pending")) return fail(`You already asked to adjust the time-${input.kind} for that day`);
   const req: FixRequest = { id: newId("fx"), ...input, recorded, reason: input.reason.trim(), status: "pending", filedBy: actor, filedAt: new Date().toISOString() };
   save({ ...tk, fixRequests: [req, ...tk.fixRequests], audit: [audit(input.employeeId, input.workDate, actor, `Asked to adjust time-${input.kind}`, `${recorded ? `${recorded} → ` : ""}${input.time}${input.nextDay ? " (next day)" : ""}: ${req.reason}`), ...tk.audit] });
+  tellApprover(input.employeeId, "adjustment", "request", `${nameFor(input.employeeId)} asked to adjust a time-${input.kind}`, `${when(input.workDate)}: ${recorded ? `${recorded} → ` : ""}${input.time}. “${req.reason}” Review it under Approvals.`);
   return respond(req);
 }
 
@@ -654,5 +666,6 @@ export async function decideFix(id: string, approve: boolean, note: string, acto
     fixRequests: tk.fixRequests.map((x) => (x.id === id ? next : x)),
     audit: approve ? tk.audit : [audit(r.employeeId, r.workDate, actor, `Declined time-${r.kind} adjustment`, note.trim()), ...tk.audit],
   });
+  tellEmployees(r.employeeId, "adjustment", approve ? "approved" : "rejected", `Your time-${r.kind} adjustment was ${approve ? "approved" : "declined"}`, `${when(r.workDate)}, ${r.time} · ${approve ? "approved" : "declined"} by ${actor}.${note.trim() ? ` “${note.trim()}”` : ""}`);
   return respond(next);
 }

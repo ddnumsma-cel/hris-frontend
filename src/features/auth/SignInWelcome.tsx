@@ -6,7 +6,7 @@ import { useAuth } from "./AuthContext";
 
 const SHOW_MS = 4500;
 
-/** A short, friendly confirmation after signing in. Shown once per sign-in. */
+/** A short, friendly confirmation after signing in, bottom right above the assistant button (and the seat notice when it shows). Shown once per sign-in. */
 export function SignInWelcome() {
   const { user } = useAuth();
   const [visible, setVisible] = useState(consumeSignInFlag);
@@ -33,7 +33,7 @@ export function SignInWelcome() {
   };
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-16 z-100 flex justify-end px-4 sm:pr-6">
+    <div className="corner-stack pointer-events-none fixed right-5 z-100 flex w-[min(380px,calc(100vw-40px))] justify-end">
       <div role="status" aria-live="polite" className={`welcome-card glass-surface pointer-events-auto relative w-full max-w-md overflow-hidden rounded-[var(--radius-modal)] ${leaving ? "toast-leave" : "welcome-enter"}`}>
         <div className="flex items-start gap-3.5 p-4 pr-11">
           <span className="welcome-badge flex h-10 w-10 flex-none items-center justify-center rounded-full bg-[var(--success)] text-[var(--on-accent)]">

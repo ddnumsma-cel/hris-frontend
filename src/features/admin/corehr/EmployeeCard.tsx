@@ -1,11 +1,16 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import clsx from "clsx";
 import { useToast } from "@/components/ui/ToastContext";
-import { MailIcon, MapPinIcon, MoreVerticalIcon, PhoneIcon } from "@/components/icons";
+import { CopyIcon, EditIcon, EyeIcon, FileIcon, MailIcon, MapPinIcon, MoreVerticalIcon, PhoneIcon, TrashIcon } from "@/components/icons";
+import { useCan } from "@/lib/useCan";
 import type { EmployeeSummary } from "@/lib/corehr/api";
 import { formatDate, statusTone, tenure } from "./format";
+import { DeletePersonDialog, EditPersonDialog } from "./PersonActions";
 import { Drawer, Initials, Pill } from "./ui";
+
+const menuItem = "flex h-8 items-center gap-2 rounded-lg px-2 text-left text-ink-2 transition-colors duration-150 hover:bg-surface-2 hover:text-ink";
+const menuIcon = "h-4 w-4 flex-none text-ink-3";
 
 function Row({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -58,7 +63,7 @@ function PreviewPanel({ e, onClose }: { e: EmployeeSummary; onClose: () => void 
         </dl>
         <div className="rounded-xl bg-surface-2 p-3 text-sm">
           <div className="flex justify-between">
-            <span className="font-medium">201 file</span>
+            <span className="font-medium">201 documents</span>
             <span className="text-ink-2">
               {e.documents.verified} of {e.documents.required} verified
             </span>
@@ -75,11 +80,35 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
   const toast = useToast();
   const [menu, setMenu] = useState(false);
   const [preview, setPreview] = useState(false);
-  const pct = e.documents.required ? Math.round((e.documents.verified / e.documents.required) * 100) : 100;
+  const [editing, setEditing] = useState(false);
+  const canEdit = useCan("edit", "people");
+  const canDelete = useCan("delete", "people");
+  const [deleting, setDeleting] = useState(false);
+  // Closes on any click outside the menu (including another card's ⋮) or Escape. A full-screen
+  // catcher can't do this here: the card's lift transform confines fixed children to the card.
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const onDown = (ev: PointerEvent) => {
+      if (!menuRef.current?.contains(ev.target as Node)) setMenu(false);
+    };
+    const onKey = (ev: KeyboardEvent) => ev.key === "Escape" && setMenu(false);
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menu]);
+  const copy = (text: string) => {
+    void navigator.clipboard?.writeText(text);
+    toast.show(`Copied ${text}.`);
+    setMenu(false);
+  };
   const where = [e.branchName, e.teamName].filter(Boolean).join(" · ");
 
   return (
-    <article style={{ "--i": index } as React.CSSProperties} className={clsx("rise-in lift relative flex flex-col rounded-2xl border border-border bg-surface px-4 py-3.5 shadow-sm", e.status === "Separated" && "opacity-60")}>
+    <article style={{ "--i": index } as React.CSSProperties} className={clsx("rise-in lift relative flex flex-col rounded-2xl border border-border bg-surface px-4 py-3.5 shadow-sm", menu && "z-30", e.status === "Separated" && "opacity-60")}>
       <header className="flex h-[4.25rem] items-start gap-2.5">
         <Initials initials={e.initials} size="md" />
         <div className="min-w-0 flex-1 pt-0.5">
@@ -93,34 +122,79 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
             <Pill tone={statusTone[e.status]}>{e.employmentType === "Probationary" && e.status === "Active" ? "Probationary" : e.status}</Pill>
           </span>
         </div>
-        <div className="relative -mr-1.5 flex-none">
+        <div ref={menuRef} className="relative -mr-1.5 flex-none">
           <button type="button" aria-label={`More for ${e.name}`} aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)} className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-3 hover:bg-surface-2 hover:text-ink">
             <MoreVerticalIcon className="h-4 w-4" />
           </button>
           {menu && (
             <>
-              <button type="button" aria-label="Close menu" className="fixed inset-0 z-10 cursor-default" onClick={() => setMenu(false)} />
-              <div role="menu" className="glass-surface absolute top-8 right-0 z-20 flex w-44 flex-col rounded-[var(--radius-dropdown)] p-1 text-sm">
-                <Link role="menuitem" to={`/admin/maintenance/people/${e.id}`} className="rounded-lg px-3 py-1.5 hover:bg-surface-2">
+              <div role="menu" className="glass-surface absolute top-8 right-0 z-20 flex w-56 flex-col rounded-[var(--radius-dropdown)] p-1 text-sm">
+                <Link role="menuitem" to={`/admin/maintenance/people/${e.id}`} className={menuItem}>
+                  <EyeIcon aria-hidden="true" className={menuIcon} />
                   View profile
                 </Link>
+                {canEdit && (
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      setMenu(false);
+                      setEditing(true);
+                    }}
+                    className={menuItem}
+                  >
+                    <EditIcon aria-hidden="true" className={menuIcon} />
+                    Edit
+                  </button>
+                )}
+                <Link role="menuitem" to={`/admin/maintenance/people/${e.id}#documents`} className={menuItem}>
+                  <FileIcon aria-hidden="true" className={menuIcon} />
+                  <span className="flex-1">201 documents</span>
+                  <span className="text-xs text-ink-3">
+                    {e.documents.verified}/{e.documents.required}
+                  </span>
+                </Link>
+                {(e.workEmail || e.mobile) && <div className="my-1 border-t border-border" />}
                 {e.workEmail && (
-                  <a role="menuitem" href={`mailto:${e.workEmail}`} className="rounded-lg px-3 py-1.5 hover:bg-surface-2">
+                  <a role="menuitem" href={`mailto:${e.workEmail}`} onClick={() => setMenu(false)} className={menuItem}>
+                    <MailIcon aria-hidden="true" className={menuIcon} />
                     Send an email
                   </a>
                 )}
-                <button
-                  role="menuitem"
-                  type="button"
-                  onClick={() => {
-                    void navigator.clipboard?.writeText(e.id);
-                    toast.show(`Copied ${e.id}.`);
-                    setMenu(false);
-                  }}
-                  className="rounded-lg px-3 py-1.5 text-left hover:bg-surface-2"
-                >
+                {e.mobile && (
+                  <a role="menuitem" href={`tel:${e.mobile.replace(/\s/g, "")}`} onClick={() => setMenu(false)} className={menuItem}>
+                    <PhoneIcon aria-hidden="true" className={menuIcon} />
+                    Call
+                  </a>
+                )}
+                <div className="my-1 border-t border-border" />
+                <button role="menuitem" type="button" onClick={() => copy(e.id)} className={menuItem}>
+                  <CopyIcon aria-hidden="true" className={menuIcon} />
                   Copy employee ID
                 </button>
+                {e.workEmail && (
+                  <button role="menuitem" type="button" onClick={() => copy(e.workEmail)} className={menuItem}>
+                    <CopyIcon aria-hidden="true" className={menuIcon} />
+                    Copy email
+                  </button>
+                )}
+                {canDelete && (
+                  <>
+                    <div className="my-1 border-t border-border" />
+                    <button
+                      role="menuitem"
+                      type="button"
+                      onClick={() => {
+                        setMenu(false);
+                        setDeleting(true);
+                      }}
+                      className="delete-action flex h-8 items-center gap-2 rounded-lg border px-2 text-left transition-colors duration-150"
+                    >
+                      <TrashIcon aria-hidden="true" className="h-4 w-4 flex-none" />
+                      Delete
+                    </button>
+                  </>
+                )}
               </div>
             </>
           )}
@@ -146,18 +220,6 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
         <div className="mb-3 border-t border-border" />
       </div>
 
-      <div className="flex items-center gap-2.5 text-xs">
-        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
-          <span className={clsx("grow-x block h-full rounded-full", pct === 100 ? "bg-good" : "bg-good/80")} style={{ width: `${Math.max(pct, 4)}%` }} />
-        </span>
-        <span className="flex-none text-ink-3">
-          {e.documents.verified}/{e.documents.required} docs
-        </span>
-        {e.documents.needsAction > 0 && <span className="flex-none font-semibold text-warning">{e.documents.needsAction} pending</span>}
-      </div>
-
-      <div className="my-3 border-t border-border" />
-
       <footer className="flex items-center justify-between gap-2">
         <span className="min-w-0 truncate text-xs text-ink-3">
           Hired <span className="text-[0.8rem] text-ink-2">{formatDate(e.dateHired)}</span>
@@ -170,6 +232,8 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
       </footer>
 
       {preview && <PreviewPanel e={e} onClose={() => setPreview(false)} />}
+      {deleting && <DeletePersonDialog e={e} onClose={() => setDeleting(false)} />}
+      {editing && <EditPersonDialog employeeId={e.id} onClose={() => setEditing(false)} />}
     </article>
   );
 }

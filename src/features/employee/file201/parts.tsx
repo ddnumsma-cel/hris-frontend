@@ -23,7 +23,7 @@ export function UploadAction({ row, f, className, children }: { row: DocRow; f: 
 
 export function RemoveAction({ row, f }: { row: DocRow; f: File201 }) {
   return (
-    <button type="button" onClick={() => f.removeDoc(row)} disabled={f.busy} className="text-xs font-semibold text-critical hover:underline disabled:opacity-50">
+    <button type="button" onClick={() => f.removeDoc(row)} disabled={f.busy} className="delete-action rounded-full border px-3 py-1 text-xs font-semibold disabled:opacity-50">
       Remove
     </button>
   );

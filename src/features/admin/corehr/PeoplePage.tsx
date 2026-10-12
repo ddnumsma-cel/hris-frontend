@@ -13,6 +13,8 @@ import { useOfficeFilter } from "../OfficeFilterContext";
 import { filterSearchClass, filterSelectClass, formatDate, keys, statusTone, tenure } from "./format";
 import { StatusText } from "./SplitView";
 import { EmployeeCard } from "./EmployeeCard";
+import { PersonActions } from "./PersonActions";
+import { SeatIndicator, SeatLimitDialog, seatCheck } from "@/features/subscription/shared";
 import { Initials, LoadError } from "./ui";
 
 /** Table rows per page. Cards show everyone and the page scrolls. */
@@ -30,21 +32,6 @@ function loadView(): View {
   }
 }
 
-
-/** "3 of 9 checked", with a thin bar. */
-function DocProgress({ e, wide }: { e: EmployeeSummary; wide?: boolean }) {
-  const pct = e.documents.required ? Math.round((e.documents.verified / e.documents.required) * 100) : 100;
-  return (
-    <span className={clsx("flex items-center gap-2", wide && "w-full")}>
-      <span className={clsx("h-1.5 overflow-hidden rounded-full bg-surface-2", wide ? "flex-1" : "w-14")}>
-        <span className={clsx("grow-x block h-full rounded-full", pct === 100 ? "bg-good" : "bg-ink")} style={{ width: `${pct}%` }} />
-      </span>
-      <span className="flex-none text-xs text-ink-2">
-        {e.documents.verified} of {e.documents.required}
-      </span>
-    </span>
-  );
-}
 
 function SortHeader({ label, k, sort, onSort, className }: { label: string; k: SortKey; sort: { key: SortKey; asc: boolean }; onSort: (k: SortKey) => void; className?: string }) {
   const active = sort.key === k;
@@ -64,6 +51,12 @@ function SortHeader({ label, k, sort, onSort, className }: { label: string; k: S
 export function PeoplePage() {
   const navigate = useNavigate();
   const canAdd = useCan("create", "people");
+  const [seatBlocked, setSeatBlocked] = useState<string | null>(null);
+  const addEmployee = async () => {
+    const refused = await seatCheck();
+    if (refused) setSeatBlocked(refused);
+    else navigate("/admin/maintenance/people/new");
+  };
   const { office } = useOfficeFilter();
   const [params] = useSearchParams();
   const employeesQuery = useQuery({ queryKey: keys.employees, queryFn: listEmployees });
@@ -125,15 +118,31 @@ export function PeoplePage() {
     <>
       <ContentHead
         title="People"
-        subtitle={`${current.length} employees${onLeave ? ` · ${onLeave} on leave or suspended` : ""}${needDocs ? ` · ${needDocs} with 201 documents to sort out` : ""}`}
+        subtitle={
+          <>
+            {`${current.length} employees${onLeave ? ` · ${onLeave} on leave or suspended` : ""}`}
+            {needDocs > 0 && (
+              <>
+                {" · "}
+                <Link to="/admin/maintenance/documents?filter=todo" className="font-medium text-brand hover:underline">
+                  {needDocs} with 201 documents to sort out
+                </Link>
+              </>
+            )}
+          </>
+        }
         actions={
-          canAdd && (
-            <Button icon={<UserPlusIcon className="h-4 w-4" />} onClick={() => navigate("/admin/maintenance/people/new")}>
-              Add employee
-            </Button>
-          )
+          <span className="flex flex-wrap items-center gap-2">
+            <SeatIndicator />
+            {canAdd && (
+              <Button icon={<UserPlusIcon className="h-4 w-4" />} onClick={addEmployee}>
+                Add employee
+              </Button>
+            )}
+          </span>
         }
       />
+      <SeatLimitDialog open={seatBlocked !== null} message={seatBlocked ?? undefined} onClose={() => setSeatBlocked(null)} />
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full sm:w-72">
@@ -198,7 +207,9 @@ export function PeoplePage() {
                   <SortHeader label="Branch" k="branch" sort={sort} onSort={onSort} />
                   <SortHeader label="Status" k="status" sort={sort} onSort={onSort} />
                   <SortHeader label="Hired" k="hired" sort={sort} onSort={onSort} />
-                  <SortHeader label="201 documents" k="documents" sort={sort} onSort={onSort} />
+                  <th scope="col" className="px-4 py-2.5 text-right font-medium">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -223,7 +234,7 @@ export function PeoplePage() {
                       <span className="text-xs text-ink-3"> · {tenure(e.dateHired)}</span>
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">
-                      <DocProgress e={e} />
+                      <PersonActions e={e} className="justify-end" />
                     </td>
                   </tr>
                 ))}

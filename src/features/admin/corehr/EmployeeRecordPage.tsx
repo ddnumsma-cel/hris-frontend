@@ -20,7 +20,7 @@ import { ErrorNote, Field, Initials, LoadError, Pill } from "./ui";
 const TABS = [
   { id: "profile", label: "Profile" },
   { id: "job", label: "Job & IDs" },
-  { id: "documents", label: "Documents" },
+  { id: "documents", label: "201 documents" },
   { id: "history", label: "History" },
   { id: "activity", label: "Activity" },
 ] as const;
@@ -284,7 +284,7 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
 
         <button type="button" onClick={() => setTab("documents")} className="rounded-xl bg-surface-2 p-3 text-left hover:bg-surface-2/70">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold">201 file</span>
+            <span className="font-semibold">201 documents</span>
             <span className="text-ink-2">
               {verified} of {required.length} verified
             </span>
@@ -422,7 +422,7 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
           )}
 
           {tab === "documents" && (
-            <Card title={`201 file documents · ${verified} of ${required.length} verified`}>
+            <Card title={`201 documents · ${verified} of ${required.length} verified`}>
               <DocumentChecklist employeeId={employeeId} employeeName={s.name} />
             </Card>
           )}

@@ -21,6 +21,9 @@ import { deny, employeeOfAccount, forbidden, sessionWho } from "../session";
 import { admin, saveAdmin } from "../admin/store";
 import { dropCase, ensureCase } from "../pay/finalPayStore";
 import { notifyEmployee } from "../outbox";
+import { notifyEmployees } from "../notifications";
+import { dates, tellApprover, tellAssigned, tellEmployees } from "../requestNotices";
+import { assertSeatsAvailable, checkSeatThresholds, isSeatLimitError } from "../subscription/api";
 
 const DELAY_MS = 300;
 function respond<T>(value: T): Promise<T> {
@@ -198,12 +201,57 @@ export async function createEmployee(values: NewEmployeeValues, actor: string, s
   if (denied) return denied;
   const parsed = newEmployeeSchema.safeParse(values);
   if (!parsed.success) return fail(firstIssue(parsed));
-  const v = parsed.data;
+  try {
+    const employee = addEmployee(parsed.data, actor, scannedId);
+    checkSeatThresholds();
+    return respond(employee);
+  } catch (err) {
+    if (isSeatLimitError(err)) return Promise.reject(err);
+    return fail(err instanceof Error ? err.message : "Couldn't add this employee");
+  }
+}
+
+/**
+ * Bulk import: checks the whole batch against the seats left before adding anyone, then adds
+ * them one by one. Rows that fail their own checks (a taken email, a full position) are reported
+ * and skipped. TODO: no import screen yet; this is the endpoint one would call.
+ */
+export async function importEmployees(rows: NewEmployeeValues[], actor: string): Promise<{ added: CoreEmployee[]; failed: { row: number; error: string }[] }> {
+  const denied = deny("people", "create");
+  if (denied) return denied;
+  if (rows.length === 0) return fail("This import has no employees");
+  const parsed = rows.map((r) => newEmployeeSchema.safeParse(r));
+  const invalid = parsed.findIndex((p) => !p.success);
+  if (invalid >= 0) return fail(`Row ${invalid + 1}: ${firstIssue(parsed[invalid]! as Extract<(typeof parsed)[number], { success: false }>)}`);
+  try {
+    assertSeatsAvailable(rows.length);
+  } catch (err) {
+    return Promise.reject(err);
+  }
+  const added: CoreEmployee[] = [];
+  const failed: { row: number; error: string }[] = [];
+  parsed.forEach((p, i) => {
+    try {
+      added.push(addEmployee(p.data!, actor));
+    } catch (err) {
+      failed.push({ row: i + 1, error: err instanceof Error ? err.message : "Couldn't add" });
+    }
+  });
+  checkSeatThresholds();
+  return respond({ added, failed });
+}
+
+/**
+ * Adds one validated employee and saves, all in one synchronous step: the seat check and the
+ * save can't be split by another request. Throws on any problem.
+ */
+function addEmployee(v: NewEmployeeValues, actor: string, scannedId?: ScannedGovernmentId): CoreEmployee {
   const email = v.contact.workEmail.toLowerCase();
-  if (state.employees.some((e) => e.contact.workEmail.toLowerCase() === email)) return fail("Another employee already uses that work email");
+  if (state.employees.some((e) => e.contact.workEmail.toLowerCase() === email)) throw new Error("Another employee already uses that work email");
   const position = positionById(v.job.positionId);
-  if (!position?.active) return fail("That position isn't available");
-  if (holdersOf(position.id).length >= position.slots) return fail(`${position.title} has no opening. Open the job on the Company page and add room for one more person first.`);
+  if (!position?.active) throw new Error("That position isn't available");
+  if (holdersOf(position.id).length >= position.slots) throw new Error(`${position.title} has no opening. Open the job on the Company page and add room for one more person first.`);
+  assertSeatsAvailable(1);
   // The cluster (RPM / VCM / ADS) is a team inside the position's department; add it if that department has none yet.
   let units = state.units;
   let team = units.find((u) => u.type === "team" && u.parentId === position.departmentId && u.code === v.job.cluster);
@@ -262,7 +310,7 @@ export async function createEmployee(values: NewEmployeeValues, actor: string, s
     events: [event, ...state.events],
     audit: [audit(id, actor, "Created", "201 file", "Created the employee record"), ...state.audit],
   });
-  return respond(employee);
+  return employee;
 }
 
 const SECTION_LABELS = {
@@ -402,7 +450,9 @@ export function getOrgChart(): Promise<OrgChart> {
   reconcile();
   const company = state.units.find((u) => u.type === "company");
   const people = state.employees.filter(isCurrent).map((e) => ({ ...summarize(e), supervisorId: e.job.supervisorId }));
-  return respond({ headId: company?.headEmployeeId, people: people.sort((a, b) => a.name.localeCompare(b.name)) });
+  // A head who has left or been deleted isn't sent, so the chart never hangs off someone missing.
+  const headId = people.some((p) => p.id === company?.headEmployeeId) ? company?.headEmployeeId : undefined;
+  return respond({ headId, people: people.sort((a, b) => a.name.localeCompare(b.name)) });
 }
 
 export async function setCompanyHead(employeeId: string, actor: string): Promise<void> {
@@ -443,6 +493,8 @@ export async function setReportsTo(employeeId: string, supervisorId: string | nu
     employees: state.employees.map((x) => (x.id === e.id ? { ...x, job: { ...x.job, supervisorId: supervisorId ?? undefined } } : x)),
     audit: [audit(e.id, actor, "Edited", "Organization chart", `Reports to: ${before ? fullName(before.personal) : "—"} → ${sup ? fullName(sup.personal) : "—"}`), ...state.audit],
   });
+  tellEmployees(e.id, "orgchart", "update", sup ? `You now report to ${fullName(sup.personal)}` : "Your manager changed", sup ? "They approve your leave, overtime and claims from now on." : "You no longer have a manager on the org chart.");
+  if (sup) tellEmployees(sup.id, "orgchart", "update", `${fullName(e.personal)} now reports to you`, "You'll get their leave, overtime and claim requests to approve.");
   return respond(undefined);
 }
 
@@ -512,6 +564,16 @@ export async function updateDocument(id: string, action: DocumentAction, actor: 
       break;
   }
   commit({ ...state, documents: state.documents.map((x) => (x.id === id ? next : x)), audit: [entry, ...state.audit] });
+  const owner = employeeById(d.employeeId);
+  const ownerName = owner ? fullName(owner.personal) : d.employeeId;
+  if (action.kind === "upload") {
+    if (sessionWho().employeeId === d.employeeId) tellAssigned("edit", "documents", "documents", "request", `${ownerName} uploaded their ${d.type}`, "Check it against the original on the 201 documents page.");
+    else tellEmployees(d.employeeId, "documents", "update", `HR added your ${d.type}`, `${actor} uploaded it to your 201 file.`);
+  } else if (action.kind === "verify") {
+    tellEmployees(d.employeeId, "documents", "approved", `Your ${d.type} was checked`, `${actor} verified it against the original. Nothing else to do.`);
+  } else if (action.kind === "return") {
+    tellEmployees(d.employeeId, "documents", "rejected", `Your ${d.type} was sent back`, `“${action.note.trim()}” Upload a new one from your 201 file.`);
+  }
   return respond(next);
 }
 
@@ -527,6 +589,84 @@ export function listEvents(employeeId: string): Promise<JobEvent[]> {
   );
 }
 
+
+// ---- 201 document reminders ----
+
+export interface DocumentReminder {
+  employeeId: string;
+  name: string;
+  departmentName: string;
+  missing: string[];
+  expired: string[];
+  expiring: string[];
+  /** When HR last sent them a reminder (from the audit trail). */
+  lastReminded?: string;
+}
+
+const REMINDER = "Reminder sent";
+
+/** What someone still has to hand in or renew. Documents waiting for HR to check aren't theirs to act on. */
+function owedBy(employeeId: string) {
+  const mine = state.documents.filter((d) => d.employeeId === employeeId && d.status !== "Not applicable");
+  return {
+    missing: mine.filter((d) => d.status === "Missing").map((d) => d.type),
+    expired: mine.filter((d) => d.status !== "Missing" && documentAlert(d) === "expired").map((d) => d.type),
+    expiring: mine.filter((d) => d.status !== "Missing" && documentAlert(d) === "expiring").map((d) => d.type),
+  };
+}
+
+/** Current employees who owe 201 documents (missing, expired or expiring soon). */
+export function listDocumentReminders(): Promise<DocumentReminder[]> {
+  const denied = deny("documents", "edit");
+  if (denied) return denied;
+  const rows = state.employees
+    .filter(isCurrent)
+    .map((e) => {
+      const owed = owedBy(e.id);
+      const last = state.audit.find((a) => a.employeeId === e.id && a.section === "201 documents" && a.summary.startsWith(REMINDER));
+      return { employeeId: e.id, name: fullName(e.personal), departmentName: unitById(positionById(e.job.positionId)?.departmentId)?.name ?? "", ...owed, lastReminded: last?.at };
+    })
+    .filter((r) => r.missing.length + r.expired.length + r.expiring.length > 0)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return respond(rows);
+}
+
+/**
+ * Reminds these employees what they still owe: an email (and text) through the outbox, and a
+ * notification in their bell. Logged on each person's record. Returns how many were reminded.
+ */
+export async function sendDocumentReminders(employeeIds: string[], note: string, actor: string): Promise<number> {
+  const denied = deny("documents", "edit");
+  if (denied) return denied;
+  if (!employeeIds.length) return fail("Choose who to remind");
+  const extra = note.trim();
+  const entries: AuditEntry[] = [];
+  for (const id of employeeIds) {
+    const e = employeeById(id);
+    if (!e || !isCurrent(e)) continue;
+    const { missing, expired, expiring } = owedBy(id);
+    const total = missing.length + expired.length + expiring.length;
+    if (!total) continue;
+    const lines = [
+      ...missing.map((t) => `• ${t}: not handed in yet`),
+      ...expired.map((t) => `• ${t}: expired, please send a renewed copy`),
+      ...expiring.map((t) => `• ${t}: expiring soon, please send a renewed copy`),
+    ];
+    const name = e.personal.firstName || fullName(e.personal);
+    notifyEmployee(
+      id,
+      "documents",
+      `Your 201 file needs ${total} document${total === 1 ? "" : "s"}`,
+      `Hi ${name},\n\nHR is completing your 201 file and still needs:\n${lines.join("\n")}\n\nUpload them from My 201 file in the app, or bring the originals to HR.${extra ? `\n\n${extra}` : ""}\n\n${actor}`,
+      `MSMA HR: your 201 file still needs ${total} document${total === 1 ? "" : "s"}. Please upload them in the app or bring them to HR.`,
+    );
+    notifyEmployees([id], `HR needs ${total} document${total === 1 ? "" : "s"} for your 201 file`, `${[...missing, ...expired, ...expiring].slice(0, 3).join(", ")}${total > 3 ? ` and ${total - 3} more` : ""}.${extra ? ` ${extra}` : ""}`, "/employee/201-file");
+    entries.push(audit(id, actor, "Recorded", "201 documents", `${REMINDER} for ${total} document${total === 1 ? "" : "s"}`));
+  }
+  if (!entries.length) return fail("No one chosen still owes documents");
+  commit({ ...state, audit: [...entries, ...state.audit] });
+  return respond(entries.length);
+}
 
 // ---- Separation ----
 
@@ -569,7 +709,10 @@ export async function recordSeparation(id: string, input: { lastDay: string; rea
     audit: [audit(id, actor, "Edited", "Employment", `Separation recorded: ${input.reason}, last day ${input.lastDay}`), ...state.audit],
   });
   closeAccountsIfGone(id);
+  checkSeatThresholds();
   ensureCase(id, input.lastDay, input.reason, actor);
+  tellApprover(id, "separation", "update", `${fullName(e.personal)} is leaving`, `${input.reason}. Last day ${dates(input.lastDay)}.`);
+  tellAssigned("final", "payrollRuns", "separation", "request", `Final pay to prepare for ${fullName(e.personal)}`, `${input.reason}, last day ${dates(input.lastDay)}. A final pay case was opened.`);
   notifyEmployee(updated.job.supervisorId, "separation", `${fullName(e.personal)} is leaving`, `HR recorded that ${fullName(e.personal)} is leaving (${input.reason}). Their last day is ${input.lastDay}.`);
   return respond(updated);
 }
@@ -580,6 +723,14 @@ export async function cancelSeparation(id: string, actor: string): Promise<CoreE
   if (denied) return denied;
   const e = employeeById(id);
   if (!e?.job.separationDate) return fail("There's no separation to cancel");
+  // Bringing back someone already separated takes a seat again.
+  if (e.job.status === "Separated") {
+    try {
+      assertSeatsAvailable(1);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
   const { separationDate, ...job } = e.job;
   const updated: CoreEmployee = { ...e, job: { ...job, status: e.job.status === "Separated" ? "Active" : e.job.status } };
   commit({
@@ -589,13 +740,48 @@ export async function cancelSeparation(id: string, actor: string): Promise<CoreE
     audit: [audit(id, actor, "Edited", "Employment", `Separation cancelled (last day was ${separationDate})`), ...state.audit],
   });
   dropCase(id);
+  checkSeatThresholds();
   return respond(updated);
+}
+
+/**
+ * Deletes someone's 201 file for good: their record, documents and job history. Their direct
+ * reports lose them as supervisor and their logins are turned off. Use separation for people who
+ * actually worked here and left; delete is for records added by mistake.
+ */
+export async function deleteEmployee(id: string, actor: string): Promise<void> {
+  const denied = deny("people", "delete", id);
+  if (denied) return denied;
+  const e = employeeById(id);
+  if (!e) return fail("That employee no longer exists");
+  // The org chart hangs from the head of the company: choose a new head first.
+  if (state.units.some((u) => u.type === "company" && u.headEmployeeId === id)) return fail(`${fullName(e.personal)} is the head of the company. Make someone else the head on the org chart first.`);
+  disableAccounts(id);
+  // Their team moves up to their own manager; departments they led are left without a head.
+  const up = e.job.supervisorId;
+  commit({
+    ...state,
+    units: state.units.map((u) => (u.headEmployeeId === id ? { ...u, headEmployeeId: undefined } : u)),
+    employees: state.employees.filter((x) => x.id !== id).map((x) => (x.job.supervisorId === id ? { ...x, job: { ...x.job, supervisorId: up } } : x)),
+    documents: state.documents.filter((d) => d.employeeId !== id),
+    events: state.events.filter((ev) => ev.employeeId !== id),
+    audit: [audit(id, actor, "Deleted", "Employee", `${fullName(e.personal)} (${id}) deleted`), ...state.audit.filter((a) => a.employeeId !== id)],
+  });
+  dropCase(id);
+  checkSeatThresholds();
+  return respond(undefined);
 }
 
 /** Turns off the logins of someone whose last day has passed. */
 function closeAccountsIfGone(id: string) {
   const e = employeeById(id);
   if (!e?.job.separationDate || e.job.separationDate >= isoDate()) return;
+  disableAccounts(id);
+}
+
+function disableAccounts(id: string) {
+  const e = employeeById(id);
+  if (!e) return;
   // Linked in Users, the demo login's profile, or the same name.
   const name = fullName(e.personal).toLowerCase();
   const theirs = (a: (typeof admin.accounts)[number]) => a.employeeId === id || (!a.employeeId && (employeeOfAccount(a) === id || a.name.trim().toLowerCase() === name));

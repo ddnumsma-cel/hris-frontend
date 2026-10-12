@@ -25,7 +25,7 @@ export function ContentHead({
   actions,
 }: {
   title: string;
-  subtitle: string;
+  subtitle: ReactNode;
   actions?: ReactNode;
 }) {
   return (

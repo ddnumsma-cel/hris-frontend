@@ -1,10 +1,9 @@
 import { useMemo } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/components/ui/ToastContext";
-import { documentAlert, listDocuments, listEmployees, updateDocument, type EmployeeSummary } from "@/lib/corehr/api";
+import { useQuery } from "@tanstack/react-query";
+import { documentAlert, listDocuments, listEmployees, type EmployeeSummary } from "@/lib/corehr/api";
 import type { EmployeeDocument } from "@/lib/corehr/types";
 import { useOfficeFilter } from "../../OfficeFilterContext";
-import { keys, useActor } from "../format";
+import { keys } from "../format";
 
 export type Stage = "missing" | "check" | "expiring" | "expired" | "done";
 
@@ -24,11 +23,8 @@ export interface DocRow {
   e: EmployeeSummary;
 }
 
-/** Everything the Documents layouts need: current employees, their documents, and a one-click "checked". */
+/** Everything the 201 documents page needs: current employees and their documents. */
 export function useDocuments() {
-  const toast = useToast();
-  const actor = useActor();
-  const queryClient = useQueryClient();
   const { office } = useOfficeFilter();
   const docsQuery = useQuery({ queryKey: keys.documents, queryFn: () => listDocuments() });
   const peopleQuery = useQuery({ queryKey: keys.employees, queryFn: listEmployees });
@@ -36,17 +32,6 @@ export function useDocuments() {
   const rows: DocRow[] = (docsQuery.data ?? []).flatMap((d) => {
     const e = people.get(d.employeeId);
     return e ? [{ d, e }] : [];
-  });
-  const verify = useMutation({
-    mutationFn: async (ids: string[]) => {
-      for (const id of ids) await updateDocument(id, { kind: "verify" }, actor);
-      return ids.length;
-    },
-    onSuccess: (n) => {
-      queryClient.invalidateQueries({ queryKey: ["corehr"] });
-      toast.show(n === 1 ? "Marked as checked." : `${n} documents marked as checked.`);
-    },
-    onError: (e) => toast.show(e instanceof Error ? e.message : "Couldn't save.", "critical"),
   });
   const required = rows.filter((r) => r.d.status !== "Not applicable");
   return {
@@ -57,6 +42,5 @@ export function useDocuments() {
     rows,
     required: required.length,
     checked: required.filter((r) => r.d.status === "Verified").length,
-    verify,
   };
 }

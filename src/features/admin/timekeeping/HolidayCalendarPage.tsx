@@ -255,7 +255,7 @@ export function HolidayCalendarPage() {
                     </Button>
                   ) : null}
                   {rule && !rule.builtIn && (
-                    <Button size="sm" variant="ghost" disabled={remove.isPending} onClick={() => window.confirm(`Remove ${rule.name}${rule.repeat.kind === "fixed" ? " from every year" : ""}?`) && remove.mutate(rule.id)}>
+                    <Button size="sm" variant="remove" disabled={remove.isPending} onClick={() => window.confirm(`Remove ${rule.name}${rule.repeat.kind === "fixed" ? " from every year" : ""}?`) && remove.mutate(rule.id)}>
                       Remove
                     </Button>
                   )}

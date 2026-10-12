@@ -383,12 +383,28 @@ export const myDtrLog: DtrLogEntry[] = [
   { date: "Sept 17, 2026", timeIn: "8:50 AM", timeOut: "6:03 PM", status: "On time", location: "Onsite", method: "Fingerprint" },
 ];
 
-export let certificateRequests: CertificateRequest[] = [
-  { id: "cr-1", type: "Certificate of Employment", purpose: "Bank loan application", status: "Released", requestedOn: "2026-08-14" },
-];
+// Saved to localStorage so requests survive a refresh and a sign-out (HR handles them later).
+const CERTIFICATES_KEY = "heyhr-certificate-requests-v1";
+
+function loadCertificateRequests(): CertificateRequest[] {
+  try {
+    const raw = localStorage.getItem(CERTIFICATES_KEY);
+    if (raw) return JSON.parse(raw) as CertificateRequest[];
+  } catch {
+    // Blocked or corrupt storage: start from the demo request.
+  }
+  return [{ id: "cr-1", type: "Certificate of Employment", purpose: "Bank loan application", status: "Released", requestedOn: "2026-08-14", employeeId: "MSMA-00482", employeeName: "Angela Dela Cruz" }];
+}
+
+export let certificateRequests: CertificateRequest[] = loadCertificateRequests();
 
 export function setCertificateRequests(next: CertificateRequest[]) {
   certificateRequests = next;
+  try {
+    localStorage.setItem(CERTIFICATES_KEY, JSON.stringify(next));
+  } catch {
+    // Storage full or blocked: kept for this visit.
+  }
 }
 
 const defaultAdminProfile: AdminProfile = {

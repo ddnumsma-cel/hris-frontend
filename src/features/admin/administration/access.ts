@@ -39,7 +39,7 @@ export function featureForPath(pathname: string): Feature | null {
       if (sub === "users" || sub === "roles") return "roleAssignment";
       if (sub === "audit") return "audit";
       if (sub === "settings" || sub === "outbox") return "systemSettings";
-      if (sub === "subscription") return "subscription";
+      if (sub === "subscription") return "clients";
     }
     return null;
   }

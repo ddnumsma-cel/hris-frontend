@@ -1,5 +1,6 @@
 import { escapeHtml, openPrintDocument } from "@/lib/printDocument";
 import { formatPHP } from "@/lib/format";
+import { certificateStatement } from "@/lib/certificates";
 import type { CertificateRequest, Employee, Payslip } from "@/lib/types";
 
 const generatedOn = () =>
@@ -73,25 +74,22 @@ export function print201File(employee: Employee) {
   openPrintDocument(`201 File - ${employee.name}`, body);
 }
 
+/** Prints the filed copy when the certificate was issued (the same document HR keeps), otherwise one made from the record. */
 export function printCertificate(employee: Employee, request: CertificateRequest) {
-  const bodyText =
-    request.type === "Certificate of Employment"
-      ? `This is to certify that <strong>${escapeHtml(employee.name)}</strong> (Employee ID ${escapeHtml(employee.id)}) is an employee of MSMA Group in ${escapeHtml(employee.status).toLowerCase()} status, holding the position of <strong>${escapeHtml(employee.position)}</strong> under the ${escapeHtml(employee.department)} department, ${escapeHtml(employee.cluster)}, ${escapeHtml(employee.office)} office.`
-      : request.type === "Certificate of Tax Withheld (2316)"
-        ? `This certifies that BIR Form 2316 for <strong>${escapeHtml(employee.name)}</strong> (Employee ID ${escapeHtml(employee.id)}) has been prepared and released by MSMA Group for the applicable taxable year.`
-        : `This is to certify that <strong>${escapeHtml(employee.name)}</strong> (Employee ID ${escapeHtml(employee.id)}) is employed with MSMA Group as <strong>${escapeHtml(employee.position)}</strong>, ${escapeHtml(employee.department)} department.`;
-
+  const filed = request.issued;
+  const bodyText = filed?.statement ?? certificateStatement(employee, request.type);
+  const issuedOn = filed ? new Date(filed.issuedAt).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" }) : "";
   const body = `
     <div class="doc-header">
       <div class="doc-brand">MSMA</div>
       <div class="doc-title">
         <h1>${escapeHtml(request.type)}</h1>
-        <p>Requested ${escapeHtml(request.requestedOn)}</p>
+        <p>${filed ? `No. ${escapeHtml(filed.number)} · Issued ${escapeHtml(issuedOn)}` : `Requested ${escapeHtml(request.requestedOn)}`}</p>
       </div>
     </div>
     <p class="cert-body">${bodyText}</p>
-    <p class="cert-body">Purpose: ${escapeHtml(request.purpose)}</p>
-    <p class="doc-footer">Generated from MSMA HRIS on ${generatedOn()}. This is a system-generated copy for reference — signed originals are released by HR.</p>
+    <p class="cert-body">Purpose: ${escapeHtml(filed?.purpose ?? request.purpose)}</p>
+    <p class="doc-footer">${filed ? `Issued by ${escapeHtml(filed.issuedBy)} through MSMA HRIS. A copy is kept on file with HR under No. ${escapeHtml(filed.number)}.` : `Generated from MSMA HRIS on ${generatedOn()}. This is a system-generated copy for reference — signed originals are released by HR.`}</p>
   `;
 
   openPrintDocument(request.type, body);

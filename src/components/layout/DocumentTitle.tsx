@@ -35,7 +35,7 @@ const titles: Record<string, string> = {
   "/admin/maintenance/departments": "Departments",
   "/admin/maintenance/locations": "Locations",
   "/admin/maintenance/org-chart": "Org chart",
-  "/admin/maintenance/documents": "Documents",
+  "/admin/maintenance/documents": "201 documents",
   "/admin/maintenance/leave/overview": "Leave",
   "/admin/maintenance/leave/requests": "Leave requests",
   "/admin/maintenance/leave/balances": "Leave balances",
@@ -71,7 +71,7 @@ const titles: Record<string, string> = {
   "/admin/administration/roles": "Roles & access",
   "/admin/administration/audit": "Audit trail",
   "/admin/administration/settings": "System settings",
-  "/admin/administration/subscription": "Subscription & seats",
+  "/admin/administration/subscription": "Clients & Subscriptions",
 };
 
 export function DocumentTitle() {

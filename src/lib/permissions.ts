@@ -68,7 +68,9 @@ export const PERMISSIONS = {
   audit: { label: "Audit trail", system_admin: "view", super_admin: "view", hr: "view", approver: "none", accounting: "view", employee: "none" },
   systemSettings: { label: "System settings (company details, sign-in rules)", system_admin: "none", super_admin: "full", hr: "none", approver: "none", accounting: "none", employee: "none" },
   personalSettings: { label: "Personal settings", system_admin: "own", super_admin: "own", hr: "own", approver: "own", accounting: "own", employee: "own" },
-  subscription: { label: "Subscription plan & seat count", system_admin: "full", super_admin: "view", hr: "none", approver: "none", accounting: "none", employee: "none" },
+  subscription: { label: "Subscription plan & seat count (own company)", system_admin: "full", super_admin: "view", hr: "view", approver: "none", accounting: "none", employee: "none" },
+  subscriptionUpgrade: { label: "Request a subscription upgrade", system_admin: "view", super_admin: "manage", hr: "none", approver: "none", accounting: "none", employee: "none" },
+  clients: { label: "Clients & Subscriptions (plans, seat overrides, extensions)", system_admin: "full", super_admin: "none", hr: "none", approver: "none", accounting: "none", employee: "none" },
 } satisfies Record<string, Row & { label: string }>;
 
 export type Feature = keyof typeof PERMISSIONS;

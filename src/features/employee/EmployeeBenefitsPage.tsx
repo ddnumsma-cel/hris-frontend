@@ -92,7 +92,7 @@ export function EmployeeBenefitsPage() {
                       <button
                         type="button"
                         onClick={() => setRemovingBenefit(b)}
-                        className="text-xs font-semibold text-critical"
+                        className="delete-action rounded-full border px-3 py-1 text-xs font-semibold"
                       >
                         Remove
                       </button>

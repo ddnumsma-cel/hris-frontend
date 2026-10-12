@@ -221,7 +221,7 @@ function Breakdown({ run, line, canEdit, onClose }: { run: PayrollRun; line: Pay
               </div>
               <span className={`font-num ${a.amount < 0 ? "text-critical" : "text-good"}`}>{a.amount < 0 ? `−${peso(-a.amount)}` : peso(a.amount)}</span>
               {draft && (
-                <button type="button" aria-label={`Remove ${a.label}`} onClick={() => remove.mutate(a.id)} className="rounded-md p-1 text-ink-2 hover:bg-surface hover:text-critical">
+                <button type="button" aria-label={`Remove ${a.label}`} onClick={() => remove.mutate(a.id)} className="delete-action rounded-md border p-1">
                   <TrashIcon className="h-4 w-4" />
                 </button>
               )}
@@ -390,7 +390,7 @@ export function PayrollRunPage() {
                   Recompute
                 </Button>
                 {canDelete && (
-                  <Button variant="ghost" icon={<TrashIcon className="h-3.75 w-3.75" />} disabled={remove.isPending} onClick={() => window.confirm(`Delete the draft run for ${r.label}?`) && remove.mutate()}>
+                  <Button variant="remove" icon={<TrashIcon className="h-3.75 w-3.75" />} disabled={remove.isPending} onClick={() => window.confirm(`Delete the draft run for ${r.label}?`) && remove.mutate()}>
                     Delete
                   </Button>
                 )}

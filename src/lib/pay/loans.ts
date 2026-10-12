@@ -4,6 +4,7 @@
 import { logAdmin } from "../admin/store";
 import { fullName, newId, state as core } from "../corehr/store";
 import { deny } from "../session";
+import { tellEmployees } from "../requestNotices";
 import { allLoans, LOAN_KINDS, saveLoans, type Loan, type LoanKind } from "./loanStore";
 import { loanPaid } from "./runs";
 
@@ -83,6 +84,7 @@ export async function saveLoan(input: LoanInput, actor: string): Promise<Loan> {
     note: input.note.trim() || undefined,
   };
   saveLoans(old ? list.map((l) => (l.id === loan.id ? loan : l)) : [loan, ...list]);
+  tellEmployees(loan.employeeId, "loan", "update", old ? `Your ${loan.kind} deduction changed` : `New ${loan.kind} deduction`, `₱${loan.installment.toLocaleString("en-PH")} per cutoff from ${loan.startDate}, ₱${loan.principal.toLocaleString("en-PH")} in all (${loan.reference}).`);
   logAdmin({ actor, module: "Payroll", action: old ? "Changed loan" : "Added loan", target: fullName(e.personal), detail: `${loan.kind} ${loan.reference}: ₱${loan.principal.toLocaleString("en-PH")}, ₱${loan.installment.toLocaleString("en-PH")} per cutoff from ${loan.startDate}` });
   return respond(loan);
 }
@@ -99,6 +101,7 @@ export async function stopLoan(id: string, reason: string, actor: string): Promi
   const now = new Date().toISOString();
   saveLoans(list.map((x) => (x.id === id ? { ...x, status: "stopped" as const, closedBy: actor, closedAt: now, note: reason.trim() } : x)));
   const e = core.employees.find((x) => x.id === l.employeeId);
+  tellEmployees(l.employeeId, "loan", "update", `Your ${l.kind} deductions stopped`, `${l.reference}: “${reason.trim()}”`);
   logAdmin({ actor, module: "Payroll", action: "Stopped loan deductions", target: e ? fullName(e.personal) : l.employeeId, detail: `${l.kind} ${l.reference}: ${reason.trim()}` });
   return respond(undefined);
 }

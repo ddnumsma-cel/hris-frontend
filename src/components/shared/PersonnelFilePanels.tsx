@@ -306,7 +306,7 @@ function DocumentRow({
               onClick={onRemove}
               aria-label={`Remove ${doc.type}`}
               title="Remove"
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-critical hover:bg-critical-tint"
+              className="delete-action flex h-7 w-7 items-center justify-center rounded-lg border"
             >
               <TrashIcon className="h-3.5 w-3.5" />
             </button>

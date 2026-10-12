@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { currentAdmin, currentEmployee, currentManager } from "@/lib/mockData";
 import { accountById, IDLE_FLAG, idleMinutes, markSignedIn, recordSignOut, sessionValid } from "@/lib/admin/auth";
 import { roleOf, type UserAccount } from "@/lib/admin/store";
+import { markSignInTime } from "@/lib/session";
 import type { Role } from "@/lib/types";
 
 export interface AuthUser {
@@ -68,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       else localStorage.removeItem(ACCOUNT_KEY);
       sessionStorage.removeItem(IDLE_FLAG);
       markSignedIn();
+      markSignInTime();
     } catch {
       // Storage blocked: the session still works until the tab closes.
     }

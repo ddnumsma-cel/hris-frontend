@@ -21,7 +21,7 @@ const PERSONAL: SectionLink[] = [
   { path: "appearance", label: "Appearance" },
 ];
 
-export type WorkspaceSection = "organization" | "time-off" | "scheduling" | "roles" | "data";
+export type WorkspaceSection = "organization" | "time-off" | "scheduling" | "roles" | "data" | "subscription";
 /** "hr": HR rules (leave, scheduling). "admin": system administration (company, access, data). */
 export type SettingsAreaKey = "my" | "hr" | "admin";
 
@@ -31,6 +31,7 @@ const WORKSPACE: (SectionLink & { path: WorkspaceSection; area: "hr" | "admin" }
   { path: "organization", label: "Organization", area: "admin" },
   { path: "roles", label: "Roles & permissions", area: "admin" },
   { path: "data", label: "Data & privacy", area: "admin" },
+  { path: "subscription", label: "Subscription", area: "admin" },
 ];
 
 /**
@@ -48,8 +49,12 @@ export function useWorkspaceSections() {
     scheduling: can(who, "edit", "rules") || can(who, "edit", "attendanceSettings"),
     roles: can(who, "view", "roleAssignment"),
     data: can(who, "edit", "systemSettings"),
+    // The company's own plan: Super Admin and HR. System Admins manage every client's elsewhere.
+    subscription: can(who, "view", "subscription") && !can(who, "view", "clients"),
   };
-  return WORKSPACE.filter((s) => allowed[s.path]);
+  // HR has no Admin settings, so their (read-only) Subscription sits with their HR settings.
+  const adminArea = can(who, "edit", "systemSettings");
+  return WORKSPACE.filter((s) => allowed[s.path]).map((s) => (s.path === "subscription" && !adminArea ? { ...s, area: "hr" as const } : s));
 }
 
 /** True when there's at least one workspace section to show. */

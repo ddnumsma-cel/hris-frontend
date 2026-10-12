@@ -106,7 +106,7 @@ function BracketEditor({ id, title, rows, onChange }: { id: string; title: strin
           <input aria-label={`${title} bracket ${i + 1}: pay over`} id={i === 0 ? id : undefined} type="number" min={0} step="any" className={inputClass} value={r.over} onChange={(e) => set(i, "over", e.target.value)} />
           <input aria-label={`${title} bracket ${i + 1}: tax`} type="number" min={0} step="any" className={inputClass} value={r.base} onChange={(e) => set(i, "base", e.target.value)} />
           <input aria-label={`${title} bracket ${i + 1}: percent of excess`} type="number" min={0} step="any" className={inputClass} value={r.rate} onChange={(e) => set(i, "rate", e.target.value)} />
-          <button type="button" aria-label={`Remove ${title} bracket ${i + 1}`} disabled={rows.length === 1} onClick={() => onChange(rows.filter((_, j) => j !== i))} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-2 hover:bg-surface-2 disabled:opacity-40">
+          <button type="button" aria-label={`Remove ${title} bracket ${i + 1}`} disabled={rows.length === 1} onClick={() => onChange(rows.filter((_, j) => j !== i))} className="delete-action flex h-8 w-8 items-center justify-center rounded-lg border disabled:opacity-40">
             <XIcon className="h-4 w-4" />
           </button>
         </div>
@@ -341,7 +341,7 @@ export function ContributionsPage() {
               align: "right",
               cell: (v) =>
                 canEdit && statusOf(all, v) === "upcoming" ? (
-                  <Button size="sm" variant="ghost" disabled={remove.isPending} onClick={() => remove.mutate(v)}>
+                  <Button size="sm" variant="remove" disabled={remove.isPending} onClick={() => remove.mutate(v)}>
                     Remove
                   </Button>
                 ) : null,

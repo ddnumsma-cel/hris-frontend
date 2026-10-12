@@ -33,6 +33,35 @@ export function whoFor(accountId: string | undefined | null): Who {
   return { role, employeeId, team: teamOf(employeeId) };
 }
 
+/** The signed-in account's ID, as a session cookie would carry it. */
+export function sessionAccountId(): string | undefined {
+  try {
+    return localStorage.getItem(ACCOUNT_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const SIGNED_IN_AT_KEY = "msma-hris-signed-in-at";
+
+/** Stamps a new sign-in, so things closed "for this session" show again next time. */
+export function markSignInTime() {
+  try {
+    localStorage.setItem(SIGNED_IN_AT_KEY, String(Date.now()));
+  } catch {
+    // Storage blocked: nothing to remember.
+  }
+}
+
+/** When the current session began (empty when unknown). */
+export function signInTime(): string {
+  try {
+    return localStorage.getItem(SIGNED_IN_AT_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 /** Whoever is signed in right now (no one: no access to anything). */
 export function sessionWho(): Who {
   try {
