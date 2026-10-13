@@ -52,6 +52,12 @@ const phone = z
   .trim()
   .refine((s) => !s || /^(\+?63|0)?9\d{9}$/.test(s.replace(/[\s-]/g, "")), "Use a PH mobile number, e.g. 0917 123 4567");
 
+/** 0917 123 4567, +63 917 123 4567 and 639171234567 are the same number. */
+const samePhone = (a: string, b: string) => {
+  const local = (s: string) => s.replace(/\D/g, "").replace(/^63/, "0").replace(/^9/, "09");
+  return local(a) === local(b);
+};
+
 const required = (label: string) => z.string().trim().min(1, `${label} is required`);
 const requiredPhone = (label: string) => phone.refine((s) => s.length > 0, `${label} is required`);
 
@@ -64,9 +70,12 @@ export const contactSchema = z.object({
   address: required("Home address"),
   city: required("City / municipality"),
   province: required("Province"),
-  emergencyName: required("Emergency contact"),
+  emergencyName: required("Emergency contact person"),
   emergencyRelationship: required("Relationship"),
   emergencyPhone: requiredPhone("Emergency phone"),
+}).refine((c) => !c.emergencyPhone || !c.mobile || samePhone(c.emergencyPhone, c.mobile) === false, {
+  path: ["emergencyPhone"],
+  message: "This is the same as the mobile number above. Please enter a different number.",
 });
 export const newHireContactSchema = contactSchema;
 

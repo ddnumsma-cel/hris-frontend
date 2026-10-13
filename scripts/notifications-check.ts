@@ -39,47 +39,47 @@ as("ua-approver");
 await leaveApi.decideRequest(lr.id, true, "", "Rafael Ortiz");
 check("Rafael isn't told about his own decision", !(await bell("ua-approver")).some((x) => x.includes("was approved")));
 
-console.log("\n— Claims: the demo employee (Angela) files, Super Admin endorses, Accounting approves —");
+console.log("\n— Claims: the demo employee (Chris) files, Super Admin endorses, Accounting approves —");
 as("ua-employee");
-const c = await claimsApi.fileClaim({ employeeId: "MSMA-00482", category: "Meals", merchant: "Jollibee", purchaseDate: new Date().toISOString().slice(0, 10), amount: 350, description: "Client lunch", receipt: "data:image/jpeg;base64,AAAA" } as never).catch((e: Error) => { console.log("file failed:", e.message); return null; });
+const c = await claimsApi.fileClaim({ employeeId: "MSMA-00846", category: "Meals", merchant: "Jollibee", purchaseDate: new Date().toISOString().slice(0, 10), amount: 350, description: "Client lunch", receipt: "data:image/jpeg;base64,AAAA" } as never).catch((e: Error) => { console.log("file failed:", e.message); return null; });
 if (c) {
-  const angelaManager = (await import("../src/lib/outbox")).managerOf("MSMA-00482");
-  check(`Claim request goes to Angela's manager (${angelaManager}), not to Angela`, !(await bell("ua-employee")).some((x) => x.includes("filed a Meals claim")));
+  const angelaManager = (await import("../src/lib/outbox")).managerOf("MSMA-00846");
+  check(`Claim request goes to Chris's manager (${angelaManager}), not to Angela`, !(await bell("ua-employee")).some((x) => x.includes("filed a Meals claim")));
   as("ua-super");
   await claimsApi.decideClaim(c.id, true, "", "System Administrator");
   const acc = await bell("ua-accounting");
   console.log(acc.slice(0, 1));
   check("Accounting gets 'ready for final approval'", acc.some((x) => x.startsWith("[request]") && x.includes("ready for final approval")), acc);
-  check("Angela is told it was endorsed", (await bell("ua-employee")).some((x) => x.includes("was endorsed")));
+  check("Chris is told it was endorsed", (await bell("ua-employee")).some((x) => x.includes("was endorsed")));
   as("ua-accounting");
   await claimsApi.decideClaim(c.id, true, "", "Accounting");
   const ang = await bell("ua-employee");
   console.log(ang.slice(0, 2));
-  check("Angela is told it was approved, linked to her reimbursements", ang.some((x) => x.startsWith("[approved] Your Meals claim") && x.includes("/employee/reimbursements")), ang);
+  check("Chris is told it was approved, linked to her reimbursements", ang.some((x) => x.startsWith("[approved] Your Meals claim") && x.includes("/employee/reimbursements")), ang);
 }
 
-console.log("\n— Overtime: Angela files, Super Admin declines —");
+console.log("\n— Overtime: Chris files, Super Admin declines —");
 as("ua-employee");
-const ot = await tkApi.fileRequest({ employeeId: "MSMA-00482", date: new Date().toISOString().slice(0, 10), type: "overtime", minutes: 90, reason: "Month-end close" }, "Angela");
+const ot = await tkApi.fileRequest({ employeeId: "MSMA-00846", date: new Date().toISOString().slice(0, 10), type: "overtime", minutes: 90, reason: "Month-end close" }, "Angela");
 as("ua-super");
 await tkApi.decideRequest(ot.id, false, "Not pre-approved", "System Administrator");
 const ang2 = await bell("ua-employee");
-check("Angela is told her overtime was declined, with the reason", ang2.some((x) => x.startsWith("[rejected] Your overtime was declined") && x.includes("Not pre-approved")), ang2);
+check("Chris is told her overtime was declined, with the reason", ang2.some((x) => x.startsWith("[rejected] Your overtime was declined") && x.includes("Not pre-approved")), ang2);
 
-console.log("\n— 201 documents: HR returns one of Angela's —");
+console.log("\n— 201 documents: HR returns one of Chris's —");
 as("ua-hr");
-const doc = coreStore.state.documents.find((d) => d.employeeId === "MSMA-00482" && d.status === "Submitted") ?? coreStore.state.documents.find((d) => d.employeeId === "MSMA-00482")!;
+const doc = coreStore.state.documents.find((d) => d.employeeId === "MSMA-00846" && d.status === "Submitted") ?? coreStore.state.documents.find((d) => d.employeeId === "MSMA-00846")!;
 await core.updateDocument(doc.id, { kind: "return", note: "Photo is blurry" } as never, "Dinah Marquez");
-check("Angela is told it was sent back, with the note", (await bell("ua-employee")).some((x) => x.includes("was sent back") && x.includes("Photo is blurry")));
+check("Chris is told it was sent back, with the note", (await bell("ua-employee")).some((x) => x.includes("was sent back") && x.includes("Photo is blurry")));
 
-console.log("\n— Org chart: HR moves Angela under Rafael —");
+console.log("\n— Org chart: HR moves Chris under Rafael —");
 as("ua-hr");
-await core.setReportsTo("MSMA-00482", "MSMA-00317", "Dinah Marquez");
-check("Rafael is told Angela now reports to him", (await bell("ua-approver")).some((x) => x.includes("now reports to you")));
-check("Angela is told she reports to Rafael", (await bell("ua-employee")).some((x) => x.includes("You now report to Rafael Ortiz")));
+await core.setReportsTo("MSMA-00846", "MSMA-00317", "Dinah Marquez");
+check("Rafael is told Chris now reports to him", (await bell("ua-approver")).some((x) => x.includes("now reports to you")));
+check("Chris is told she reports to Rafael", (await bell("ua-employee")).some((x) => x.includes("You now report to Rafael Ortiz")));
 as("ua-employee");
-const ot2 = await tkApi.fileRequest({ employeeId: "MSMA-00482", date: new Date(Date.now() - 86400000).toISOString().slice(0, 10), type: "undertime", minutes: 60, reason: "Doctor" }, "Angela");
-check("Her next request now goes to Rafael", (await bell("ua-approver")).some((x) => x.includes("Angela Dela Cruz filed undertime")));
+const ot2 = await tkApi.fileRequest({ employeeId: "MSMA-00846", date: new Date(Date.now() - 86400000).toISOString().slice(0, 10), type: "undertime", minutes: 60, reason: "Doctor" }, "Angela");
+check("Her next request now goes to Rafael", (await bell("ua-approver")).some((x) => x.includes("Chris S. David filed undertime")));
 
 console.log("\n— Assigned roles: the matrix decides who handles each next step —");
 const approvers = await import("../src/lib/admin/approvers");
@@ -104,7 +104,7 @@ const freeType = leaveStore.leave.types.find((t) => t.earning.kind === "unlimite
 const long1 = nextWeekday(40);
 let lastDay = long1;
 for (let n = 1; n < 4; ) { const x = new Date(lastDay); x.setDate(x.getDate() + 1); lastDay = x.toISOString().slice(0, 10); if (![0, 6].includes(x.getDay())) n++; }
-await leaveApi.fileLeave({ employeeId: "MSMA-00482", typeId: freeType, start: long1, end: lastDay, reason: "Long trip" } as never, "Angela").catch((e: Error) => console.log("long leave:", e.message));
+await leaveApi.fileLeave({ employeeId: "MSMA-00846", typeId: freeType, start: long1, end: lastDay, reason: "Long trip" } as never, "Angela").catch((e: Error) => console.log("long leave:", e.message));
 const rafLong = (await bell("ua-approver")).some((x) => x.includes("Long trip"));
 const superLong = (await bell("ua-super")).some((x) => x.includes("Long trip"));
 check("Long leave with an extra Super Admin step: both Rafael and Super Admin are told", rafLong && superLong, { rafLong, superLong });
@@ -121,11 +121,11 @@ as("ua-hr");
 check("…and it's released as a digital copy", (await legacy.fetchCertificateRequestsForReview()).some((r) => r.id === cert.id && r.status === "Released" && r.delivery === "digital"));
 as("ua-hr");
 const filed = (await legacy.fetchCertificateRequestsForReview()).find((r) => r.id === cert.id)!;
-check(`HR keeps a copy: filed as ${filed.issued?.number}, with the exact wording, purpose, who and when`, /^COE-\d{4}-\d{4}$/.test(filed.issued?.number ?? "") && !!filed.issued?.statement.includes("Angela Dela Cruz") && filed.issued?.purpose === "Visa application" && filed.issued?.issuedBy === "Dinah Marquez");
+check(`HR keeps a copy: filed as ${filed.issued?.number}, with the exact wording, purpose, who and when`, /^COE-\d{4}-\d{4}$/.test(filed.issued?.number ?? "") && !!filed.issued?.statement.includes("Chris S. David") && filed.issued?.purpose === "Visa application" && filed.issued?.issuedBy === "Dinah Marquez");
 const mock = await import("../src/lib/mockData");
-mock.setEmployeeDirectory(mock.employeeDirectory.map((e) => (e.id === "MSMA-00482" ? { ...e, position: "Senior Associate" } : e)));
+mock.setEmployeeDirectory(mock.employeeDirectory.map((e) => (e.id === "MSMA-00846" ? { ...e, position: "Senior Associate" } : e)));
 const later = (await legacy.fetchCertificateRequestsForReview()).find((r) => r.id === cert.id)!;
-check("The filed copy doesn't change when her record does (still Experienced Associate)", !!later.issued?.statement.includes("Experienced Associate") && !later.issued?.statement.includes("Senior Associate"));
+check("The filed copy doesn't change when his record does (still Junior Associate)", !!later.issued?.statement.includes("Junior Associate") && !later.issued?.statement.includes("Senior Associate"));
 as("ua-employee");
 const cert2 = await legacy.createCertificateRequest({ type: "Certificate of Tax Withheld (2316)", purpose: "Loan" });
 as("ua-hr");

@@ -1,16 +1,20 @@
-import { Suspense, type ReactNode } from "react";
+import { Suspense, useRef, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { PageSkeleton } from "./PageLoadingFallback";
+import { useStickyPageTop } from "./useStickyPageTop";
 
 export function RolePage({ sidenav, children }: { sidenav: ReactNode; children: ReactNode }) {
   const location = useLocation();
+  // The page's heading, tabs and toolbars stay pinned under the top bar (see useStickyPageTop).
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useStickyPageTop(bodyRef, location.pathname);
   return (
     <div className="flex flex-col sm:grid sm:grid-cols-[var(--sidenav-w)_1fr] sm:items-start">
       {sidenav}
       <main className="flex min-w-0 flex-col gap-5.5 px-4 py-5.5 pb-15 sm:px-6">
         {/* While a page's code loads, only the page area shows placeholders; the sidebar stays. */}
         <Suspense fallback={<PageSkeleton />}>
-          <div key={location.pathname} className="page-enter flex min-w-0 flex-col gap-5.5">
+          <div ref={bodyRef} key={location.pathname} className="page-body page-enter flex min-w-0 flex-col gap-5.5">
             {children}
           </div>
         </Suspense>
@@ -29,7 +33,7 @@ export function ContentHead({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-4">
+    <div data-page-head className="flex flex-wrap items-baseline justify-between gap-4">
       <div>
         <h1 className="font-display text-xl font-semibold tracking-[-0.01em]">{title}</h1>
         {subtitle && <p className="mt-0.5 text-[13px] text-ink-2">{subtitle}</p>}

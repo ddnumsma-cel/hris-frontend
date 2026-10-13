@@ -1,6 +1,7 @@
 import type { SVGProps } from "react";
 import {
   Copy,
+  SquarePen,
   RefreshCw,
   Megaphone,
   Eye,
@@ -253,6 +254,11 @@ export function ReportsIcon(props: IconProps) {
 
 export function BarChartIcon(props: IconProps) {
   return <BarChart3 strokeWidth={strokeWidth} {...props} />;
+}
+
+/** The Start menu's button: a pen over a page. */
+export function ComposeIcon(props: IconProps) {
+  return <SquarePen strokeWidth={strokeWidth} {...props} />;
 }
 
 export function EditIcon(props: IconProps) {

@@ -84,7 +84,11 @@ export function SimpleTable<T>({ cols, rows, rowKey, empty, loading }: { cols: C
 }
 
 export function Toolbar({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap items-center gap-2">{children}</div>;
+  return (
+    <div data-page-top className="flex flex-wrap items-center gap-2">
+      {children}
+    </div>
+  );
 }
 
 export function SearchBox({ value, onChange, placeholder = "Search employee" }: { value: string; onChange: (v: string) => void; placeholder?: string }) {

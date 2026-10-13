@@ -4,7 +4,7 @@ import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { updateEmployeeProfile } from "@/lib/api";
-import type { CoreEmployee } from "@/lib/corehr/types";
+import { EMERGENCY_RELATIONSHIPS, type CoreEmployee } from "@/lib/corehr/types";
 import { myContact, updateMyContact } from "@/lib/ess/api";
 import type { Employee } from "@/lib/types";
 import { inputClass } from "../admin/corehr/format";
@@ -61,11 +61,16 @@ function EditProfileForm({ employee, contact, onClose, onSubmitted }: { employee
       <div>
         <h3 className="mb-2 text-sm font-semibold">Emergency contact</h3>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field id="p-en" label="Name" required>
+          <Field id="p-en" label="Emergency contact person" required>
             <input id="p-en" className={inputClass} value={c.emergencyName} onChange={(e) => set({ emergencyName: e.target.value })} />
           </Field>
           <Field id="p-er" label="Relationship" required>
-            <input id="p-er" className={inputClass} value={c.emergencyRelationship} placeholder="e.g. Mother" onChange={(e) => set({ emergencyRelationship: e.target.value })} />
+            <select id="p-er" className={inputClass} value={c.emergencyRelationship} onChange={(e) => set({ emergencyRelationship: e.target.value })}>
+              <option value="">Choose…</option>
+              {EMERGENCY_RELATIONSHIPS.map((r) => (
+                <option key={r}>{r}</option>
+              ))}
+            </select>
           </Field>
           <Field id="p-ep" label="Phone" required>
             <input id="p-ep" className={inputClass} value={c.emergencyPhone} onChange={(e) => set({ emergencyPhone: e.target.value })} />

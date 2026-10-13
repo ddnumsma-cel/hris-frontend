@@ -67,12 +67,13 @@ export function TopBar() {
   }, []);
 
   // Publish the bar's real height so the sticky sidebar sits right under it,
-  // however tall the bar ends up (font, wrapping, zoom).
+  // however tall the bar ends up (font, wrapping, zoom). The exact height, not a rounded one, or
+  // the sidebar ends a fraction of a pixel off on some pages and the logo jumps between them.
   useEffect(() => {
     const header = headerRef.current;
     if (!header) return;
     const observer = new ResizeObserver(() => {
-      document.documentElement.style.setProperty("--topbar-h", `${header.offsetHeight}px`);
+      document.documentElement.style.setProperty("--topbar-h", `${header.getBoundingClientRect().height}px`);
     });
     observer.observe(header);
     return () => observer.disconnect();

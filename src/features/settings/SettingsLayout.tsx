@@ -96,10 +96,10 @@ export function SettingsLayout() {
   const area = areas.find((a) => a.items.some((s) => s.path === current)) ?? areas[0]!;
 
   return (
-    <div className="flex min-w-0 flex-col gap-6">
+    <div data-page-root className="flex min-w-0 flex-col gap-6">
       {/* Only people with HR or Admin settings get the tabs; employees just have their own. */}
       {areas.length > 1 && (
-        <nav aria-label="Settings areas" className="flex flex-wrap gap-1 border-b border-[var(--line-strong)]">
+        <nav data-page-top aria-label="Settings areas" className="flex flex-wrap gap-1 border-b border-[var(--line-strong)]">
           {areas.map((a) => {
             const on = a.key === area.key;
             return (
@@ -134,7 +134,7 @@ export function SettingsLayout() {
           </select>
         </div>
 
-        <nav aria-label={area.label} className="sticky top-[calc(var(--topbar-h)+1rem)] hidden w-52 flex-none flex-col gap-0.5 md:flex">
+        <nav aria-label={area.label} className="sticky top-[calc(var(--topbar-h)+var(--page-top-h,0px)+1rem)] hidden w-52 flex-none flex-col gap-0.5 md:flex">
           <span className="px-3 pb-1 text-[10.5px] font-semibold tracking-[0.1em] text-[var(--nav-label)] uppercase">{area.label}</span>
           {area.items.map((s) => (
             <NavLink

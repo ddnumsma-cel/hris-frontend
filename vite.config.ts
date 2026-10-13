@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -14,11 +14,39 @@ const https =
     ? { key: fs.readFileSync(certKeyPath), cert: fs.readFileSync(certPath) }
     : undefined
 
+// A browser that once opened a build (npm run preview / an installed app) keeps its service worker,
+// which goes on serving that old build. The dev server would answer the worker's update check
+// (/sw.js) with the app's HTML, so the old worker could never be replaced. In dev, answer with a
+// worker that clears its caches, removes itself and reloads the open tabs onto the dev server.
+const SW_RESET = `
+self.addEventListener('install', () => self.skipWaiting())
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    for (const key of await caches.keys()) await caches.delete(key)
+    await self.registration.unregister()
+    for (const tab of await self.clients.matchAll({ type: 'window' })) tab.navigate(tab.url)
+  })())
+})
+`
+const resetOldServiceWorker = (): Plugin => ({
+  name: 'reset-old-service-worker',
+  apply: 'serve',
+  configureServer(server) {
+    server.middlewares.use((req, res, next) => {
+      if (req.url?.split('?')[0] !== '/sw.js') return next()
+      res.setHeader('Content-Type', 'text/javascript')
+      res.setHeader('Cache-Control', 'no-cache')
+      res.end(SW_RESET)
+    })
+  },
+})
+
 // https://vite.dev/config/
 export default defineConfig({
   server: { https },
   preview: { https },
   plugins: [
+    resetOldServiceWorker(),
     react(),
     tailwindcss(),
     VitePWA({

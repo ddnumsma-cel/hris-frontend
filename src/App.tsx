@@ -56,7 +56,6 @@ const OutboxPage = lazy(() => import("@/features/admin/administration/OutboxPage
 const UserAccountsPage = lazy(() => import("@/features/admin/maintenance/UserAccountsPage").then((m) => ({ default: m.UserAccountsPage })));
 const SupportPage = lazy(() => import("@/features/admin/administration/SupportPage").then((m) => ({ default: m.SupportPage })));
 const SubscriptionPage = lazy(() => import("@/features/admin/administration/SubscriptionPage").then((m) => ({ default: m.SubscriptionPage })));
-const RolesPage = lazy(() => import("@/features/admin/administration/RolesPage").then((m) => ({ default: m.RolesPage })));
 const AuditTrailPage = lazy(() => import("@/features/admin/administration/AuditTrailPage").then((m) => ({ default: m.AuditTrailPage })));
 const SystemSettingsPage = lazy(() => import("@/features/admin/administration/SystemSettingsPage").then((m) => ({ default: m.SystemSettingsPage })));
 const RemoteDaysPage = lazy(() => import("@/features/admin/timekeeping/RemoteDaysPage").then((m) => ({ default: m.RemoteDaysPage })));
@@ -320,7 +319,8 @@ function App() {
 
               <Route path="administration" element={<Navigate to="/admin/administration/users" replace />} />
               <Route path="administration/users" element={<UsersPage />} />
-              <Route path="administration/roles" element={<RolesPage />} />
+              {/* Roles are fixed, so the reference lives in Admin settings › Roles & permissions (with Users). */}
+              <Route path="administration/roles" element={<Moved to="/admin/settings/roles" />} />
               <Route path="administration/audit" element={<AuditTrailPage />} />
               <Route path="administration/settings" element={<SystemSettingsPage />} />
               <Route path="administration/subscription" element={<SubscriptionPage />} />

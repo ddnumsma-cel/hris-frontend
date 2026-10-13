@@ -132,7 +132,7 @@ export async function decideClaim(id: string, approve: boolean, note: string, ac
     tellEmployees(next.employeeId, "claim", "update", `Your ${label} was endorsed`, `${actor} endorsed it. Accounting gives the final approval next.`);
     tellAssigned("final", "claims", "claim", "request", `${nameFor(next.employeeId)}'s ${label} is ready for final approval`, `Endorsed by ${actor}. ${next.merchant}.`);
   } else if (next.status === "approved") {
-    tellEmployees(next.employeeId, "claim", "approved", `Your ${label} was approved`, `${actor} approved it. It's paid with the next payroll or by bank transfer.`);
+    tellEmployees(next.employeeId, "claim", "approved", `Your ${label} was approved`, `${actor} approved it. Accounting will release the money to you (cash, bank transfer, e-wallet or check) and you'll be told when it's sent.`);
   } else {
     tellEmployees(next.employeeId, "claim", "rejected", `Your ${label} was rejected`, `Rejected by ${actor}.${why ? ` “${why}”` : ""}`);
   }

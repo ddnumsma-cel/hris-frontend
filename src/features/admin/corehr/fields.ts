@@ -1,5 +1,8 @@
-import { CIVIL_STATUSES } from "@/lib/corehr/types";
+import { CIVIL_STATUSES, EMERGENCY_RELATIONSHIPS } from "@/lib/corehr/types";
 import { BANKS } from "@/lib/corehr/schemas";
+
+/** Name suffixes, written the way the ID scanner reads them (lib/idValidate.ts). */
+export const SUFFIX_OPTIONS = ["Jr.", "Sr.", "II", "III", "IV", "V"] as const;
 
 export interface FieldSpec {
   name: string;
@@ -16,7 +19,7 @@ export const PERSONAL_FIELDS: FieldSpec[] = [
   { name: "firstName", label: "First name", required: true },
   { name: "middleName", label: "Middle name" },
   { name: "lastName", label: "Last name", required: true },
-  { name: "suffix", label: "Suffix", placeholder: "Jr., III" },
+  { name: "suffix", label: "Suffix", type: "select", options: SUFFIX_OPTIONS },
   { name: "birthDate", label: "Birth date", type: "date" },
   { name: "sex", label: "Sex", type: "select", options: ["Male", "Female"] },
   { name: "civilStatus", label: "Civil status", type: "select", options: CIVIL_STATUSES },
@@ -30,9 +33,9 @@ export const CONTACT_FIELDS: FieldSpec[] = [
   { name: "address", label: "Home address", placeholder: "House no., street, barangay", wide: true, required: true },
   { name: "city", label: "City / municipality", required: true },
   { name: "province", label: "Province", required: true },
-  { name: "emergencyName", label: "Emergency contact", required: true },
-  { name: "emergencyRelationship", label: "Relationship", placeholder: "Spouse, parent…", required: true },
-  { name: "emergencyPhone", label: "Emergency phone", type: "tel", required: true },
+  { name: "emergencyName", label: "Emergency contact person", required: true },
+  { name: "emergencyRelationship", label: "Relationship", type: "select", options: EMERGENCY_RELATIONSHIPS, required: true },
+  { name: "emergencyPhone", label: "Emergency phone", type: "tel", hint: "Must be different from the mobile number", required: true },
 ];
 
 export const BANK_FIELDS: FieldSpec[] = [

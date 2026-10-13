@@ -160,6 +160,8 @@ export const DEFAULT_ROLES: SystemRole[] = [
 const ROLES_VERSION = 3;
 /** Demo logins that no longer exist; their accounts are removed when saved data loads. */
 const REMOVED_DEMO_IDS = ["ua-partner-mora", "ua-partner-menoza"];
+const EMPLOYEE_DEMO_USERNAME = "ceb.msma";
+const EMPLOYEE_DEMO_ID = "MSMA-00846";
 const ROLE_UPGRADE: Record<string, string> = { "super-admin": "super-admin", admin: "hr", hr: "hr", employee: "employee", accountant: "accounting", manager: "approver" };
 
 const DEFAULT_SETTINGS: Settings = {
@@ -198,7 +200,7 @@ function seed(): AdminState {
       { id: "ua-super", name: "System Administrator", username: "superadmin", demo: "superadmin", roleId: "super-admin", status: "active", failedAttempts: 0, createdAt: at },
       { id: "ua-admin", name: "Office Administrator", username: "admin", demo: "admin", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
       { id: "ua-hr", name: "Dinah Marquez", username: "admin1", demo: "hr", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
-      { id: "ua-employee", name: "Employee (demo)", username: "admin2", demo: "employee", roleId: "employee", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-employee", name: "Chris S. David", username: "ceb.msma", demo: "employee", employeeId: "MSMA-00846", roleId: "employee", status: "active", failedAttempts: 0, createdAt: at },
       { id: "ua-sysadmin", name: "System Admin (demo)", username: "sysadmin", demo: "sysadmin", roleId: "system-admin", status: "active", failedAttempts: 0, createdAt: at },
       { id: "ua-approver", name: "Rafael Ortiz", username: "approver", demo: "approver", employeeId: "MSMA-00317", roleId: "approver", status: "active", failedAttempts: 0, createdAt: at },
       { id: "ua-partner-sanchez", name: "Antonio D. Sanchez Jr.", username: "antonio.sanchez", demo: "partner-sanchez", employeeId: "MSMA-00001", roleId: "approver", status: "active", failedAttempts: 0, createdAt: at },
@@ -244,6 +246,21 @@ function load(): AdminState {
         const upgraded = upgradeRoles(s);
         localStorage.setItem(KEY, JSON.stringify(upgraded));
         return upgraded;
+      }
+      // The employee demo login moved from "admin2" to "ceb.msma". A "ceb.msma" account made on User
+      // accounts is the person it's meant for: the demo login takes over its person and name (so it
+      // signs in as them, not the default demo employee), and the hand-made duplicate goes.
+      const handMade = (s.accounts ?? []).find((a) => a.username === EMPLOYEE_DEMO_USERNAME && !a.demo);
+      if (handMade || (s.accounts ?? []).some((a) => a.demo === "employee" && a.username === "admin2")) {
+        s.accounts = s.accounts
+          .filter((a) => a !== handMade)
+          .map((a) => (a.demo === "employee" ? { ...a, username: EMPLOYEE_DEMO_USERNAME, ...(handMade ? { name: handMade.name, employeeId: handMade.employeeId } : {}) } : a));
+        localStorage.setItem(KEY, JSON.stringify(s));
+      }
+      // The employee demo login is Chris S. David.
+      if ((s.accounts ?? []).some((a) => a.demo === "employee" && a.employeeId !== EMPLOYEE_DEMO_ID)) {
+        s.accounts = s.accounts.map((a) => (a.demo === "employee" ? { ...a, name: "Chris S. David", employeeId: EMPLOYEE_DEMO_ID } : a));
+        localStorage.setItem(KEY, JSON.stringify(s));
       }
       // Demo logins that were removed (two Partner logins) are deleted from saved data too.
       const removed = (s.accounts ?? []).some((a) => REMOVED_DEMO_IDS.includes(a.id));

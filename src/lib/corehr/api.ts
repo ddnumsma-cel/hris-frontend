@@ -315,7 +315,7 @@ function addEmployee(v: NewEmployeeValues, actor: string, scannedId?: ScannedGov
 
 const SECTION_LABELS = {
   personal: { title: "Personal information", fields: { firstName: "First name", middleName: "Middle name", lastName: "Last name", suffix: "Suffix", birthDate: "Birth date", sex: "Sex", civilStatus: "Civil status", nationality: "Nationality" } },
-  contact: { title: "Contact details", fields: { workEmail: "Work email", personalEmail: "Personal email", mobile: "Mobile", address: "Address", city: "City", province: "Province", emergencyName: "Emergency contact", emergencyRelationship: "Relationship", emergencyPhone: "Emergency phone" } },
+  contact: { title: "Contact details", fields: { workEmail: "Work email", personalEmail: "Personal email", mobile: "Mobile", address: "Address", city: "City", province: "Province", emergencyName: "Emergency contact person", emergencyRelationship: "Relationship", emergencyPhone: "Emergency phone" } },
   government: { title: "Government numbers", fields: { sss: "SSS", philhealth: "PhilHealth", pagibig: "Pag-IBIG", tin: "TIN" } },
   bank: { title: "Bank account", fields: { bank: "Bank", accountName: "Account name", accountNumber: "Account number" } },
 } as const;

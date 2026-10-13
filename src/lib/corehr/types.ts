@@ -175,3 +175,6 @@ export interface AuditEntry {
   summary: string;
   at: string;
 }
+
+/** Who an emergency contact person is to the employee (the Relationship dropdown). */
+export const EMERGENCY_RELATIONSHIPS = ["Spouse", "Partner", "Parent", "Child", "Sibling", "Relative", "Guardian", "Friend", "Other"] as const;

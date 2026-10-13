@@ -22,7 +22,6 @@ import { useToast } from "@/components/ui/ToastContext";
 import {
   BellIcon,
   DownloadIcon,
-  ShieldIcon,
   UserPlusIcon,
   UsersIcon,
 } from "@/components/icons";
@@ -195,7 +194,6 @@ export function AdminOverview() {
               {effectiveCompliance.map(({ item, status, note }) => (
                 <ListRow
                   key={item.id}
-                  leading={<ShieldIcon />}
                   title={item.filing}
                   subtitle={`${item.agency} · Due ${item.due}`}
                   footer={

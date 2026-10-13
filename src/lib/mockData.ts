@@ -32,18 +32,18 @@ import type {
   WorkforceAlert,
 } from "./types";
 
+// The employee demo login (ceb.msma): Chris S. David, a new hire in Audit & Assurance.
 export let currentEmployee: Employee = {
-  id: "MSMA-00482",
-  name: "Angela Dela Cruz",
-  initials: "AD",
-  position: "Experienced Associate",
-  department: "Tax Advisory",
+  id: "MSMA-00846",
+  name: "Chris S. David",
+  initials: "CD",
+  position: "Junior Associate",
+  department: "Audit & Assurance",
   office: "Cebu HQ",
   cluster: "RPM",
   status: "Active",
-  email: "angela.delacruz@msma.ph",
-  phone: "+63 917 123 4567",
-  emergencyContact: "Marco Dela Cruz (Spouse) · +63 917 765 4321",
+  email: "ceb.msma@gmail.com",
+  phone: "09223344556",
   faceEnrolled: false,
 };
 
@@ -195,6 +195,9 @@ export let employeeDirectory: Employee[] = [
   { id: "MSMA-00701", name: "Ramon Bautista", initials: "RB", position: "Experienced Associate", department: "Bookkeeping", office: "Davao", cluster: "RPM", status: "Active", email: "ramon.bautista@msma.ph", phone: "+63 921 801 8937", reportsToId: "admin" },
   { id: "MSMA-00733", name: "Michelle Aquino", initials: "MA", position: "Executive Assistant / Secretary", department: "Corporate Legal", office: "Manila", cluster: "ADS", status: "Active", email: "michelle.aquino@msma.ph", phone: "+63 919 833 1121", reportsToId: "admin" },
   { id: "MSMA-00812", name: "Joel Nierves", initials: "JN", position: "BSS Team Leader", department: "Admin & Support", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "joel.nierves@msma.ph", phone: "+63 921 912 4044", reportsToId: "admin" },
+  // The employee demo login (ceb.msma), hired Oct 12, 2026 (see RECENT_HIRES in employmentRecords.ts);
+  // reports to Antonio Sanchez, who has an Approver login, so his requests reach someone who can decide them.
+  { id: "MSMA-00846", name: "Chris S. David", initials: "CD", position: "Junior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "RPM", status: "Active", email: "ceb.msma@gmail.com", phone: "09223344556", reportsToId: "MSMA-00001" },
   { id: "MSMA-00845", name: "Ferdz Salazar", initials: "FS", position: "Experienced Admin Assistant", department: "Admin & Support", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "ferdz.salazar@msma.ph", phone: "+63 921 945 5265", reportsToId: "admin" },
 ];
 
@@ -760,6 +763,8 @@ export let personnelDocuments: PersonnelDocument[] = [
   ...buildPersonnelDocuments("MSMA-00733"),
   ...buildPersonnelDocuments("MSMA-00812"),
   ...buildPersonnelDocuments("MSMA-00845"),
+  // A new hire: nothing handed in yet.
+  ...buildPersonnelDocuments("MSMA-00846").map((d): PersonnelDocument => (d.status === "Not applicable" ? d : { id: d.id, employeeId: d.employeeId, type: d.type, status: "Missing" })),
   ...buildPersonnelDocuments("MSMA-00001"),
   ...buildPersonnelDocuments("MSMA-00002"),
   ...buildPersonnelDocuments("MSMA-00003"),

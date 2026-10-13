@@ -103,7 +103,7 @@ export function RailNav({
   return (
     <aside
       data-tour="sidenav"
-      className="sidebar sidebar-desktop sidebar-rail sidebar-collapsed no-scrollbar hidden sm:sticky sm:top-0 sm:-mt-[var(--topbar-h)] sm:flex sm:h-dvh sm:w-[var(--sidenav-w)] sm:flex-none sm:flex-col sm:items-center sm:self-start sm:overflow-y-auto sm:border-r sm:border-[var(--sb-border)]"
+      className="sidebar sidebar-desktop sidebar-rail sidebar-collapsed no-scrollbar hidden sm:sticky sm:top-0 sm:-mt-[var(--topbar-h)] sm:-mb-4 sm:flex sm:h-dvh sm:w-[var(--sidenav-w)] sm:flex-none sm:flex-col sm:items-center sm:self-start sm:overflow-hidden sm:border-r sm:border-[var(--sb-border)]"
     >
       {/* Logo mark and the expand toggle, in an 80px block like the full sidebar's, so the line
           under it stays put when switching. */}
@@ -113,6 +113,8 @@ export function RailNav({
           <SidebarExpandIcon className="h-4 w-4" />
         </button>
       </div>
+      {/* Only the middle scrolls: the logo block above and Customize below stay put. */}
+      <div className="rail-scroll no-scrollbar flex min-h-0 w-full flex-1 flex-col items-center overflow-y-auto">
       {create && create.length > 0 && (
         <div className="flex w-full flex-none justify-center pt-3">
           <CreateMenu groups={create} variant="rail" onOpen={() => setOpen(null)} />
@@ -145,8 +147,9 @@ export function RailNav({
       <nav aria-label="Modules" className="flex flex-col items-center gap-1 py-3">
         {sections.filter((s) => !isHome(s)).map(renderModule)}
       </nav>
+      </div>
 
-      <div className="mt-auto flex w-full flex-none justify-center border-t border-[var(--sb-border)] py-2.5">
+      <div className="flex w-full flex-none justify-center border-t border-[var(--sb-border)] py-2.5">
         <button type="button" onClick={() => setCustomizing(true)} title="Pin your daily pages and reorder the menu" className="group flex w-18 flex-col items-center gap-1 rounded-xl py-1">
           <span className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] text-[var(--sb-muted)] transition-colors group-hover:bg-[var(--sb-hover)] group-hover:text-[var(--sb-text)] [&>svg]:h-[18px] [&>svg]:w-[18px]">
             <SlidersIcon />

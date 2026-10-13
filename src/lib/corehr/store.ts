@@ -198,14 +198,16 @@ function seed(): CoreHrState {
   positions.push({ id: "ps-cebu-hq-human-resources-experienced-admin-assistant", title: "Experienced Admin Assistant", code: "EAA", departmentId: "dp-cebu-hq-human-resources", level: "Rank and file", employmentType: "Probationary", slots: 2, active: true, description: "Recruitment, onboarding and 201 file upkeep." });
 
   // Everyone sits under the partner whose initials name their cluster (ADS, RPM, VCM),
-  // unless they already report to someone in that same cluster.
+  // unless they already report to someone in that same cluster, or to a partner named directly.
   const clusterOf = new Map(employeeDirectory.map((e) => [e.id, e.cluster]));
   const partnerOf = new Map(employeeDirectory.filter((e) => e.position === "Partner").map((e) => [e.cluster, e.id]));
+  const partners = new Set(partnerOf.values());
   for (const c of employees) {
     const cluster = clusterOf.get(c.id);
     const partner = cluster && partnerOf.get(cluster);
     if (!partner || partner === c.id) continue;
     const sup = c.job.supervisorId;
+    if (sup && partners.has(sup)) continue;
     if (!sup || clusterOf.get(sup) !== cluster) c.job.supervisorId = partner;
   }
 
@@ -353,11 +355,27 @@ function syncShared() {
   );
 }
 
+const CHRIS_MANAGER_FLAG = "heyhr-demo-chris-reports-to-antonio";
+
 /** Picks up what other pages did to the shared lists: someone added through the
  * Overview's Add employee, or an employee uploading their own document. */
 export function reconcile() {
   let changed = false;
   let next = state;
+  // Once per browser: the employee demo login (Chris S. David) reports to Antonio Sanchez, who can
+  // approve. Saved data from before keeps any later change HR makes.
+  try {
+    const chris = next.employees.find((e) => e.id === "MSMA-00846");
+    if (chris && !localStorage.getItem(CHRIS_MANAGER_FLAG)) {
+      localStorage.setItem(CHRIS_MANAGER_FLAG, "1");
+      if (chris.job.supervisorId !== "MSMA-00001") {
+        next = { ...next, employees: next.employees.map((e) => (e.id === chris.id ? { ...e, job: { ...e.job, supervisorId: "MSMA-00001" } } : e)) };
+        changed = true;
+      }
+    }
+  } catch {
+    // Storage blocked: nothing to remember.
+  }
   for (const e of employeeDirectory) {
     if (next.employees.some((c) => c.id === e.id)) continue;
     changed = true;
@@ -371,7 +389,7 @@ export function reconcile() {
       personal: { firstName, middleName, lastName, suffix, birthDate: profile?.birthDate ?? "", sex: "", civilStatus: "", nationality: "Filipino" },
       contact: { workEmail: e.email ?? "", personalEmail: "", mobile: e.phone ?? "", address: "", city: "", province: "", emergencyName: "", emergencyRelationship: "", emergencyPhone: "" },
       government: { sss: "", philhealth: "", pagibig: "", tin: "" },
-      job: { positionId: position?.id ?? "", unitId: dept?.id ?? "", employmentType: "Probationary", status: "Active", dateHired: today, monthlySalary: 0, workSchedule: "Mon–Fri, 8:30 AM – 5:00 PM" },
+      job: { positionId: position?.id ?? "", unitId: dept?.id ?? "", employmentType: "Probationary", status: "Active", dateHired: toIso(buildEmployeeFileRecords(e).employment.dateHired) || today, monthlySalary: 0, workSchedule: "Mon–Fri, 8:30 AM – 5:00 PM" },
       createdAt: new Date().toISOString(),
     };
     next = {
@@ -381,7 +399,9 @@ export function reconcile() {
     };
   }
   const known = new Set(next.documents.map((d) => d.id));
-  const fresh = personnelDocuments.filter((d) => !known.has(d.id)).map(documentFromShared);
+  // Someone who already has a checklist (e.g. added by hand before they were built in) keeps theirs.
+  const hasChecklist = new Set(next.documents.map((d) => d.employeeId));
+  const fresh = personnelDocuments.filter((d) => !known.has(d.id) && !hasChecklist.has(d.employeeId)).map(documentFromShared);
   const uploads = new Map(personnelDocuments.filter((d) => d.status === "Submitted").map((d) => [d.id, d]));
   const documents = next.documents.map((d) => {
     const s = uploads.get(d.id);

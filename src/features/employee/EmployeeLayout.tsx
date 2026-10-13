@@ -45,36 +45,36 @@ const GROUPS: SideNavGroup[] = [
   },
 ];
 
-/** The sidebar's Create menu. Links with ?create=… open that page's form (see useCreateParam). */
+/** The sidebar's Start menu. Links with ?create=… open that page's form (see useCreateParam). */
 const CREATE: CreateGroup[] = [
   {
     title: "Leave & time",
     items: [
-      { label: "File leave", to: "/employee/leave?create=leave" },
-      { label: "View leave balance", to: "/employee/leave" },
-      { label: "Request attendance fix", to: "/employee/attendance" },
+      { label: "File leave", to: "/employee/leave?create=leave", hint: "Ask for time off" },
+      { label: "View leave balance", to: "/employee/leave", hint: "See the days you have left" },
+      { label: "Request attendance fix", to: "/employee/attendance", hint: "Fix a missed time in or out" },
     ],
   },
   {
     title: "Requests",
     items: [
-      { label: "Request certificate", to: "/employee/certificates?create=certificate" },
-      { label: "Submit reimbursement", to: "/employee/reimbursements?create=claim" },
+      { label: "Request certificate", to: "/employee/certificates?create=certificate", hint: "Employment, compensation and more" },
+      { label: "Submit reimbursement", to: "/employee/reimbursements?create=claim", hint: "Get paid back for work expenses" },
     ],
   },
   {
     title: "Records",
     items: [
-      { label: "Update my details", to: "/employee/201-file?create=details" },
-      { label: "Add benefit or dependent", to: "/employee/benefits?create=benefit" },
-      { label: "Log CPD units", to: "/employee/201-file?create=cpd" },
+      { label: "Update my details", to: "/employee/201-file?create=details", hint: "Address, contacts and IDs" },
+      { label: "Add benefit or dependent", to: "/employee/benefits?create=benefit", hint: "HMO, insurance and family" },
+      { label: "Log CPD units", to: "/employee/201-file?create=cpd", hint: "Record your training hours" },
     ],
   },
   {
     title: "Pay & learning",
     items: [
-      { label: "View payslips", to: "/employee/payslips" },
-      { label: "View trainings", to: "/employee/trainings" },
+      { label: "View payslips", to: "/employee/payslips", hint: "Your pay for each period" },
+      { label: "View trainings", to: "/employee/trainings", hint: "Courses assigned to you" },
     ],
   },
 ];

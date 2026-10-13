@@ -8,6 +8,7 @@ import { LIMITS, type RoleKey } from "../permissions";
 import { deny, employeeOfAccount, forbidden, sessionWho } from "../session";
 import { assertAdminAccountAvailable } from "../subscription/api";
 import { ADMIN_ROLES } from "../subscription/store";
+import { getCredentials } from "../credentials";
 import { tellEmployees } from "../requestNotices";
 import { departmentHeadOf, supervisorOf } from "./approvers";
 
@@ -106,7 +107,7 @@ export async function createAccount(input: { name: string; username: string; rol
   const username = input.username.trim().toLowerCase();
   if (!name) return fail("Enter the person's name");
   if (!/^[a-z0-9._-]{3,30}$/.test(username)) return fail("Username: 3 to 30 letters, numbers, dots or dashes, no spaces");
-  if (admin.accounts.some((a) => a.username === username) || ["admin", "admin1", "admin2"].includes(username)) return fail("That username is taken");
+  if (admin.accounts.some((a) => a.username === username) || ["admin", "admin1", "admin2"].includes(username) || getCredentials().some((c) => c.username === username)) return fail("That username is taken");
   const role = admin.roles.find((r) => r.id === input.roleId);
   if (!role) return fail("Choose a role");
   const overLimit = ADMIN_ROLES.includes(role.key) ? adminLimit() : null;

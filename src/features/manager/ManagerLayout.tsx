@@ -16,28 +16,28 @@ import {
   PayrollIcon,
 } from "@/components/icons";
 
-/** The sidebar's Create menu. Links with ?create=… open that page's form (see useCreateParam). */
+/** The sidebar's Start menu. Links with ?create=… open that page's form (see useCreateParam). */
 const CREATE: CreateGroup[] = [
   {
     title: "Team",
     items: [
-      { label: "Approve leave", to: "/manager/approvals?tab=leave", action: "approve", feature: "leave" },
-      { label: "Approve attendance", to: "/manager/approvals?tab=overtime", action: "approve", feature: "attendanceRecords" },
-      { label: "Check team attendance", to: "/manager/attendance" },
-      { label: "View team calendar", to: "/manager/calendar" },
+      { label: "Approve leave", to: "/manager/approvals?tab=leave", action: "approve", feature: "leave", hint: "Your team's leave requests", waiting: "leave" },
+      { label: "Approve attendance", to: "/manager/approvals?tab=overtime", action: "approve", feature: "attendanceRecords", hint: "Overtime and undertime to decide", waiting: "time" },
+      { label: "Check team attendance", to: "/manager/attendance", hint: "Who's in, late or away today" },
+      { label: "View team calendar", to: "/manager/calendar", hint: "Leave and remote days at a glance" },
     ],
   },
   {
     title: "Development",
     items: [
-      { label: "Assign training", to: "/manager/trainings?create=training" },
+      { label: "Assign training", to: "/manager/trainings?create=training", hint: "Give someone a course" },
     ],
   },
   {
     title: "Company",
     items: [
-      { label: "Review payroll", to: "/manager/payroll" },
-      { label: "View reports", to: "/manager/reports" },
+      { label: "Review payroll", to: "/manager/payroll", hint: "Check this period's pay" },
+      { label: "View reports", to: "/manager/reports", hint: "Team numbers and trends" },
     ],
   },
 ];
