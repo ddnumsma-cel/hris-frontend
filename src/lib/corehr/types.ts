@@ -18,6 +18,9 @@ export interface OrgUnit {
   headEmployeeId?: string;
   /** Branches only. */
   address?: string;
+  /** Branches only: who to call at the office. */
+  contactName?: string;
+  contactPhone?: string;
   active: boolean;
 }
 

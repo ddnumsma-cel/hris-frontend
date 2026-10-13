@@ -10,7 +10,7 @@ import { ArrowRightIcon, CheckIcon } from "@/components/icons";
 import { listShifts, setUsualShift } from "@/lib/timekeeping/api";
 import type { ShiftTemplate } from "@/lib/timekeeping/types";
 import { hhmm } from "../timekeeping/format";
-import { createEmployee, listEmployees, listPositions, listUnits, peso, unitPathOf } from "@/lib/corehr/api";
+import { contactTaken, createEmployee, listEmployees, listPositions, listUnits, peso, unitPathOf } from "@/lib/corehr/api";
 import { CLUSTERS, newEmployeeSchema, type NewEmployeeValues } from "@/lib/corehr/schemas";
 import { isoDate } from "@/lib/corehr/store";
 import { EMPLOYMENT_TYPES } from "@/lib/corehr/types";
@@ -45,6 +45,16 @@ type SectionKey = Exclude<(typeof STEPS)[number]["key"], "review">;
 const ALL_REQUIRED: FieldSpec[] = CONTACT_FIELDS.map((f) => ({ ...f, required: true }));
 const CONTACT_TOP = ALL_REQUIRED.filter((f) => ["workEmail", "personalEmail", "mobile", "address"].includes(f.name));
 const CONTACT_EMERGENCY = ALL_REQUIRED.filter((f) => f.name.startsWith("emergency"));
+
+const CUSTOM = "__custom";
+/** "Custom · 9:00 AM – 6:00 PM"; blank until both times are set, so the schedule stays required. */
+const customLabel = (start: string, end: string) => (start && end ? `Custom · ${hhmm(start)} – ${hhmm(end)}` : "");
+/** Digits, commas every three, at most two decimals: "20300.5" → "20,300.5". */
+function moneyTyping(raw: string) {
+  const [whole = "", ...rest] = raw.replace(/[^\d.]/g, "").split(".");
+  const int = whole.replace(/^0+(?=\d)/, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return rest.length ? `${int || "0"}.${rest.join("").slice(0, 2)}` : int;
+}
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 /** "Busy season · Mon–Fri, 8:30 AM – 5:00 PM" */
@@ -95,6 +105,9 @@ export function NewEmployeePage() {
   const [scannedId, setScannedId] = useState<{ idType: string; idNumber?: string; idExpiry?: string; fileName: string } | null>(null);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [branchId, setBranchId] = useState("");
+  // Salary is typed with commas ("20,300.50"); the form keeps the number.
+  const [salaryText, setSalaryText] = useState("");
+  const [custom, setCustom] = useState({ on: false, start: "", end: "" });
   // Seat limit: say so as soon as the form opens when no seats are left (links like the Create
   // menu come straight here); saving is refused by the API anyway.
   const [seatBlocked, setSeatBlocked] = useState<string | null>(null);
@@ -112,6 +125,7 @@ export function NewEmployeePage() {
     control,
     getFieldState,
     setValue,
+    setError,
     trigger,
     getValues,
     formState: { errors, isDirty },
@@ -132,6 +146,7 @@ export function NewEmployeePage() {
   const positionId = useWatch({ control, name: "job.positionId" });
   const province = useWatch({ control, name: "contact.province" });
   const city = useWatch({ control, name: "contact.city" });
+  const workSchedule = useWatch({ control, name: "job.workSchedule" });
   const position = positionsQuery.data?.find((p) => p.id === positionId);
   const branches = units.filter((u) => u.type === "branch" && u.active);
   const positions = (positionsQuery.data ?? []).filter((p) => p.active && (!branchId || p.branchId === branchId));
@@ -161,6 +176,11 @@ export function NewEmployeePage() {
     if (i === step) return;
     const key = STEPS[step]!.key;
     if (i > step && key !== "review" && !(await trigger(key))) return;
+    if (i > step && key === "contact") {
+      const taken = contactTaken(getValues("contact"));
+      for (const t of taken) setError(`contact.${t.field}`, { message: t.message }, { shouldFocus: t === taken[0] });
+      if (taken.length) return;
+    }
     setDirection(i > step ? "forward" : "back");
     setStep(i);
     setFurthest((f) => Math.max(f, i));
@@ -329,16 +349,38 @@ export function NewEmployeePage() {
                   <input id="f-job-dateHired" type="date" className={softInputClass} aria-invalid={errors.job?.dateHired ? true : undefined} {...register("job.dateHired")} />
                 </Field>
                 <Field id="f-job-monthlySalary" label="Monthly salary (₱)" required error={errors.job?.monthlySalary?.message}>
-                  <input id="f-job-monthlySalary" type="number" inputMode="numeric" min={1} step={500} className={softInputClass} aria-invalid={errors.job?.monthlySalary ? true : undefined} {...register("job.monthlySalary", { valueAsNumber: true })} />
+                  <input
+                    id="f-job-monthlySalary"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="20,000.00"
+                    className={softInputClass}
+                    aria-invalid={errors.job?.monthlySalary ? true : undefined}
+                    value={salaryText}
+                    onChange={(e) => {
+                      const text = moneyTyping(e.target.value);
+                      setSalaryText(text);
+                      setValue("job.monthlySalary", text ? Number(text.replace(/,/g, "")) : Number.NaN, { shouldValidate: !!errors.job?.monthlySalary });
+                    }}
+                    onBlur={() => {
+                      const n = getValues("job.monthlySalary");
+                      if (Number.isFinite(n)) setSalaryText(n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                      trigger("job.monthlySalary");
+                    }}
+                  />
                 </Field>
                 <Field id="f-job-workSchedule" label="Work schedule" required error={errors.job?.workSchedule?.message} hint="The shifts set up in Timekeeping › Shifts">
                   <select
                     id="f-job-workSchedule"
                     className={softInputClass}
                     aria-invalid={errors.job?.workSchedule ? true : undefined}
-                    {...register("job.workSchedule", {
-                      onChange: (e) => setValue("job.shiftId", shifts.find((s) => scheduleLabel(s) === e.target.value)?.id ?? ""),
-                    })}
+                    value={custom.on ? CUSTOM : workSchedule}
+                    onChange={(e) => {
+                      const on = e.target.value === CUSTOM;
+                      setCustom((c) => ({ ...c, on }));
+                      setValue("job.workSchedule", on ? customLabel(custom.start, custom.end) : e.target.value, { shouldValidate: !on });
+                      setValue("job.shiftId", on ? "" : (shifts.find((s) => scheduleLabel(s) === e.target.value)?.id ?? ""));
+                    }}
                   >
                     <option value="">Select an option</option>
                     {shifts.map((s) => (
@@ -346,8 +388,25 @@ export function NewEmployeePage() {
                         {scheduleLabel(s)}
                       </option>
                     ))}
+                    <option value={CUSTOM}>Custom time…</option>
                   </select>
                 </Field>
+                {custom.on &&
+                  (["start", "end"] as const).map((k) => (
+                    <Field key={k} id={`nj-custom-${k}`} label={k === "start" ? "Starts at" : "Ends at"} required>
+                      <input
+                        id={`nj-custom-${k}`}
+                        type="time"
+                        className={softInputClass}
+                        value={custom[k]}
+                        onChange={(e) => {
+                          const next = { ...custom, [k]: e.target.value };
+                          setCustom(next);
+                          setValue("job.workSchedule", customLabel(next.start, next.end), { shouldValidate: !!errors.job?.workSchedule });
+                        }}
+                      />
+                    </Field>
+                  ))}
               </div>
             )}
 

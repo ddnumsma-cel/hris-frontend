@@ -4,16 +4,17 @@ import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/ToastContext";
-import { PlusIcon } from "@/components/icons";
+import { EditIcon, PhoneIcon, PlusIcon, PowerIcon } from "@/components/icons";
 import { Skeleton } from "@/components/ui/Skeleton";
 import clsx from "clsx";
-import { listDepartments, listLocations, saveLocation, setLocationActive, type LocationRow } from "@/lib/corehr/maintenance";
+import { headChoices, listLocations, saveLocation, setLocationActive, type LocationRow } from "@/lib/corehr/maintenance";
 import { useCan } from "@/lib/useCan";
 import { inputClass } from "../corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 
 const KEY = ["corehr", "locations"] as const;
-type Draft = { id?: string; name: string; code: string; address: string };
+type Draft = { id?: string; name: string; code: string; address: string; contactName: string; contactPhone: string; managerId: string };
+const BLANK: Draft = { name: "", code: "", address: "", contactName: "", contactPhone: "", managerId: "" };
 
 function LocationDialog({ draft, onClose }: { draft: Draft; onClose: () => void }) {
   const toast = useToast();
@@ -45,7 +46,7 @@ function LocationDialog({ draft, onClose }: { draft: Draft; onClose: () => void 
     >
       <div className="flex flex-col gap-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
-          <Field id="lc-name" label="Office" hint={draft.id ? "Used across attendance, holidays and payroll, so it can't be renamed." : undefined}>
+          <Field id="lc-name" label="Branch name" hint={draft.id ? "Used across attendance, holidays and payroll, so it can't be renamed." : undefined}>
             <input id="lc-name" className={inputClass} value={d.name} disabled={!!draft.id} placeholder="e.g. Iloilo" onChange={(e) => setD({ ...d, name: e.target.value })} />
           </Field>
           <Field id="lc-code" label="Code">
@@ -55,6 +56,24 @@ function LocationDialog({ draft, onClose }: { draft: Draft; onClose: () => void 
         <Field id="lc-address" label="Address">
           <textarea id="lc-address" rows={2} className={inputClass} value={d.address} onChange={(e) => setD({ ...d, address: e.target.value })} />
         </Field>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field id="lc-contact" label="Contact person">
+            <input id="lc-contact" className={inputClass} value={d.contactName} autoComplete="off" onChange={(e) => setD({ ...d, contactName: e.target.value })} />
+          </Field>
+          <Field id="lc-phone" label="Contact phone">
+            <input id="lc-phone" type="tel" inputMode="tel" className={inputClass} value={d.contactPhone} placeholder="0917 123 4567" autoComplete="off" onChange={(e) => setD({ ...d, contactPhone: e.target.value })} />
+          </Field>
+        </div>
+        <Field id="lc-manager" label="Branch manager" hint="Optional.">
+          <select id="lc-manager" className={inputClass} value={d.managerId} onChange={(e) => setD({ ...d, managerId: e.target.value })}>
+            <option value="">No manager yet</option>
+            {headChoices().map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </Field>
         <ErrorNote error={save.error} />
       </div>
     </Dialog>
@@ -62,11 +81,10 @@ function LocationDialog({ draft, onClose }: { draft: Draft; onClose: () => void 
 }
 
 const panel = "rounded-[var(--radius-card)] border border-[var(--card-border)] bg-surface";
-const COLORS = ["var(--color-cat-1)", "var(--color-cat-2)", "var(--color-cat-3)", "var(--color-cat-4)"];
 
 /**
- * Maintenance → Locations: the company's offices. Each office shows its share of all staff, as a
- * bar as long as that share and split into its departments.
+ * Maintenance → Locations: the company's offices as a directory, one card per office with its
+ * address, branch manager and contact person.
  */
 export function LocationsPage() {
   const toast = useToast();
@@ -74,7 +92,6 @@ export function LocationsPage() {
   const canEdit = useCan("edit", "locations");
   const canAdd = useCan("create", "locations");
   const list = useQuery({ queryKey: KEY, queryFn: listLocations, staleTime: 0 });
-  const depts = useQuery({ queryKey: ["corehr", "departments"], queryFn: listDepartments, staleTime: 0 });
   const [editing, setEditing] = useState<Draft | null>(null);
   const toggle = useMutation({
     mutationFn: (r: LocationRow) => setLocationActive(r.id, !r.active),
@@ -85,7 +102,24 @@ export function LocationsPage() {
 
   const rows = list.data ?? [];
   const total = Math.max(1, rows.reduce((n, r) => n + r.headcount, 0));
-  const deptsOf = (id: string) => (depts.data ?? []).filter((d) => d.officeId === id && d.active && d.headcount > 0);
+  const share = (r: LocationRow) => Math.round((r.headcount / total) * 100);
+  const initials = (n: string) => n.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  const actions = (r: LocationRow) =>
+    canEdit ? (
+      <span className="flex flex-none justify-end gap-2">
+        <Button size="sm" variant="ghost" icon={<EditIcon className="h-4 w-4" />} aria-label={`Edit ${r.name}`} title="Edit" onClick={() => setEditing({ id: r.id, name: r.name, code: r.code, address: r.address, contactName: r.contactName, contactPhone: r.contactPhone, managerId: r.managerId ?? "" })} />
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={<PowerIcon className="h-4 w-4" />}
+          className={r.active ? "text-critical" : "text-good"}
+          aria-label={`${r.active ? "Deactivate" : "Reactivate"} ${r.name}`}
+          title={r.active ? "Deactivate" : "Reactivate"}
+          disabled={toggle.isPending}
+          onClick={() => toggle.mutate(r)}
+        />
+      </span>
+    ) : null;
 
   return (
     <>
@@ -93,11 +127,11 @@ export function LocationsPage() {
         title="Locations"
         subtitle="The company's offices. Departments, attendance scanners and local holidays belong to an office."
         actions={
-          canAdd ? (
-            <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEditing({ name: "", code: "", address: "" })}>
+          canAdd && (
+            <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEditing(BLANK)}>
               Add office
             </Button>
-          ) : undefined
+          )
         }
       />
       {list.isLoading ? (
@@ -105,53 +139,47 @@ export function LocationsPage() {
       ) : rows.length === 0 ? (
         <p className={clsx(panel, "p-8 text-center text-sm text-ink-2")}>No offices yet.</p>
       ) : (
-        <div className={clsx(panel, "flex flex-col divide-y divide-[var(--line)]")}>
-          {rows.map((r) => {
-            const ds = deptsOf(r.id);
-            return (
-              <div key={r.id} className={clsx("grid gap-3 p-5 lg:grid-cols-[14rem_minmax(0,1fr)_auto] lg:items-center", !r.active && "opacity-70")}>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[15px] font-semibold">{r.name}</span>
-                    <span className="text-xs text-ink-3">{r.code}</span>
-                    {!r.active && <Pill tone="neutral">Inactive</Pill>}
-                  </div>
-                  <div className="text-xs text-ink-2">
-                    {Math.round((r.headcount / total) * 100)}% of staff · {r.headcount} {r.headcount === 1 ? "person" : "people"}
-                  </div>
-                </div>
-                <div className="min-w-0">
-                  <div className="flex h-3 overflow-hidden rounded-[var(--radius-pill)] bg-surface-2" style={{ width: `${Math.max(8, (r.headcount / total) * 100)}%` }}>
-                    {ds.map((d, i) => (
-                      <span key={d.id} title={`${d.name} · ${d.headcount}`} style={{ flexGrow: d.headcount, background: COLORS[i % COLORS.length] }} />
-                    ))}
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2">
-                    {ds.map((d, i) => (
-                      <span key={d.id} className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
-                        {d.name} {d.headcount}
-                      </span>
-                    ))}
-                    {ds.length === 0 && <span className="text-ink-3">No one assigned yet</span>}
-                  </div>
-                  <p className="mt-2 truncate text-xs text-ink-3" title={r.address}>
-                    {r.address || "No address yet"}
-                  </p>
-                </div>
-                {canEdit && (
-                  <span className="flex justify-end gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => setEditing({ id: r.id, name: r.name, code: r.code, address: r.address })}>
-                      Edit
-                    </Button>
-                    <Button size="sm" variant="ghost" disabled={toggle.isPending} onClick={() => toggle.mutate(r)}>
-                      {r.active ? "Deactivate" : "Reactivate"}
-                    </Button>
-                  </span>
-                )}
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {rows.map((r) => (
+            <div key={r.id} className={clsx(panel, "flex flex-col p-5", !r.active && "opacity-70")}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-logo)] bg-surface-2 text-sm font-semibold text-ink-2">{r.code}</span>
+                {actions(r)}
               </div>
-            );
-          })}
+              <div className="mt-4 truncate text-[15px] font-semibold">{r.name}</div>
+              <p className="mt-1 line-clamp-2 min-h-8 text-xs text-ink-2">{r.address || "No address yet"}</p>
+              <div className="mt-4 flex flex-col gap-3 border-t border-[var(--line)] pt-4 text-sm">
+                <div className="flex items-center gap-3">
+                  <span className="accent-fill flex h-8 w-8 flex-none items-center justify-center rounded-full text-xs font-semibold">{r.managerName ? initials(r.managerName) : "—"}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{r.managerName ?? "None yet"}</span>
+                    <span className="block text-xs text-ink-2">Manager</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-surface-2 text-ink-2">
+                    <PhoneIcon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 text-xs">
+                    <span className="block truncate text-sm font-medium">{r.contactName || "None yet"}</span>
+                    {r.contactPhone ? (
+                      <a href={`tel:${r.contactPhone.replace(/[^\d+]/g, "")}`} className="text-brand hover:underline">
+                        {r.contactPhone}
+                      </a>
+                    ) : (
+                      <span className="text-ink-2">Contact</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center justify-between text-xs text-ink-2">
+                <span>
+                  {r.headcount} {r.headcount === 1 ? "person" : "people"} · {share(r)}%
+                </span>
+                {!r.active && <Pill tone="neutral">Inactive</Pill>}
+              </div>
+            </div>
+          ))}
         </div>
       )}
       {editing && <LocationDialog draft={editing} onClose={() => setEditing(null)} />}

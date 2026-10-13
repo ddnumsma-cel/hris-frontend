@@ -50,24 +50,27 @@ export const personalSchema = z.object({
 const phone = z
   .string()
   .trim()
-  .refine((s) => !s || /^(\+?63|0)?9\d{9}$/.test(s.replace(/[\s-]/g, "")), "Use a PH mobile number, e.g. 0917 123 4567");
+  .refine((s) => !s || /^09\d{9}$/.test(s.replace(/[\s-]/g, "")), "Use an 11-digit PH mobile number, e.g. 0917 123 4567");
 
 const required = (label: string) => z.string().trim().min(1, `${label} is required`);
 const requiredPhone = (label: string) => phone.refine((s) => s.length > 0, `${label} is required`);
 
 /** A new hire must have full contact details; existing records may still have gaps. */
 /** Every contact detail is required, both when hiring and when editing later. */
-export const contactSchema = z.object({
+export const contactSchema = z
+  .object({
   workEmail: z.string().trim().min(1, "Work email is required").email("Enter a valid email"),
   personalEmail: z.string().trim().min(1, "Personal email is required").email("Enter a valid email"),
   mobile: requiredPhone("Mobile number"),
   address: required("Home address"),
   city: required("City / municipality"),
   province: required("Province"),
-  emergencyName: required("Emergency contact"),
+  emergencyName: required("Emergency contact person"),
   emergencyRelationship: required("Relationship"),
   emergencyPhone: requiredPhone("Emergency phone"),
-});
+  })
+  // People tend to type their own number twice.
+  .refine((c) => !c.mobile || c.mobile.replace(/\D/g, "") !== c.emergencyPhone.replace(/\D/g, ""), { path: ["emergencyPhone"], message: "Use someone else's number, not the employee's own mobile" });
 export const newHireContactSchema = contactSchema;
 
 /** At least one government number, so payroll and remittances can start. */
