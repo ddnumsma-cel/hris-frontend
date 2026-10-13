@@ -38,10 +38,30 @@ export interface LocationRow {
   name: string;
   code: string;
   address: string;
+  contactName: string;
+  contactPhone: string;
+  managerId?: string;
+  managerName?: string;
   active: boolean;
   headcount: number;
   departments: number;
 }
+
+const locationRow = (u: OrgUnit): LocationRow => ({
+  id: u.id,
+  name: u.name,
+  code: u.code,
+  address: u.address ?? "",
+  contactName: u.contactName ?? "",
+  contactPhone: u.contactPhone ?? "",
+  managerId: u.headEmployeeId,
+  managerName: nameOf(u.headEmployeeId),
+  active: u.active,
+  headcount: headcountOf(u.id),
+  departments: state.units.filter((d) => d.type === "department" && d.parentId === u.id).length,
+});
+/** PH mobile or landline, e.g. 0917 123 4567 or (032) 234 5678. */
+const phoneOk = (v: string) => /^(\+?63|0)\d{7,10}$/.test(v.replace(/[\s()-]/g, ""));
 
 export function listLocations(): Promise<LocationRow[]> {
   // Departments' office picker needs the list too.
@@ -50,12 +70,12 @@ export function listLocations(): Promise<LocationRow[]> {
   return respond(
     state.units
       .filter((u) => u.type === "branch")
-      .map((u) => ({ id: u.id, name: u.name, code: u.code, address: u.address ?? "", active: u.active, headcount: headcountOf(u.id), departments: state.units.filter((d) => d.type === "department" && d.parentId === u.id).length }))
+      .map(locationRow)
       .sort((a, b) => a.name.localeCompare(b.name)),
   );
 }
 
-export async function saveLocation(input: { id?: string; name: string; code: string; address: string }): Promise<LocationRow> {
+export async function saveLocation(input: { id?: string; name: string; code: string; address: string; contactName: string; contactPhone: string; managerId?: string }): Promise<LocationRow> {
   const denied = deny("locations", input.id ? "edit" : "create");
   if (denied) return denied;
   const name = clean(input.name);
@@ -63,16 +83,21 @@ export async function saveLocation(input: { id?: string; name: string; code: str
   if (!name) return fail("Name the office, for example \"Iloilo\"");
   if (!/^[A-Z0-9]{2,5}$/.test(code)) return fail("Use a short code of 2 to 5 letters or numbers, for example \"ILO\"");
   if (!clean(input.address)) return fail("Enter the office address");
+  const contactName = clean(input.contactName);
+  const contactPhone = clean(input.contactPhone);
+  const managerId = input.managerId || undefined;
+  if (!contactName) return fail("Enter the contact person at this office");
+  if (!phoneOk(contactPhone)) return fail("Enter the contact person's phone, e.g. 0917 123 4567 or (032) 234 5678");
+  if (managerId && !state.employees.some((e) => e.id === managerId && e.job.status !== "Separated")) return fail("Choose a current employee as manager");
   const existing = state.units.find((u) => u.id === input.id);
   if (existing && existing.name !== name) return fail("An office's name can't be changed here: it is used across attendance, holidays and payroll. Change the code or address, or add a new office.");
   const branches = state.units.filter((u) => u.type === "branch" && u.id !== input.id);
   if (branches.some((b) => b.name.toLowerCase() === name.toLowerCase())) return fail("There's already an office with that name");
   if (branches.some((b) => b.code === code)) return fail("Another office already uses that code");
-  const unit: OrgUnit = existing
-    ? { ...existing, code, address: clean(input.address) }
-    : { id: newId("br"), type: "branch", name, code, parentId: company()?.id ?? null, address: clean(input.address), active: true };
+  const fields = { code, address: clean(input.address), contactName, contactPhone, headEmployeeId: managerId };
+  const unit: OrgUnit = existing ? { ...existing, ...fields } : { id: newId("br"), type: "branch", name, parentId: company()?.id ?? null, active: true, ...fields };
   commit({ ...state, units: existing ? state.units.map((u) => (u.id === unit.id ? unit : u)) : [...state.units, unit] });
-  return respond({ id: unit.id, name: unit.name, code: unit.code, address: unit.address ?? "", active: unit.active, headcount: headcountOf(unit.id), departments: 0 });
+  return respond(locationRow(unit));
 }
 
 export async function setLocationActive(id: string, active: boolean): Promise<void> {

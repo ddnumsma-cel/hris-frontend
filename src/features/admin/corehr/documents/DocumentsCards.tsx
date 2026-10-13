@@ -2,9 +2,8 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import clsx from "clsx";
 import { ContentHead } from "@/components/layout/RolePage";
-import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { GridIcon, ListIcon } from "@/components/icons";
+import { EyeIcon, FileIcon, GridIcon, ListIcon } from "@/components/icons";
 import { SearchBox, SimpleTable, Tabs, Toolbar } from "../../timekeeping/common";
 import { DocumentChecklist } from "../DocumentChecklist";
 import { DocumentDrawer } from "../DocumentDrawer";
@@ -169,9 +168,7 @@ export function DocumentsCards() {
               header: "",
               align: "right",
               cell: (p) => (
-                <Button size="sm" variant={p.check ? "primary" : "ghost"} onClick={() => setPersonId(p.e.id)}>
-                  {p.check ? `Review ${p.check}` : "View documents"}
-                </Button>
+                <ReviewButton check={p.check} name={p.e.name} onClick={() => setPersonId(p.e.id)} />
               ),
             },
           ]}
@@ -202,15 +199,15 @@ export function DocumentsCards() {
                     <div className="truncate text-xs text-ink-3">{p.e.departmentName}</div>
                   </div>
                 </div>
-                <div className="mt-3 text-xs text-ink-2">
-                  <span className="font-semibold text-ink">{p.done}</span> of {p.total} checked
+                <div className="mt-3 flex items-center gap-2 text-xs text-ink-2">
+                  <span className="flex-1">
+                    <span className="font-semibold text-ink">{p.done}</span> of {p.total} checked
+                  </span>
+                  <ReviewButton check={p.check} name={p.e.name} onClick={() => setPersonId(p.e.id)} />
                 </div>
                 <div className="mt-2 flex min-h-6 flex-wrap gap-1">
                   <Badges p={p} />
                 </div>
-                <Button size="sm" variant={p.check ? "primary" : "ghost"} className="mt-3 w-full justify-center" onClick={() => setPersonId(p.e.id)}>
-                  {p.check ? `Review ${p.check}` : "View documents"}
-                </Button>
               </article>
             );
           })}
@@ -238,5 +235,30 @@ export function DocumentsCards() {
       )}
       {openDoc && <DocumentDrawer key={openDoc.d.id + openDoc.d.status} document={openDoc.d} employeeName={openDoc.e.name} onClose={() => setDocId(null)} />}
     </>
+  );
+}
+
+/**
+ * Opens a person's papers: an icon button like the People table's row actions (32px outlined
+ * square, blue on hover). With papers to check it shows a document and the number in a bubble on
+ * its corner; with none, an eye. The words are in the tooltip and for screen readers.
+ */
+function ReviewButton({ check, name, onClick }: { check: number; name: string; onClick: () => void }) {
+  const tip = check ? `Review ${check} document${check === 1 ? "" : "s"}` : "View documents";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={tip}
+      aria-label={`${tip} for ${name}`}
+      className="relative inline-flex h-8 w-8 flex-none items-center justify-center rounded-[var(--radius-control)] border border-border bg-surface-2 text-ink-2 transition-colors duration-150 hover:border-brand hover:bg-brand-tint hover:text-brand"
+    >
+      {check ? <FileIcon aria-hidden="true" className="h-4 w-4" /> : <EyeIcon aria-hidden="true" className="h-4 w-4" />}
+      {check > 0 && (
+        <span aria-hidden="true" className="accent-fill absolute -top-2 -right-2 inline-flex h-5 min-w-5 items-center justify-center rounded-[var(--radius-pill)] px-1 text-[11px] font-semibold ring-2 ring-[var(--bg)]">
+          {check}
+        </span>
+      )}
+    </button>
   );
 }

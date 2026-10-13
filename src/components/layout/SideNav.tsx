@@ -21,11 +21,18 @@ export interface SideNavItem {
   children?: SideNavItem[];
 }
 
-/** A column in the sidebar's Create menu: a heading and short links, like an accounting app's "+ New". */
+/** What a Start-menu link is waiting on, so the menu can count it (see `CreateMenu`). */
+export type WaitingKind = "leave" | "time" | "fixes" | "claims" | "documents";
+
+/** An area (tab) of the sidebar's Start menu and its links. */
 export interface CreateGroup {
   title: string;
-  /** `action` / `feature`: what the link is for, when more than viewing its page (checked against the access matrix). */
-  items: { label: string; to: string; action?: Action; feature?: Feature }[];
+  /**
+   * `action` / `feature`: what the link is for, when more than viewing its page (checked against
+   * the access matrix). `hint`: the one-line explanation under it. `waiting`: set on links that
+   * decide things other people sent; they're listed under "Waiting on you" with a count.
+   */
+  items: { label: string; to: string; action?: Action; feature?: Feature; hint?: string; waiting?: WaitingKind }[];
 }
 
 export interface SideNavGroup {
@@ -137,7 +144,7 @@ function NavGroupList({ groups, onNavigate, collapsed = false, onExpand }: { gro
 }
 
 /** Pass desktop={false} when another component draws the desktop sidebar; the phone menu still comes from here.
- *  `create` adds a Create menu to the desktop sidebar. */
+ *  `create` adds the Start menu to the desktop sidebar. */
 export function SideNav({ groups, desktop = true, create }: { groups: SideNavGroup[]; desktop?: boolean; create?: CreateGroup[] }) {
   const { user } = useAuth();
   const location = useLocation();
@@ -206,7 +213,7 @@ export function SideNav({ groups, desktop = true, create }: { groups: SideNavGro
         {...tips.handlers}
         className={clsx(
           "sidebar sidebar-desktop hidden no-scrollbar whitespace-nowrap",
-          "sm:flex sm:flex-col sm:px-2 sm:pb-3 sm:sticky sm:top-0 sm:-mt-[var(--topbar-h)] sm:h-dvh sm:w-[var(--sidenav-w)] sm:flex-none sm:self-start",
+          "sm:flex sm:flex-col sm:px-2 sm:pb-3 sm:sticky sm:top-0 sm:-mt-[var(--topbar-h)] sm:-mb-4 sm:h-dvh sm:w-[var(--sidenav-w)] sm:flex-none sm:self-start",
           "sm:overflow-x-hidden sm:overflow-y-auto sm:border-r sm:border-[var(--sb-border)]",
           collapsed && "sidebar-collapsed",
         )}

@@ -27,7 +27,7 @@ const defaultCredentials: DemoCredential[] = [
   // A Partner: approver for the people who report to him.
   { key: "partner-sanchez", username: "antonio.sanchez", password: "Heyhr-Partner1-2026!", role: "manager", label: "Approver · Antonio Sanchez (Partner)" },
   { key: "accounting", username: "accounting", password: "Heyhr-Accounting-2026!", role: "admin", label: "Accounting" },
-  { key: "employee", username: "admin2", password: "Heyhr-Staff-2026!", role: "employee", label: "Employee" },
+  { key: "employee", username: "ceb.msma", password: "Malunggay-4800", role: "employee", label: "Employee" },
 ];
 
 const CREDENTIALS_KEY = "msma-hris-credentials-v2";

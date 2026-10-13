@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/ToastContext";
 import { updateEmployeeSection, type EditableSection } from "@/lib/corehr/api";
 import { bankSchema, contactSchema, governmentSchema, personalSchema } from "@/lib/corehr/schemas";
 import type { CoreEmployee } from "@/lib/corehr/types";
-import { BANK_FIELDS, CONTACT_FIELDS, GOVERNMENT_FIELDS, PERSONAL_FIELDS, type FieldSpec } from "./fields";
+import { applyMask, BANK_FIELDS, CONTACT_FIELDS, GOVERNMENT_FIELDS, PERSONAL_FIELDS, type FieldSpec } from "./fields";
 import { inputClass, useActor } from "./format";
 import { ErrorNote, Field } from "./ui";
 import { PlaceFields } from "./PlaceFields";
@@ -44,7 +44,16 @@ export function SpecFields<T extends FieldValues>({
         const name = (prefix ? `${prefix}.${f.name}` : f.name) as Path<T>;
         const id = `f-${name.replace(/\./g, "-")}`;
         const error = errors[f.name]?.message;
-        const common = { id, "aria-invalid": error ? true : undefined, "aria-describedby": error ? `${id}-error` : undefined, ...register(name) };
+        const reg = register(name);
+        const masked = f.mask && {
+          inputMode: "numeric" as const,
+          maxLength: f.mask.length,
+          onChange: (e: { target: HTMLInputElement }) => {
+            e.target.value = applyMask(e.target.value, f.mask!);
+            return (reg as { onChange?: (e: { target: HTMLInputElement }) => unknown }).onChange?.(e);
+          },
+        };
+        const common = { id, "aria-invalid": error ? true : undefined, "aria-describedby": error ? `${id}-error` : undefined, ...reg };
         return (
           <Field
             key={f.name}
@@ -64,7 +73,7 @@ export function SpecFields<T extends FieldValues>({
                 ))}
               </select>
             ) : (
-              <input type={f.type ?? "text"} className={inputClassName} placeholder={f.placeholder} {...common} />
+              <input type={f.type ?? "text"} className={inputClassName} placeholder={f.placeholder} {...common} {...masked} />
             )}
           </Field>
         );

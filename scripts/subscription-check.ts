@@ -44,7 +44,7 @@ const newHire = () => {
   n++;
   return {
     personal: { firstName: "Test", middleName: "", lastName: `Hire ${n}`, suffix: "", birthDate: "1995-01-01", sex: "" as const, civilStatus: "" as const, nationality: "Filipino" },
-    contact: { workEmail: `test.hire${n}@msma.ph`, personalEmail: `hire${n}@mail.com`, mobile: "09171234567", address: "1 Test St", city: "Cebu City", province: "Cebu", emergencyName: "Kin", emergencyRelationship: "Parent", emergencyPhone: "09171234568" },
+    contact: { workEmail: `test.hire${n}@msma.ph`, personalEmail: `hire${n}@mail.com`, mobile: `0917${String(1000000 + n).slice(-7)}`, address: "1 Test St", city: "Cebu City", province: "Cebu", emergencyName: "Kin", emergencyRelationship: "Parent", emergencyPhone: `0918${String(1000000 + n).slice(-7)}` },
     government: { sss: "1234567890", philhealth: "", pagibig: "", tin: "" },
     job: { cluster: "RPM", positionId: position.id, teamId: "", supervisorId: "", employmentType: "Regular" as const, dateHired: "2026-10-01", monthlySalary: 25000, workSchedule: "Mon–Fri", shiftId: "" },
   };
@@ -62,9 +62,9 @@ check(`Starter plan on the demo client: ${u.planName}, ${u.seatsUsed}/${u.seatLi
 check(`Seats are counted from active records (${u.seatsUsed} = non-separated employees)`, u.seatsUsed === coreStore.state.employees.filter((e) => e.job.status !== "Separated").length);
 check("Grace: 5% of 20 rounds down to 1 → cap 21", u.seatCap === 21);
 check(`At ${u.seatsUsed}/20 the status is "near" (80% banner shows)`, u.status === "near");
-check("80%: Super Admin and HR told seats are almost full", (await count("superadmin", "almost full")) === 1 && (await count("admin1", "almost full")) === 1);
-check("80% alert says how many are left in plain words", (await notificationsFor("admin1")).some((x) => x.title.includes("almost full") && x.body.includes(`so ${20 - u.seatsUsed} seats are left`)));
-check("80% sends nothing to System Admin", (await count("sysadmin", "seat")) === 0);
+check(`Demo starts at ${u.seatsUsed}/20 (90%): Super Admin and HR told only 2 seats are left`, (await count("superadmin", "Only 2 seats left")) === 1 && (await count("admin1", "Only 2 seats left")) === 1);
+check("The alert says how many are left in plain words", (await notificationsFor("admin1")).some((x) => x.title.includes("Only 2 seats left") && x.body.includes(`so ${20 - u.seatsUsed} seats are left`)));
+check("System Admin is told at 90%", (await count("sysadmin", "90% of its seats")) === 1);
 check("80% crossing is logged once", subStore.sub.events.filter((e) => e.kind === "threshold").length === 1);
 
 console.log("\n— Who can see and call subscription features —");
@@ -138,7 +138,7 @@ check("HR can still edit an employee", (await errorOf(core.updateEmployeeSection
 
 console.log("\n— Separation frees a seat; reactivating takes one —");
 signIn("admin1");
-const leaver = coreStore.state.employees.find((e) => e.contact.workEmail === "test.hire1@msma.ph")!;
+const leaver = coreStore.state.employees.find((e) => e.contact.workEmail.startsWith("test.hire") && e.job.status !== "Separated")!;
 await core.recordSeparation(leaver.id, { lastDay: "2026-10-02", reason: "Resigned", note: "" }, "Dinah");
 u = await sub.getSubscription();
 check(`Separated employee no longer counts (${u.seatsUsed}/20)`, u.seatsUsed === 20);

@@ -8,6 +8,9 @@ import { downloadTextFile, toCsv } from "@/lib/download";
 import { LoadError, Pill } from "../corehr/ui";
 import { Choice, SearchBox, SimpleTable, Toolbar, type Col } from "../timekeeping/common";
 
+/** As many rows as fit on a 1534×728 screen, so the page itself doesn't scroll. */
+const PAGE_SIZE = 8;
+
 const PERIODS = [
   { value: "1", label: "Today" },
   { value: "7", label: "Last 7 days" },
@@ -63,7 +66,7 @@ export function AuditTrailPage() {
           </Button>
         </span>
       </Toolbar>
-      <SimpleTable rows={rows} rowKey={(r) => r.id} cols={cols} loading={audit.isLoading} empty="Nothing recorded for this filter." />
+      <SimpleTable rows={rows} rowKey={(r) => r.id} cols={cols} loading={audit.isLoading} empty="Nothing recorded for this filter." pageSize={PAGE_SIZE} />
     </>
   );
 }

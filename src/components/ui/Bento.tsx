@@ -90,7 +90,7 @@ export function QuickActionRow({ children }: { children: ReactNode }) {
   return <div className="dash-tile-row no-scrollbar">{children}</div>;
 }
 
-/** List row: square icon/avatar, title with muted subtitle, right-aligned value with muted status. */
+/** List row: optional square icon/avatar, title with muted subtitle, right-aligned value with muted status. */
 export function ListRow({
   leading,
   title,
@@ -101,7 +101,8 @@ export function ListRow({
   trailing,
   footer,
 }: {
-  leading: ReactNode;
+  /** Square icon/avatar; leave out for a plain row (e.g. Compliance calendar). */
+  leading?: ReactNode;
   title: ReactNode;
   subtitle?: ReactNode;
   value?: ReactNode;
@@ -113,7 +114,7 @@ export function ListRow({
 }) {
   return (
     <div className={clsx("dash-row", footer && "items-start")}>
-      <span className="dash-row-leading">{leading}</span>
+      {leading && <span className="dash-row-leading">{leading}</span>}
       <div className="min-w-0 flex-1">
         <div className={clsx("text-sm font-medium", footer ? "line-clamp-2" : "truncate")}>{title}</div>
         {subtitle && <div className="truncate text-xs text-ink-2">{subtitle}</div>}

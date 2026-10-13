@@ -96,7 +96,7 @@ export function FullNav({
     <aside
       data-tour="sidenav"
       className={clsx(
-        "sidebar sidebar-desktop sidebar-full no-scrollbar hidden whitespace-nowrap sm:sticky sm:top-0 sm:-mt-[var(--topbar-h)] sm:flex sm:h-dvh sm:w-[var(--sidenav-w)] sm:flex-none sm:flex-col sm:self-start sm:overflow-hidden sm:border-r sm:border-[var(--sb-border)]",
+        "sidebar sidebar-desktop sidebar-full no-scrollbar hidden whitespace-nowrap sm:sticky sm:top-0 sm:-mt-[var(--topbar-h)] sm:-mb-4 sm:flex sm:h-dvh sm:w-[var(--sidenav-w)] sm:flex-none sm:flex-col sm:self-start sm:overflow-hidden sm:border-r sm:border-[var(--sb-border)]",
       )}
     >
       {user && (

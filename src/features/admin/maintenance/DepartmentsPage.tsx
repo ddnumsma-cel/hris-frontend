@@ -4,7 +4,7 @@ import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/ToastContext";
-import { PlusIcon } from "@/components/icons";
+import { EditIcon, PlusIcon, PowerIcon } from "@/components/icons";
 import { listUnits } from "@/lib/corehr/api";
 import { headChoices, listDepartments, listLocations, saveDepartment, setDepartmentActive, type DepartmentRow } from "@/lib/corehr/maintenance";
 import { useCan } from "@/lib/useCan";
@@ -114,6 +114,7 @@ export function DepartmentsPage() {
         rowKey={(r) => r.id}
         loading={list.isLoading}
         empty="No departments yet."
+        pageSize={8}
         cols={[
           { header: "Department", cell: (r) => <span className="font-medium">{r.name}</span> },
           { header: "Code", cell: (r) => <span className="text-ink-2">{r.code}</span> },
@@ -129,12 +130,8 @@ export function DepartmentsPage() {
             cell: (r) =>
               canEdit ? (
                 <span className="flex justify-end gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => setEditing({ id: r.id, name: r.name, code: r.code, officeId: r.officeId, headEmployeeId: r.headEmployeeId ?? "" })}>
-                    Edit
-                  </Button>
-                  <Button size="sm" variant="ghost" disabled={toggle.isPending} onClick={() => toggle.mutate(r)}>
-                    {r.active ? "Deactivate" : "Reactivate"}
-                  </Button>
+                  <Button size="sm" variant="ghost" icon={<EditIcon className="h-4 w-4" />} aria-label={`Edit ${r.name}`} title="Edit" onClick={() => setEditing({ id: r.id, name: r.name, code: r.code, officeId: r.officeId, headEmployeeId: r.headEmployeeId ?? "" })} />
+                  <Button size="sm" variant="ghost" icon={<PowerIcon className="h-4 w-4" />} className={r.active ? "text-critical" : "text-good"} aria-label={`${r.active ? "Deactivate" : "Reactivate"} ${r.name}`} title={r.active ? "Deactivate" : "Reactivate"} disabled={toggle.isPending} onClick={() => toggle.mutate(r)} />
                 </span>
               ) : null,
           },

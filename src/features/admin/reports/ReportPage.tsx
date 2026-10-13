@@ -70,6 +70,18 @@ function ReportBody({ def }: { def: ReportDef }) {
       <Toolbar>
         {def.period !== "none" && <Choice label="Period" value={period.id} onChange={setPeriodId} options={periods.map((p) => ({ value: p.id, label: p.label }))} />}
         <SearchBox value={query} onChange={setQuery} placeholder={`Search ${data?.columns[0]?.label.toLowerCase() ?? ""}`} />
+        {/* The totals sit in the toolbar's free middle, between the filters and the actions. */}
+        <div className="mx-auto flex min-w-0 flex-wrap items-stretch gap-2">
+          {result.isLoading
+            ? <Skeleton className="h-14 w-72" />
+            : data?.summary.map((s) => (
+                <div key={s.label} className="min-w-36 rounded-xl border border-border bg-surface px-3.5 py-2">
+                  <div className="text-xs text-ink-2">{s.label}</div>
+                  <div className="font-display text-lg font-semibold">{formatValue(s.value, s.kind)}</div>
+                </div>
+              ))}
+          {data?.note && <p className="flex max-w-xs items-center text-xs text-ink-3">{data.note}</p>}
+        </div>
         <span className="ml-auto flex gap-2">
           <Button variant="ghost" size="sm" disabled={!data} onClick={() => data && printReport(def, period.label, office, data)}>
             Print
@@ -79,17 +91,6 @@ function ReportBody({ def }: { def: ReportDef }) {
           </Button>
         </span>
       </Toolbar>
-      <div className="flex flex-wrap items-stretch gap-2">
-        {result.isLoading
-          ? <Skeleton className="h-14 w-full" />
-          : data?.summary.map((s) => (
-              <div key={s.label} className="min-w-36 rounded-xl border border-border bg-surface px-3.5 py-2">
-                <div className="text-xs text-ink-2">{s.label}</div>
-                <div className="font-display text-lg font-semibold">{formatValue(s.value, s.kind)}</div>
-              </div>
-            ))}
-        {data?.note && <p className="flex max-w-md flex-1 items-center text-xs text-ink-3">{data.note}</p>}
-      </div>
       <SimpleTable rows={rows} rowKey={(r) => JSON.stringify(r)} cols={cols} loading={result.isLoading} empty="Nothing to show for this period." />
     </>
   );

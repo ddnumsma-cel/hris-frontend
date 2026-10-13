@@ -198,7 +198,7 @@ export function HolidayCalendarPage() {
         }
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div data-page-top className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Button size="sm" variant="ghost" aria-label="Previous year" onClick={() => setYear((y) => y - 1)}>
             <ChevronLeftIcon className="h-4 w-4" />

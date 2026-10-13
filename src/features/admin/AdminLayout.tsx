@@ -180,7 +180,6 @@ const GROUPS: SideNavGroup[] = [
         icon: <ShieldIcon />,
         children: [
           { label: "Users", to: "/admin/administration/users" },
-          { label: "Roles & access", to: "/admin/administration/roles" },
           { label: "Audit trail", to: "/admin/administration/audit" },
           { label: "System settings", to: "/admin/administration/settings" },
           { label: "Email & text outbox", to: "/admin/administration/outbox" },
@@ -193,59 +192,60 @@ const GROUPS: SideNavGroup[] = [
 ];
 
 /**
- * The rail's Create menu, laid out like an accounting app's "+ New": a column per area, each
- * item an action ("Add employee", "Run payroll"). Blank forms carry ?create=… (read by useCreateParam, which opens the form);
- * the rest go to the page where that task is done.
+ * The sidebar's Start menu: a tab per area; each link is an action ("Add employee", "Run
+ * payroll") with a one-line hint, and links marked `waiting` (decisions other people sent) are
+ * listed under "Waiting on you" with a count. Blank forms carry ?create=… (read by useCreateParam,
+ * which opens the form); the rest go to the page where that task is done.
  */
 const CREATE: CreateGroup[] = [
   {
     title: "People",
     items: [
-      { label: "Add employee", to: "/admin/maintenance/people/new" },
-      { label: "Post announcement", to: "/admin?create=announcement" },
-      { label: "Update reporting lines", to: "/admin/maintenance/org-chart", action: "edit" },
-      { label: "Review documents", to: "/admin/maintenance/documents", action: "edit" },
+      { label: "Add employee", to: "/admin/maintenance/people/new", hint: "Start a new 201 record" },
+      { label: "Post announcement", to: "/admin?create=announcement", hint: "Show news on everyone's Home page" },
+      { label: "Update reporting lines", to: "/admin/maintenance/org-chart", action: "edit", hint: "Change who reports to whom" },
+      { label: "Review documents", to: "/admin/maintenance/documents", action: "edit", hint: "Uploaded 201 papers to check", waiting: "documents" },
     ],
   },
   {
     title: "Attendance",
     items: [
-      { label: "Add shift", to: "/admin/timekeeping/shifts?create=shift" },
-      { label: "Assign schedules", to: "/admin/timekeeping/schedules", action: "edit" },
-      { label: "Declare remote work day", to: "/admin/timekeeping/remote?create=remote-day" },
-      { label: "Add missing time", to: "/admin/reports/attendance-logs", action: "edit" },
-      { label: "Review time adjustments", to: "/admin/reports/time-adjustments", action: "approve" },
-      { label: "Approve overtime", to: "/admin/reports/overtime", action: "approve" },
-      { label: "Send lateness notice", to: "/admin/reports/tardiness", action: "edit" },
+      { label: "Add shift", to: "/admin/timekeeping/shifts?create=shift", hint: "Set working hours and breaks" },
+      { label: "Assign schedules", to: "/admin/timekeeping/schedules", action: "edit", hint: "Put people on shifts" },
+      { label: "Declare remote work day", to: "/admin/timekeeping/remote?create=remote-day", hint: "Let a team work from home" },
+      { label: "Add missing time", to: "/admin/reports/attendance-logs", action: "edit", hint: "Fill in a forgotten time in or out" },
+      { label: "Review time adjustments", to: "/admin/reports/time-adjustments", action: "approve", hint: "Corrections people asked for", waiting: "fixes" },
+      { label: "Approve overtime", to: "/admin/reports/overtime", action: "approve", hint: "Overtime and undertime to decide", waiting: "time" },
+      { label: "Send lateness notice", to: "/admin/reports/tardiness", action: "edit", hint: "Remind someone about tardiness" },
     ],
   },
   {
     title: "Leave & requests",
     items: [
-      { label: "File leave", to: "/admin/maintenance/leave/requests?create=leave", action: "create" },
-      { label: "Add leave type", to: "/admin/maintenance/leave/types?create=leave-type" },
-      { label: "Adjust leave balances", to: "/admin/maintenance/leave/balances", action: "edit" },
-      { label: "Approve leave", to: "/admin/maintenance/leave/requests", action: "approve" },
-      { label: "Review reimbursements", to: "/admin/requests/reimbursement" },
+      { label: "File leave", to: "/admin/maintenance/leave/requests?create=leave", action: "create", hint: "For yourself or someone else" },
+      { label: "Add leave type", to: "/admin/maintenance/leave/types?create=leave-type", hint: "A new kind of leave and its credits" },
+      { label: "Adjust leave balances", to: "/admin/maintenance/leave/balances", action: "edit", hint: "Add or take away days" },
+      { label: "Approve leave", to: "/admin/maintenance/leave/requests", action: "approve", hint: "Leave requests to decide", waiting: "leave" },
+      { label: "Review reimbursements", to: "/admin/requests/reimbursement", hint: "Claims to endorse or approve", waiting: "claims" },
     ],
   },
   {
     title: "Payroll",
     items: [
-      { label: "Run payroll", to: "/admin/payroll/runs?create=payroll-run" },
-      { label: "Update contribution rates", to: "/admin/payroll/contributions?create=contribution-rates" },
-      { label: "View payroll report", to: "/admin/reports/payroll" },
-      { label: "View government reports", to: "/admin/reports/statutory" },
+      { label: "Run payroll", to: "/admin/payroll/runs?create=payroll-run", hint: "Start a new pay run" },
+      { label: "Update contribution rates", to: "/admin/payroll/contributions?create=contribution-rates", hint: "SSS, PhilHealth and Pag-IBIG tables" },
+      { label: "View payroll report", to: "/admin/reports/payroll", hint: "Totals by period and office" },
+      { label: "View government reports", to: "/admin/reports/statutory", hint: "Ready-to-file remittances" },
     ],
   },
   {
     title: "Other",
     items: [
-      { label: "Add user", to: "/admin/administration/users?create=user" },
-      { label: "Report a problem", to: "/admin/administration/support?create=ticket", action: "create" },
-      { label: "Edit approval workflows", to: "/admin/maintenance/rules", action: "edit" },
-      { label: "View HR report", to: "/admin/reports/hr" },
-      { label: "View attendance report", to: "/admin/reports/attendance" },
+      { label: "Add user", to: "/admin/administration/users?create=user", hint: "Give someone a login" },
+      { label: "Report a problem", to: "/admin/administration/support?create=ticket", action: "create", hint: "Send a ticket to support" },
+      { label: "Edit approval workflows", to: "/admin/maintenance/rules", action: "edit", hint: "Who approves what" },
+      { label: "View HR report", to: "/admin/reports/hr", hint: "Head count, hires and leavers" },
+      { label: "View attendance report", to: "/admin/reports/attendance", hint: "Present, absent and late" },
     ],
   },
 ];
@@ -289,7 +289,8 @@ export function AdminLayout() {
         </>
       }
     >
-      <SeatNotice />
+      {/* Only on Home: on other pages a corner card can cover a form's buttons, and the top-bar pill is always there. */}
+      {pathname === "/admin" && <SeatNotice />}
       {allowed(pathname) ? <Outlet /> : pathname === "/admin" && groups[0] ? <Navigate to={groups[0].items[0]!.children?.[0]?.to ?? groups[0].items[0]!.to} replace /> : <NoAccess />}
     </RolePage>
   );

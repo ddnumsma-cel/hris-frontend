@@ -1,6 +1,8 @@
 import type { SVGProps } from "react";
 import {
   Copy,
+  SquarePen,
+  Power,
   RefreshCw,
   Megaphone,
   Eye,
@@ -255,12 +257,21 @@ export function BarChartIcon(props: IconProps) {
   return <BarChart3 strokeWidth={strokeWidth} {...props} />;
 }
 
+/** The Start menu's button: a pen over a page. */
+export function ComposeIcon(props: IconProps) {
+  return <SquarePen strokeWidth={strokeWidth} {...props} />;
+}
+
 export function EditIcon(props: IconProps) {
   return <Pencil strokeWidth={strokeWidth} {...props} />;
 }
 
 export function TrashIcon(props: IconProps) {
   return <Trash2 strokeWidth={strokeWidth} {...props} />;
+}
+
+export function PowerIcon(props: IconProps) {
+  return <Power strokeWidth={strokeWidth} {...props} />;
 }
 
 export function UserMinusIcon(props: IconProps) {

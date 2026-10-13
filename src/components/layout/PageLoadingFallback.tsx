@@ -50,7 +50,7 @@ export function PageLoadingFallback() {
       <aside
         aria-hidden="true"
         className={clsx(
-          "sidebar sidebar-desktop hidden sm:sticky sm:top-0 sm:-mt-[var(--topbar-h)] sm:flex sm:h-dvh sm:w-[var(--sidenav-w)] sm:flex-none sm:flex-col sm:self-start sm:overflow-hidden sm:border-r sm:border-[var(--sb-border)]",
+          "sidebar sidebar-desktop hidden sm:sticky sm:top-0 sm:-mt-[var(--topbar-h)] sm:-mb-4 sm:flex sm:h-dvh sm:w-[var(--sidenav-w)] sm:flex-none sm:flex-col sm:self-start sm:overflow-hidden sm:border-r sm:border-[var(--sb-border)]",
           collapsed && "sidebar-collapsed",
           rail && "sidebar-rail",
         )}
