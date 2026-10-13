@@ -16,7 +16,7 @@ export interface Col<T> {
 }
 
 /** Plain table with 8 rows per page and Previous / Next. */
-export function SimpleTable<T>({ cols, rows, rowKey, empty, loading }: { cols: Col<T>[]; rows: T[]; rowKey: (r: T) => string; empty: string; loading?: boolean }) {
+export function SimpleTable<T>({ cols, rows, rowKey, empty, loading, pageSize = PAGE_SIZE }: { cols: Col<T>[]; rows: T[]; rowKey: (r: T) => string; empty: string; loading?: boolean; pageSize?: number }) {
   const [page, setPage] = useState(0);
   // A new filter result starts again from the first page.
   const [seen, setSeen] = useState(rows.length);
@@ -24,9 +24,9 @@ export function SimpleTable<T>({ cols, rows, rowKey, empty, loading }: { cols: C
     setSeen(rows.length);
     setPage(0);
   }
-  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   const current = Math.min(page, pages - 1);
-  const shown = rows.slice(current * PAGE_SIZE, current * PAGE_SIZE + PAGE_SIZE);
+  const shown = rows.slice(current * pageSize, current * pageSize + pageSize);
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface">
@@ -69,7 +69,7 @@ export function SimpleTable<T>({ cols, rows, rowKey, empty, loading }: { cols: C
         </table>
       </div>
       <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-2 text-xs text-ink-2">
-        <span>{rows.length ? `${current * PAGE_SIZE + 1}–${Math.min(rows.length, current * PAGE_SIZE + PAGE_SIZE)} of ${rows.length}` : "0 results"}</span>
+        <span>{rows.length ? `${current * pageSize + 1}–${Math.min(rows.length, current * pageSize + pageSize)} of ${rows.length}` : "0 results"}</span>
         <span className="flex gap-1.5">
           <button type="button" onClick={() => setPage(current - 1)} disabled={current === 0} className="h-8 rounded-lg border border-border px-3 font-medium enabled:hover:border-ink-3 disabled:opacity-40">
             Previous

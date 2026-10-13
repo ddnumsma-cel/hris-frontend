@@ -44,7 +44,7 @@ const newHire = () => {
   n++;
   return {
     personal: { firstName: "Test", middleName: "", lastName: `Hire ${n}`, suffix: "", birthDate: "1995-01-01", sex: "" as const, civilStatus: "" as const, nationality: "Filipino" },
-    contact: { workEmail: `test.hire${n}@msma.ph`, personalEmail: `hire${n}@mail.com`, mobile: "09171234567", address: "1 Test St", city: "Cebu City", province: "Cebu", emergencyName: "Kin", emergencyRelationship: "Parent", emergencyPhone: "09171234568" },
+    contact: { workEmail: `test.hire${n}@msma.ph`, personalEmail: `hire${n}@mail.com`, mobile: `0917${String(1000000 + n).slice(-7)}`, address: "1 Test St", city: "Cebu City", province: "Cebu", emergencyName: "Kin", emergencyRelationship: "Parent", emergencyPhone: `0918${String(1000000 + n).slice(-7)}` },
     government: { sss: "1234567890", philhealth: "", pagibig: "", tin: "" },
     job: { cluster: "RPM", positionId: position.id, teamId: "", supervisorId: "", employmentType: "Regular" as const, dateHired: "2026-10-01", monthlySalary: 25000, workSchedule: "Mon–Fri", shiftId: "" },
   };

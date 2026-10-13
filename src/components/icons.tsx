@@ -2,6 +2,7 @@ import type { SVGProps } from "react";
 import {
   Copy,
   SquarePen,
+  Power,
   RefreshCw,
   Megaphone,
   Eye,
@@ -267,6 +268,10 @@ export function EditIcon(props: IconProps) {
 
 export function TrashIcon(props: IconProps) {
   return <Trash2 strokeWidth={strokeWidth} {...props} />;
+}
+
+export function PowerIcon(props: IconProps) {
+  return <Power strokeWidth={strokeWidth} {...props} />;
 }
 
 export function UserMinusIcon(props: IconProps) {

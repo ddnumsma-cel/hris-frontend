@@ -18,6 +18,9 @@ export interface OrgUnit {
   headEmployeeId?: string;
   /** Branches only. */
   address?: string;
+  /** Branches only: who to call at the office. */
+  contactName?: string;
+  contactPhone?: string;
   active: boolean;
 }
 
@@ -177,4 +180,4 @@ export interface AuditEntry {
 }
 
 /** Who an emergency contact person is to the employee (the Relationship dropdown). */
-export const EMERGENCY_RELATIONSHIPS = ["Spouse", "Partner", "Parent", "Child", "Sibling", "Relative", "Guardian", "Friend", "Other"] as const;
+export const EMERGENCY_RELATIONSHIPS = ["Spouse", "Parent", "Child", "Sibling", "Partner", "Relative", "Guardian", "Friend", "Other"] as const;

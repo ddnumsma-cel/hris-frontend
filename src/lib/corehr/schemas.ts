@@ -50,7 +50,7 @@ export const personalSchema = z.object({
 const phone = z
   .string()
   .trim()
-  .refine((s) => !s || /^(\+?63|0)?9\d{9}$/.test(s.replace(/[\s-]/g, "")), "Use a PH mobile number, e.g. 0917 123 4567");
+  .refine((s) => !s || /^09\d{9}$/.test(s.replace(/[\s-]/g, "")), "Use an 11-digit PH mobile number, e.g. 0917 123 4567");
 
 /** 0917 123 4567, +63 917 123 4567 and 639171234567 are the same number. */
 const samePhone = (a: string, b: string) => {
@@ -63,7 +63,8 @@ const requiredPhone = (label: string) => phone.refine((s) => s.length > 0, `${la
 
 /** A new hire must have full contact details; existing records may still have gaps. */
 /** Every contact detail is required, both when hiring and when editing later. */
-export const contactSchema = z.object({
+export const contactSchema = z
+  .object({
   workEmail: z.string().trim().min(1, "Work email is required").email("Enter a valid email"),
   personalEmail: z.string().trim().min(1, "Personal email is required").email("Enter a valid email"),
   mobile: requiredPhone("Mobile number"),
@@ -73,10 +74,9 @@ export const contactSchema = z.object({
   emergencyName: required("Emergency contact person"),
   emergencyRelationship: required("Relationship"),
   emergencyPhone: requiredPhone("Emergency phone"),
-}).refine((c) => !c.emergencyPhone || !c.mobile || samePhone(c.emergencyPhone, c.mobile) === false, {
-  path: ["emergencyPhone"],
-  message: "This is the same as the mobile number above. Please enter a different number.",
-});
+  })
+  // People tend to type their own number twice.
+  .refine((c) => !c.mobile || !c.emergencyPhone || !samePhone(c.emergencyPhone, c.mobile), { path: ["emergencyPhone"], message: "Use someone else's number, not the employee's own mobile" });
 export const newHireContactSchema = contactSchema;
 
 /** At least one government number, so payroll and remittances can start. */

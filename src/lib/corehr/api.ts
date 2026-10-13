@@ -242,12 +242,28 @@ export async function importEmployees(rows: NewEmployeeValues[], actor: string):
 }
 
 /**
+ * Emails and mobile number someone else on record already uses (work or personal email, either way
+ * round). Empty when all are free. The database also refuses a taken work email or mobile.
+ */
+export function contactTaken(c: { workEmail: string; personalEmail: string; mobile: string }, exceptId?: string) {
+  const others = state.employees.filter((e) => e.id !== exceptId);
+  const emails = new Set(others.flatMap((e) => [e.contact.workEmail, e.contact.personalEmail]).filter(Boolean).map((x) => x.trim().toLowerCase()));
+  const digits = (s: string) => s.replace(/\D/g, "");
+  const mobiles = new Set(others.map((e) => digits(e.contact.mobile)).filter(Boolean));
+  const taken: { field: "workEmail" | "personalEmail" | "mobile"; message: string }[] = [];
+  if (c.workEmail && emails.has(c.workEmail.trim().toLowerCase())) taken.push({ field: "workEmail", message: "Another employee already uses this email" });
+  if (c.personalEmail && emails.has(c.personalEmail.trim().toLowerCase())) taken.push({ field: "personalEmail", message: "Another employee already uses this email" });
+  if (c.mobile && mobiles.has(digits(c.mobile))) taken.push({ field: "mobile", message: "Another employee already uses this mobile number" });
+  return taken;
+}
+
+/**
  * Adds one validated employee and saves, all in one synchronous step: the seat check and the
  * save can't be split by another request. Throws on any problem.
  */
 function addEmployee(v: NewEmployeeValues, actor: string, scannedId?: ScannedGovernmentId): CoreEmployee {
-  const email = v.contact.workEmail.toLowerCase();
-  if (state.employees.some((e) => e.contact.workEmail.toLowerCase() === email)) throw new Error("Another employee already uses that work email");
+  const taken = contactTaken(v.contact)[0];
+  if (taken) throw new Error(taken.message);
   const position = positionById(v.job.positionId);
   if (!position?.active) throw new Error("That position isn't available");
   if (holdersOf(position.id).length >= position.slots) throw new Error(`${position.title} has no opening. Open the job on the Company page and add room for one more person first.`);

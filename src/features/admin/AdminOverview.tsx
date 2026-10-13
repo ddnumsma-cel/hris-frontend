@@ -5,7 +5,6 @@ import { ContentHead } from "@/components/layout/RolePage";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Chip, type ChipVariant } from "@/components/ui/Chip";
 import { StatTile } from "@/components/ui/StatTile";
-import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
   BentoArea,
@@ -22,7 +21,6 @@ import { useToast } from "@/components/ui/ToastContext";
 import {
   BellIcon,
   DownloadIcon,
-  UserPlusIcon,
   UsersIcon,
 } from "@/components/icons";
 import {
@@ -41,7 +39,6 @@ import { formatToday } from "@/lib/format";
 import { listDays } from "@/lib/timekeeping/api";
 import { headcountByDepartment } from "@/lib/homeFigures";
 import { useCan } from "@/lib/useCan";
-import { AddEmployeeDialog } from "./AddEmployeeDialog";
 import { HeadcountChart, RecentlyJoined } from "./HeadcountChart";
 import { PostAnnouncementDialog } from "./PostAnnouncementDialog";
 import { useCreateParam } from "@/lib/useCreateParam";
@@ -55,10 +52,8 @@ const complianceVariant: Record<string, ChipVariant> = {
 export function AdminOverview() {
   const navigate = useNavigate();
   const toast = useToast();
-  const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
   // Home actions follow the access matrix: adding people, posting announcements, exporting reports.
-  const canAddEmployee = useCan("create", "people");
   const canAnnounce = useCan("create", "announcements");
   const canExport = useCan("view", "analytics");
   useCreateParam("announcement", () => canAnnounce && setAnnouncementOpen(true));
@@ -101,15 +96,6 @@ export function AdminOverview() {
       <ContentHead
         title="People Operations — MSMA Group"
         subtitle={`All offices${headcountQuery.data?.length ? ` · ${headcountQuery.data.map((o) => o.office).join(", ")}` : ""} · ${formatToday()}`}
-        actions={
-          <>
-            {canAddEmployee && (
-              <Button icon={<UserPlusIcon className="h-3.75 w-3.75" />} onClick={() => setAddEmployeeOpen(true)}>
-                Add employee
-              </Button>
-            )}
-          </>
-        }
       />
 
       <div className="bento bento-admin">
@@ -281,11 +267,6 @@ export function AdminOverview() {
         </BentoArea>
       </div>
 
-      <AddEmployeeDialog
-        open={addEmployeeOpen}
-        onClose={() => setAddEmployeeOpen(false)}
-        onSubmitted={() => toast.show("New employee added to the directory.")}
-      />
 
       <PostAnnouncementDialog
         open={announcementOpen}
