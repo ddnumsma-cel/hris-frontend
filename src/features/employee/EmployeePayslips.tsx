@@ -33,14 +33,14 @@ function lines(p: MyPayslip) {
   return {
     earnings: [
       ["Basic pay", l.basic],
-      ...(l.overtime ? [["Overtime", l.overtime] as const] : []),
+      ...(l.overtime ? [[l.pay?.otMeal ? "Overtime and OT meal" : "Overtime", l.overtime] as const] : []),
       ...(l.premiums ? [["Holiday and night pay", l.premiums] as const] : []),
-      ...(l.deductions ? [["Less absences and undertime", -l.deductions] as const] : []),
+      ...(l.deductions ? [["Less absences, lates and undertime", -l.deductions] as const] : []),
       // Taxable allowances or corrections added on the run are part of gross pay.
       ...p.items.filter((i) => i.taxable).map((i) => [i.label, i.amount] as const),
     ] as [string, number][],
     // Added or taken after tax: reimbursements, non-taxable allowances, loan installments.
-    afterTax: p.items.filter((i) => !i.taxable).map((i) => [i.label, i.amount] as [string, number]),
+    afterTax: [...(l.pay?.transportAllowance ? [["Transport allowance", l.pay.transportAllowance] as [string, number]] : []), ...p.items.filter((i) => !i.taxable).map((i) => [i.label, i.amount] as [string, number])],
     deductions: [
       ["SSS", l.sssEe],
       ["PhilHealth", l.phEe],

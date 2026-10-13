@@ -88,7 +88,8 @@ import { getExpiringPersonnelFields } from "./automation";
 import { getCredential, getCredentials, setCredential } from "./credentials";
 import { buildEmployeeFileRecords } from "./employmentRecords";
 import { teamReports, type ReportId } from "./reportsData";
-import { deny } from "./session";
+import { deny, sessionWho } from "./session";
+import { isFaceEnrolled, markFaceEnrolled } from "./faceId";
 import { tellAssigned, tellEmployees } from "./requestNotices";
 import { fileCertificate } from "./certificates";
 import { assertSeatsAvailable } from "./subscription/api";
@@ -109,8 +110,11 @@ function delay<T>(value: T): Promise<T> {
 
 // ---- Employee ----
 
+/** The signed-in employee's record id (the demo record when the account has none). */
+const myEmployeeId = () => sessionWho().employeeId ?? currentEmployee.id;
+
 export function fetchCurrentEmployee() {
-  return delay(currentEmployee);
+  return delay({ ...currentEmployee, faceEnrolled: isFaceEnrolled(myEmployeeId()) });
 }
 
 export function fetchLeaveBalances() {
@@ -185,9 +189,8 @@ export async function updateEmployeeProfile(input: UpdateProfileInput): Promise<
 }
 
 export async function enrollFaceId(): Promise<Employee> {
-  const next = { ...currentEmployee, faceEnrolled: true };
-  setCurrentEmployee(next);
-  return delay(next);
+  markFaceEnrolled(myEmployeeId());
+  return delay({ ...currentEmployee, faceEnrolled: true });
 }
 
 export function fetchMyAssets() {
@@ -533,6 +536,16 @@ export function fetchTeamTrainingRecords() {
   if (denied) return denied;
   const teamNames = new Set(teamRosterFromCore().map((m) => m.name));
   return delay(trainingRecords.filter((t) => teamNames.has(t.employeeName)));
+}
+
+/** An employee moving their own training forward (started, completed); never back, never someone else's. */
+export async function updateMyTrainingStatus(id: string, status: Exclude<TrainingStatus, "Not started">) {
+  const t = trainingRecords.find((x) => x.id === id && x.employeeName === currentEmployee.name);
+  if (!t) return Promise.reject(new Error("That training isn't assigned to you"));
+  if (t.status === "Completed") return delay(t);
+  const next = trainingRecords.map((x) => (x.id === id ? { ...x, status } : x));
+  setTrainingRecords(next);
+  return delay(next.find((x) => x.id === id)!);
 }
 
 export async function updateTrainingStatus(id: string, status: TrainingStatus) {

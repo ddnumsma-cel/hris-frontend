@@ -42,7 +42,7 @@ export function RulesPage() {
 
   return (
     <>
-      <ContentHead title="Rules" subtitle="Company policies, and the leave, scheduling and approval rules that apply to everyone." />
+      <ContentHead title="Rules" />
       <CompanyPolicies />
       <div className="grid gap-4 md:grid-cols-2">
         <RuleCard

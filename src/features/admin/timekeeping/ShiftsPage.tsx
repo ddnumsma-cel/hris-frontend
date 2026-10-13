@@ -21,7 +21,7 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 function ShiftDialog({ shift, onClose }: { shift?: ShiftTemplate; onClose: () => void }) {
   const toast = useToast();
   const queryClient = useQueryClient();
-  const [v, setV] = useState(shift ?? { name: "", start: "08:30", end: "17:00", breakMinutes: schedulingRules().defaultBreakMinutes, breakStart: "12:00", graceMinutes: 5, restDays: [0, 6] });
+  const [v, setV] = useState<Omit<ShiftTemplate, "id" | "active"> & { id?: string }>(shift ?? { name: "", start: "08:30", end: "17:00", breakMinutes: schedulingRules().defaultBreakMinutes, breakStart: "12:00", graceMinutes: 5, restDays: [0, 6] });
   const save = useMutation({
     mutationFn: () => saveShift(v),
     onSuccess: (s) => {
@@ -87,6 +87,11 @@ function ShiftDialog({ shift, onClose }: { shift?: ShiftTemplate; onClose: () =>
             })}
           </div>
         </fieldset>
+        {!v.restDays.includes(6) && (
+          <Field id="s-sat" label="Saturday ends at" hint="For a six-day week: Saturday is shorter, with no lunch break. Leave blank to work the full shift.">
+            <input id="s-sat" type="time" className={inputClass} value={v.saturdayEnd ?? ""} onChange={(e) => setV({ ...v, saturdayEnd: e.target.value || undefined })} />
+          </Field>
+        )}
         <ErrorNote error={save.error} />
         <button type="submit" hidden />
       </form>
@@ -108,7 +113,6 @@ export function ShiftsPage() {
     <>
       <ContentHead
         title="Shifts"
-        subtitle="The shift types your company uses. Lateness, undertime and overtime are measured against these."
         actions={
           <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEditing("new")}>
             Add shift
@@ -122,7 +126,7 @@ export function ShiftsPage() {
         empty="No shifts yet. Add your first shift."
         cols={[
           { header: "Shift", cell: (s) => <span className="font-medium">{s.name}</span> },
-          { header: "Time", cell: (s) => `${hhmm(s.start)} – ${hhmm(s.end)}${isOvernight(s) ? " (next day)" : ""}` },
+          { header: "Time", cell: (s) => `${hhmm(s.start)} – ${hhmm(s.end)}${isOvernight(s) ? " (next day)" : ""}${s.saturdayEnd ? ` · Sat until ${hhmm(s.saturdayEnd)}` : ""}` },
           { header: "Working hours", cell: (s) => `${shiftHours(s)} h` },
           { header: "Lunch break", cell: (s) => (s.breakMinutes > 0 ? `${hhmm(s.breakStart)} – ${hhmm(addMinutes(s.breakStart, s.breakMinutes))}` : "None") },
           { header: "Late after", cell: (s) => `${s.graceMinutes} min` },

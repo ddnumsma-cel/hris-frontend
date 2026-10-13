@@ -12,9 +12,9 @@ import { LoginHero } from "./LoginHero";
 
 const RegisterDialog = lazy(() => import("./RegisterDialog").then((m) => ({ default: m.RegisterDialog })));
 
-/** Fields on the navy page: see-through white with a sky edge when focused. */
-const fieldClass = "flex items-center gap-2 rounded-[var(--radius-pill)] border border-white/15 bg-white/[0.08] px-4 py-2.5 transition-colors focus-within:border-[var(--sky)] focus-within:bg-white/[0.12]";
-const inputClass = "w-full bg-transparent text-sm text-white outline-none placeholder:text-white/45";
+/** Fields: see-through on the navy page (dark), white on the pale page (light), with a sky edge when focused. */
+const fieldClass = "flex items-center gap-2 rounded-[var(--radius-pill)] border border-[var(--login-line)] bg-[var(--login-field)] px-4 py-2.5 transition-colors focus-within:border-[var(--sky)] focus-within:bg-[var(--login-field-focus)]";
+const inputClass = "w-full bg-transparent text-sm text-[var(--login-ink)] outline-none placeholder:text-[var(--login-ink-3)]";
 
 export function LoginPage() {
   const { user, login } = useAuth();
@@ -50,29 +50,29 @@ export function LoginPage() {
   }
 
   return (
-    // One navy page: the welcome panel on the left, the sign-in card in dark glass on the right.
+    // One page (navy in dark mode, pale in light): the welcome panel on the left, the sign-in card in dark glass on the right.
     <>
     {/* Outside the panel: the panel's children are layered for the glow, which would undo position: fixed. */}
-    <ThemeToggle className="fixed right-4 top-4 z-50 border border-white/15 bg-white/10 text-white hover:bg-white/15" />
-    <div className="login-hero grid min-h-screen grid-cols-1 bg-brand-dark text-white lg:grid-cols-2">
+    <ThemeToggle className="fixed right-4 top-4 z-50 border border-[var(--login-line)] bg-[var(--login-card)] text-[var(--login-ink)] hover:bg-[var(--login-field-focus)]" />
+    <div className="login-hero grid min-h-screen grid-cols-1 bg-[var(--login-bg)] text-[var(--login-ink)] lg:grid-cols-2">
 
       <LoginHero />
 
       <div className="flex items-center justify-center px-4 py-6 lg:py-10">
-        <div className="panel-enter w-full max-w-md rounded-[var(--radius-panel)] border border-white/15 bg-white/[0.06] shadow-[0_24px_60px_-24px_color-mix(in_srgb,black_60%,transparent)] backdrop-blur-[var(--blur-panel)]">
+        <div className="panel-enter w-full max-w-md rounded-[var(--radius-panel)] border border-[var(--login-line)] bg-[var(--login-panel)] shadow-[0_24px_60px_-24px_var(--login-shadow)] backdrop-blur-[var(--blur-panel)]">
           <div className="p-8">
             <div className="mb-6 text-center">
               <div className="font-display text-2xl font-semibold">Sign in</div>
-              <div className="mt-1 text-sm text-white/65">Sign in with your MSMA account</div>
+              <div className="mt-1 text-sm text-[var(--login-ink-2)]">Sign in with your MSMA account</div>
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div>
-                <label htmlFor="login-username" className="mb-1.5 ml-4 block text-xs font-medium text-white/70">
+                <label htmlFor="login-username" className="mb-1.5 ml-4 block text-xs font-medium text-[var(--login-ink-2)]">
                   Username
                 </label>
                 <div className={fieldClass}>
-                  <PersonIcon className="h-4 w-4 flex-none text-white/50" />
+                  <PersonIcon className="h-4 w-4 flex-none text-[var(--login-ink-3)]" />
                   <input
                     id="login-username"
                     type="text"
@@ -89,11 +89,11 @@ export function LoginPage() {
               </div>
 
               <div>
-                <label htmlFor="login-password" className="mb-1.5 ml-4 block text-xs font-medium text-white/70">
+                <label htmlFor="login-password" className="mb-1.5 ml-4 block text-xs font-medium text-[var(--login-ink-2)]">
                   Password
                 </label>
                 <div className={fieldClass}>
-                  <LockIcon className="h-4 w-4 flex-none text-white/50" />
+                  <LockIcon className="h-4 w-4 flex-none text-[var(--login-ink-3)]" />
                   <input
                     id="login-password"
                     type="password"
@@ -107,7 +107,7 @@ export function LoginPage() {
                     className={inputClass}
                   />
                 </div>
-                {error && <p className="mt-2 rounded-[var(--radius-control)] border border-white/20 bg-white/10 px-3 py-2 text-xs font-medium text-white">{error}</p>}
+                {error && <p className="mt-2 rounded-[var(--radius-control)] border border-[var(--login-line)] bg-[var(--login-card)] px-3 py-2 text-xs font-medium text-[var(--login-ink)]">{error}</p>}
               </div>
 
               <Button type="submit" className="h-11 w-full justify-center rounded-[var(--radius-pill)]">
@@ -115,21 +115,21 @@ export function LoginPage() {
               </Button>
             </form>
 
-            <p className="mt-4 text-center text-xs text-white/70">
+            <p className="mt-4 text-center text-xs text-[var(--login-ink-2)]">
               New hire?{" "}
-              <button type="button" onClick={() => setRegisterOpen(true)} className="font-semibold text-[var(--sky)] underline-offset-2 hover:underline">
+              <button type="button" onClick={() => setRegisterOpen(true)} className="font-semibold text-[var(--login-link)] underline-offset-2 hover:underline">
                 Register your account
               </button>
             </p>
 
             {/* Demo logins stay out of sight unless someone opens them. */}
-            <details className="mt-5 rounded-[var(--radius-dropdown)] bg-white/5 px-3.5 py-3 text-xs">
-              <summary className="cursor-pointer font-semibold text-white/70 select-none">Demo accounts — tap to fill</summary>
+            <details className="mt-5 rounded-[var(--radius-dropdown)] bg-[var(--login-hover)] px-3.5 py-3 text-xs">
+              <summary className="cursor-pointer font-semibold text-[var(--login-ink-2)] select-none">Demo accounts — tap to fill</summary>
               <div className="mt-1.5 flex flex-col gap-1">
                 {getCredentials().filter((c) => c.listed !== false).map((c) => (
-                  <button key={c.username} type="button" onClick={() => quickFill(c.username, c.password)} className="flex items-center justify-between rounded-md px-1.5 py-1 text-left transition-colors hover:bg-white/10">
-                    <span className="text-white/70">{c.label}</span>
-                    <span className="font-num text-white/50">
+                  <button key={c.username} type="button" onClick={() => quickFill(c.username, c.password)} className="flex items-center justify-between rounded-md px-1.5 py-1 text-left transition-colors hover:bg-[var(--login-hover)]">
+                    <span className="text-[var(--login-ink-2)]">{c.label}</span>
+                    <span className="font-num text-[var(--login-ink-3)]">
                       {c.username} / {c.password}
                     </span>
                   </button>

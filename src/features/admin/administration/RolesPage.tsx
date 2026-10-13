@@ -24,7 +24,7 @@ export function RolesPage() {
 
   return (
     <>
-      <ContentHead title="Roles & access" subtitle="The six roles and what each can do. Roles are fixed; give them to people on the Users page." />
+      <ContentHead title="Roles & access" />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {ROLES.map((r) => (
           <div key={r} className="rounded-xl border border-border bg-surface p-4">

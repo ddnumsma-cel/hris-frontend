@@ -14,7 +14,8 @@ import { tellAssigned, tellEmployees } from "../requestNotices";
 import { outstandingLoans, settleLoans } from "./loans";
 import { loadCases, saveCases, type FinalPayCase, type FinalPayItem } from "./finalPayStore";
 import { approvedRuns } from "./runs";
-import { annualTax, cutoffsOf, yearToDate } from "./yearend";
+import { annualTax, yearToDate } from "./yearend";
+import { cutoffOf } from "./settings";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -39,7 +40,7 @@ export async function computeFinalPay(employeeId: string, lastDay: string): Prom
   const salary = e.job.monthlySalary;
   const daily = (salary * 12) / WORKING_DAYS_PER_YEAR;
   const year = Number(lastDay.slice(0, 4));
-  const cutoff = cutoffsOf(year).find((c) => c.from <= lastDay && c.to >= lastDay)!;
+  const cutoff = cutoffOf(lastDay);
   const notes: string[] = [];
   const items: FinalPayItem[] = [];
 

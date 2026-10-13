@@ -5,9 +5,12 @@ import { filterNav, useCreateAllowed, usePageAllowed } from "@/features/admin/ad
 import { RolePage } from "@/components/layout/RolePage";
 import { AppNav } from "@/components/layout/AppNav";
 import { BottomTabs } from "@/components/layout/BottomTabs";
+import { FaceIdPrompt } from "./FaceIdPrompt";
 import { SideNav, type CreateGroup, type SideNavGroup } from "@/components/layout/SideNav";
 import {
   CalendarIcon,
+  ClockIcon,
+  LogOutIcon,
   CheckSquareIcon,
   AttendanceIcon,
   FileIcon,
@@ -41,6 +44,8 @@ const GROUPS: SideNavGroup[] = [
       { label: "Certificates", to: "/employee/certificates", icon: <FileIcon /> },
       { label: "Reimbursements", to: "/employee/reimbursements", icon: <ReceiptIcon /> },
       { label: "HMO & Benefits", to: "/employee/benefits", icon: <UsersIcon /> },
+      { label: "Overtime", to: "/employee/overtime", icon: <ClockIcon /> },
+      { label: "Undertime", to: "/employee/undertime", icon: <LogOutIcon /> },
     ],
   },
 ];
@@ -52,7 +57,9 @@ const CREATE: CreateGroup[] = [
     items: [
       { label: "File leave", to: "/employee/leave?create=leave" },
       { label: "View leave balance", to: "/employee/leave" },
-      { label: "Request attendance fix", to: "/employee/attendance" },
+      { label: "Request overtime", to: "/employee/overtime?create=overtime" },
+      { label: "Request undertime", to: "/employee/undertime?create=undertime" },
+      { label: "Request attendance fix", to: "/employee/attendance?create=adjustment" },
     ],
   },
   {
@@ -105,6 +112,7 @@ export function EmployeeLayout() {
       }
     >
       {allowed(pathname) ? <Outlet /> : <NoAccess />}
+      <FaceIdPrompt />
     </RolePage>
   );
 }

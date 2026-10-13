@@ -97,7 +97,6 @@ export function DocumentChecklist({ employeeId, employeeName, columns = 2, onOpe
           );
         })}
       </ul>
-      <p className="text-xs text-ink-3">Click a document to upload it, check it against the original, or send it back.</p>
       {!onOpen && open && <DocumentDrawer key={open.id + open.status} document={open} employeeName={employeeName} onClose={() => setOpenId(null)} />}
     </div>
   );

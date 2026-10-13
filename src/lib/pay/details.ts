@@ -3,6 +3,7 @@
 
 import { fullName, state } from "../corehr/store";
 import { deny } from "../session";
+import { payProfileOf, type PayProfile } from "./settings";
 
 export interface PayDetail {
   id: string;
@@ -20,6 +21,8 @@ export interface PayDetail {
   philhealth: string;
   pagibig: string;
   bank?: { bank: string; accountName: string; accountNumber: string };
+  /** Work week, allowances and tax-free pay (Payroll settings). */
+  profile: PayProfile;
   /** Government numbers payroll can't remit or withhold without. */
   missing: string[];
 }
@@ -65,6 +68,7 @@ export function listPayDetails(): Promise<PayDetail[]> {
           philhealth: g.philhealth,
           pagibig: g.pagibig,
           bank: e.bank,
+          profile: payProfileOf(e.id),
           missing,
         };
       })

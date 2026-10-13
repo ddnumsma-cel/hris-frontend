@@ -10,11 +10,10 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { inputClass, useActor } from "../corehr/format";
 import { ErrorNote, Field, LoadError } from "../corehr/ui";
 
-function Section({ title, hint, children }: { title: string; hint: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-border bg-surface p-4">
-      <h2 className="text-sm font-semibold">{title}</h2>
-      <p className="mb-3 text-xs text-ink-2">{hint}</p>
+      <h2 className="mb-3 text-sm font-semibold">{title}</h2>
       <div className="grid gap-3 sm:grid-cols-2">{children}</div>
     </section>
   );
@@ -41,7 +40,7 @@ function Form({ initial }: { initial: Settings }) {
   return (
     <>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Section title="Company" hint="Shown on printed reports and documents.">
+        <Section title="Company">
           <Field id="s-name" label="Company name" required>
             <input id="s-name" className={inputClass} value={s.companyName} onChange={(e) => set({ companyName: e.target.value })} />
           </Field>
@@ -55,7 +54,7 @@ function Form({ initial }: { initial: Settings }) {
             <input id="s-mail" type="email" className={inputClass} value={s.contactEmail} onChange={(e) => set({ contactEmail: e.target.value })} />
           </Field>
         </Section>
-        <Section title="Sign-in security" hint="Applies to every account. Changes take effect at the next sign-in.">
+        <Section title="Sign-in security">
           <Field id="s-len" label="Minimum password length" hint="At least 8. Used for new and reset passwords.">
             <input id="s-len" min={8} max={64} {...num("minPasswordLength")} />
           </Field>
@@ -88,7 +87,7 @@ export function SystemSettingsPage() {
   if (settings.isError) return <LoadError onRetry={() => settings.refetch()} />;
   return (
     <>
-      <ContentHead title="System settings" subtitle="Company details and sign-in security for everyone who uses the system. Time zone: Philippines (UTC+8)." />
+      <ContentHead title="System settings" />
       {settings.data ? <Form key={JSON.stringify(settings.data)} initial={settings.data} /> : <Skeleton className="h-72 w-full" />}
     </>
   );

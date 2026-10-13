@@ -51,7 +51,7 @@ export function AuditTrailPage() {
 
   return (
     <>
-      <ContentHead title="Audit trail" subtitle="Every sign-in, change and approval, with who did it and when. Entries can't be edited or deleted." />
+      <ContentHead title="Audit trail" />
       <Toolbar>
         <SearchBox value={query} onChange={setQuery} placeholder="Search person or record" />
         <Choice label="Area" value={module} onChange={setModule} options={[{ value: "all", label: "All areas" }, ...["People", "Timekeeping", "Leave", "Payroll", "Administration", "Sign-in", "Settings"].map((m) => ({ value: m, label: m }))]} />

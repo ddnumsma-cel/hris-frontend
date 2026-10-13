@@ -90,7 +90,7 @@ export function LeaveRequestsPage() {
 
   return (
     <>
-      <ContentHead title="Leave requests" subtitle="Approve or reject leave, and file leave for an employee. Days are counted without weekends and holidays." actions={canFileLeave ? <Button onClick={() => setFiling(true)}>File leave</Button> : undefined} />
+      <ContentHead title="Leave requests" actions={canFileLeave ? <Button onClick={() => setFiling(true)}>File leave</Button> : undefined} />
       <Tabs
         value={tab}
         onChange={setTab}

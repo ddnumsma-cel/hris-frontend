@@ -119,12 +119,15 @@ export function getRun(id: string) {
   return r ? respond(r) : fail("That payroll run no longer exists");
 }
 
+const overlaps = (a: { from: string; to: string }, b: { from: string; to: string }) => a.from <= b.to && b.from <= a.to;
+
 /** Cutoffs a new run can be made for: the recent ones without a run yet. */
 export function openCutoffs(): Promise<Period[]> {
   const denied = deny("payrollRuns", "create");
   if (denied) return denied;
   sync();
-  return respond(periodsFor("cutoff").filter((p) => !runs.some((r) => r.from === p.from && r.to === p.to)));
+  // A cut-off that shares days with an existing run (e.g. one made before the paydays changed) is left out, so no day is paid twice.
+  return respond(periodsFor("cutoff").filter((p) => !runs.some((r) => overlaps(r, p))));
 }
 
 /** What should be settled before approving: requests still waiting, and a cutoff that hasn't ended. */
@@ -144,6 +147,8 @@ export async function createRun(period: Period, actor: string): Promise<PayrollR
   if (denied) return denied;
   sync();
   if (runs.some((r) => r.from === period.from && r.to === period.to)) return fail("There's already a payroll run for this cutoff");
+  const clash = runs.find((r) => overlaps(r, period));
+  if (clash) return fail(`These dates overlap the ${clash.label} run, so some days would be paid twice`);
   const now = new Date().toISOString();
   const draft = { label: period.label, from: period.from, to: period.to, adjustments: {} };
   const run: PayrollRun = { id: newId("pr"), ...draft, status: "draft", ...(await compute(draft)), createdBy: actor, createdAt: now, computedAt: now };

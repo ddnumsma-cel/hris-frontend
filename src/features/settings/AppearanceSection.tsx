@@ -29,7 +29,7 @@ export function AppearanceSection() {
 
   return (
     <>
-      <SettingsHeader title="Appearance" description="How HeyHR looks and moves for you." />
+      <SettingsHeader title="Appearance" />
 
       <SettingsCard>
         <SettingsRow label="Theme" help="System follows your device's light or dark setting.">

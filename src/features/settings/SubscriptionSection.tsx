@@ -50,7 +50,7 @@ export function SubscriptionSection() {
 
   return (
     <>
-      <SettingsHeader title="Subscription" description={canUpgrade ? "Your plan and how much of it you use. Ask for an upgrade when you need more room." : "Your company's plan and how much of it is used. Only a Super Admin can request an upgrade."} />
+      <SettingsHeader title="Subscription" />
       <SettingsCard title={`${u.planName} plan`} description={`Renews ${fmtDay(u.renewalDate)}.`}>
         <SettingsRow label="Employee seats" help={`Active employees (on leave and suspended count; separated don't). ${seatsNote(u)}`}>
           <Meter used={u.seatsUsed} limit={u.seatLimit} status={u.status} />

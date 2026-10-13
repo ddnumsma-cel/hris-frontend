@@ -58,7 +58,7 @@ export function featureForPath(pathname: string): Feature | null {
   if (ws === "employee") {
     if (!seg) return "dashboard";
     if (seg === "leave") return "leave";
-    if (seg === "attendance") return "attendanceRecords";
+    if (seg === "attendance" || seg === "overtime" || seg === "undertime") return "attendanceRecords";
     if (seg === "payslips") return "payrollRuns";
     if (seg === "201-file") return "people";
     if (seg === "certificates" || seg === "benefits") return "selfService";

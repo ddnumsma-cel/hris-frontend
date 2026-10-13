@@ -3,10 +3,10 @@ import clsx from "clsx";
 import { Chip, type ChipVariant } from "@/components/ui/Chip";
 import { CheckCircleIcon, FileIcon } from "@/components/icons";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { AssetsPanel, Avatar, Bar, FacePanel, LicensePanel, RemoveAction, UploadAction } from "./parts";
+import { AssetsPanel, Avatar, Bar, FacePanel, RemoveAction, UploadAction } from "./parts";
 import { linkClass, type File201 } from "./useFile201";
 
-type Tab = "documents" | "license" | "assets" | "face";
+type Tab = "documents" | "assets" | "face";
 
 const tile: Record<ChipVariant, string> = {
   crit: "bg-critical-tint text-critical",
@@ -21,10 +21,8 @@ export function File201View({ f }: { f: File201 }) {
   const [onlyAction, setOnlyAction] = useState(false);
   const e = f.employee;
   const needs = f.docs.filter((d) => d.needsAction).length;
-  const licenseAlert = f.cpd?.status === "Overdue" || f.cpd?.status === "Due soon";
   const tabs: { id: Tab; label: string; badge?: string; alert?: boolean }[] = [
     { id: "documents", label: "Documents", badge: String(f.docs.length), alert: needs > 0 },
-    ...(f.license ? [{ id: "license" as const, label: "License & CPD", badge: licenseAlert ? "!" : undefined, alert: licenseAlert }] : []),
     { id: "assets", label: "Assets", badge: f.assets ? String(f.assets.length) : undefined },
     { id: "face", label: "Face ID", badge: e && !e.faceEnrolled ? "!" : undefined },
   ];
@@ -183,11 +181,6 @@ export function File201View({ f }: { f: File201 }) {
               </div>
             </div>
           </>
-        )}
-        {tab === "license" && (
-          <div className="rounded-2xl border border-border bg-surface p-5">
-            <LicensePanel f={f} />
-          </div>
         )}
         {tab === "assets" && (
           <div className="rounded-2xl border border-border bg-surface p-5">

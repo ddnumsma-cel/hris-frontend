@@ -72,7 +72,7 @@ export function DataSection() {
 
   return (
     <>
-      <SettingsHeader title="Data & privacy" description="Export your company's data, decide how long it's kept, and see who changed what." />
+      <SettingsHeader title="Data & privacy" />
 
       <SettingsCard title="Export data" description="Download as CSV files you can open in Excel or Google Sheets. Exports are recorded in the audit trail.">
         {DATASETS.map((d) => (

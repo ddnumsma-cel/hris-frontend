@@ -156,7 +156,6 @@ export function OrgChartPage() {
     <>
       <ContentHead
         title="Org chart"
-        subtitle="Who reports to whom, from the head of the company down. Click anyone to see their team or change who they report to."
         actions={
           data && (
             <select aria-label="Find someone" className={clsx(inputClass, "h-9 w-56 py-0")} value="" onChange={(e) => e.target.value && setOpenId(e.target.value)}>

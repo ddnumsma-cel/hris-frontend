@@ -142,7 +142,6 @@ export function CompanyPolicies() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">Company policies</h2>
-          <p className="text-[13px] text-ink-2">Publish policies for employees to read, and see who has confirmed reading each one.</p>
         </div>
         {canEdit && (
           <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEditing("new")}>

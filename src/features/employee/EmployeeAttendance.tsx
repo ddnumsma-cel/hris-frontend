@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { ApproverNote } from "./ApproverNote";
+import { TimeRequestDialog, type Ask } from "./TimeRequestDialog";
+import { useCreateParam } from "@/lib/useCreateParam";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastContext";
-import { acknowledgeMyNotice, fileMyFix, fileMyTimeRequest, myAttendance, myNotices } from "@/lib/ess/api";
+import { acknowledgeMyNotice, fileMyFix, myAttendance, myNotices } from "@/lib/ess/api";
 import { myWfhDays } from "@/lib/ess/more";
 import { fmtTime } from "@/lib/preferences";
 import type { DayRow } from "@/lib/timekeeping/api";
@@ -20,7 +22,6 @@ import { FIX_CAUSES, clock, dayStatus, duration, hhmm, lunchText, shortDate } fr
 
 const KEY = ["ess", "attendance"] as const;
 
-type Ask = { kind: "overtime" | "undertime"; day: DayRow };
 type Adjust = { date?: string; punch: "in" | "out" };
 
 interface RequestRow {
@@ -34,61 +35,8 @@ interface RequestRow {
   filedAt: string;
 }
 
-const STATUS = { pending: { tone: "warn", label: "Waiting for your manager" }, approved: { tone: "good", label: "Approved" }, declined: { tone: "crit", label: "Declined" } } as const;
+const STATUS = { pending: { tone: "warn", label: "Waiting for your approver" }, approved: { tone: "good", label: "Approved" }, declined: { tone: "crit", label: "Declined" } } as const;
 
-function AskDialog({ ask, onClose }: { ask: Ask; onClose: () => void }) {
-  const toast = useToast();
-  const queryClient = useQueryClient();
-  const max = ask.kind === "overtime" ? ask.day.extraMinutes : ask.day.undertimeMinutes;
-  const [minutes, setMinutes] = useState(max);
-  const [reason, setReason] = useState("");
-  const send = useMutation({
-    mutationFn: () => fileMyTimeRequest({ date: ask.day.date, type: ask.kind, minutes, reason }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ess"] });
-      queryClient.invalidateQueries({ queryKey: ["timekeeping"] });
-      toast.show("Sent to HR. You'll see the answer under My requests.");
-      onClose();
-    },
-  });
-  const title = ask.kind === "overtime" ? "Request overtime" : "Explain leaving early";
-
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={title}
-      dismissOnBackdrop={false}
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button disabled={send.isPending} onClick={() => send.mutate()}>
-            Send to your manager
-          </Button>
-        </div>
-      }
-    >
-      <div className="flex flex-col gap-3">
-        <ApproverNote />
-        <p className="text-sm text-ink-2">
-          {shortDate(ask.day.date)}: {ask.kind === "overtime" ? `you worked ${duration(max)} past your shift.` : `you left ${duration(max)} before your shift ended.`}{" "}
-          {ask.kind === "overtime" ? "It's paid as overtime once your manager approves it." : "Approval excuses it; the time is still unpaid."}
-        </p>
-        {ask.kind === "overtime" && (
-          <Field id="a-min" label="Minutes to claim" hint={`Up to ${max} minutes.`}>
-            <input id="a-min" type="number" min={1} max={max} className={inputClass} value={minutes} onChange={(e) => setMinutes(e.target.valueAsNumber)} />
-          </Field>
-        )}
-        <Field id="a-why" label="Reason" required>
-          <input id="a-why" className={inputClass} value={reason} placeholder={ask.kind === "overtime" ? "e.g. Client deadline" : "e.g. Doctor's appointment"} onChange={(e) => setReason(e.target.value)} />
-        </Field>
-        <ErrorNote error={send.error} />
-      </div>
-    </Dialog>
-  );
-}
 
 /** Asking HR to correct a time-in or time-out the biometrics or the system got wrong. */
 function AdjustDialog({ adjust, days, onClose }: { adjust: Adjust; days: DayRow[]; onClose: () => void }) {
@@ -124,7 +72,7 @@ function AdjustDialog({ adjust, days, onClose }: { adjust: Adjust; days: DayRow[
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ess"] });
       queryClient.invalidateQueries({ queryKey: ["timekeeping"] });
-      toast.show("Sent to HR. You'll see the answer under My requests.");
+      toast.show("Sent for approval. You'll be notified when it's decided.");
       onClose();
     },
   });
@@ -147,7 +95,7 @@ function AdjustDialog({ adjust, days, onClose }: { adjust: Adjust; days: DayRow[
       }
     >
       <div className="flex flex-col gap-3">
-        <ApproverNote />
+        <ApproverNote kind="correction" />
         <p className="text-sm text-ink-2">If the biometrics missed your scan, recorded the wrong time, or the system had a bug, give the correct time. It changes your record only once your manager approves it.</p>
         <div className="grid grid-cols-2 gap-3">
           <Field id="adj-date" label="Work day">
@@ -230,8 +178,9 @@ export function EmployeeAttendance() {
   const wfh = useQuery({ queryKey: ["ess", "wfh-days"], queryFn: myWfhDays, staleTime: 0 });
   const [ask, setAsk] = useState<Ask | null>(null);
   const [adjust, setAdjust] = useState<Adjust | null>(null);
+  useCreateParam("adjustment", () => setAdjust({ punch: "in" }));
 
-  if (data.isError) return <LoadError onRetry={() => data.refetch()} />;
+  if (data.isError) return <LoadError error={data.error} onRetry={() => data.refetch()} />;
 
   const days = data.data?.days ?? [];
   const requests = data.data?.requests ?? [];
@@ -320,7 +269,11 @@ export function EmployeeAttendance() {
     <>
       <ContentHead
         title="Attendance"
-        actions={<Button onClick={() => setAdjust({ punch: "in" })}>Request time adjustment</Button>}
+        actions={
+          <>
+            <Button onClick={() => setAdjust({ punch: "in" })}>Request time adjustment</Button>
+          </>
+        }
       />
       <Notices />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -362,7 +315,7 @@ export function EmployeeAttendance() {
       ) : (
         <SimpleTable rows={rows} rowKey={(r) => r.id} cols={reqCols} loading={data.isLoading} empty="You haven't sent any requests." />
       )}
-      {ask && <AskDialog ask={ask} onClose={() => setAsk(null)} />}
+      {ask && <TimeRequestDialog ask={ask} onClose={() => setAsk(null)} />}
       {adjust && <AdjustDialog adjust={adjust} days={days} onClose={() => setAdjust(null)} />}
     </>
   );

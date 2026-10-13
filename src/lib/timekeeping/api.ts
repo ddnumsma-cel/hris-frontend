@@ -223,7 +223,7 @@ export async function saveShift(input: Omit<ShiftTemplate, "id" | "active"> & { 
   if (input.start === input.end) return fail("Start and end can't be the same time");
   if (input.breakMinutes < 0 || input.breakMinutes > 120) return fail("Break should be between 0 and 120 minutes");
   if (input.breakMinutes > 0) {
-    if (!/^d{2}:d{2}$/.test(input.breakStart)) return fail("Enter when lunch starts");
+    if (!/^\d{2}:\d{2}$/.test(input.breakStart)) return fail("Enter when lunch starts");
     const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
     const len = (mins(input.end) - mins(input.start) + 1440) % 1440 || 1440;
     const into = (mins(input.breakStart) - mins(input.start) + 1440) % 1440;
@@ -231,6 +231,8 @@ export async function saveShift(input: Omit<ShiftTemplate, "id" | "active"> & { 
   }
   if (input.graceMinutes < 0 || input.graceMinutes > 30) return fail("Grace period should be between 0 and 30 minutes");
   if (input.restDays.length === 0) return fail("Pick at least one rest day. Everyone is entitled to a rest day each week.");
+  if (input.saturdayEnd && (!/^\d{2}:\d{2}$/.test(input.saturdayEnd) || input.saturdayEnd <= input.start)) return fail("Saturday has to end after the shift starts");
+  if (input.saturdayEnd && input.restDays.includes(6)) return fail("Saturday is a rest day on this shift. Clear the Saturday end time or make Saturday a workday.");
   if (tk.shifts.some((s) => s.id !== input.id && s.name.toLowerCase() === name.toLowerCase())) return fail("There's already a shift with that name");
   const existing = tk.shifts.find((s) => s.id === input.id);
   const shift: ShiftTemplate = { active: true, ...existing, ...input, name, id: existing?.id ?? newId("sh") };
@@ -343,7 +345,10 @@ export function listRequests() {
   const who = sessionWho();
   if (!can(who, "view", "attendanceRecords")) return forbidden();
   ensureRequests();
-  return respond(visible(who, "attendanceRecords", [...tk.requests], (r) => r.employeeId).sort((a, b) => b.date.localeCompare(a.date)));
+  // Overtime and undertime go straight to the approver: whoever can't decide one (HR, Accounting)
+  // only sees it once it's approved.
+  const shown = visible(who, "attendanceRecords", [...tk.requests], (r) => r.employeeId).filter((r) => r.status === "approved" || r.employeeId === who?.employeeId || canFor(who, "approve", "attendanceRecords", r.employeeId));
+  return respond(shown.sort((a, b) => b.date.localeCompare(a.date)));
 }
 
 export async function decideRequest(id: string, approve: boolean, note: string, actor: string): Promise<TimeRequest> {

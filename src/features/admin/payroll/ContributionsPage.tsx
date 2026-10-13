@@ -231,7 +231,6 @@ export function ContributionsPage() {
     <>
       <ContentHead
         title="Government contributions"
-        subtitle="SSS, PhilHealth, Pag-IBIG and BIR rates that payroll deducts. Saved rates apply right away, or on the date they take effect."
         actions={
           canEdit && current ? (
             <Button icon={<PlusIcon className="h-3.75 w-3.75" />} onClick={() => setAdding(true)}>

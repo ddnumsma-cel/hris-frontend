@@ -206,7 +206,7 @@ export function TardinessPage() {
     <>
       <ContentHead
         title="Tardiness"
-        subtitle={`Minutes late after each shift's grace period (8:30 AM shift, 5 min grace, in at 8:44 AM = 9 min late). ${late.length} late ${late.length === 1 ? "arrival" : "arrivals"}, ${duration(late.reduce((n, d) => n + d.lateMinutes, 0))} in total.`}
+        subtitle={`${late.length} late ${late.length === 1 ? "arrival" : "arrivals"}, ${duration(late.reduce((n, d) => n + d.lateMinutes, 0))} in total`}
         actions={
           canEditRule && rule && (
             <Button variant="ghost" onClick={() => setEditingRule(true)}>
@@ -237,7 +237,6 @@ export function TardinessPage() {
           )}
           <SimpleTable rows={flags} rowKey={(f) => f.person.id} loading={flagsQuery.isLoading} empty={rule && ruleText(rule) === "off" ? "Flags are turned off." : "No one meets the rule right now."} cols={habitualCols} />
           <h2 className="mt-2 font-display text-base font-semibold">AWOL</h2>
-          <p className="-mt-2 text-sm text-ink-2">Absent 3 or more workdays in a row without approved leave, in the last 30 days. Every absent day is deducted from pay; from the 3rd day it counts as AWOL.</p>
           <SimpleTable rows={awol} rowKey={(f) => f.person.id} loading={awolQuery.isLoading} empty="No one is AWOL in the last 30 days." cols={awolCols} />
         </>
       ) : tab === "list" ? (

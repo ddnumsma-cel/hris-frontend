@@ -187,10 +187,12 @@ export function Detail({ label, children, wide }: { label: string; children?: Re
 /** Grid for Detail items: 2 across on phones, up to 4 on wide screens. */
 export const detailGrid = "grid grid-cols-2 gap-x-6 sm:grid-cols-3 xl:grid-cols-4";
 
-export function LoadError({ onRetry }: { onRetry: () => void }) {
+/** Shown when a page's data fails to load. In development the error itself is shown too, so a report says what broke. */
+export function LoadError({ onRetry, error }: { onRetry: () => void; error?: unknown }) {
   return (
     <div className="rounded-xl border border-border bg-surface px-4 py-10 text-center">
       <p className="text-sm font-semibold">Couldn't load this.</p>
+      {import.meta.env.DEV && error != null && <p className="mx-auto mt-1 max-w-xl text-xs break-words text-ink-3">{error instanceof Error ? error.message : String(error)}</p>}
       <button type="button" onClick={onRetry} className="mt-2 text-sm font-medium text-brand-ink underline underline-offset-2">
         Try again
       </button>

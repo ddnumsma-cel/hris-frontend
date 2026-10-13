@@ -7,20 +7,14 @@ import { fullName, state as core } from "../corehr/store";
 import { pagibig, philhealth, round2, sss, THIRTEENTH_MONTH_EXEMPT, withholding } from "../reports/statutory";
 import { deny } from "../session";
 import { approvedRuns } from "./runs";
+import { cutoffsOf } from "./settings";
+
+export { cutoffsOf };
 
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), 250));
-const pad = (n: number) => String(n).padStart(2, "0");
-const lastDay = (y: number, m: number) => new Date(y, m, 0).getDate();
 const dayMs = 86_400_000;
 const days = (from: string, to: string) => Math.round((Date.parse(`${to}T12:00:00`) - Date.parse(`${from}T12:00:00`)) / dayMs) + 1;
 
-/** The 24 semi-monthly cutoffs of a year. */
-export function cutoffsOf(year: number) {
-  return Array.from({ length: 12 }, (_, i) => i + 1).flatMap((m) => [
-    { from: `${year}-${pad(m)}-01`, to: `${year}-${pad(m)}-15` },
-    { from: `${year}-${pad(m)}-16`, to: `${year}-${pad(m)}-${pad(lastDay(year, m))}` },
-  ]);
-}
 
 /** Tax for a whole year: the BIR monthly table × 12 (the TRAIN tables are the annual one ÷ 12). */
 export const annualTax = (taxable: number, on?: string) => round2(withholding(taxable / 12, "monthly", on) * 12);

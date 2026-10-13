@@ -170,7 +170,7 @@ export function LeaveTypesPage() {
 
   return (
     <>
-      <ContentHead title="Leave types" subtitle={`The kinds of leave employees can file. Every paid type shares the same ${LEAVE_CREDITS_PER_YEAR} leaves a year; filing any of them uses 1.`} actions={<Button onClick={() => setEditing(newType())}>Add leave type</Button>} />
+      <ContentHead title="Leave types" actions={<Button onClick={() => setEditing(newType())}>Add leave type</Button>} />
       <SimpleTable rows={typesQuery.data ?? []} rowKey={(t) => t.id} cols={cols} loading={typesQuery.isLoading} empty="No leave types yet." />
       {editing && <TypeDialog initial={editing} onClose={() => setEditing(null)} />}
     </>

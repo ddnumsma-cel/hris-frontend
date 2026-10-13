@@ -103,7 +103,7 @@ export function ReportPage({ category }: { category: Category }) {
 
   return (
     <>
-      <ContentHead title={copy.title} subtitle={copy.subtitle} />
+      <ContentHead title={copy.title} />
       <div className="flex flex-col gap-1.5">
         {reports.length > 1 && (
         <div className="no-scrollbar flex gap-1.5 overflow-x-auto" role="group" aria-label="Report">

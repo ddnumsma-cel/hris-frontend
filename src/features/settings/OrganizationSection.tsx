@@ -88,7 +88,7 @@ export function OrganizationSection() {
 
   return (
     <>
-      <SettingsHeader title="Organization" description="Company details, working time, and sign-in rules for everyone." />
+      <SettingsHeader title="Organization" />
 
       <SettingsCard title="Company" description="Shown on printed reports and documents.">
         <SettingsRow label="Company name" htmlFor="org-companyName" error={show("companyName")}>

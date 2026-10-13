@@ -101,7 +101,6 @@ export function DepartmentsPage() {
     <>
       <ContentHead
         title="Departments"
-        subtitle="The departments in each office. Employees belong to a department or one of its teams."
         actions={
           canAdd ? (
             <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEditing({ name: "", code: "", officeId: "", headEmployeeId: "" })}>

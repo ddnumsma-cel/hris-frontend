@@ -117,6 +117,24 @@
   --danger-text: #a3261f;
   --danger-bg: #fbe4e3;
   --info: #2f6db5;
+
+  /* Sign-in page (light): pale page, white glass, slate text, deep blue links. */
+  --login-bg: #e9eff7;
+  --login-ink: #1e293b;
+  --login-ink-2: #475569;
+  --login-ink-3: #536279;
+  --login-panel: rgba(255, 255, 255, 0.72);
+  --login-card: rgba(255, 255, 255, 0.78);
+  --login-tile: rgba(29, 78, 216, 0.08);
+  --login-field: #ffffff;
+  --login-field-focus: #ffffff;
+  --login-line: rgba(30, 41, 59, 0.14);
+  --login-hover: rgba(30, 41, 59, 0.06);
+  --login-link: #1d4ed8;
+  --login-dot: rgba(30, 41, 59, 0.14);
+  --login-shadow: rgba(30, 41, 59, 0.16);
+  --login-bar: rgba(30, 41, 59, 0.15);
+  --login-mark-bg: #1e293b;
 }
 
 /* Dark mode: OS preference (unless a manual light override is set), or an explicit manual toggle. */
@@ -189,6 +207,24 @@
     --danger-text: #f58c86;
     --danger-bg: #3f2327;
     --info: #9cd3f7;
+
+    /* Sign-in page (dark): navy page, see-through white glass. */
+    --login-bg: #141a22;
+    --login-ink: #ffffff;
+    --login-ink-2: rgba(255, 255, 255, 0.7);
+    --login-ink-3: rgba(255, 255, 255, 0.55);
+    --login-panel: rgba(255, 255, 255, 0.06);
+    --login-card: rgba(255, 255, 255, 0.1);
+    --login-tile: rgba(255, 255, 255, 0.1);
+    --login-field: rgba(255, 255, 255, 0.08);
+    --login-field-focus: rgba(255, 255, 255, 0.12);
+    --login-line: rgba(255, 255, 255, 0.15);
+    --login-hover: rgba(255, 255, 255, 0.1);
+    --login-link: #5ab0f0;
+    --login-dot: rgba(255, 255, 255, 0.16);
+    --login-shadow: rgba(0, 0, 0, 0.55);
+    --login-bar: rgba(255, 255, 255, 0.25);
+    --login-mark-bg: transparent;
   }
 }
 
@@ -260,6 +296,24 @@
   --danger-text: #f58c86;
   --danger-bg: #3f2327;
   --info: #9cd3f7;
+
+  /* Sign-in page (dark): navy page, see-through white glass. */
+  --login-bg: #141a22;
+  --login-ink: #ffffff;
+  --login-ink-2: rgba(255, 255, 255, 0.7);
+  --login-ink-3: rgba(255, 255, 255, 0.55);
+  --login-panel: rgba(255, 255, 255, 0.06);
+  --login-card: rgba(255, 255, 255, 0.1);
+  --login-tile: rgba(255, 255, 255, 0.1);
+  --login-field: rgba(255, 255, 255, 0.08);
+  --login-field-focus: rgba(255, 255, 255, 0.12);
+  --login-line: rgba(255, 255, 255, 0.15);
+  --login-hover: rgba(255, 255, 255, 0.1);
+  --login-link: #5ab0f0;
+  --login-dot: rgba(255, 255, 255, 0.16);
+  --login-shadow: rgba(0, 0, 0, 0.55);
+  --login-bar: rgba(255, 255, 255, 0.25);
+  --login-mark-bg: transparent;
 }
 
 /* Browsers without backdrop-filter: glass becomes nearly opaque so text stays readable. */
@@ -642,13 +696,19 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: radial-gradient(color-mix(in srgb, white 16%, transparent) 1px, transparent 1px);
+  background-image: radial-gradient(var(--login-dot) 1px, transparent 1px);
   background-size: 24px 24px;
   mask-image: radial-gradient(ellipse 65% 55% at 25% 45%, black, transparent 78%);
 }
+/* The MSMA mark is white and lime: in light mode it sits on a small navy tile. */
+.login-mark {
+  background: var(--login-mark-bg);
+  border-radius: var(--radius-logo);
+  padding: 4px 8px;
+}
 /* The preview cards on the sign-in panel drift gently, one after another. */
 .login-float {
-  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 18px 40px -18px var(--login-shadow);
   animation: login-float 6s ease-in-out infinite;
 }
 .login-float:nth-child(2) {
@@ -1769,7 +1829,7 @@ body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-la
 }
 
 .bento-employee {
-  grid-template-areas: "hero" "kpis" "actions" "leave" "tip" "benefits" "feed";
+  grid-template-areas: "hero" "kpis" "actions" "leave" "feed";
 }
 
 @media (min-width: 768px) {
@@ -1799,8 +1859,7 @@ body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-la
       "hero hero"
       "kpis actions"
       "kpis feed"
-      "leave tip"
-      "benefits benefits";
+      "leave leave";
   }
 }
 
@@ -1823,12 +1882,64 @@ body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-la
       "onboarding onboarding onboarding feed";
   }
 
+  /* Employee Home fits the window with no page scroll: payslips, leave and announcements on
+     top, the three numbers and quick actions under them, split about 60 / 40. A card whose
+     content is taller than its share scrolls inside itself. */
   .bento-employee {
     grid-template-areas:
-      "hero hero kpis actions"
-      "hero hero kpis feed"
-      "leave leave tip feed"
-      "benefits benefits benefits feed";
+      "hero hero leave feed"
+      "kpis kpis kpis actions";
+    grid-template-rows: minmax(0, 3fr) minmax(auto, 2fr);
+  }
+
+  .dash-fit {
+    height: calc(100dvh - 144px);
+    min-height: 480px;
+  }
+
+  .dash-fit .bento {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .dash-fit .bento > div {
+    min-height: 0;
+  }
+
+  .dash-fit .bento > div > [data-slot="card"] {
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  .bento-employee .dash-kpi-stack {
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+  }
+
+  /* Quick actions as a compact 2 x 2: icon beside its label. */
+  .bento-employee .dash-tile-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .bento-employee .dash-tile {
+    min-width: 0;
+    flex-direction: row;
+    gap: 8px;
+    padding: 8px;
+    text-align: left;
+  }
+
+  .bento-employee .dash-tile-icon {
+    width: 28px;
+    height: 28px;
+    flex: none;
+  }
+
+  .bento-employee .dash-tile-icon svg {
+    width: 16px;
+    height: 16px;
   }
 }
 

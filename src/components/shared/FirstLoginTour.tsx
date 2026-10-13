@@ -2,6 +2,17 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
 const STORAGE_KEY = "msma-hris-tour-seen";
+/** Fired when the walkthrough is finished or skipped, so prompts waiting behind it can show. */
+export const TOUR_DONE_EVENT = "heyhr-tour-done";
+
+/** Whether the walkthrough is out of the way (seen before, or storage blocked so it won't show). */
+export function tourDone(): boolean {
+  try {
+    return !!localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return true;
+  }
+}
 
 interface TourStep {
   target: string;
@@ -90,6 +101,7 @@ export function FirstLoginTour() {
     }
     setStepIndex(null);
     setRect(null);
+    window.dispatchEvent(new Event(TOUR_DONE_EVENT));
   }
 
   function next() {

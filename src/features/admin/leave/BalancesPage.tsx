@@ -88,7 +88,6 @@ function CreditsDrawer({ row, onClose, onFile }: { row: CreditRow; onClose: () =
               <Row label="Left to file" value={fmtCredits(c.available)} strong />
             </div>
           </div>
-          <p className="mt-2 text-xs text-ink-3">Every paid leave uses 1, however many days it covers. Leave without pay doesn't count.</p>
         </div>
 
         <div>
@@ -205,7 +204,7 @@ export function BalancesPage() {
 
   return (
     <>
-      <ContentHead title="Leave balances" subtitle={`Everyone gets ${LEAVE_CREDITS_PER_YEAR} leaves a year, all given on January 1. Any paid leave uses 1, however many days it covers.`} />
+      <ContentHead title="Leave balances" />
       <Toolbar>
         <SearchBox value={query} onChange={setQuery} />
         <Choice

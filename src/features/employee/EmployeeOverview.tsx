@@ -21,34 +21,22 @@ import {
 import {
   fetchAnnouncements,
   fetchCurrentEmployee,
-  fetchEmployeeBenefits,
-  fetchMyLeaveRequests,
-  fetchMyPersonnelChecklist,
-  fetchMyProfessionalLicense,
-  fetchMyTrainingRecords,
 } from "@/lib/api";
-import { getCpdStatus, isTrainingOverdue } from "@/lib/automation";
 import { formatPHP, formatToday } from "@/lib/format";
 import {
   BellIcon,
   CalendarIcon,
-  CameraIcon,
   CheckIcon,
   DownloadIcon,
   FileIcon,
   FolderIcon,
-  GraduationCapIcon,
-  ShieldIcon,
   WalletIcon,
 } from "@/components/icons";
-import { AttentionPanel, type AttentionItem } from "@/components/shared/AttentionPanel";
-import { BenefitsCard } from "./BenefitsCard";
 import { AttendanceClock } from "@/components/shared/AttendanceClock";
 import { FileMyLeaveDialog } from "./EmployeeLeave";
-import { myAttendance, myId, myLeave, myPayslips } from "@/lib/ess/api";
+import { myAttendance, myLeave, myPayslips } from "@/lib/ess/api";
 import { whosOutToday } from "@/lib/ess/more";
 import { fmtDay } from "@/lib/preferences";
-import { policiesFor } from "@/lib/policies";
 import { RequestCertificateDialog } from "./RequestCertificateDialog";
 import { printPayslip } from "./printTemplates";
 import type { Payslip } from "@/lib/types";
@@ -114,105 +102,10 @@ export function EmployeeOverview() {
     },
   });
   const outQuery = useQuery({ queryKey: ["ess", "whos-out"], queryFn: whosOutToday });
-  const benefitsQuery = useQuery({ queryKey: ["employee", "benefits"], queryFn: fetchEmployeeBenefits });
-  const myTrainingsQuery = useQuery({ queryKey: ["employee", "my-trainings"], queryFn: fetchMyTrainingRecords });
-  const myLeaveQuery = useQuery({ queryKey: ["employee", "my-leave-requests"], queryFn: fetchMyLeaveRequests });
-  const policiesQuery = useQuery({ queryKey: ["employee", "policies"], queryFn: () => policiesFor(myId()) });
-  const licenseQuery = useQuery({
-    queryKey: ["employee", "professional-license"],
-    queryFn: fetchMyProfessionalLicense,
-  });
-  const checklistQuery = useQuery({
-    queryKey: ["employee", "personnel-checklist"],
-    queryFn: fetchMyPersonnelChecklist,
-  });
 
   const employee = employeeQuery.data;
   // The hero shows the last released cut-off; the running one is still a preview.
   const latestPayslip = payslipsQuery.data?.find((p) => p.status === "Paid") ?? payslipsQuery.data?.[0];
-
-  const attentionItems: AttentionItem[] = [];
-  if (employee && !employee.faceEnrolled) {
-    attentionItems.push({
-      id: "face-id",
-      icon: <CameraIcon className="h-4 w-4" />,
-      title: "Face ID isn't enrolled yet",
-      detail: "You'll need it to clock in remotely without a physical scanner.",
-      tone: "info",
-      action: { label: "Enroll", onClick: () => navigate("/employee/201-file") },
-    });
-  }
-  for (const b of benefitsQuery.data ?? []) {
-    if (b.status === "Pending") {
-      attentionItems.push({
-        id: `benefit-${b.id}`,
-        icon: <WalletIcon className="h-4 w-4" />,
-        title: `${b.name} enrollment is pending`,
-        detail: b.memberId,
-        tone: "warn",
-        action: { label: "Review", onClick: () => navigate("/employee/benefits") },
-      });
-    }
-  }
-  for (const t of myTrainingsQuery.data ?? []) {
-    if (isTrainingOverdue(t)) {
-      attentionItems.push({
-        id: `training-${t.id}`,
-        icon: <GraduationCapIcon className="h-4 w-4" />,
-        title: `${t.course} is overdue`,
-        detail: `Was due ${t.dueDate}`,
-        tone: "crit",
-        action: { label: "View", onClick: () => navigate("/employee/trainings") },
-      });
-    }
-  }
-  for (const r of myLeaveQuery.data ?? []) {
-    if (r.status === "Declined") {
-      attentionItems.push({
-        id: `leave-${r.id}`,
-        icon: <CalendarIcon className="h-4 w-4" />,
-        title: `Your ${r.type} request was declined`,
-        detail: r.detail,
-        tone: "info",
-        action: { label: "View", onClick: () => navigate("/employee/leave") },
-      });
-    }
-  }
-  if (licenseQuery.data) {
-    const cpd = getCpdStatus(licenseQuery.data);
-    if (cpd.status === "Due soon" || cpd.status === "Overdue") {
-      attentionItems.push({
-        id: `cpd-${licenseQuery.data.id}`,
-        icon: <ShieldIcon className="h-4 w-4" />,
-        title: `Your CPD units are ${cpd.status === "Overdue" ? "past deadline" : "due soon"}`,
-        detail: cpd.note,
-        tone: cpd.status === "Overdue" ? "crit" : "warn",
-        action: { label: "View", onClick: () => navigate("/employee/201-file") },
-      });
-    }
-  }
-  const unreadPolicies = (policiesQuery.data ?? []).filter((p) => p.requireAck && !p.acknowledgedAt);
-  if (unreadPolicies.length > 0) {
-    attentionItems.push({
-      id: "policies-unread",
-      icon: <FileIcon className="h-4 w-4" />,
-      title: unreadPolicies.length === 1 ? `Please read ${unreadPolicies[0].title}` : `${unreadPolicies.length} company policies to read`,
-      detail: "HR needs you to confirm you've read and understood them.",
-      tone: "warn",
-      action: { label: "Read", onClick: () => navigate("/employee/policies") },
-    });
-  }
-  const missingDocs = (checklistQuery.data ?? []).filter((d) => d.status === "Missing");
-  if (missingDocs.length > 0) {
-    attentionItems.push({
-      id: "personnel-docs-missing",
-      icon: <FileIcon className="h-4 w-4" />,
-      title: `${missingDocs.length} document${missingDocs.length === 1 ? "" : "s"} still needed for your 201 file`,
-      detail: missingDocs.map((d) => d.type).join(", "),
-      tone: "warn",
-      action: { label: "Upload", onClick: () => navigate("/employee/201-file") },
-    });
-  }
 
   function handleDownloadPayslip() {
     if (!latestPayslip) return;
@@ -220,7 +113,7 @@ export function EmployeeOverview() {
   }
 
   return (
-    <div className="dash">
+    <div className="dash dash-fit">
       <ContentHead
         title={employee ? `${greeting()}, ${employee.name.split(" ")[0]}` : greeting()}
         subtitle={`${formatToday()} · ${employee?.department ?? "…"}, ${employee?.office ?? ""} · ID ${employee?.id ?? ""}`}
@@ -394,34 +287,9 @@ export function EmployeeOverview() {
           </Card>
         </BentoArea>
 
-        {/* Tip: the payslip deductions note. */}
-        <BentoArea area="tip">
-          <Card className="h-full">
-            <CardBody className="flex h-full flex-col gap-3">
-              <span className="dash-row-leading" style={{ background: "var(--grad-primary)", color: "var(--on-accent)" }}>
-                <WalletIcon />
-              </span>
-              <p className="text-[13px] text-ink-2">
-                Deductions include SSS, PhilHealth, Pag-IBIG and withholding tax. Download BIR Form 2316 anytime from
-                Payslips.
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate("/employee/payslips")}
-                className="mt-auto self-start text-[13px] font-medium text-brand-ink hover:underline"
-              >
-                Read more ›
-              </button>
-            </CardBody>
-          </Card>
-        </BentoArea>
 
-        <BentoArea area="benefits">
-          <BenefitsCard />
-        </BentoArea>
       </div>
 
-      <AttentionPanel items={attentionItems} />
 
       {leaveDialogOpen && <FileMyLeaveDialog onClose={() => setLeaveDialogOpen(false)} />}
 

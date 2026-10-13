@@ -82,6 +82,8 @@ const SHIFTS: ShiftTemplate[] = [
   { id: "sh-day", name: "Busy season", start: "08:30", end: "17:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0, 6], active: true },
   { id: "sh-peak", name: "Peak season", start: "08:30", end: "17:30", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0, 6], active: true },
   { id: "sh-mid", name: "Mid shift", start: "09:00", end: "18:00", breakMinutes: 60, breakStart: "13:00", graceMinutes: 5, restDays: [0, 6], active: true },
+  // Six-day week (payroll workbook): 7 hours Monday to Friday, 5 hours on Saturday.
+  { id: "sh-6day", name: "Six-day week", start: "08:30", end: "16:30", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0], saturdayEnd: "13:30", active: true },
   { id: "sh-flex", name: "Flexible time", start: "08:30", end: "19:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 0, restDays: [0, 6], active: true, flexible: true, requiredHours: 8 },
 ];
 
@@ -170,17 +172,22 @@ export function departmentOf(unitId: string) {
 
 // ---- Schedule for a day ----
 
+/** The shift as worked on a date: a six-day shift's Saturday ends early, with no lunch break. */
+function onDate(s: ShiftTemplate, date: string): ShiftTemplate {
+  return s.saturdayEnd && weekday(date) === 6 ? { ...s, end: s.saturdayEnd, breakMinutes: 0 } : s;
+}
+
 export function shiftFor(employeeId: string, date: string): { kind: "work" | "rest" | "unscheduled"; shift?: ShiftTemplate; override: boolean } {
   const o = tk.overrides[`${employeeId}|${date}`];
   if (o === "rest") return { kind: "rest", override: true };
   if (o) {
     const s = tk.shifts.find((x) => x.id === o);
-    if (s) return { kind: "work", shift: s, override: true };
+    if (s) return { kind: "work", shift: onDate(s, date), override: true };
   }
   // Anyone without a usual shift yet (e.g. newly added) works the Day shift.
   const usual = tk.shifts.find((x) => x.id === (tk.usualShift[employeeId] ?? "sh-day"));
   if (!usual) return { kind: "unscheduled", override: false };
-  return usual.restDays.includes(weekday(date)) ? { kind: "rest", shift: usual, override: false } : { kind: "work", shift: usual, override: false };
+  return usual.restDays.includes(weekday(date)) ? { kind: "rest", shift: usual, override: false } : { kind: "work", shift: onDate(usual, date), override: false };
 }
 
 export interface LeaveSpan {

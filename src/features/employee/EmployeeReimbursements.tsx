@@ -82,7 +82,7 @@ function NewClaimDialog({ onClose }: { onClose: () => void }) {
     >
       <div className="grid gap-5 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
         <div className="md:col-span-2">
-          <ApproverNote then="Accounting releases the money" />
+          <ApproverNote kind={null} then="Accounting releases the money" />
         </div>
         <div>
           <span className="mb-1 block text-xs font-semibold text-ink-2">
@@ -167,7 +167,7 @@ function NewClaimDialog({ onClose }: { onClose: () => void }) {
           <Field id="rb-why" label="What was it for?" required className="sm:col-span-2" error={errors.description}>
             <textarea id="rb-why" rows={3} className={clsx(inputClass, "resize-none")} placeholder="e.g. Taxi to a client's office for the year-end audit" value={draft.description} onChange={(e) => set({ description: e.target.value })} />
           </Field>
-          <p className="text-xs text-ink-3 sm:col-span-2">Approved claims are added to your next payroll. Receipts must be within {CLAIM_WINDOW_DAYS} days.</p>
+          <p className="text-xs text-ink-3 sm:col-span-2">Receipts must be within {CLAIM_WINDOW_DAYS} days.</p>
           <div className="sm:col-span-2">
             <ErrorNote error={submit.error} />
           </div>

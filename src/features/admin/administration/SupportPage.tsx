@@ -190,7 +190,6 @@ export function SupportPage() {
     <>
       <ContentHead
         title="Support tickets"
-        subtitle={support ? "Problems and questions from the client. Reply, set priority, and close them when they're sorted." : "Report a problem or ask our support team a question, and follow the answer here."}
         actions={
           canFile && !support ? (
             <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setFiling(true)}>

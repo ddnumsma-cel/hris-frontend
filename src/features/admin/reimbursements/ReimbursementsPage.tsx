@@ -279,7 +279,7 @@ export function ReimbursementsPage() {
     <>
       <ContentHead
         title="Reimbursements"
-        subtitle={`Employees' expense claims with their POS receipts. Their approver approves first, then Accounting gives the final approval; Accounting then releases the money directly.${waitingTotal ? ` ${peso(waitingTotal)} waiting for you.` : ""}`}
+        subtitle={waitingTotal ? `${peso(waitingTotal)} waiting for you` : undefined}
       />
       <Tabs
         value={tab}
@@ -307,7 +307,6 @@ export function ReimbursementsPage() {
           </span>
         )}
       </Toolbar>
-      {tab === "topay" && <p className="text-xs text-ink-2">Approved claims not released yet. Give the money directly (cash, bank transfer, e-wallet or check) when it's available, then record it here.</p>}
       <SimpleTable rows={rows} rowKey={(c) => c.id} cols={cols} loading={query.isLoading} empty={tab === "pending" ? "Nothing waiting. You're all caught up." : "Nothing here yet."} />
       {open && <ReviewDialog key={open.c.id} c={open.c} canApprove={canDecide(open.c)} startWith={open.reject ? "reject" : undefined} onClose={() => setOpen(null)} />}
       {paying && <PayDialog picked={rows.filter((c) => picked.has(c.id))} onClose={() => setPaying(false)} onDone={() => setPicked(new Set())} />}

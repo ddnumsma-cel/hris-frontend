@@ -83,7 +83,6 @@ export function YearEndPage() {
     <>
       <ContentHead
         title="Year-end BIR forms"
-        subtitle="BIR 2316 for each employee and the alphalist for the annual 1604-C, from the year's payroll runs."
         actions={
           <span className="flex gap-2">
             <Button variant="ghost" disabled={!all.length} onClick={() => print2316(all, year)}>

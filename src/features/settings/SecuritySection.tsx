@@ -65,7 +65,7 @@ export function SecuritySection() {
 
   return (
     <>
-      <SettingsHeader title="Security" description="Your password, two-step sign-in, and where you're signed in." />
+      <SettingsHeader title="Security" />
 
       <SettingsCard title="Change password" description={`At least ${min} characters. Mixing upper and lower case, numbers and symbols makes it stronger.`}>
         <form

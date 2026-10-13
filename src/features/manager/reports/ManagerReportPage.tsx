@@ -132,7 +132,7 @@ function ReportView({ reportId }: { reportId: string }) {
     <>
       <ContentHead
         title={`${definition.label} Report`}
-        subtitle={`${definition.description} · ${periodLabel}`}
+        subtitle={periodLabel}
         actions={
           <Button
             variant="ghost"

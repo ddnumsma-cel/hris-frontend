@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/Button";
 import { DownloadIcon } from "@/components/icons";
 import { downloadTextFile, toCsv } from "@/lib/download";
 import { listPayDetails, type PayDetail } from "@/lib/pay/details";
+import { payRules } from "@/lib/pay/settings";
+import { useCan } from "@/lib/useCan";
+import { PayProfileDialog, PaydaysDialog } from "./PaySettingsDialogs";
 import { LoadError, Pill } from "../corehr/ui";
 import { Choice, SearchBox, SimpleTable, Toolbar } from "../timekeeping/common";
 
@@ -17,6 +20,10 @@ export function PayDetailsPage() {
   const list = useQuery({ queryKey: ["payroll", "pay-details"], queryFn: listPayDetails, staleTime: 0 });
   const [query, setQuery] = useState("");
   const [show, setShow] = useState("all");
+  const canEdit = useCan("edit", "payrollRuns");
+  const [paydays, setPaydays] = useState(false);
+  const [editing, setEditing] = useState<PayDetail | null>(null);
+  const [first, second] = payRules().cutoffDays;
   if (list.isError) return <LoadError onRetry={() => list.refetch()} />;
 
   const all = list.data ?? [];
@@ -38,9 +45,14 @@ export function PayDetailsPage() {
         title="Pay details"
         subtitle={incomplete ? `${all.length} employees · ${incomplete} missing a government number payroll needs` : `${all.length} employees, with the details payroll needs.`}
         actions={
-          <Button icon={<DownloadIcon className="h-4 w-4" />} disabled={!all.length} onClick={download}>
-            Download CSV
-          </Button>
+          <>
+            <Button variant="ghost" onClick={() => setPaydays(true)} disabled={!canEdit} title={`Cut-offs close on the ${first} and ${second >= 28 ? "last day" : second} of each month`}>
+              Paydays: {first} &amp; {second >= 28 ? "end" : second}
+            </Button>
+            <Button icon={<DownloadIcon className="h-4 w-4" />} disabled={!all.length} onClick={download}>
+              Download CSV
+            </Button>
+          </>
         }
       />
       <Toolbar>
@@ -107,6 +119,22 @@ export function PayDetailsPage() {
           },
           { header: "Monthly salary", align: "right", cell: (p) => <span className="font-num font-medium">{peso(p.monthlySalary)}</span> },
           {
+            header: "Pay settings",
+            cell: (p) => (
+              <span className="flex items-start gap-3">
+                <span className="text-xs text-ink-2">
+                  <span className="block font-medium text-ink">{p.profile.workWeek === "6-day" ? "6-day week" : "5-day week"}</span>
+                  {[p.profile.transportAllowance && `Transport ${peso(p.profile.transportAllowance)}`, p.profile.otMealRate && `OT meal ${peso(p.profile.otMealRate)}`, p.profile.deMinimis && `De minimis ${peso(p.profile.deMinimis)}`, p.profile.otherNonTaxable && `Non-taxable ${peso(p.profile.otherNonTaxable)}`].filter(Boolean).join(" · ") || "No allowances"}
+                </span>
+                {canEdit && (
+                  <Button size="sm" variant="ghost" onClick={() => setEditing(p)}>
+                    Edit
+                  </Button>
+                )}
+              </span>
+            ),
+          },
+          {
             header: "Government numbers",
             cell: (p) => (
               <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 text-xs">
@@ -121,6 +149,8 @@ export function PayDetailsPage() {
           },
         ]}
       />
+      {paydays && <PaydaysDialog onClose={() => setPaydays(false)} />}
+      {editing && <PayProfileDialog employee={editing} onClose={() => setEditing(null)} />}
     </>
   );
 }

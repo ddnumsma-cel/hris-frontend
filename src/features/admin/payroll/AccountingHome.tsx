@@ -128,7 +128,6 @@ export function AccountingHome() {
           ) : (
             remit.data?.rows.map((r) => <Row key={r.id} title={r.name} sub={`Due ${shortDate(r.due)}`} right={<span className="font-num font-semibold">{peso(r.amount)}</span>} />)
           )}
-          <p className="px-5 py-3 text-xs text-ink-3">Usual deadlines. Yours depend on your employer number and whether you file online.</p>
         </Panel>
 
         <Panel title="To fix before payday">

@@ -52,7 +52,7 @@ export function SchedulingSection() {
 
   return (
     <>
-      <SettingsHeader title="Scheduling" description="Overtime and break rules, shift types, and who works which shift." />
+      <SettingsHeader title="Scheduling" />
 
       <SettingsCard title="Rules">
         <SettingsRow label="Overtime threshold (minutes)" htmlFor="sch-overtimeThresholdMinutes" help="Extra time after a shift shorter than this isn't counted as overtime. 0 counts every minute." error={errors.overtimeThresholdMinutes}>

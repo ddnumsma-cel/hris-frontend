@@ -242,7 +242,7 @@ export function AttendanceLogsPage() {
 
   return (
     <>
-      <ContentHead title="Attendance logs" subtitle={`Time-in and time-out records from the fingerprint and face-recognition devices, plus the lunch out and lunch in recorded automatically from each shift.${toReview ? ` ${toReview} need review.` : ""}`} />
+      <ContentHead title="Attendance logs" subtitle={toReview ? `${toReview} need review` : undefined} />
       <Toolbar>
         <Choice label="Period" value={period} onChange={setPeriod} options={PERIOD_OPTIONS} />
         <Choice

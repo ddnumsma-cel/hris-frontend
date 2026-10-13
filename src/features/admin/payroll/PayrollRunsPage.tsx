@@ -91,7 +91,6 @@ export function PayrollRunsPage() {
     <>
       <ContentHead
         title="Payroll runs"
-        subtitle="One run per cutoff, computed from attendance. Review it, add adjustments, then approve to lock it and release the payslips."
         actions={
           canEdit ? (
             <Button icon={<PlusIcon className="h-3.75 w-3.75" />} onClick={() => setAdding(true)}>
@@ -150,18 +149,21 @@ function Breakdown({ run, line, canEdit, onClose }: { run: PayrollRun; line: Pay
 
   const rows: { label: string; detail?: string; amount: number; kind?: "minus" | "plus" | "total" }[] = [
     { label: "Basic pay", detail: p.basic === line.person.salary / 2 ? `Half of ${peso(line.person.salary)}` : "Workdays employed in this cutoff", amount: p.basic },
-    ...(p.absentDays ? [{ label: `Absent ${p.absentDays} ${p.absentDays === 1 ? "day" : "days"}`, detail: `${p.absentDays} × ${peso(p.daily)}${p.awolDays ? ` · ${p.awolDays} AWOL` : ""}`, amount: -p.absentDeduction, kind: "minus" as const }] : []),
+    ...(p.absentDays ? [{ label: `Absent ${p.absentDays} ${p.absentDays === 1 ? "day" : "days"}`, detail: p.absentHours ? `${p.absentHours} h × ${peso(p.hourly)}${p.awolDays ? ` · ${p.awolDays} AWOL` : ""}` : `${p.absentDays} × ${peso(p.daily)}`, amount: -p.absentDeduction, kind: "minus" as const }] : []),
+    ...(p.halfDays ? [{ label: `Half days from lates (${p.halfDays})`, detail: `${p.halfDayHours} h × ${peso(p.hourly)} · 30+ min late, or every 3rd late in a week`, amount: -p.halfDayDeduction, kind: "minus" as const }] : []),
     ...(p.unpaidLeaveDays ? [{ label: "Unpaid leave", detail: `${p.unpaidLeaveDays} × ${peso(p.daily)}`, amount: -p.unpaidLeaveDeduction, kind: "minus" as const }] : []),
-    ...(p.undertimeMinutes ? [{ label: "Undertime", detail: `${p.undertimeMinutes} min × ${peso(p.hourly / 60)}`, amount: -p.undertimeDeduction, kind: "minus" as const }] : []),
+    ...(p.undertimeMinutes ? [{ label: "Undertime", detail: p.undertimeDays ? `${p.undertimeDays} ${p.undertimeDays === 1 ? "day" : "days"} × 4 h × ${peso(p.hourly)}` : `${p.undertimeMinutes} min`, amount: -p.undertimeDeduction, kind: "minus" as const }] : []),
     ...(p.overtimeMinutes ? [{ label: "Approved overtime", detail: mins(p.overtimeMinutes), amount: p.overtimePay, kind: "plus" as const }] : []),
     ...(p.premiumMinutes ? [{ label: "Rest day & holiday pay", detail: mins(p.premiumMinutes), amount: p.premiumPay, kind: "plus" as const }] : []),
     ...(p.nightMinutes ? [{ label: "Night differential", detail: `${mins(p.nightMinutes)} × 10%`, amount: p.nightPay, kind: "plus" as const }] : []),
+    ...(p.otMeal ? [{ label: "OT meal", detail: `${p.overtimeDays} overtime ${p.overtimeDays === 1 ? "day" : "days"}`, amount: p.otMeal, kind: "plus" as const }] : []),
     ...(p.taxableAdjustments ? [{ label: "Taxable adjustments", amount: p.taxableAdjustments, kind: "plus" as const }] : []),
     { label: "Gross pay", amount: p.gross, kind: "total" },
     { label: "SSS", amount: -p.sssEe, kind: "minus" },
     { label: "PhilHealth", amount: -p.phEe, kind: "minus" },
     { label: "Pag-IBIG", amount: -p.piEe, kind: "minus" },
-    { label: "Withholding tax", detail: `On ${peso(p.taxable)} taxable`, amount: -p.tax, kind: "minus" },
+    { label: "Withholding tax", detail: `On ${peso(p.taxable)} taxable${p.deMinimis || p.otherNonTaxable ? ` (less ${peso((p.deMinimis ?? 0) + (p.otherNonTaxable ?? 0))} tax-free pay)` : ""}`, amount: -p.tax, kind: "minus" },
+    ...(p.transportAllowance ? [{ label: "Transport allowance", detail: `${p.workdaysAttended} of ${p.workdaysScheduled} workdays attended`, amount: p.transportAllowance, kind: "plus" as const }] : []),
     ...(p.nonTaxableAdjustments ? [{ label: "Non-taxable adjustments", amount: p.nonTaxableAdjustments, kind: "plus" as const }] : []),
     { label: "Take-home pay", amount: p.net, kind: "total" },
   ];
@@ -170,7 +172,7 @@ function Breakdown({ run, line, canEdit, onClose }: { run: PayrollRun; line: Pay
     <Drawer open onClose={onClose} title={line.person.name} subtitle={`${line.person.position} · ${line.person.department} · ${run.label}`}>
       <div className="flex flex-col gap-5">
         <p className="text-xs text-ink-2">
-          Daily rate {peso(p.daily)} ({peso(line.person.salary)} × 12 ÷ 261) · hourly {peso(p.hourly)} · present {p.present} {p.present === 1 ? "day" : "days"}
+          Daily rate {peso(p.daily)} ({peso(line.person.salary)} × 12 ÷ 261) · hourly {peso(p.hourly)} (daily ÷ 8) · present {p.present} {p.present === 1 ? "day" : "days"}
         </p>
         {p.awolDates.length > 0 && (
           <p className="flex items-start gap-2 rounded-lg bg-critical-tint px-3 py-2 text-xs text-critical">
@@ -344,12 +346,15 @@ export function PayrollRunPage() {
           "Basic pay": l.pay.basic,
           "Absent days": l.pay.absentDays,
           "AWOL days": l.pay.awolDays,
-          "Late min (not deducted)": l.pay.lateMinutes,
+          "Late min": l.pay.lateMinutes,
+          "Half days": l.pay.halfDays ?? 0,
           "Undertime min": l.pay.undertimeMinutes,
           Deductions: l.deductions,
           Overtime: l.pay.overtimePay,
           "Holiday & rest day": l.pay.premiumPay,
           "Night diff": l.pay.nightPay,
+          "OT meal": l.pay.otMeal ?? 0,
+          "Transport": l.pay.transportAllowance ?? 0,
           Adjustments: Math.round((l.pay.taxableAdjustments + l.pay.nonTaxableAdjustments) * 100) / 100,
           Gross: l.gross,
           SSS: l.sssEe,
@@ -443,7 +448,7 @@ export function PayrollRunPage() {
             ),
           },
           { header: "Undertime", cell: (l) => <span className="text-ink-2">{l.pay.undertimeMinutes ? mins(l.pay.undertimeMinutes) : "—"}</span> },
-          { header: "Late", cell: (l) => <span className="text-ink-3" title="On record only; late isn't deducted">{l.pay.lateMinutes ? mins(l.pay.lateMinutes) : "—"}</span> },
+          { header: "Late", cell: (l) => <span className="text-ink-3" title="30+ minutes late, or every 3rd late in a week, is a half day">{l.pay.lateMinutes ? mins(l.pay.lateMinutes) : "—"}{l.pay.halfDays ? ` · ${l.pay.halfDays} half ${l.pay.halfDays === 1 ? "day" : "days"}` : ""}</span> },
           { header: "OT & premiums", align: "right", cell: (l) => <span className="font-num">{peso(l.pay.overtimePay + l.pay.premiumPay + l.pay.nightPay)}</span> },
           { header: "Gross", align: "right", cell: (l) => <span className="font-num">{peso(l.gross)}</span> },
           { header: "Deductions", align: "right", cell: (l) => <span className="font-num text-ink-2">{peso(l.pay.contributions + l.tax)}</span> },

@@ -223,7 +223,7 @@ export function UsersPage() {
 
   return (
     <>
-      <ContentHead title="Users" subtitle="Who can sign in, and with what role. Turned-off accounts can't sign in." actions={canAdd ? <Button onClick={() => setAdding(true)}>Add user</Button> : undefined} />
+      <ContentHead title="Users" actions={canAdd ? <Button onClick={() => setAdding(true)}>Add user</Button> : undefined} />
       <Toolbar>
         <SearchBox value={query} onChange={setQuery} placeholder="Search name or username" />
         <Choice label="Role" value={roleId} onChange={setRoleId} options={[{ value: "all", label: "All roles" }, ...(roles.data ?? []).map((r) => ({ value: r.id, label: r.name }))]} />

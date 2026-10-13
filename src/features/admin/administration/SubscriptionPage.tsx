@@ -117,7 +117,7 @@ export function SubscriptionPage() {
 
   return (
     <>
-      <ContentHead title="Clients & Subscriptions" subtitle="Each client's plan, seats and admin accounts. Seat limits only stop new employees being added; payroll, attendance and leave always keep working." />
+      <ContentHead title="Clients & Subscriptions" />
       <SimpleTable rows={clients.data ?? []} rowKey={(c) => c.clientId} cols={cols} loading={clients.isLoading} empty="No clients yet." />
       <h2 className="text-sm font-semibold">Notifications & upgrade requests</h2>
       <SimpleTable rows={events.data ?? []} rowKey={(e) => e.id} cols={eventCols} loading={events.isLoading} empty="Nothing yet. Seat alerts, blocked adds and upgrade requests appear here." />

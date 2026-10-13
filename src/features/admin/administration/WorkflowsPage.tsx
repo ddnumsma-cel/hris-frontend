@@ -141,11 +141,10 @@ export function WorkflowsPage() {
 
   return (
     <>
-      <ContentHead title="Approval workflows" subtitle="Who approves each kind of request, and in what order." />
+      <ContentHead title="Approval workflows" />
       <SimpleTable rows={flows.data ?? []} rowKey={(w) => w.kind} cols={cols} loading={flows.isLoading} empty="No workflows." />
       <section className="rounded-xl border border-border bg-surface p-4">
         <h2 className="text-sm font-semibold">Check who would approve</h2>
-        <p className="mb-3 text-xs text-ink-2">Pick an employee and a request to see the actual people it goes to.</p>
         <div className="flex flex-wrap items-end gap-3">
           <Field id="t-emp" label="Employee" className="w-56">
             <select id="t-emp" className={inputClass} value={tryEmp} onChange={(e) => setTryEmp(e.target.value)}>

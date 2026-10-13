@@ -114,7 +114,7 @@ export function LeaveOverviewPage() {
 
   return (
     <>
-      <ContentHead title="Leave" subtitle="Who's off, what's waiting for approval, and how much leave has been used this year." actions={canFileLeave ? <Button onClick={() => setFiling(true)}>File leave</Button> : undefined} />
+      <ContentHead title="Leave" actions={canFileLeave ? <Button onClick={() => setFiling(true)}>File leave</Button> : undefined} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cards.map((c) => (

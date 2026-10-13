@@ -219,7 +219,7 @@ export function CertificatesPage() {
 
   return (
     <>
-      <ContentHead title="Certificates" subtitle="Certificates employees ask for. Issue a digital copy made from their record, prepare a signed copy for pickup, or decline with a reason. They're told each time." />
+      <ContentHead title="Certificates" />
       <Tabs
         value={tab}
         onChange={setTab}

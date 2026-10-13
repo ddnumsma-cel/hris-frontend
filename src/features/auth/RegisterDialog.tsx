@@ -23,7 +23,6 @@ const demoGoogleAccounts = [
   { name: "Sofia Reyes", email: "sofia.reyes@gmail.com" },
 ];
 
-const steps = ["Fill in your details", "HR reviews your registration", "Get your system access"];
 
 export function RegisterDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const toast = useToast();
@@ -364,26 +363,13 @@ function PhFlag() {
   );
 }
 
-const INTRO = { title: "Let's get you set up.", sub: "Register now, sign in once HR approves." };
-const DETAILS = ["Your name, office, position and contact details.", "HR checks it against your hiring papers, usually within a day.", "You'll get an email, then sign in to heyhr."];
+const INTRO = { title: "Let's get you set up." };
 
-/** The welcome text at the bottom of the register panel: each step with what it means. */
+/** The welcome heading at the bottom of the register panel. */
 function RegisterIntro() {
   return (
     <div>
       <h3 className="font-display text-2xl font-bold leading-tight tracking-[-0.02em]">{INTRO.title}</h3>
-      <p className="mt-2 text-sm text-white/70">{INTRO.sub}</p>
-      <ol className="mt-5 flex flex-col gap-3">
-        {steps.map((s, i) => (
-          <li key={s} className="flex gap-3 text-sm">
-            <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-white/10 font-num text-xs font-semibold">{i + 1}</span>
-            <span>
-              <span className="block font-medium text-white/90">{s}</span>
-              <span className="block text-xs text-white/55">{DETAILS[i]}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
     </div>
   );
 }
@@ -422,7 +408,6 @@ function RegisterBanner() {
           <span className="font-display text-sm font-semibold">MSMA</span>
         </div>
         <h3 className="mt-3 font-display text-lg font-bold leading-tight tracking-[-0.02em]">{INTRO.title}</h3>
-        <p className="mt-1 text-xs text-white/70">{INTRO.sub}</p>
       </div>
 
       <IdCardScene className="relative -my-3 w-28 flex-none" />

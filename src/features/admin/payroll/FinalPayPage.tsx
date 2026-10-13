@@ -187,7 +187,7 @@ export function FinalPayPage() {
     <>
       <ContentHead
         title="Final pay"
-        subtitle={`Last salary, unused leave, prorated 13th month and tax refund for people leaving, less loan balances.${open ? ` ${open} to release.` : ""}`}
+        subtitle={open ? `${open} to release` : undefined}
         actions={
           canCreate ? (
             <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setOpening(true)}>

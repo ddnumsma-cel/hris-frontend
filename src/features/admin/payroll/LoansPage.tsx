@@ -155,7 +155,7 @@ export function LoansPage() {
     <>
       <ContentHead
         title="Loans & deductions"
-        subtitle={`SSS and Pag-IBIG loans, cash advances and company loans, deducted from each payroll run until paid.${running.length ? ` ${peso(perCutoff)} comes off the next run.` : ""}`}
+        subtitle={running.length ? `${peso(perCutoff)} comes off the next run` : undefined}
         actions={
           canEdit ? (
             <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEditing("new")}>
@@ -218,7 +218,6 @@ export function LoansPage() {
           },
         ]}
       />
-      <p className="text-xs text-ink-3">Deductions are counted as paid once the payroll run that takes them is approved. Draft runs show what they'll take.</p>
       {editing && <LoanDialog row={editing === "new" ? undefined : editing} onClose={() => setEditing(null)} />}
       {stopping && <StopDialog row={stopping} onClose={() => setStopping(null)} />}
     </>

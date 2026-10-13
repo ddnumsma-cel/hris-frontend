@@ -74,7 +74,7 @@ export function TimeOffSection() {
 
   return (
     <>
-      <SettingsHeader title="Time off & leave" description="Leave rules, company holidays, and the kinds of leave people can file." />
+      <SettingsHeader title="Time off & leave" />
 
       <SettingsCard title="Policy">
         <SettingsRow label="Approval flow" help={approval.data ?? "…"}>

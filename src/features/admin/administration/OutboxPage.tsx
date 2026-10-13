@@ -23,7 +23,6 @@ export function OutboxPage() {
     <>
       <ContentHead
         title="Email & text outbox"
-        subtitle="Messages the system sends: leave requests and decisions, work from home, payslips, new policies and separations. They wait here until the mail and SMS service is connected on the server."
         actions={
           list.data?.length ? (
             <Button variant="ghost" onClick={() => window.confirm("Clear every waiting message?") && (clearOutbox(), queryClient.invalidateQueries({ queryKey: ["outbox"] }))}>

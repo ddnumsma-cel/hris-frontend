@@ -66,7 +66,6 @@ export function CanvasView({ chart, tree, onOpen }: OrgViewProps) {
           );
         })}
       </PanZoom>
-      <p className="text-xs text-ink-3">Drag the board to move around. Each ring color is a department; the number under a card is the size of that person's team.</p>
     </div>
   );
 }

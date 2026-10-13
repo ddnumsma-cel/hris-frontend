@@ -115,7 +115,7 @@ export function TrainingsPage() {
 
   return (
     <>
-      <ContentHead title="Trainings" subtitle={query.data ? `${done} of ${query.data.length} trainings completed.` : "Trainings assigned across the company."} />
+      <ContentHead title="Trainings" subtitle={query.data ? `${done} of ${query.data.length} trainings completed` : undefined} />
       <Toolbar>
         <SearchBox value={search} onChange={setSearch} placeholder="Search employee or training" />
         <Choice label="Status" value={status} onChange={setStatus} options={[{ value: "all", label: "All statuses" }, ...STATUSES.map((s) => ({ value: s, label: s }))]} />

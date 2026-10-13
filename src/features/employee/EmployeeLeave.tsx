@@ -38,7 +38,7 @@ export function FileMyLeaveDialog({ onClose }: { onClose: () => void }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ess"] });
       queryClient.invalidateQueries({ queryKey: ["leave"] });
-      toast.show("Leave sent to HR for approval.");
+      toast.show("Leave sent for approval. You'll be notified when it's decided.");
       onClose();
     },
   });
@@ -71,7 +71,7 @@ export function FileMyLeaveDialog({ onClose }: { onClose: () => void }) {
     >
       <div className="grid grid-cols-2 gap-x-4 gap-y-3">
         <div className="col-span-2">
-          <ApproverNote />
+          <ApproverNote kind="leave" />
         </div>
         <Field id="my-type" label="Leave type" required className="col-span-2">
           <select id="my-type" className={inputClass} value={form.typeId} onChange={(e) => set({ typeId: e.target.value })}>
@@ -166,7 +166,7 @@ function CreditsCard({ data }: { data: MyLeave }) {
           </div>
         </div>
 
-        <ol className="grid flex-1 grid-cols-3 gap-2 sm:grid-cols-6" aria-label={`${used} used, ${pending} waiting for HR, ${available} left`}>
+        <ol className="grid flex-1 grid-cols-3 gap-2 sm:grid-cols-6" aria-label={`${used} used, ${pending} waiting for approval, ${available} left`}>
           {slots.map((r, i) => (
             <li
               key={r?.id ?? `free-${i}`}

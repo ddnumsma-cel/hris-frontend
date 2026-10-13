@@ -121,7 +121,7 @@ export function CorrectionsPage() {
 
   return (
     <>
-      <ContentHead title="Time adjustments" subtitle="Employees asking to correct a time-in or time-out the biometrics or system got wrong. Approving puts the correct time on their record; a wrong recorded time is set aside." />
+      <ContentHead title="Time adjustments" />
       <Tabs
         value={tab}
         onChange={setTab}

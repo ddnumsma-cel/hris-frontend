@@ -12,6 +12,9 @@ import { fmtDay, fmtTime } from "../preferences";
 import { claims, claimType } from "../reimbursements/store";
 import { departmentOf, tk, todayIso } from "../timekeeping/store";
 import { myId } from "./api";
+import { approversFor, supervisorOf } from "../admin/approvers";
+import type { RequestKind } from "../admin/store";
+import { ROLE_LABEL } from "../permissions";
 
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), 150));
 const me = () => core.employees.find((e) => e.id === myId());
@@ -76,7 +79,7 @@ export function myRequests(): Promise<MyRequest[]> {
   }
   for (const r of tk.requests.filter((x) => x.employeeId === id)) {
     const status = r.status === "pending" ? "Waiting for your manager" : nice(r.status);
-    out.push({ id: r.id, kind: r.type === "overtime" ? "Overtime" : "Undertime", detail: `${fmtDay(r.date)} · ${r.minutes} min`, filedAt: r.filedAt, status, tone: toneOf(status), href: "/employee/attendance" });
+    out.push({ id: r.id, kind: r.type === "overtime" ? "Overtime" : "Undertime", detail: `${fmtDay(r.date)} · ${r.minutes} min`, filedAt: r.filedAt, status, tone: toneOf(status), href: r.type === "overtime" ? "/employee/overtime" : "/employee/undertime" });
   }
   for (const f of tk.fixRequests.filter((x) => x.employeeId === id)) {
     const status = f.status === "pending" ? "Waiting for your manager" : nice(f.status);
@@ -172,9 +175,15 @@ export async function myNotices(): Promise<MyNotice[]> {
 
 // ---- Who approves ----
 
-/** The employee's manager (their supervisor on the 201 File), who approves what they file. */
-export function myApproverName(): string | null {
-  const sup = me()?.job.supervisorId;
-  const e = sup ? core.employees.find((x) => x.id === sup) : undefined;
-  return e ? fullName(e.personal) : null;
+/** Who decides a request of this kind for the employee, from the approval workflow: the same people
+ *  and roles that get the notification and see it in their Approvals (lib/admin/approvers.ts). */
+export function myApprovers(kind: RequestKind | null): { names: string[]; roles: string[]; isSupervisor: boolean } {
+  const id = myId();
+  const { employees, roles } = approversFor(kind, id);
+  const sup = supervisorOf(id);
+  return {
+    names: employees.map((e) => { const x = core.employees.find((p) => p.id === e); return x ? fullName(x.personal) : e; }),
+    roles: roles.map((r) => ROLE_LABEL[r]),
+    isSupervisor: !!sup.sup && sup.canApprove && employees.includes(sup.sup.id),
+  };
 }

@@ -12,7 +12,7 @@ export function RolesSection() {
   const canSeeRoles = useCan("view", "roleAssignment");
   return (
     <>
-      <SettingsHeader title="Roles & permissions" description="What each role can open and change, and who has which role. Invite people from Users." />
+      <SettingsHeader title="Roles & permissions" />
       {canSeeRoles && (
         <Embedded>
           <RolesPage />

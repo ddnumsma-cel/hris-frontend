@@ -111,7 +111,6 @@ export function RemoteDaysPage() {
     <>
       <ContentHead
         title="Remote work days"
-        subtitle="Typhoon or emergency? Declare a remote work day and everyone clocks in from home with a face scan instead of the office scanner."
         actions={
           canEdit ? (
             <Button icon={<HomeIcon className="h-3.75 w-3.75" />} onClick={() => setDeclaring(true)}>

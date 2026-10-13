@@ -10,7 +10,9 @@ import { LoadError, Pill } from "../admin/corehr/ui";
 
 const KINDS: ("All" | MyRequest["kind"])[] = ["All", "Leave", "Overtime", "Undertime", "Time adjustment", "Reimbursement", "Certificate"];
 
-/** Everything the employee has filed, in one list, with where each one stands. */
+/**
+ * Everything the employee has filed, in one list, with where each one stands.
+ */
 export function EmployeeRequests() {
   const list = useQuery({ queryKey: ["ess", "requests"], queryFn: myRequests, staleTime: 0 });
   const [kind, setKind] = useState<(typeof KINDS)[number]>("All");

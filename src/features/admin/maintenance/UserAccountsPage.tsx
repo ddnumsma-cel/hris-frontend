@@ -96,7 +96,7 @@ export function UserAccountsPage() {
 
   return (
     <>
-      <ContentHead title="User accounts" subtitle="Every sign-in account, including the ones the System Admin adds. Temporary passwords show until the person signs in and sets their own." />
+      <ContentHead title="User accounts" />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           ["Accounts", all.length],

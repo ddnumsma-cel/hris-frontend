@@ -9,6 +9,7 @@ import { computePay, type Adjustment, type PayResult } from "../pay/engine";
 import { branchOf, departmentOf, todayIso } from "../timekeeping/store";
 import { pagibig, philhealth, round2, sss, THIRTEENTH_MONTH_EXEMPT } from "./statutory";
 import { deny } from "../session";
+import { cutoffsInMonth, payProfileOf, recentCutoffs } from "../pay/settings";
 
 // ---- Periods ----
 
@@ -32,17 +33,8 @@ export function periodsFor(kind: PeriodKind): Period[] {
   const y = Number(today.slice(0, 4));
   const m = Number(today.slice(5, 7)) - 1;
   const prev = m === 0 ? { y: y - 1, m: 11 } : { y, m: m - 1 };
-  if (kind === "cutoff") {
-    const short = (mm: number) => MONTHS[mm]!.slice(0, 3);
-    const cut = (yy: number, mm: number, second: boolean): Period => ({
-      id: `${yy}-${pad(mm + 1)}-${second ? "b" : "a"}`,
-      label: second ? `${short(mm)} 16–${lastDay(yy, mm)}, ${yy}` : `${short(mm)} 1–15, ${yy}`,
-      from: `${yy}-${pad(mm + 1)}-${second ? "16" : "01"}`,
-      to: `${yy}-${pad(mm + 1)}-${second ? pad(lastDay(yy, mm)) : "15"}`,
-    });
-    const list = Number(today.slice(8)) > 15 ? [cut(y, m, true), cut(y, m, false), cut(prev.y, prev.m, true)] : [cut(y, m, false), cut(prev.y, prev.m, true), cut(prev.y, prev.m, false)];
-    return list;
-  }
+  // Cut-offs close on the paydays set under Payroll (10th and 25th unless changed).
+  if (kind === "cutoff") return recentCutoffs(today, 3);
   if (kind === "month") return [monthPeriod(y, m), monthPeriod(prev.y, prev.m)];
   if (kind === "recent") return [{ id: "14", label: "Last 2 weeks", from: addDays(today, -13), to: today }, monthPeriod(y, m), monthPeriod(prev.y, prev.m)];
   if (kind === "year") return [{ id: "year", label: `This year (${y})`, from: `${y}-01-01`, to: `${y}-12-31` }, monthPeriod(y, m), monthPeriod(prev.y, prev.m)];
@@ -213,13 +205,14 @@ export async function payroll(period: Period, office: string, adjustmentsFor?: (
         history: history.get(p.id) ?? [],
         unpaidLeaveDays: unpaidLeaveDays(p.id, period.from, period.to),
         adjustments: adjustmentsFor?.(p.id),
+        profile: payProfileOf(p.id),
       });
       return {
         pay,
         person: p,
         basic: pay.basic,
-        deductions: round2(pay.absentDeduction + pay.unpaidLeaveDeduction + pay.undertimeDeduction),
-        overtime: pay.overtimePay,
+        deductions: round2(pay.absentDeduction + pay.halfDayDeduction + pay.unpaidLeaveDeduction + pay.undertimeDeduction),
+        overtime: round2(pay.overtimePay + pay.otMeal),
         premiums: round2(pay.premiumPay + pay.nightPay),
         gross: pay.gross,
         sssEe: pay.sssEe,
@@ -246,10 +239,10 @@ export async function payroll(period: Period, office: string, adjustmentsFor?: (
     });
 }
 
-/** Both cut-offs of a month, for monthly statutory remittances. */
+/** Both cut-offs paid in a month, for monthly statutory remittances. */
 async function monthPayroll(period: Period, office: string) {
-  const mid = period.from.slice(0, 8);
-  const [a, b] = await Promise.all([payroll({ ...period, to: `${mid}15` }, office), payroll({ ...period, from: `${mid}16` }, office)]);
+  const [first, second] = cutoffsInMonth(Number(period.from.slice(0, 4)), Number(period.from.slice(5, 7)) - 1);
+  const [a, b] = await Promise.all([payroll(first, office), payroll(second, office)]);
   return a.map((x) => {
     const y = b.find((z) => z.person.id === x.person.id);
     return { person: x.person, gross: round2(x.gross + (y?.gross ?? 0)), taxable: round2(x.taxable + (y?.taxable ?? 0)), tax: round2(x.tax + (y?.tax ?? 0)) };

@@ -91,7 +91,6 @@ export function LocationsPage() {
     <>
       <ContentHead
         title="Locations"
-        subtitle="The company's offices. Departments, attendance scanners and local holidays belong to an office."
         actions={
           canAdd ? (
             <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEditing({ name: "", code: "", address: "" })}>

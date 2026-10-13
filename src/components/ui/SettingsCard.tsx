@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 import clsx from "clsx";
 
 /** Title and one-line description at the top of a settings section. */
-export function SettingsHeader({ title, description }: { title: string; description: string }) {
+export function SettingsHeader({ title, description }: { title: string; description?: string }) {
   return (
     <div className="flex flex-col gap-1">
       <h1 className="font-display text-xl font-semibold tracking-[-0.01em]">{title}</h1>
-      <p className="text-[13px] text-ink-2">{description}</p>
+      {description && <p className="text-[13px] text-ink-2">{description}</p>}
     </div>
   );
 }

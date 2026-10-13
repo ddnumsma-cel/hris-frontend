@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { canFor } from "@/lib/permissions";
+import { can, canFor } from "@/lib/permissions";
 import { useWho } from "@/lib/useCan";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ContentHead } from "@/components/layout/RolePage";
@@ -127,11 +127,13 @@ export function RequestsPage({ kind }: { kind: Kind }) {
   const copy = COPY[kind];
   const requestsQuery = useQuery({ queryKey: tkKeys.requests, queryFn: listRequests });
   const daysQuery = useQuery({ queryKey: tkKeys.days(from, today), queryFn: () => listDays(from, today) });
-  const [tab, setTab] = useState<Tab>("pending");
+  const who = useWho();
+  // Requests go straight to the approver; roles that can't decide them (HR, Accounting) only see approved ones.
+  const decides = can(who, "approve", "attendanceRecords");
+  const [tab, setTab] = useState<Tab>(decides ? "pending" : "approved");
   const [query, setQuery] = useState("");
   const [declining, setDeclining] = useState<{ r: TimeRequest; name: string } | null>(null);
   const [filing, setFiling] = useState<DayRow | null>(null);
-  const who = useWho();
   const canDecide = (r: TimeRequest) => canFor(who, "approve", "attendanceRecords", r.employeeId);
   const canFile = (d: DayRow) => canFor(who, "create", "attendanceRecords", d.person.id);
   const approve = useMutation({
@@ -207,16 +209,20 @@ export function RequestsPage({ kind }: { kind: Kind }) {
 
   return (
     <>
-      <ContentHead title={copy.title} subtitle={copy.subtitle} />
+      <ContentHead title={copy.title} />
       <Tabs
         value={tab}
         onChange={setTab}
-        options={[
-          { value: "pending", label: "Waiting for approval", count: count("pending") },
-          { value: "approved", label: "Approved", count: count("approved") },
-          { value: "declined", label: "Declined", count: count("declined") },
-          { value: "unfiled", label: copy.unfiled, count: unfiled.length },
-        ]}
+        options={
+          decides
+            ? [
+                { value: "pending", label: "Waiting for approval", count: count("pending") },
+                { value: "approved", label: "Approved", count: count("approved") },
+                { value: "declined", label: "Declined", count: count("declined") },
+                { value: "unfiled", label: copy.unfiled, count: unfiled.length },
+              ]
+            : [{ value: "approved", label: "Approved", count: count("approved") }]
+        }
       />
       <Toolbar>
         <SearchBox value={query} onChange={setQuery} />

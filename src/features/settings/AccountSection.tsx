@@ -95,7 +95,7 @@ export function AccountSection() {
 
   return (
     <>
-      <SettingsHeader title="Account" description="Your profile and how dates and times are shown to you." />
+      <SettingsHeader title="Account" />
 
       <SettingsCard title="Profile" description={isEmployee ? "HR keeps your name and job title; you can update your photo and contact details." : undefined}>
         <SettingsRow label="Profile photo" help="JPG or PNG, up to 2 MB. Without one, your initials are shown.">

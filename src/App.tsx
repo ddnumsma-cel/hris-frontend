@@ -101,6 +101,7 @@ const EmployeeBenefitsPage = lazy(() =>
 const EmployeeReimbursements = lazy(() =>
   import("@/features/employee/EmployeeReimbursements").then((m) => ({ default: m.EmployeeReimbursements })),
 );
+const EmployeeTimeRequests = lazy(() => import("@/features/employee/EmployeeTimeRequests").then((m) => ({ default: m.EmployeeTimeRequests })));
 const EmployeeRequests = lazy(() => import("@/features/employee/EmployeeRequests").then((m) => ({ default: m.EmployeeRequests })));
 const EmployeePolicies = lazy(() => import("@/features/employee/EmployeePolicies").then((m) => ({ default: m.EmployeePolicies })));
 const EmployeeTrainings = lazy(() =>
@@ -224,6 +225,8 @@ function App() {
               <Route path="policies" element={<EmployeePolicies />} />
               <Route path="reimbursements" element={<EmployeeReimbursements />} />
               <Route path="requests" element={<EmployeeRequests />} />
+              <Route path="overtime" element={<EmployeeTimeRequests key="overtime" kind="overtime" />} />
+              <Route path="undertime" element={<EmployeeTimeRequests key="undertime" kind="undertime" />} />
               {settingsRoutes()}
             </Route>
 

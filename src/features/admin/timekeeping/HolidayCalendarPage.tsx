@@ -189,7 +189,6 @@ export function HolidayCalendarPage() {
     <>
       <ContentHead
         title="Holiday calendar"
-        subtitle="Regular and special holidays for the year. Attendance and payroll use these dates, so pay rates follow what you set here."
         actions={
           canEdit ? (
             <Button icon={<PlusIcon className="h-3.75 w-3.75" />} onClick={() => setAdding(true)}>
@@ -265,7 +264,6 @@ export function HolidayCalendarPage() {
           },
         ]}
       />
-      <p className="text-xs text-ink-3">Eid&#39;l Fitr and Eid&#39;l Adha are proclaimed each year: add them with &ldquo;Add holiday&rdquo; once the dates are announced. Local holidays count only for that office&#39;s employees.</p>
 
       {adding && <AddDialog year={year} onClose={() => setAdding(false)} />}
       {changing && <ChangeDialog h={changing} year={year} onClose={() => setChanging(null)} />}

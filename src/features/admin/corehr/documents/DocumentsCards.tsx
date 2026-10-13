@@ -82,7 +82,7 @@ export function DocumentsCards() {
     <>
       <ContentHead
         title="201 documents"
-        subtitle={`201 file paperwork for ${docs.people.size} employees · ${docs.checked} of ${docs.required} checked (${pct}%). Click Review to go through someone's documents.`}
+        subtitle={`${docs.people.size} employees · ${docs.checked} of ${docs.required} checked (${pct}%)`}
         actions={
           <div role="group" aria-label="View" className="flex rounded-full border border-border bg-surface p-0.5">
             {(

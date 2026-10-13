@@ -26,7 +26,7 @@ export function NotificationsSection() {
 
   return (
     <>
-      <SettingsHeader title="Notifications" description="What you're told about, where, and when to keep things quiet." />
+      <SettingsHeader title="Notifications" />
 
       <SettingsCard>
         <SettingsRow label="Notifications" htmlFor="ntf-on" help="Turn off to stop all alerts, including the bell in the top bar.">

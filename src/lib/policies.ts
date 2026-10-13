@@ -5,6 +5,7 @@
 import { fullName, state as core } from "./corehr/store";
 import { getFile } from "./fileStore";
 import { notifyEmployee } from "./outbox";
+import { SEED_POLICIES } from "./policySeed";
 import { EVERYONE, tellRoles } from "./requestNotices";
 
 export const POLICY_CATEGORIES = ["Employee handbook", "Code of conduct", "Attendance & time", "Leave", "Pay & benefits", "Data privacy", "Health & safety", "Other"] as const;
@@ -38,6 +39,8 @@ export interface Acknowledgement {
 interface Saved {
   policies: Policy[];
   acks: Acknowledgement[];
+  /** The sample policies were added once; editing, archiving or deleting them sticks. */
+  seeded?: boolean;
 }
 
 const KEY = "heyhr-policies-v1";
@@ -46,16 +49,18 @@ const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(
 const fail = (m: string): Promise<never> => new Promise((_, rej) => setTimeout(() => rej(new Error(m)), DELAY));
 
 function load(): Saved {
+  let s: Partial<Saved> = {};
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) {
-      const s = JSON.parse(raw) as Partial<Saved>;
-      return { policies: s.policies ?? [], acks: s.acks ?? [] };
-    }
+    if (raw) s = JSON.parse(raw) as Partial<Saved>;
   } catch {
-    // Blocked or corrupt storage: start empty.
+    // Blocked or corrupt storage: start with the samples.
   }
-  return { policies: [], acks: [] };
+  const policies = s.policies ?? [];
+  if (s.seeded) return { policies, acks: s.acks ?? [], seeded: true };
+  // Add the sample policies once, skipping any HR already wrote under the same title.
+  const samples = SEED_POLICIES.filter((x) => !policies.some((p) => p.id === x.id || p.title.toLowerCase() === x.title.toLowerCase()));
+  return { policies: [...policies, ...samples], acks: s.acks ?? [], seeded: true };
 }
 let saved = load();
 function persist(next: Saved) {
