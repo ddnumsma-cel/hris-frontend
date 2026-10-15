@@ -318,7 +318,7 @@ function ensureRequests() {
     status,
     filedBy: p.name,
     filedAt: `${date}T18:30:00`,
-    ...(status !== "pending" ? { decidedBy: "Dinah Marquez", decidedAt: `${addDays(date, 1)}T09:15:00` } : {}),
+    ...(status !== "pending" ? { decidedBy: "Wendy Lacson", decidedAt: `${addDays(date, 1)}T09:15:00` } : {}),
   });
   const reasons = ["Client deadline: quarterly VAT filing", "Year-end audit fieldwork", "Month-end closing", "Server patching after hours", "Urgent BIR submission"];
   let i = 0;

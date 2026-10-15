@@ -147,8 +147,13 @@ function Breakdown({ run, line, canEdit, onClose }: { run: PayrollRun; line: Pay
   });
   const remove = useMutation({ mutationFn: (adjId: string) => removeAdjustment(run.id, line.person.id, adjId), onSuccess: refresh });
 
+  // The register cut-off shows the register's own columns, since its amounts come from MSMA's time records, not heyhr's.
+  const register = p.fromRegister ? "FT_MSMA payroll register" : undefined;
   const rows: { label: string; detail?: string; amount: number; kind?: "minus" | "plus" | "total" }[] = [
     { label: "Basic pay", detail: p.basic === line.person.salary / 2 ? `Half of ${peso(line.person.salary)}` : "Workdays employed in this cutoff", amount: p.basic },
+    ...(register && p.premiumPay ? [{ label: "Holiday and premium pay", detail: register, amount: p.premiumPay, kind: "plus" as const }] : []),
+    ...(register && p.overtimePay ? [{ label: "OT, NSD and OT meal", detail: register, amount: p.overtimePay, kind: "plus" as const }] : []),
+    ...(register && p.absentDeduction ? [{ label: "Absences, lates and undertime", detail: register, amount: -p.absentDeduction, kind: "minus" as const }] : []),
     ...(p.absentDays ? [{ label: `Absent ${p.absentDays} ${p.absentDays === 1 ? "day" : "days"}`, detail: p.absentHours ? `${p.absentHours} h × ${peso(p.hourly)}${p.awolDays ? ` · ${p.awolDays} AWOL` : ""}` : `${p.absentDays} × ${peso(p.daily)}`, amount: -p.absentDeduction, kind: "minus" as const }] : []),
     ...(p.halfDays ? [{ label: `Half days from lates (${p.halfDays})`, detail: `${p.halfDayHours} h × ${peso(p.hourly)} · 30+ min late, or every 3rd late in a week`, amount: -p.halfDayDeduction, kind: "minus" as const }] : []),
     ...(p.unpaidLeaveDays ? [{ label: "Unpaid leave", detail: `${p.unpaidLeaveDays} × ${peso(p.daily)}`, amount: -p.unpaidLeaveDeduction, kind: "minus" as const }] : []),
@@ -159,11 +164,11 @@ function Breakdown({ run, line, canEdit, onClose }: { run: PayrollRun; line: Pay
     ...(p.otMeal ? [{ label: "OT meal", detail: `${p.overtimeDays} overtime ${p.overtimeDays === 1 ? "day" : "days"}`, amount: p.otMeal, kind: "plus" as const }] : []),
     ...(p.taxableAdjustments ? [{ label: "Taxable adjustments", amount: p.taxableAdjustments, kind: "plus" as const }] : []),
     { label: "Gross pay", amount: p.gross, kind: "total" },
-    { label: "SSS", amount: -p.sssEe, kind: "minus" },
-    { label: "PhilHealth", amount: -p.phEe, kind: "minus" },
-    { label: "Pag-IBIG", amount: -p.piEe, kind: "minus" },
-    { label: "Withholding tax", detail: `On ${peso(p.taxable)} taxable${p.deMinimis || p.otherNonTaxable ? ` (less ${peso((p.deMinimis ?? 0) + (p.otherNonTaxable ?? 0))} tax-free pay)` : ""}`, amount: -p.tax, kind: "minus" },
-    ...(p.transportAllowance ? [{ label: "Transport allowance", detail: `${p.workdaysAttended} of ${p.workdaysScheduled} workdays attended`, amount: p.transportAllowance, kind: "plus" as const }] : []),
+    { label: "SSS", amount: p.sssEe ? -p.sssEe : 0, kind: "minus" },
+    { label: "PhilHealth", amount: p.phEe ? -p.phEe : 0, kind: "minus" },
+    { label: "Pag-IBIG", amount: p.piEe ? -p.piEe : 0, kind: "minus" },
+    { label: "Withholding tax", detail: register ? `${register} · on ${peso(p.taxable)} taxable` : `On ${peso(p.taxable)} taxable${p.deMinimis || p.otherNonTaxable ? ` (less ${peso((p.deMinimis ?? 0) + (p.otherNonTaxable ?? 0))} tax-free pay)` : ""}`, amount: p.tax ? -p.tax : 0, kind: "minus" },
+    ...(p.transportAllowance ? [{ label: "Transport allowance", detail: register ?? `${p.workdaysAttended} of ${p.workdaysScheduled} workdays attended`, amount: p.transportAllowance, kind: "plus" as const }] : []),
     ...(p.nonTaxableAdjustments ? [{ label: "Non-taxable adjustments", amount: p.nonTaxableAdjustments, kind: "plus" as const }] : []),
     { label: "Take-home pay", amount: p.net, kind: "total" },
   ];

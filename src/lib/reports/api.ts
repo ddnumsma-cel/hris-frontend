@@ -10,6 +10,7 @@ import { branchOf, departmentOf, todayIso } from "../timekeeping/store";
 import { pagibig, philhealth, round2, sss, THIRTEENTH_MONTH_EXEMPT } from "./statutory";
 import { deny } from "../session";
 import { cutoffsInMonth, payProfileOf, recentCutoffs } from "../pay/settings";
+import { applyRegister, registerRow } from "../pay/register";
 
 // ---- Periods ----
 
@@ -195,7 +196,7 @@ export async function payroll(period: Period, office: string, adjustmentsFor?: (
     .filter((p) => employedIn(p, period.from, period.to) && p.salary > 0)
     .map((p) => {
       const a = att.get(p.id);
-      const pay = computePay({
+      const computed = computePay({
         monthlySalary: p.salary,
         from: period.from,
         to: period.to,
@@ -207,6 +208,9 @@ export async function payroll(period: Period, office: string, adjustmentsFor?: (
         adjustments: adjustmentsFor?.(p.id),
         profile: payProfileOf(p.id),
       });
+      // The register's cut-off pays exactly what MSMA's FT_MSMA register says.
+      const reg = registerRow(p.id, period.from, period.to);
+      const pay = reg ? applyRegister(computed, reg) : computed;
       return {
         pay,
         person: p,
@@ -388,7 +392,7 @@ const ALL_REPORTS: ReportDef[] = [
   {
     id: "attendance-summary",
     category: "attendance",
-    name: "Attendance summary",
+    name: "Attendance report",
     description: "Days present, absent and on leave, with lates, undertime and approved overtime.",
     period: "recent",
     run: async (period, office) => {

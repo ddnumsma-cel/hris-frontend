@@ -199,13 +199,13 @@ function seed(): AdminState {
     accounts: [
       { id: "ua-super", name: "System Administrator", username: "superadmin", demo: "superadmin", roleId: "super-admin", status: "active", failedAttempts: 0, createdAt: at },
       { id: "ua-admin", name: "Office Administrator", username: "admin", demo: "admin", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
-      { id: "ua-hr", name: "Dinah Marquez", username: "admin1", demo: "hr", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
-      { id: "ua-employee", name: "Chris S. David", username: "ceb.msma", demo: "employee", employeeId: "MSMA-00846", roleId: "employee", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-hr", name: "Wendy Lacson", username: "admin1", demo: "hr", employeeId: "MSMA-01041", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-employee", name: "Danica Bernardo", username: "ceb.msma", demo: "employee", employeeId: "MSMA-00846", roleId: "employee", status: "active", failedAttempts: 0, createdAt: at },
       { id: "ua-sysadmin", name: "System Admin (demo)", username: "sysadmin", demo: "sysadmin", roleId: "system-admin", status: "active", failedAttempts: 0, createdAt: at },
-      { id: "ua-approver", name: "Rafael Ortiz", username: "approver", demo: "approver", employeeId: "MSMA-00317", roleId: "approver", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-approver", name: "Lorraine Santos", username: "approver", demo: "approver", employeeId: "MSMA-00317", roleId: "approver", status: "active", failedAttempts: 0, createdAt: at },
       { id: "ua-partner-sanchez", name: "Antonio D. Sanchez Jr.", username: "antonio.sanchez", demo: "partner-sanchez", employeeId: "MSMA-00001", roleId: "approver", status: "active", failedAttempts: 0, createdAt: at },
       { id: "ua-accounting", name: "Accounting (demo)", username: "accounting", demo: "accounting", roleId: "accounting", status: "active", failedAttempts: 0, createdAt: at },
-      { id: "ua-officer", name: "Joel Nierves", username: "hrofficer", password: "Heyhr-Officer-2026!", employeeId: "MSMA-00812", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
+      { id: "ua-officer", name: "Liza Estrada", username: "hrofficer", password: "Heyhr-Officer-2026!", employeeId: "MSMA-00812", roleId: "hr", status: "active", failedAttempts: 0, createdAt: at },
     ],
     workflows: DEFAULT_WORKFLOWS,
     settings: DEFAULT_SETTINGS,
@@ -257,9 +257,19 @@ function load(): AdminState {
           .map((a) => (a.demo === "employee" ? { ...a, username: EMPLOYEE_DEMO_USERNAME, ...(handMade ? { name: handMade.name, employeeId: handMade.employeeId } : {}) } : a));
         localStorage.setItem(KEY, JSON.stringify(s));
       }
-      // The employee demo login is Chris S. David.
+      // The employee demo login is Danica Bernardo.
       if ((s.accounts ?? []).some((a) => a.demo === "employee" && a.employeeId !== EMPLOYEE_DEMO_ID)) {
-        s.accounts = s.accounts.map((a) => (a.demo === "employee" ? { ...a, name: "Chris S. David", employeeId: EMPLOYEE_DEMO_ID } : a));
+        s.accounts = s.accounts.map((a) => (a.demo === "employee" ? { ...a, name: "Danica Bernardo", employeeId: EMPLOYEE_DEMO_ID } : a));
+        localStorage.setItem(KEY, JSON.stringify(s));
+      }
+      // MSMA's register replaced the sample people: the HR, approver and HR officer logins follow
+      // the people who took over their records (Wendy Lacson, Lorraine Santos, Liza Estrada).
+      const moved = seed().accounts.filter((d) => ["ua-hr", "ua-approver", "ua-officer"].includes(d.id));
+      if ((s.accounts ?? []).some((a) => moved.some((d) => d.id === a.id && (a.name !== d.name || a.employeeId !== d.employeeId)))) {
+        s.accounts = s.accounts.map((a) => {
+          const d = moved.find((x) => x.id === a.id);
+          return d ? { ...a, name: d.name, employeeId: d.employeeId } : a;
+        });
         localStorage.setItem(KEY, JSON.stringify(s));
       }
       // Demo logins that were removed (two Partner logins) are deleted from saved data too.

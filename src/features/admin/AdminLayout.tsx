@@ -119,11 +119,11 @@ const GROUPS: SideNavGroup[] = [
       },
       {
         label: "Presence",
-        to: "/admin/reports/attendance-logs",
+        to: "/admin/reports/attendance",
         icon: <AttendanceIcon />,
         children: [
+          { label: "Attendance report", to: "/admin/reports/attendance" },
           { label: "Attendance logs", to: "/admin/reports/attendance-logs" },
-          { label: "Attendance summary", to: "/admin/reports/attendance" },
           { label: "Tardiness", to: "/admin/reports/tardiness" },
         ],
       },

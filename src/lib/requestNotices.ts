@@ -54,7 +54,7 @@ const LINKS: Record<Topic, Partial<Record<RoleKey, string>>> = {
 /** "Oct 14" or "Oct 14 – Oct 16" for a notification. */
 export const dates = (start: string, end?: string) => (end && end !== start ? `${fmtDayShort(start)} – ${fmtDayShort(end)}` : fmtDay(start));
 
-/** The employee's name for a notification ("Bea Santos"). */
+/** The employee's name for a notification ("Katrina Enriquez"). */
 export const who = (employeeId: string) => nameOf(employeeId);
 
 const WORKFLOW: Partial<Record<Topic, RequestKind>> = { leave: "leave", overtime: "overtime", undertime: "undertime", adjustment: "correction" };

@@ -54,7 +54,8 @@ export function RailNav({
     window.clearTimeout(closeTimer.current);
     const r = el.getBoundingClientRect();
     // 48px title band + 8px padding above and below + 40px rows 4px apart (+2px border).
-    const height = 62 + s.pages.length * 44;
+    // A page with sub-pages adds its 28px heading (12px more above it after the first) and its sub-pages as rows.
+    const height = 62 + s.pages.reduce((n, p, i) => n + (p.children ? (i ? 44 : 32) + p.children.length * 44 : 44), 0);
     // -1 for the drawer's top border, so the band's centre meets the icon's exactly.
     setOpen({ key: s.key, top: Math.max(8, Math.min(r.top - 1, window.innerHeight - height - 8)) });
   };
@@ -181,11 +182,23 @@ export function RailNav({
               </span>
             </div>
             <div className="flex flex-col gap-1 p-2">
-              {openSection.pages.map((p) => (
-                <NavLink key={p.to} to={p.to} end={p.end} role="menuitem" className="sidebar-item min-h-10 text-[13.5px]">
-                  <span className="truncate">{p.label}</span>
-                </NavLink>
-              ))}
+              {openSection.pages.map((p, i) =>
+                p.children ? (
+                  // A page with sub-pages (e.g. Reports › Presence) lists them under its name, so each report is one click away.
+                  <div key={p.to} role="group" aria-label={p.label} className={`flex flex-col gap-1 ${i ? "mt-3" : ""}`}>
+                    <span className="flex h-7 items-end px-3 pb-1 text-[11px] font-semibold tracking-[0.1em] text-[var(--nav-label)] uppercase">{p.label}</span>
+                    {p.children.map((c) => (
+                      <NavLink key={c.to} to={c.to} end={c.end} role="menuitem" className="sidebar-item min-h-10 text-[13.5px]">
+                        <span className="truncate">{c.label}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                ) : (
+                  <NavLink key={p.to} to={p.to} end={p.end} role="menuitem" className="sidebar-item min-h-10 text-[13.5px]">
+                    <span className="truncate">{p.label}</span>
+                  </NavLink>
+                ),
+              )}
             </div>
           </div>,
           document.body,

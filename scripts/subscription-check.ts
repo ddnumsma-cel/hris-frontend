@@ -13,6 +13,28 @@ const store = new Map<string, string>();
   },
 };
 
+// The checks below are written for the Starter plan (20 seats) with 18 people on it, whatever the
+// demo data holds: the three partners plus the 15 records MSMA's register took over.
+{
+  const mock = await import("../src/lib/mockData");
+  const roster = await import("../src/lib/msmaRoster");
+  const reused = new Set(["MSMA-00001", "MSMA-00002", "MSMA-00003", ...roster.MSMA_ROSTER.filter((r) => Number(r.id.slice(5)) < 1000).map((r) => r.id)]);
+  mock.setEmployeeDirectory(mock.employeeDirectory.filter((e) => reused.has(e.id)));
+  store.set(
+    "heyhr-subscription-v1",
+    JSON.stringify({
+      version: 2,
+      plans: [
+        { id: "plan-starter", name: "Starter", employeeSeatLimit: 20, adminAccountLimit: 8, gracePercent: 5 },
+        { id: "plan-growth", name: "Growth", employeeSeatLimit: 50, adminAccountLimit: 15, gracePercent: 5 },
+        { id: "plan-business", name: "Business", employeeSeatLimit: 150, adminAccountLimit: 30, gracePercent: 5 },
+      ],
+      clients: [{ id: "org-msma", name: "MSMA Group", planId: "plan-starter", renewalDate: "2027-01-31", lastSeatLevel: 0 }],
+      events: [],
+    }),
+  );
+}
+
 const ACCOUNTS = { sysadmin: "ua-sysadmin", superadmin: "ua-super", admin1: "ua-hr", "antonio.sanchez": "ua-partner-sanchez", accounting: "ua-accounting", admin2: "ua-employee" } as const;
 type Login = keyof typeof ACCOUNTS;
 const signIn = (who: Login) => store.set("msma-hris-account", ACCOUNTS[who]);

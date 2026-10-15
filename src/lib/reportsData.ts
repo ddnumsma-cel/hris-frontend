@@ -24,12 +24,12 @@ export interface ReportRow {
 }
 
 const team = {
-  BS: "Bea Santos",
-  MR: "Miguel Reyes",
-  CU: "Carla Uy",
-  JA: "Jon Ababa",
-  DL: "Dennis Lim",
-  GT: "Grace Tan",
+  BS: "Katrina Enriquez",
+  MR: "Andrea Joy Aquino",
+  CU: "Trisha Mae Jimenez",
+  JA: "Olive Navarro",
+  DL: "Harold Lagman",
+  GT: "Isabel Escobar",
 } as const;
 
 type Initials = keyof typeof team;

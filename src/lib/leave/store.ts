@@ -97,7 +97,7 @@ function seed(): LeaveState {
       filedBy: e ? fullName(e.personal) : "Employee",
       // Sample requests were filed a week ahead, but never later than a couple of days ago.
       filedAt: `${earlier(addDays(start, -7), addDays(isoToday(), -2))}T09:00:00`,
-      ...(status === "approved" || status === "rejected" ? { decidedBy: "Dinah Marquez", decidedAt: `${earlier(addDays(start, -5), addDays(isoToday(), -1))}T10:00:00` } : {}),
+      ...(status === "approved" || status === "rejected" ? { decidedBy: "Wendy Lacson", decidedAt: `${earlier(addDays(start, -5), addDays(isoToday(), -1))}T10:00:00` } : {}),
       ...extra,
     };
   };

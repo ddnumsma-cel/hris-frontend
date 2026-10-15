@@ -1,0 +1,1958 @@
+[
+ {
+  "name": "Santos, Lorraine",
+  "monthly": 46750,
+  "half": 23375,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 268.68,
+   "daily": 2149.43,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 875,
+   "ph": 584.38,
+   "pi": 100,
+   "deMinimis": 3700,
+   "otherNT": 5969.7,
+   "taxable": 13705.3,
+   "tax": 937.5,
+   "net": 17159.37,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Hernandez, Teresa",
+  "monthly": 61000,
+  "half": 30500,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 350.58,
+   "daily": 2804.6,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 875,
+   "ph": 762.5,
+   "pi": 100,
+   "deMinimis": 3700,
+   "otherNT": 4994.7,
+   "taxable": 21805.3,
+   "tax": 1708.25,
+   "net": 26161.75,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Lopez, Irene",
+  "monthly": 32250,
+  "half": 16125,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 185.35,
+   "daily": 1482.76,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 800,
+   "ph": 403.12,
+   "pi": 100,
+   "deMinimis": 3700,
+   "otherNT": 2444.7,
+   "taxable": 9980.3,
+   "tax": 0,
+   "net": 14167.38,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Estrada, Liza",
+  "monthly": 25500,
+  "half": 12750,
+  "days": [
+   {
+    "date": "2026-09-19",
+    "type": "RD",
+    "reg": 6,
+    "ot": 0,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 146.55,
+   "daily": 1172.41,
+   "premium": 1143.09,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 637.5,
+   "ph": 318.75,
+   "pi": 100,
+   "deMinimis": 3700,
+   "otherNT": 0,
+   "taxable": 10193.09,
+   "tax": 0,
+   "net": 10623.62,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Gatchalian, Dennis",
+  "monthly": 18750,
+  "half": 9375,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 107.76,
+   "daily": 862.07,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 475,
+   "ph": 234.38,
+   "pi": 100,
+   "deMinimis": 1217,
+   "otherNT": 0,
+   "taxable": 8158,
+   "tax": 0,
+   "net": 7365.01,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Castillo, Nathan",
+  "monthly": 42750,
+  "half": 21375,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 245.69,
+   "daily": 1965.52,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 875,
+   "ph": 534.38,
+   "pi": 100,
+   "deMinimis": 3700,
+   "otherNT": 1406.25,
+   "taxable": 16268.75,
+   "tax": 877.76,
+   "net": 21962.86,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Ramos, Arlene",
+  "monthly": 46750,
+  "half": 23375,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 0,
+   "daily": 0,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 0,
+   "ph": 0,
+   "pi": 0,
+   "deMinimis": 0,
+   "otherNT": 0,
+   "taxable": 0,
+   "tax": 0,
+   "net": 23375,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Mangubat, Victor",
+  "monthly": 31250,
+  "half": 15625,
+  "days": [
+   {
+    "date": "2026-09-11",
+    "type": "OD",
+    "reg": 0,
+    "ot": 2,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-12",
+    "type": "RD",
+    "reg": 2,
+    "ot": 0,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-14",
+    "type": "OD",
+    "reg": 0,
+    "ot": 0,
+    "nsd": 3,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 1,
+  "file": {
+   "hourly": 179.6,
+   "daily": 1436.78,
+   "premium": 466.96,
+   "ot": 449,
+   "nsd": 740.85,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 775,
+   "ph": 390.62,
+   "pi": 100,
+   "deMinimis": 3700,
+   "otherNT": 1968.75,
+   "taxable": 11613.06,
+   "tax": 179.41,
+   "net": 17836.78,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Enriquez, Katrina",
+  "monthly": 21500,
+  "half": 10750,
+  "days": [
+   {
+    "date": "2026-09-12",
+    "type": "RD",
+    "reg": 6,
+    "ot": 0,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-13",
+    "type": "RD",
+    "reg": 8,
+    "ot": 1,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-16",
+    "type": "OD",
+    "reg": 0,
+    "ot": 1,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 2,
+  "file": {
+   "hourly": 123.56,
+   "daily": 988.51,
+   "premium": 2248.79,
+   "ot": 363.27,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 537.5,
+   "ph": 268.75,
+   "pi": 100,
+   "deMinimis": 3700,
+   "otherNT": 1687.5,
+   "taxable": 7974.56,
+   "tax": 0,
+   "net": 12455.81,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Aquino, Andrea Joy",
+  "monthly": 31000,
+  "half": 15500,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 178.16,
+   "daily": 1425.29,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 775,
+   "ph": 387.5,
+   "pi": 100,
+   "deMinimis": 3700,
+   "otherNT": 1912.5,
+   "taxable": 9887.5,
+   "tax": 0,
+   "net": 16022.5,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Jimenez, Trisha Mae",
+  "monthly": 14500,
+  "half": 7250,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 83.33,
+   "daily": 666.67,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 362.5,
+   "ph": 181.25,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 4033,
+   "tax": 0,
+   "net": 8391.25,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Feliciano, Ivan Luis",
+  "monthly": 31000,
+  "half": 15500,
+  "days": [
+   {
+    "date": "2026-09-22",
+    "type": "OD",
+    "reg": 0,
+    "ot": 2,
+    "nsd": 0.67,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 1,
+  "file": {
+   "hourly": 178.16,
+   "daily": 1425.29,
+   "premium": 0,
+   "ot": 445.4,
+   "nsd": 164.13,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 775,
+   "ph": 387.5,
+   "pi": 100,
+   "deMinimis": 3700,
+   "otherNT": 1912.5,
+   "taxable": 10497.03,
+   "tax": 12,
+   "net": 16620.03,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Ocampo, Gino",
+  "monthly": 21000,
+  "half": 10500,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 120.69,
+   "daily": 965.52,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 525,
+   "ph": 262.5,
+   "pi": 100,
+   "deMinimis": 3700,
+   "otherNT": 1912.5,
+   "taxable": 4887.5,
+   "tax": 0,
+   "net": 9612.5,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Cabrera, Marvin",
+  "monthly": 21000,
+  "half": 10500,
+  "days": [
+   {
+    "date": "2026-09-19",
+    "type": "RD",
+    "reg": 6,
+    "ot": 0,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 120.69,
+   "daily": 965.52,
+   "premium": 941.38,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 525,
+   "ph": 262.5,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 8224.38,
+   "tax": 0,
+   "net": 10553.88,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Marquez, Dominic",
+  "monthly": 16250,
+  "half": 8125,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 93.39,
+   "daily": 747.13,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 400,
+   "ph": 203.12,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 4908,
+   "tax": 0,
+   "net": 7421.88,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Domingo, Francis Ian",
+  "monthly": 0,
+  "half": 0,
+  "days": [
+   {
+    "date": "2026-09-11",
+    "type": "OD",
+    "reg": 0,
+    "ot": 0,
+    "nsd": 0,
+    "am": "STUDY LEAVE",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 0,
+   "daily": 0,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 0,
+   "ph": 0,
+   "pi": 0,
+   "deMinimis": 0,
+   "otherNT": 0,
+   "taxable": 0,
+   "tax": 0,
+   "net": 0,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Pascual, Benedict",
+  "monthly": 14500,
+  "half": 7250,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 83.33,
+   "daily": 666.67,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 362.5,
+   "ph": 181.25,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 4033,
+   "tax": 0,
+   "net": 6606.25,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Alcantara, Paolo",
+  "monthly": 14500,
+  "half": 7250,
+  "days": [
+   {
+    "date": "2026-09-18",
+    "type": "OD",
+    "reg": 0,
+    "ot": 0,
+    "nsd": 0,
+    "am": "VL",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 83.33,
+   "daily": 666.67,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 362.5,
+   "ph": 181.25,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 4033,
+   "tax": 0,
+   "net": 6606.25,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Navarro, Olive",
+  "monthly": 23250,
+  "half": 11625,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 133.62,
+   "daily": 1068.97,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 575,
+   "ph": 290.62,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 8408,
+   "tax": 0,
+   "net": 11254.38,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Lagman, Harold",
+  "monthly": 15000,
+  "half": 7500,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 86.21,
+   "daily": 689.66,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 375,
+   "ph": 187.5,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 4283,
+   "tax": 0,
+   "net": 8027.5,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Nepomuceno, Sheila",
+  "monthly": 16750,
+  "half": 8375,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 96.26,
+   "daily": 770.11,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 425,
+   "ph": 209.38,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 5158,
+   "tax": 0,
+   "net": 7640.62,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Mercado, Rachel Ann",
+  "monthly": 14500,
+  "half": 7250,
+  "days": [
+   {
+    "date": "2026-09-11",
+    "type": "OD",
+    "reg": 0,
+    "ot": 0,
+    "nsd": 0,
+    "am": "VL",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 83.33,
+   "daily": 666.67,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 362.5,
+   "ph": 181.25,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 4033,
+   "tax": 0,
+   "net": 6606.25,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Fajardo, Hannah Mae",
+  "monthly": 18750,
+  "half": 9375,
+  "days": [
+   {
+    "date": "2026-09-26",
+    "type": "RD",
+    "reg": 2,
+    "ot": 0,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 107.76,
+   "daily": 862.07,
+   "premium": 280.18,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 475,
+   "ph": 234.38,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 6438.18,
+   "tax": 0,
+   "net": 8845.8,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Escobar, Isabel",
+  "monthly": 16000,
+  "half": 8000,
+  "days": [
+   {
+    "date": "2026-09-16",
+    "type": "OD",
+    "reg": 0,
+    "ot": 3,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-18",
+    "type": "OD",
+    "reg": 0,
+    "ot": 2,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-23",
+    "type": "OD",
+    "reg": 0,
+    "ot": 5,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 3,
+  "file": {
+   "hourly": 91.95,
+   "daily": 735.63,
+   "premium": 0,
+   "ot": 1149.38,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 400,
+   "ph": 200,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 5932.38,
+   "tax": 0,
+   "net": 9639.38,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Legaspi, Cedric",
+  "monthly": 18000,
+  "half": 9000,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 103.45,
+   "daily": 827.59,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 450,
+   "ph": 225,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 5783,
+   "tax": 0,
+   "net": 8225,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Ignacio, Pauline",
+  "monthly": 28750,
+  "half": 14375,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 165.23,
+   "daily": 1321.84,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 725,
+   "ph": 359.38,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 11158,
+   "tax": 111.15,
+   "net": 16579.47,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Guevarra, Camille Therese",
+  "monthly": 22000,
+  "half": 11000,
+  "days": [
+   {
+    "date": "2026-09-12",
+    "type": "RD",
+    "reg": 4,
+    "ot": 0,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-20",
+    "type": "RD",
+    "reg": 2,
+    "ot": 0,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-21",
+    "type": "OD",
+    "reg": 0,
+    "ot": 1.5,
+    "nsd": 1,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-22",
+    "type": "OD",
+    "reg": 0,
+    "ot": 6,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-25",
+    "type": "OD",
+    "reg": 0,
+    "ot": 2,
+    "nsd": 2,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-26",
+    "type": "RD",
+    "reg": 3,
+    "ot": 0,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 3,
+  "file": {
+   "hourly": 126.44,
+   "daily": 1011.49,
+   "premium": 1479.35,
+   "ot": 1501.48,
+   "nsd": 521.57,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 550,
+   "ph": 275,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 11285.4,
+   "tax": 130.26,
+   "net": 14637.14,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Canlas, Patricia Anne",
+  "monthly": 14000,
+  "half": 7000,
+  "days": [
+   {
+    "date": "2026-09-23",
+    "type": "OD",
+    "reg": 0,
+    "ot": 3,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-24",
+    "type": "OD",
+    "reg": 0,
+    "ot": 3,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 2,
+  "file": {
+   "hourly": 80.46,
+   "daily": 643.68,
+   "premium": 0,
+   "ot": 603.45,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 350,
+   "ph": 175,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 4386.45,
+   "tax": 0,
+   "net": 6978.45,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Arcilla, Bianca Louise",
+  "monthly": 28750,
+  "half": 14375,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 165.23,
+   "daily": 1321.84,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 725,
+   "ph": 359.38,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 11158,
+   "tax": 111.15,
+   "net": 13079.47,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Cortez, Regine",
+  "monthly": 26750,
+  "half": 13375,
+  "days": [
+   {
+    "date": "2026-09-11",
+    "type": "OD",
+    "reg": 0,
+    "ot": 2,
+    "nsd": 1,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-12",
+    "type": "RD",
+    "reg": 5,
+    "ot": 0,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-14",
+    "type": "OD",
+    "reg": 0,
+    "ot": 0,
+    "nsd": 3,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-16",
+    "type": "OD",
+    "reg": 0,
+    "ot": 1.5,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 2,
+  "file": {
+   "hourly": 153.74,
+   "daily": 1229.89,
+   "premium": 999.31,
+   "ot": 672.61,
+   "nsd": 845.57,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 675,
+   "ph": 334.38,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 12675.49,
+   "tax": 338.77,
+   "net": 14444.34,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Pacheco, Mika",
+  "monthly": 20250,
+  "half": 10125,
+  "days": [
+   {
+    "date": "2026-09-19",
+    "type": "RD",
+    "reg": 5.95,
+    "ot": 0,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 116.38,
+   "daily": 931.03,
+   "premium": 900.2,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 500,
+   "ph": 253.12,
+   "pi": 100,
+   "deMinimis": 1217,
+   "otherNT": 0,
+   "taxable": 9808.2,
+   "tax": 0,
+   "net": 10172.08,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Abad, Carlo Miguel",
+  "monthly": 18000,
+  "half": 9000,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 103.45,
+   "daily": 827.59,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 450,
+   "ph": 225,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 5783,
+   "tax": 0,
+   "net": 8225,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Francisco, Leo",
+  "monthly": 17250,
+  "half": 8625,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 99.14,
+   "daily": 793.1,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 425,
+   "ph": 215.62,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 5408,
+   "tax": 0,
+   "net": 7884.38,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Bacani, Kevin Paul",
+  "monthly": 22500,
+  "half": 11250,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 129.31,
+   "daily": 1034.48,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 562.5,
+   "ph": 281.25,
+   "pi": 100,
+   "deMinimis": 1217,
+   "otherNT": 0,
+   "taxable": 10033,
+   "tax": 0,
+   "net": 10306.25,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Quinto, Gwen",
+  "monthly": 28750,
+  "half": 14375,
+  "days": [
+   {
+    "date": "2026-09-12",
+    "type": "RD",
+    "reg": 5.5,
+    "ot": 0,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-13",
+    "type": "RD",
+    "reg": 8,
+    "ot": 1,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-16",
+    "type": "OD",
+    "reg": 0,
+    "ot": 1.5,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 2,
+  "file": {
+   "hourly": 165.23,
+   "daily": 1321.84,
+   "premium": 2899.79,
+   "ot": 589.04,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 725,
+   "ph": 359.38,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 14646.83,
+   "tax": 634.47,
+   "net": 16044.98,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Dizon, Samuel James",
+  "monthly": 29500,
+  "half": 14750,
+  "days": [
+   {
+    "date": "2026-09-23",
+    "type": "OD",
+    "reg": 0,
+    "ot": 3,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-24",
+    "type": "OD",
+    "reg": 0,
+    "ot": 2.5,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 2,
+  "file": {
+   "hourly": 169.54,
+   "daily": 1356.32,
+   "premium": 0,
+   "ot": 1165.59,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 737.5,
+   "ph": 368.75,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 12698.59,
+   "tax": 342.24,
+   "net": 14367.1,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Calderon, Oscar",
+  "monthly": 14500,
+  "half": 7250,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 83.33,
+   "daily": 666.67,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 362.5,
+   "ph": 0,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 4033,
+   "tax": 0,
+   "net": 6787.5,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Panganiban, Albert John",
+  "monthly": 22000,
+  "half": 11000,
+  "days": [
+   {
+    "date": "2026-09-16",
+    "type": "OD",
+    "reg": 0,
+    "ot": 0,
+    "nsd": 0,
+    "am": "ABS",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 126.44,
+   "daily": 1011.49,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 8,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 1011.52,
+   "sss": 550,
+   "ph": 275,
+   "pi": 0,
+   "deMinimis": 1217,
+   "otherNT": 0,
+   "taxable": 8771.48,
+   "tax": 0,
+   "net": 9163.48,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Bernardo, Danica",
+  "monthly": 15500,
+  "half": 7750,
+  "days": [
+   {
+    "date": "2026-09-11",
+    "type": "OD",
+    "reg": 0,
+    "ot": 1,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-12",
+    "type": "RD",
+    "reg": 4,
+    "ot": 0,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-17",
+    "type": "OD",
+    "reg": 0,
+    "ot": 1.5,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-18",
+    "type": "OD",
+    "reg": 0,
+    "ot": 1.5,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-21",
+    "type": "OD",
+    "reg": 0,
+    "ot": 4.5,
+    "nsd": 1,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-22",
+    "type": "OD",
+    "reg": 0,
+    "ot": 1,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   },
+   {
+    "date": "2026-09-25",
+    "type": "OD",
+    "reg": 0,
+    "ot": 2,
+    "nsd": 2,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 6,
+  "file": {
+   "hourly": 89.08,
+   "daily": 712.64,
+   "premium": 463.22,
+   "ot": 1280.53,
+   "nsd": 367.46,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 387.5,
+   "ph": 193.75,
+   "pi": 100,
+   "deMinimis": 1217,
+   "otherNT": 0,
+   "taxable": 8644.21,
+   "tax": 0,
+   "net": 10072.46,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Evangelista, Gerald",
+  "monthly": 29500,
+  "half": 14750,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 169.54,
+   "daily": 1356.32,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 737.5,
+   "ph": 0,
+   "pi": 100,
+   "deMinimis": 3217,
+   "otherNT": 0,
+   "taxable": 11533,
+   "tax": 167.4,
+   "net": 13745.1,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Lacson, Wendy",
+  "monthly": 22000,
+  "half": 11000,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 126.44,
+   "daily": 1011.49,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 550,
+   "ph": 275,
+   "pi": 100,
+   "deMinimis": 1217,
+   "otherNT": 0,
+   "taxable": 9783,
+   "tax": 0,
+   "net": 10075,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Buenaventura, Clarisse",
+  "monthly": 13500,
+  "half": 6750,
+  "days": [],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 77.59,
+   "daily": 620.69,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 337.5,
+   "ph": 168.75,
+   "pi": 100,
+   "deMinimis": 1217,
+   "otherNT": 0,
+   "taxable": 5533,
+   "tax": 0,
+   "net": 6143.75,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Medina, Stephen",
+  "monthly": 22500,
+  "half": 11250,
+  "days": [
+   {
+    "date": "2026-09-23",
+    "type": "OD",
+    "reg": 0,
+    "ot": 3,
+    "nsd": 0,
+    "am": "",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 1,
+  "file": {
+   "hourly": 129.31,
+   "daily": 1034.48,
+   "premium": 0,
+   "ot": 484.91,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 0,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 0,
+   "sss": 0,
+   "ph": 0,
+   "pi": 0,
+   "deMinimis": 1217,
+   "otherNT": 0,
+   "taxable": 10517.91,
+   "tax": 15.14,
+   "net": 11719.77,
+   "newHire": false
+  }
+ },
+ {
+  "name": "Quiambao, Noel",
+  "monthly": 24250,
+  "half": 12125,
+  "days": [
+   {
+    "date": "2026-09-11",
+    "type": "OD",
+    "reg": 0,
+    "ot": 0,
+    "nsd": 0,
+    "am": "NEW HIRES",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 139.37,
+   "daily": 1114.94,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 64,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 8919.68,
+   "sss": 0,
+   "ph": 0,
+   "pi": 0,
+   "deMinimis": 1217,
+   "otherNT": 0,
+   "taxable": 1988.32,
+   "tax": 0,
+   "net": 3205.32,
+   "newHire": true
+  }
+ },
+ {
+  "name": "Macaraeg, Jasper",
+  "monthly": 22500,
+  "half": 11250,
+  "days": [
+   {
+    "date": "2026-09-11",
+    "type": "OD",
+    "reg": 0,
+    "ot": 0,
+    "nsd": 0,
+    "am": "NEW HIRES",
+    "pm": ""
+   }
+  ],
+  "mid": [
+   0,
+   0,
+   0
+  ],
+  "otMealRate": 0,
+  "otDays": 0,
+  "file": {
+   "hourly": 129.31,
+   "daily": 1034.48,
+   "premium": 0,
+   "ot": 0,
+   "nsd": 0,
+   "meal": 0,
+   "absentH": 64,
+   "halfH": 0,
+   "utH": 0,
+   "absences": 8275.84,
+   "sss": 0,
+   "ph": 0,
+   "pi": 0,
+   "deMinimis": 1217,
+   "otherNT": 0,
+   "taxable": 1757.16,
+   "tax": 0,
+   "net": 2974.16,
+   "newHire": true
+  }
+ }
+]

@@ -43,9 +43,9 @@ export const POSITION_TITLES = ["Executive Assistant / Secretary", "Junior Assoc
 // Department and cluster are picked together as one "Department · Cluster"
 // assignment; each cluster only offers the departments it actually staffs.
 export const departmentsByCluster: Record<(typeof clusterOptions)[number], string[]> = {
-  RPM: ["Audit & Assurance", "Tax Advisory", "Bookkeeping"],
-  VCM: ["Audit & Assurance", "Tax Advisory", "Bookkeeping"],
-  ADS: ["Audit & Assurance", "Tax Advisory", "Corporate Legal", "Admin & Support"],
+  RPM: ["Audit & Assurance", "Accounting Services", "Special Engagements", "Support Services"],
+  VCM: ["Audit & Assurance", "Accounting Services", "Special Engagements", "Support Services"],
+  ADS: ["Audit & Assurance", "Accounting Services", "Special Engagements", "Support Services"],
 };
 
 const ASSIGNMENT_SEPARATOR = "::";
