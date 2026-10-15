@@ -12,7 +12,7 @@ Who may do what is written in one table, `src/lib/permissions.ts`. Each code fil
 
 | What | Code file | Saved as | Screens |
 |---|---|---|---|
-| Employees and their 201 file (personal, job, salary, government numbers, bank, family, documents list), departments, positions, offices | `src/lib/corehr/api.ts`, `corehr/store.ts` | `heyhr-corehr-v3` | Maintenance › People, Departments, Locations, Org chart, 201 documents; employee 201 File |
+| Employees and their 201 file (personal, job, salary, government numbers, bank, family, documents list), departments, positions, offices | `src/lib/corehr/api.ts`, `corehr/store.ts` | `heyhr-corehr-v4` | Maintenance › People, Departments, Locations, Org chart, 201 documents; employee 201 File |
 | Uploaded files (IDs, 201 documents, policy PDFs, receipts) | `src/lib/fileStore.ts` | browser database `heyhr-files` | Every upload |
 | Sign-in accounts, roles, approval workflows, audit trail, system settings | `src/lib/admin/api.ts`, `admin/store.ts`, `admin/auth.ts`, `admin/approvers.ts` | `heyhr-admin-v3` | Login, Administration › Users, Roles & access, Audit trail, System settings; Maintenance › User accounts, Rules (workflows) |
 | Demo passwords | `src/lib/credentials.ts` | `msma-hris-credentials-v2` | Login (remove for real use) |
@@ -35,7 +35,7 @@ Who may do what is written in one table, `src/lib/permissions.ts`. Each code fil
 |---|---|---|---|
 | Payroll runs (each cut-off's computed pay, approval, payslips) | `src/lib/pay/runs.ts` | `heyhr-payroll-runs-v1` | Payroll › Payroll runs; employee Payslips |
 | Paydays (10th / 25th) and each employee's pay settings | `src/lib/pay/settings.ts` | `heyhr-pay-rules-v1`, `heyhr-pay-profiles-v1` | Payroll › Pay details |
-| Loans and cash advances | `src/lib/pay/loans.ts`, `pay/loanStore.ts` | `heyhr-loans-v1` | Payroll › Loans & deductions |
+| Loans and cash advances | `src/lib/pay/loans.ts`, `pay/loanStore.ts` | `heyhr-loans-v2` | Payroll › Loans & deductions |
 | Final pay | `src/lib/pay/finalpay.ts`, `pay/finalPayStore.ts` | `heyhr-final-pay-v1` | Payroll › Final pay |
 | SSS, PhilHealth, Pag-IBIG and BIR tax tables | `src/lib/reports/statutory.ts`, `lib/contributions.ts` | `heyhr-contributions-v1` | Payroll › Government contributions |
 | Reimbursements (claims) | `src/lib/reimbursements/api.ts`, `reimbursements/store.ts` | `heyhr-reimbursements-v1` | Requests › Reimbursements; employee Reimbursements |

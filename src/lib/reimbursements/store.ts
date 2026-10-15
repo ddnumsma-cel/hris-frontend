@@ -78,10 +78,10 @@ function seed(): Claim[] {
     employeeId ? [{ id, employeeId, category, merchant, purchaseDate: daysAgo(ago), description, status, filedAt: `${daysAgo(Math.max(0, ago - 1))}T09:30:00`, ...sampleReceipt(merchant, daysAgo(ago), lines), ...extra }] : [];
   return [
     ...mk("rb-1", "MSMA-00482", "Office supplies", "National Book Store", 3, [["Bond paper A4 x2", 590], ["Ballpen black x12", 216], ["Folder long x20", 340]], "Supplies for the Q4 tax filing binders", "pending"),
-    ...mk("rb-2", "MSMA-00482", "Transportation", "Grab Philippines", 18, [["GrabCar BIR RDO 81", 285], ["Booking fee", 25]], "Ride to BIR Cebu to file a client's 1702-Q", "approved", { decidedBy: "Dinah Marquez", decidedAt: `${daysAgo(16)}T14:10:00`, note: "Approved." }),
+    ...mk("rb-2", "MSMA-00482", "Transportation", "Grab Philippines", 18, [["GrabCar BIR RDO 81", 285], ["Booking fee", 25]], "Ride to BIR Cebu to file a client's 1702-Q", "approved", { decidedBy: "Wendy Lacson", decidedAt: `${daysAgo(16)}T14:10:00`, note: "Approved." }),
     ...mk("rb-3", others[0], "Meals & client meetings", "Casa Verde Lahug", 2, [["Brian's Ribs", 595], ["Pasta Pomodoro", 385], ["Iced tea x3", 285]], "Lunch meeting with a new audit client", "pending"),
     ...mk("rb-4", others[1], "Communication", "Smart Communications", 5, [["Prepaid load (client calls)", 500]], "Load for client follow-ups while on field work", "pending"),
-    ...mk("rb-5", others[2], "Training & seminars", "PICPA Cebu Chapter", 25, [["CPD seminar: TRAIN law update", 2500]], "CPD units for license renewal", "approved", { decidedBy: "Dinah Marquez", decidedAt: `${daysAgo(22)}T10:00:00` }),
+    ...mk("rb-5", others[2], "Training & seminars", "PICPA Cebu Chapter", 25, [["CPD seminar: TRAIN law update", 2500]], "CPD units for license renewal", "approved", { decidedBy: "Wendy Lacson", decidedAt: `${daysAgo(22)}T10:00:00` }),
   ];
 }
 

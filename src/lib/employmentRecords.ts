@@ -119,7 +119,8 @@ export interface EmployeeFileRecords {
 // Employees in the original seed data get a full history; anyone added later
 // through "Add employee" is treated as a new hire with a fresh file.
 /** Built-in demo people who joined recently: a new hire's record, not years of history. */
-const RECENT_HIRES: Record<string, Date> = { "MSMA-00846": new Date(2026, 9, 12) };
+// None now: the employee demo login (Danica Bernardo) is a regular employee on MSMA's payroll register.
+const RECENT_HIRES: Record<string, Date> = {};
 const seededIds = new Set(employeeDirectory.filter((e) => !RECENT_HIRES[e.id]).map((e) => e.id));
 
 /** Small deterministic PRNG so an employee's mock file never changes between renders. */

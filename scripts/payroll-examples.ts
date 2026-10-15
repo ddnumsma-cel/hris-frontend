@@ -53,7 +53,7 @@ r = computePay(cutoff({ "2026-10-07": { kind: "holiday", dayType: "regular" } })
 check("Regular holiday worked 8h: +100% on top of the monthly pay = ₱1,200", r.premiumPay, 1200);
 
 r = computePay({ ...cutoff(), employedFrom: "2026-10-08" });
-check("Hired Oct 8: 6 workdays paid = ₱7,200", r.basic, 7200);
+check("Hired Oct 8: half month less 5 workdays × 8 h × ₱150 (workbook sheet B) = ₱7,050", r.basic, 7050);
 
 r = computePay(cutoff({ "2026-10-06": { nightMinutes: 60 } }));
 check("1h night shift on regular hours: +10% = ₱15", r.nightPay, 15);

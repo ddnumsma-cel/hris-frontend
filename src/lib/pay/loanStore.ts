@@ -25,14 +25,20 @@ export interface Loan {
   closedAt?: string;
 }
 
-const KEY = "heyhr-loans-v1";
+// v2: the loans and cash advances in MSMA's payroll register.
+const KEY = "heyhr-loans-v2";
 
 function seed(): Loan[] {
   const at = "2026-07-01T09:00:00";
   return [
-    { id: "ln-1", employeeId: "MSMA-00482", kind: "SSS salary loan", reference: "SSS-LN 0348-221", principal: 24_000, installment: 1_000, startDate: "2026-07-01", status: "active", createdBy: "Accounting (demo)", createdAt: at },
-    { id: "ln-2", employeeId: "MSMA-00203", kind: "Pag-IBIG multi-purpose loan", reference: "MPL 1671-3774", principal: 30_000, installment: 1_250, startDate: "2026-08-01", status: "active", createdBy: "Accounting (demo)", createdAt: at },
-    { id: "ln-3", employeeId: "MSMA-00845", kind: "Cash advance", reference: "Emergency cash advance", principal: 6_000, installment: 1_500, startDate: "2026-10-01", status: "active", createdBy: "Accounting (demo)", createdAt: at },
+    { id: "ln-ca-santos", employeeId: "MSMA-00317", kind: "Cash advance", reference: "Cash advance, salary deduction for 2 years (balance per CA sheet)", principal: 92968.75, installment: 3718.75, startDate: "2026-01-10", status: "active", createdBy: "Accounting (demo)", createdAt: at },
+    { id: "ln-ca-estrada", employeeId: "MSMA-00812", kind: "Cash advance", reference: "Cash advance – medical (balance per CA sheet)", principal: 45220, installment: 1190, startDate: "2026-01-10", status: "active", createdBy: "Accounting (demo)", createdAt: at },
+    { id: "ln-sss-hernandez", employeeId: "MSMA-01002", kind: "SSS salary loan", reference: "Per payroll register; balance to confirm", principal: 21420, installment: 892.5, startDate: "2026-01-10", status: "active", createdBy: "Accounting (demo)", createdAt: at },
+    { id: "ln-sss-lopez", employeeId: "MSMA-00098", kind: "SSS salary loan", reference: "Per payroll register; balance to confirm", principal: 15708, installment: 654.5, startDate: "2026-01-10", status: "active", createdBy: "Accounting (demo)", createdAt: at },
+    { id: "ln-sss-estrada", employeeId: "MSMA-00812", kind: "SSS salary loan", reference: "Two SSS loans per payroll register; balance to confirm", principal: 20411.28, installment: 850.47, startDate: "2026-01-10", status: "active", createdBy: "Accounting (demo)", createdAt: at },
+    { id: "ln-sss-gatchalian", employeeId: "MSMA-00845", kind: "SSS salary loan", reference: "Two SSS loans per payroll register; balance to confirm", principal: 16379.28, installment: 682.47, startDate: "2026-01-10", status: "active", createdBy: "Accounting (demo)", createdAt: at },
+    { id: "ln-hdmf-estrada", employeeId: "MSMA-00812", kind: "Pag-IBIG multi-purpose loan", reference: "Per payroll register; balance to confirm", principal: 4146, installment: 172.75, startDate: "2026-01-10", status: "active", createdBy: "Accounting (demo)", createdAt: at },
+    { id: "ln-hdmf-gatchalian", employeeId: "MSMA-00845", kind: "Pag-IBIG multi-purpose loan", reference: "Per payroll register; balance to confirm", principal: 12435.36, installment: 518.14, startDate: "2026-01-10", status: "active", createdBy: "Accounting (demo)", createdAt: at },
   ];
 }
 

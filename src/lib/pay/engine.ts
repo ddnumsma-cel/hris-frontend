@@ -157,8 +157,19 @@ export interface PayResult {
   taxable: number;
   tax: number;
   net: number;
+  /** Taken from the FT_MSMA payroll register (lib/pay/register.ts) instead of computed. */
+  fromRegister?: boolean;
 }
 
+/** Excel's ROUND: halves go up, without binary fractions like 1280.525 → 1280.5249… tipping it down. */
+const roundHalfUp = (n: number) => Math.round(Number((n * 100).toFixed(6))) / 100;
+/** Halves go to the even centavo. */
+const halfEven = (n: number) => {
+  const x = Number((n * 100).toFixed(6));
+  const f = Math.floor(x);
+  return (x - f === 0.5 ? (f % 2 === 0 ? f : f + 1) : Math.round(x)) / 100;
+};
+const nextDay = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 864e5).toISOString().slice(0, 10);
 const inRange = (date: string, from?: string, to?: string) => (!from || date >= from) && (!to || date <= to);
 const weekday = (date: string) => new Date(`${date}T12:00:00`).getDay();
 /** Monday of the date's week, so lates are counted Monday to Sunday. */
@@ -176,8 +187,12 @@ export function computePay(input: PayInput): PayResult {
   const hoursOf = (d: Pick<DayRow, "date">) => scheduledHours(profile.workWeek, weekday(d.date)) || 8;
   const days = input.days.filter((d) => inRange(d.date, input.employedFrom, input.employedTo));
   const partial = (input.employedFrom && input.employedFrom > input.from) || (input.employedTo && input.employedTo < input.to);
-  // Mid-cutoff hire or separation: pay the workdays employed (holidays on workdays included), not the half month.
-  const basic = partial ? daily * days.filter((d) => d.kind === "work" || d.kind === "holiday" || d.kind === "leave").length : input.monthlySalary / 2;
+  // Mid-cutoff hire or separation (workbook sheets B and DTR_FT): the half month, less the day's hours × hourly rate
+  // for each scheduled workday before the start or after the last day.
+  let notEmployedHours = 0;
+  for (let d = input.from; d <= input.to; d = nextDay(d)) if (!inRange(d, input.employedFrom, input.employedTo)) notEmployedHours += scheduledHours(profile.workWeek, weekday(d));
+  const notEmployedDeduction = partial ? Math.min(input.monthlySalary / 2, roundHalfUp(notEmployedHours * hourly)) : 0;
+  const basic = input.monthlySalary / 2 - notEmployedDeduction;
 
   const awol = awolDates(input.history.filter((d) => inRange(d.date, input.employedFrom, input.employedTo)));
   let present = 0;
@@ -193,7 +208,8 @@ export function computePay(input: PayInput): PayResult {
   let undertimeHours = 0;
   let overtimeMinutes = 0;
   let overtimeDays = 0;
-  let overtimePay = 0;
+  let otOrdinaryPay = 0;
+  let otNightPay = 0;
   let premiumMinutes = 0;
   let premiumPay = 0;
   let nightMinutes = 0;
@@ -259,12 +275,15 @@ export function computePay(input: PayInput): PayResult {
     // Night hours inside overtime take the "with OT and NSD" rate; the rest get +10% of the day's rate.
     const nightOt = Math.min(d.nightMinutes, otToday);
     overtimeMinutes += otToday;
-    overtimePay += (otToday - nightOt) * perMinute * r.ot + nightOt * perMinute * r.nsd;
+    // Kept apart because the workbook rounds its OT and NSD columns separately (sheet A).
+    otOrdinaryPay += (otToday - nightOt) * perMinute * r.ot;
+    otNightPay += nightOt * perMinute * r.nsd;
     if (otToday > 0) overtimeDays++;
     nightMinutes += d.nightMinutes;
     nightPay += (d.nightMinutes - nightOt) * perMinute * r.first8 * NIGHT_DIFFERENTIAL;
   }
 
+  const overtimePay = roundHalfUp(otOrdinaryPay) + roundHalfUp(otNightPay);
   const absentDeduction = absentHours * hourly;
   const halfDayDeduction = halfDayHours * hourly;
   const undertimeDeduction = undertimeHours * hourly;
@@ -284,7 +303,8 @@ export function computePay(input: PayInput): PayResult {
   const pi = pagibig(input.monthlySalary, input.to);
   const half = (n: number) => round2(n / 2);
   const sssEe = half(s.ee);
-  const phEe = half(ph.ee);
+  // PhilHealth's half centavo goes to the even centavo, as in the workbook (403.125 → 403.12, 584.375 → 584.38).
+  const phEe = halfEven(ph.ee / 2);
   const piEe = half(pi.ee);
   const contributions = round2(sssEe + phEe + piEe);
   // Sheet D: the tax-free part of the basic pay comes off; contributions don't.
@@ -317,7 +337,7 @@ export function computePay(input: PayInput): PayResult {
     overtimeDays,
     overtimePay: round2(overtimePay),
     premiumMinutes,
-    premiumPay: round2(premiumPay),
+    premiumPay: roundHalfUp(premiumPay),
     nightMinutes,
     nightPay: round2(nightPay),
     otMeal: round2(otMeal),
@@ -333,7 +353,7 @@ export function computePay(input: PayInput): PayResult {
     sssEr: half(s.er),
     ec: half(s.ec),
     phEe,
-    phEr: half(ph.er),
+    phEr: halfEven(ph.er / 2),
     piEe,
     piEr: half(pi.er),
     contributions,

@@ -4,6 +4,7 @@
 
 import { logAdmin } from "../admin/store";
 import { deny } from "../session";
+import { rosterEntry } from "../msmaRoster";
 
 // ---- Cut-offs ----
 
@@ -151,7 +152,13 @@ function loadProfiles(): Record<string, PayProfile> {
 
 let profiles = loadProfiles();
 
-export const payProfileOf = (employeeId: string): PayProfile => ({ ...DEFAULT_PROFILE, ...profiles[employeeId] });
+/** Until Accounting saves their own, the register's figures for its employees. */
+function registerProfile(employeeId: string): Partial<PayProfile> {
+  const r = rosterEntry(employeeId);
+  return r ? { transportAllowance: r.transport, deMinimis: r.deMinimis, otherNonTaxable: r.otherNonTaxable } : {};
+}
+
+export const payProfileOf = (employeeId: string): PayProfile => ({ ...DEFAULT_PROFILE, ...registerProfile(employeeId), ...profiles[employeeId] });
 
 /** Scheduled hours for a weekday (0 = Sunday) on a work week: what one day's absence costs. */
 export function scheduledHours(workWeek: WorkWeek, weekday: number) {

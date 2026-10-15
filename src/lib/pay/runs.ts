@@ -10,6 +10,7 @@ import type { Adjustment } from "./engine";
 import { canFor, scopeFor } from "../permissions";
 import { claims, saveClaims } from "../reimbursements/store";
 import { allLoans, loanAdjustmentId } from "./loanStore";
+import { cutoffOf, recentCutoffs } from "./settings";
 import { deny, forbidden, sessionWho } from "../session";
 import { notifyEmployee } from "../outbox";
 import { tellAssigned, tellEmployees } from "../requestNotices";
@@ -127,7 +128,18 @@ export function openCutoffs(): Promise<Period[]> {
   if (denied) return denied;
   sync();
   // A cut-off that shares days with an existing run (e.g. one made before the paydays changed) is left out, so no day is paid twice.
-  return respond(periodsFor("cutoff").filter((p) => !runs.some((r) => overlaps(r, p))));
+  return respond(cutoffChoices().filter((p) => !runs.some((r) => overlaps(r, p))));
+}
+
+/** The cut-offs offered for a new run: the three most recent. While testing (npm run dev only, never in a
+ *  build), also the next one and the past year's, so a run can still be made once the recent ones have runs. */
+function cutoffChoices(): Period[] {
+  if (!import.meta.env?.DEV) return periodsFor("cutoff");
+  const today = todayIso();
+  const current = cutoffOf(today);
+  const after = new Date(`${current.to}T12:00:00`);
+  after.setDate(after.getDate() + 1);
+  return [cutoffOf(after.toISOString().slice(0, 10)), ...recentCutoffs(today, 24)];
 }
 
 /** What should be settled before approving: requests still waiting, and a cutoff that hasn't ended. */

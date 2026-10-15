@@ -57,7 +57,7 @@ const titles: Record<string, string> = {
   "/admin/reports/tardiness": "Tardiness",
   "/admin/reports/hr": "HR reports",
   "/admin/reports/leave": "Leave report",
-  "/admin/reports/attendance": "Attendance reports",
+  "/admin/reports/attendance": "Attendance report",
   "/admin/reports/payroll": "Payroll reports",
   "/admin/payroll/contributions": "Government contributions",
   "/admin/payroll/runs": "Payroll runs",

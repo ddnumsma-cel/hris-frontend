@@ -21,7 +21,7 @@ import type { Balance, LeaveRequest, LeaveType } from "../leave/types";
 const DELAY = 200;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
 
-/** The signed-in employee: their linked record (the demo login is Angela's). */
+/** The signed-in employee: their linked record (the demo login is Danica Bernardo's). */
 export const myId = () => sessionWho().employeeId ?? currentEmployee.id;
 const me = () => core.employees.find((e) => e.id === myId());
 export const myName = () => {

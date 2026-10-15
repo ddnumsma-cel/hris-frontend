@@ -31,16 +31,37 @@ import type {
   TrainingRecord,
   WorkforceAlert,
 } from "./types";
+import { MSMA_ROSTER, type RosterEntry } from "./msmaRoster";
 
-// The employee demo login (ceb.msma): Chris S. David, a new hire in Audit & Assurance.
+/** A register row as a directory entry (everyone works at Cebu HQ). */
+function rosterEmployee(r: RosterEntry): Employee {
+  const name = `${r.firstName} ${r.lastName}`;
+  const n = r.no;
+  return {
+    id: r.id,
+    name,
+    initials: `${r.firstName[0]}${r.lastName[0]}`.toUpperCase(),
+    position: r.position,
+    department: r.department,
+    office: "Cebu HQ",
+    cluster: r.cluster,
+    // On study leave (no salary in the register).
+    status: r.monthly > 0 ? "Active" : "On leave",
+    email: r.id === "MSMA-00846" ? "ceb.msma@gmail.com" : `${r.firstName.split(" ")[0]!.toLowerCase()}.${r.lastName.toLowerCase().replace(/\s+/g, "")}@msma.ph`,
+    phone: `+63 917 ${String(200 + n).padStart(3, "0")} ${String(1000 + n * 37).slice(-4)}`,
+    reportsToId: r.reportsToId,
+  };
+}
+
+// The employee demo login (ceb.msma): Danica Bernardo, Associate 1 in Audit & Assurance.
 export let currentEmployee: Employee = {
   id: "MSMA-00846",
-  name: "Chris S. David",
-  initials: "CD",
-  position: "Junior Associate",
+  name: "Danica Bernardo",
+  initials: "DB",
+  position: "Associate 1",
   department: "Audit & Assurance",
   office: "Cebu HQ",
-  cluster: "RPM",
+  cluster: "VCM",
   status: "Active",
   email: "ceb.msma@gmail.com",
   phone: "09223344556",
@@ -101,11 +122,11 @@ export function setAnnouncements(next: Announcement[]) {
 }
 
 export let leaveRequests: LeaveRequest[] = [
-  { id: "lr-1", employeeName: "Bea Santos", employeeInitials: "BS", employeeRole: "Junior Associate", type: "Vacation", detail: "Oct 6–8 · 3 days", status: "Pending", requestedOn: "2026-09-21" },
-  { id: "lr-2", employeeName: "Miguel Reyes", employeeInitials: "MR", employeeRole: "Junior Associate", type: "Overtime", detail: "Sept 24 · 2.5 hrs", status: "Pending", requestedOn: "2026-09-24" },
-  { id: "lr-3", employeeName: "Carla Uy", employeeInitials: "CU", employeeRole: "Experienced Associate", type: "Sick", detail: "Sept 22 · 1 day", status: "Pending", requestedOn: "2026-09-22" },
-  { id: "lr-4", employeeName: "Jon Ababa", employeeInitials: "JA", employeeRole: "Junior Associate", type: "Certificate of Employment", detail: "Requested Sept 23", status: "Pending", requestedOn: "2026-09-23" },
-  { id: "lr-5", employeeName: "Dennis Lim", employeeInitials: "DL", employeeRole: "Junior Associate", type: "Emergency", detail: "Sept 25 · 1 day", status: "Pending", requestedOn: "2026-09-25" },
+  { id: "lr-1", employeeName: "Katrina Enriquez", employeeInitials: "KE", employeeRole: "Junior Associate", type: "Vacation", detail: "Oct 6–8 · 3 days", status: "Pending", requestedOn: "2026-09-21" },
+  { id: "lr-2", employeeName: "Andrea Joy Aquino", employeeInitials: "AA", employeeRole: "Junior Associate", type: "Overtime", detail: "Sept 24 · 2.5 hrs", status: "Pending", requestedOn: "2026-09-24" },
+  { id: "lr-3", employeeName: "Trisha Mae Jimenez", employeeInitials: "TJ", employeeRole: "Experienced Associate", type: "Sick", detail: "Sept 22 · 1 day", status: "Pending", requestedOn: "2026-09-22" },
+  { id: "lr-4", employeeName: "Olive Navarro", employeeInitials: "ON", employeeRole: "Junior Associate", type: "Certificate of Employment", detail: "Requested Sept 23", status: "Pending", requestedOn: "2026-09-23" },
+  { id: "lr-5", employeeName: "Harold Lagman", employeeInitials: "HL", employeeRole: "Junior Associate", type: "Emergency", detail: "Sept 25 · 1 day", status: "Pending", requestedOn: "2026-09-25" },
 ];
 
 export function setLeaveRequests(next: LeaveRequest[]) {
@@ -113,8 +134,8 @@ export function setLeaveRequests(next: LeaveRequest[]) {
 }
 
 export const onLeaveToday = [
-  { name: "Dennis Lim", initials: "DL", reason: "Emergency Leave" },
-  { name: "Grace Tan", initials: "GT", reason: "Vacation Leave" },
+  { name: "Harold Lagman", initials: "HL", reason: "Emergency Leave" },
+  { name: "Isabel Escobar", initials: "IE", reason: "Vacation Leave" },
 ];
 
 export const attendanceTrend: AttendancePoint[] = [
@@ -182,23 +203,8 @@ export let employeeDirectory: Employee[] = [
   { id: "MSMA-00001", name: "Antonio Dandan Sanchez Jr.", initials: "AS", position: "Partner", department: "Partners", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "antonio.sanchez@msma.ph", phone: "+63 917 100 0001", reportsToId: "admin" },
   { id: "MSMA-00002", name: "Rheneir Paran Mora", initials: "RM", position: "Partner", department: "Partners", office: "Cebu HQ", cluster: "RPM", status: "Active", email: "rheneir.mora@msma.ph", phone: "+63 917 100 0002", reportsToId: "admin" },
   { id: "MSMA-00003", name: "Victoria Cabalida Meñoza", initials: "VM", position: "Partner", department: "Partners", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "victoria.menoza@msma.ph", phone: "+63 917 100 0003", reportsToId: "admin" },
-  { id: "MSMA-00482", name: "Angela Dela Cruz", initials: "AD", position: "Experienced Associate", department: "Tax Advisory", office: "Cebu HQ", cluster: "RPM", status: "Active", email: "angela.delacruz@msma.ph", phone: "+63 917 123 4567", reportsToId: "admin" },
-  { id: "MSMA-00317", name: "Rafael Ortiz", initials: "RO", position: "Associate Director", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "rafael.ortiz@msma.ph", phone: "+63 917 555 0142", reportsToId: "admin" },
-  { id: "MSMA-00560", name: "Bea Santos", initials: "BS", position: "Junior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "On leave", email: "bea.santos@msma.ph", phone: "+63 921 660 3720", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00611", name: "Miguel Reyes", initials: "MR", position: "Experienced Associate", department: "Corporate Legal", office: "Manila", cluster: "ADS", status: "Active", email: "miguel.reyes@msma.ph", phone: "+63 921 711 5607", reportsToId: "admin" },
-  { id: "MSMA-00098", name: "Lourdes Vitug", initials: "LV", position: "Experienced Associate", department: "Bookkeeping", office: "Davao", cluster: "RPM", status: "Active", email: "lourdes.vitug@msma.ph", phone: "+63 921 198 4626", reportsToId: "admin" },
-  { id: "MSMA-00203", name: "Carla Uy", initials: "CU", position: "Experienced Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "carla.uy@msma.ph", phone: "+63 921 303 8511", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00276", name: "Jon Ababa", initials: "JA", position: "Junior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "jon.ababa@msma.ph", phone: "+63 917 376 2212", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00341", name: "Dennis Lim", initials: "DL", position: "Junior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "RPM", status: "On leave", email: "dennis.lim@msma.ph", phone: "+63 921 441 4617", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00398", name: "Grace Tan", initials: "GT", position: "Junior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "VCM", status: "On leave", email: "grace.tan@msma.ph", phone: "+63 921 498 6726", reportsToId: "MSMA-00317" },
-  { id: "MSMA-00623", name: "Paolo Cruz", initials: "PC", position: "Junior Associate", department: "Tax Advisory", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "paolo.cruz@msma.ph", phone: "+63 921 723 6051", reportsToId: "MSMA-00482" },
-  { id: "MSMA-00701", name: "Ramon Bautista", initials: "RB", position: "Experienced Associate", department: "Bookkeeping", office: "Davao", cluster: "RPM", status: "Active", email: "ramon.bautista@msma.ph", phone: "+63 921 801 8937", reportsToId: "admin" },
-  { id: "MSMA-00733", name: "Michelle Aquino", initials: "MA", position: "Executive Assistant / Secretary", department: "Corporate Legal", office: "Manila", cluster: "ADS", status: "Active", email: "michelle.aquino@msma.ph", phone: "+63 919 833 1121", reportsToId: "admin" },
-  { id: "MSMA-00812", name: "Joel Nierves", initials: "JN", position: "BSS Team Leader", department: "Admin & Support", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "joel.nierves@msma.ph", phone: "+63 921 912 4044", reportsToId: "admin" },
-  // The employee demo login (ceb.msma), hired Oct 12, 2026 (see RECENT_HIRES in employmentRecords.ts);
-  // reports to Antonio Sanchez, who has an Approver login, so his requests reach someone who can decide them.
-  { id: "MSMA-00846", name: "Chris S. David", initials: "CD", position: "Junior Associate", department: "Audit & Assurance", office: "Cebu HQ", cluster: "RPM", status: "Active", email: "ceb.msma@gmail.com", phone: "09223344556", reportsToId: "MSMA-00001" },
-  { id: "MSMA-00845", name: "Ferdz Salazar", initials: "FS", position: "Experienced Admin Assistant", department: "Admin & Support", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "ferdz.salazar@msma.ph", phone: "+63 921 945 5265", reportsToId: "admin" },
+  // MSMA's full-time employees, from the FT_MSMA payroll register (lib/msmaRoster.ts).
+  ...MSMA_ROSTER.map(rosterEmployee),
 ];
 
 export function setEmployeeDirectory(next: Employee[]) {
@@ -214,8 +220,8 @@ export const onboardingPipeline: OnboardingStage[] = [
 export const workforceAlerts: WorkforceAlert[] = [
   {
     id: "wa-1",
-    employeeName: "Bea Santos",
-    employeeInitials: "BS",
+    employeeName: "Katrina Enriquez",
+    employeeInitials: "KE",
     category: "Punctuality",
     message: "3 late clock-ins this week (avg 14 min) — breaks a 6-week on-time streak",
     severity: "warn",
@@ -223,8 +229,8 @@ export const workforceAlerts: WorkforceAlert[] = [
   },
   {
     id: "wa-2",
-    employeeName: "Miguel Reyes",
-    employeeInitials: "MR",
+    employeeName: "Andrea Joy Aquino",
+    employeeInitials: "AA",
     category: "Overtime",
     message: "Logged 12.5 hrs overtime this week — 3x the team average",
     severity: "crit",
@@ -241,8 +247,8 @@ export const workforceAlerts: WorkforceAlert[] = [
   },
   {
     id: "wa-4",
-    employeeName: "Jon Ababa",
-    employeeInitials: "JA",
+    employeeName: "Olive Navarro",
+    employeeInitials: "ON",
     category: "Leave pattern",
     message: "Sick leave filed on 3 of the last 4 Fridays — recommend a check-in",
     severity: "info",
@@ -263,12 +269,12 @@ export function setEmployeeBenefits(next: EmployeeBenefit[]) {
 }
 
 export const teamRoster: TeamRosterMember[] = [
-  { id: "MSMA-00560", name: "Bea Santos", initials: "BS", position: "Junior Associate", tenureLabel: "2 yrs 3 mos", email: "bea.santos@msma.ph", status: "On leave" },
-  { id: "MSMA-00591", name: "Miguel Reyes", initials: "MR", position: "Junior Associate", tenureLabel: "1 yr 8 mos", email: "miguel.reyes@msma.ph", status: "Active" },
-  { id: "MSMA-00602", name: "Carla Uy", initials: "CU", position: "Experienced Associate", tenureLabel: "3 yrs 1 mo", email: "carla.uy@msma.ph", status: "Active" },
-  { id: "MSMA-00614", name: "Jon Ababa", initials: "JA", position: "Junior Associate", tenureLabel: "11 mos", email: "jon.ababa@msma.ph", status: "Active" },
-  { id: "MSMA-00625", name: "Dennis Lim", initials: "DL", position: "Junior Associate", tenureLabel: "9 mos", email: "dennis.lim@msma.ph", status: "On leave" },
-  { id: "MSMA-00398", name: "Grace Tan", initials: "GT", position: "Junior Associate", tenureLabel: "1 yr 4 mos", email: "grace.tan@msma.ph", status: "On leave" },
+  { id: "MSMA-00560", name: "Katrina Enriquez", initials: "KE", position: "Junior Associate", tenureLabel: "2 yrs 3 mos", email: "katrina.enriquez@msma.ph", status: "On leave" },
+  { id: "MSMA-00591", name: "Andrea Joy Aquino", initials: "AA", position: "Junior Associate", tenureLabel: "1 yr 8 mos", email: "andrea.aquino@msma.ph", status: "Active" },
+  { id: "MSMA-00602", name: "Trisha Mae Jimenez", initials: "TJ", position: "Experienced Associate", tenureLabel: "3 yrs 1 mo", email: "trisha.jimenez@msma.ph", status: "Active" },
+  { id: "MSMA-00614", name: "Olive Navarro", initials: "ON", position: "Junior Associate", tenureLabel: "11 mos", email: "olive.navarro@msma.ph", status: "Active" },
+  { id: "MSMA-00625", name: "Harold Lagman", initials: "HL", position: "Junior Associate", tenureLabel: "9 mos", email: "harold.lagman@msma.ph", status: "On leave" },
+  { id: "MSMA-00398", name: "Isabel Escobar", initials: "IE", position: "Junior Associate", tenureLabel: "1 yr 4 mos", email: "isabel.escobar@msma.ph", status: "On leave" },
 ];
 
 export const jobRequisitions: JobRequisition[] = [
@@ -298,10 +304,10 @@ export function setPerformanceReviewStatuses(next: Record<string, "Submitted" | 
 }
 
 const defaultManagerProfile: PartnerProfile = {
-  name: "Rafael Ortiz",
-  initials: "RO",
+  name: "Lorraine Santos",
+  initials: "LS",
   title: "Associate Director",
-  email: "rafael.ortiz@msma.ph",
+  email: "lorraine.santos@msma.ph",
   phone: "+63 917 555 0142",
   office: "Cebu HQ",
   emergencyContact: "",
@@ -334,12 +340,12 @@ export function setCurrentManager(next: PartnerProfile) {
 }
 
 export let attendanceRequests: AttendanceRequest[] = [
-  { id: "ar-1", employeeName: "Bea Santos", employeeInitials: "BS", employeeRole: "Junior Associate", kind: "Missed clock-out", date: "Sept 24, 2026", recordedTime: "In 8:52 AM · Out —", requestedTime: "Out 6:15 PM", reason: "Left straight from the client site in Mandaue; scanner was not reachable.", status: "Pending", filedOn: "2026-09-25" },
-  { id: "ar-2", employeeName: "Carla Uy", employeeInitials: "CU", employeeRole: "Experienced Associate", kind: "Late justification", date: "Sept 25, 2026", recordedTime: "In 9:32 AM", requestedTime: "In 9:32 AM (excused)", reason: "Flooding along Banilad; team lead was informed by 8:30 AM.", status: "Pending", filedOn: "2026-09-25" },
-  { id: "ar-3", employeeName: "Jon Ababa", employeeInitials: "JA", employeeRole: "Junior Associate", kind: "Remote work", date: "Sept 26, 2026", recordedTime: "No scan", requestedTime: "WFH 9:00 AM – 6:00 PM", reason: "Working remotely on the Q3 inventory count report.", status: "Pending", filedOn: "2026-09-26" },
-  { id: "ar-4", employeeName: "Miguel Reyes", employeeInitials: "MR", employeeRole: "Junior Associate", kind: "Time correction", date: "Sept 23, 2026", recordedTime: "In 10:04 AM", requestedTime: "In 8:56 AM", reason: "Fingerprint scanner failed to read; security logbook shows 8:56 AM.", status: "Pending", filedOn: "2026-09-24" },
-  { id: "ar-5", employeeName: "Grace Tan", employeeInitials: "GT", employeeRole: "Junior Associate", kind: "Missed clock-in", date: "Sept 22, 2026", recordedTime: "In — · Out 6:02 PM", requestedTime: "In 8:48 AM", reason: "Forgot to scan in after the morning client call.", status: "Approved", filedOn: "2026-09-22" },
-  { id: "ar-6", employeeName: "Dennis Lim", employeeInitials: "DL", employeeRole: "Junior Associate", kind: "Late justification", date: "Sept 19, 2026", recordedTime: "In 10:40 AM", requestedTime: "In 10:40 AM (excused)", reason: "Overslept.", status: "Declined", filedOn: "2026-09-19" },
+  { id: "ar-1", employeeName: "Katrina Enriquez", employeeInitials: "KE", employeeRole: "Junior Associate", kind: "Missed clock-out", date: "Sept 24, 2026", recordedTime: "In 8:52 AM · Out —", requestedTime: "Out 6:15 PM", reason: "Left straight from the client site in Mandaue; scanner was not reachable.", status: "Pending", filedOn: "2026-09-25" },
+  { id: "ar-2", employeeName: "Trisha Mae Jimenez", employeeInitials: "TJ", employeeRole: "Experienced Associate", kind: "Late justification", date: "Sept 25, 2026", recordedTime: "In 9:32 AM", requestedTime: "In 9:32 AM (excused)", reason: "Flooding along Banilad; team lead was informed by 8:30 AM.", status: "Pending", filedOn: "2026-09-25" },
+  { id: "ar-3", employeeName: "Olive Navarro", employeeInitials: "ON", employeeRole: "Junior Associate", kind: "Remote work", date: "Sept 26, 2026", recordedTime: "No scan", requestedTime: "WFH 9:00 AM – 6:00 PM", reason: "Working remotely on the Q3 inventory count report.", status: "Pending", filedOn: "2026-09-26" },
+  { id: "ar-4", employeeName: "Andrea Joy Aquino", employeeInitials: "AA", employeeRole: "Junior Associate", kind: "Time correction", date: "Sept 23, 2026", recordedTime: "In 10:04 AM", requestedTime: "In 8:56 AM", reason: "Fingerprint scanner failed to read; security logbook shows 8:56 AM.", status: "Pending", filedOn: "2026-09-24" },
+  { id: "ar-5", employeeName: "Isabel Escobar", employeeInitials: "IE", employeeRole: "Junior Associate", kind: "Missed clock-in", date: "Sept 22, 2026", recordedTime: "In — · Out 6:02 PM", requestedTime: "In 8:48 AM", reason: "Forgot to scan in after the morning client call.", status: "Approved", filedOn: "2026-09-22" },
+  { id: "ar-6", employeeName: "Harold Lagman", employeeInitials: "HL", employeeRole: "Junior Associate", kind: "Late justification", date: "Sept 19, 2026", recordedTime: "In 10:40 AM", requestedTime: "In 10:40 AM (excused)", reason: "Overslept.", status: "Declined", filedOn: "2026-09-19" },
 ];
 
 export function setAttendanceRequests(next: AttendanceRequest[]) {
@@ -398,7 +404,7 @@ function loadCertificateRequests(): CertificateRequest[] {
   } catch {
     // Blocked or corrupt storage: start from the demo request.
   }
-  return [{ id: "cr-1", type: "Certificate of Employment", purpose: "Bank loan application", status: "Released", requestedOn: "2026-08-14", employeeId: "MSMA-00482", employeeName: "Angela Dela Cruz" }];
+  return [{ id: "cr-1", type: "Certificate of Employment", purpose: "Bank loan application", status: "Released", requestedOn: "2026-08-14", employeeId: "MSMA-00482", employeeName: "Victor Mangubat" }];
 }
 
 export let certificateRequests: CertificateRequest[] = loadCertificateRequests();
@@ -413,10 +419,10 @@ export function setCertificateRequests(next: CertificateRequest[]) {
 }
 
 const defaultAdminProfile: AdminProfile = {
-  name: "Dinah Marquez",
-  initials: "DM",
-  title: "HR & People Operations Head",
-  email: "dinah.marquez@msma.ph",
+  name: "Wendy Lacson",
+  initials: "WL",
+  title: "HR Associate",
+  email: "wendy.lacson@msma.ph",
   phone: "+63 917 555 0118",
   office: "Cebu HQ",
   emergencyContact: "",
@@ -448,8 +454,8 @@ export function setCurrentAdmin(next: AdminProfile) {
 }
 
 export let offboardingCases: OffboardingCase[] = [
-  { id: "off-1", employeeName: "Grace Tan", employeeInitials: "GT", department: "Audit & Assurance", lastDay: "Oct 15, 2026", stage: "Clearance in progress" },
-  { id: "off-2", employeeName: "Paolo Cruz", employeeInitials: "PC", department: "Tax Advisory", lastDay: "Oct 31, 2026", stage: "Resignation filed" },
+  { id: "off-1", employeeName: "Isabel Escobar", employeeInitials: "IE", department: "Audit & Assurance", lastDay: "Oct 15, 2026", stage: "Clearance in progress" },
+  { id: "off-2", employeeName: "Gino Ocampo", employeeInitials: "GO", department: "Tax Advisory", lastDay: "Oct 31, 2026", stage: "Resignation filed" },
 ];
 
 export function setOffboardingCases(next: OffboardingCase[]) {
@@ -457,14 +463,14 @@ export function setOffboardingCases(next: OffboardingCase[]) {
 }
 
 export let companyAssets: CompanyAsset[] = [
-  { id: "as-1", type: "Laptop", assetTag: "LT-0231", assignedToName: "Angela Dela Cruz", assignedToInitials: "AD", issuedOn: "2024-02-10", status: "Issued" },
-  { id: "as-2", type: "Company ID", assetTag: "ID-0482", assignedToName: "Angela Dela Cruz", assignedToInitials: "AD", issuedOn: "2024-02-01", status: "Issued" },
-  { id: "as-3", type: "Laptop", assetTag: "LT-0198", assignedToName: "Rafael Ortiz", assignedToInitials: "RO", issuedOn: "2022-06-15", status: "Issued" },
-  { id: "as-4", type: "Access Card", assetTag: "AC-1187", assignedToName: "Bea Santos", assignedToInitials: "BS", issuedOn: "2023-11-20", status: "Issued" },
-  { id: "as-5", type: "Company Phone", assetTag: "PH-0344", assignedToName: "Miguel Reyes", assignedToInitials: "MR", issuedOn: "2023-04-02", status: "Under repair" },
-  { id: "as-6", type: "Laptop", assetTag: "LT-0356", assignedToName: "Carla Uy", assignedToInitials: "CU", issuedOn: "2023-08-22", status: "Issued" },
-  { id: "as-7", type: "Access Card", assetTag: "AC-1203", assignedToName: "Jon Ababa", assignedToInitials: "JA", issuedOn: "2025-01-10", status: "Issued" },
-  { id: "as-8", type: "Laptop", assetTag: "LT-0104", assignedToName: "Grace Tan", assignedToInitials: "GT", issuedOn: "2024-11-05", status: "Returned" },
+  { id: "as-1", type: "Laptop", assetTag: "LT-0231", assignedToName: "Victor Mangubat", assignedToInitials: "AD", issuedOn: "2024-02-10", status: "Issued" },
+  { id: "as-2", type: "Company ID", assetTag: "ID-0482", assignedToName: "Victor Mangubat", assignedToInitials: "AD", issuedOn: "2024-02-01", status: "Issued" },
+  { id: "as-3", type: "Laptop", assetTag: "LT-0198", assignedToName: "Lorraine Santos", assignedToInitials: "RO", issuedOn: "2022-06-15", status: "Issued" },
+  { id: "as-4", type: "Access Card", assetTag: "AC-1187", assignedToName: "Katrina Enriquez", assignedToInitials: "BS", issuedOn: "2023-11-20", status: "Issued" },
+  { id: "as-5", type: "Company Phone", assetTag: "PH-0344", assignedToName: "Andrea Joy Aquino", assignedToInitials: "MR", issuedOn: "2023-04-02", status: "Under repair" },
+  { id: "as-6", type: "Laptop", assetTag: "LT-0356", assignedToName: "Trisha Mae Jimenez", assignedToInitials: "CU", issuedOn: "2023-08-22", status: "Issued" },
+  { id: "as-7", type: "Access Card", assetTag: "AC-1203", assignedToName: "Olive Navarro", assignedToInitials: "JA", issuedOn: "2025-01-10", status: "Issued" },
+  { id: "as-8", type: "Laptop", assetTag: "LT-0104", assignedToName: "Isabel Escobar", assignedToInitials: "GT", issuedOn: "2024-11-05", status: "Returned" },
 ];
 
 export function setCompanyAssets(next: CompanyAsset[]) {
@@ -472,13 +478,13 @@ export function setCompanyAssets(next: CompanyAsset[]) {
 }
 
 export let trainingRecords: TrainingRecord[] = [
-  { id: "tr-1", employeeName: "Angela Dela Cruz", employeeInitials: "AD", course: "Data Privacy Act Refresher", dueDate: "Oct 15, 2026", status: "In progress" },
-  { id: "tr-2", employeeName: "Angela Dela Cruz", employeeInitials: "AD", course: "Anti-Money Laundering Basics", dueDate: "Nov 1, 2026", status: "Not started" },
-  { id: "tr-3", employeeName: "Bea Santos", employeeInitials: "BS", course: "Data Privacy Act Refresher", dueDate: "Oct 15, 2026", status: "Completed" },
-  { id: "tr-4", employeeName: "Miguel Reyes", employeeInitials: "MR", course: "Data Privacy Act Refresher", dueDate: "Oct 15, 2026", status: "Completed" },
-  { id: "tr-5", employeeName: "Carla Uy", employeeInitials: "CU", course: "Anti-Money Laundering Basics", dueDate: "Nov 1, 2026", status: "In progress" },
-  { id: "tr-6", employeeName: "Jon Ababa", employeeInitials: "JA", course: "Workplace Safety Orientation", dueDate: "Oct 1, 2026", status: "Not started" },
-  { id: "tr-7", employeeName: "Dennis Lim", employeeInitials: "DL", course: "Workplace Safety Orientation", dueDate: "Oct 1, 2026", status: "Completed" },
+  { id: "tr-1", employeeName: "Victor Mangubat", employeeInitials: "VM", course: "Data Privacy Act Refresher", dueDate: "Oct 15, 2026", status: "In progress" },
+  { id: "tr-2", employeeName: "Victor Mangubat", employeeInitials: "VM", course: "Anti-Money Laundering Basics", dueDate: "Nov 1, 2026", status: "Not started" },
+  { id: "tr-3", employeeName: "Katrina Enriquez", employeeInitials: "KE", course: "Data Privacy Act Refresher", dueDate: "Oct 15, 2026", status: "Completed" },
+  { id: "tr-4", employeeName: "Andrea Joy Aquino", employeeInitials: "AA", course: "Data Privacy Act Refresher", dueDate: "Oct 15, 2026", status: "Completed" },
+  { id: "tr-5", employeeName: "Trisha Mae Jimenez", employeeInitials: "TJ", course: "Anti-Money Laundering Basics", dueDate: "Nov 1, 2026", status: "In progress" },
+  { id: "tr-6", employeeName: "Olive Navarro", employeeInitials: "ON", course: "Workplace Safety Orientation", dueDate: "Oct 1, 2026", status: "Not started" },
+  { id: "tr-7", employeeName: "Harold Lagman", employeeInitials: "HL", course: "Workplace Safety Orientation", dueDate: "Oct 1, 2026", status: "Completed" },
 ];
 
 export function setTrainingRecords(next: TrainingRecord[]) {
@@ -488,30 +494,30 @@ export function setTrainingRecords(next: TrainingRecord[]) {
 export let employeeCases: EmployeeCase[] = [
   {
     id: "case-1",
-    employeeName: "Jon Ababa",
-    employeeInitials: "JA",
+    employeeName: "Olive Navarro",
+    employeeInitials: "ON",
     type: "Attendance",
-    filedBy: "Rafael Ortiz",
+    filedBy: "Lorraine Santos",
     status: "Under review",
     filedOn: "2026-09-18",
     summary: "Recurring late clock-ins flagged by workforce intelligence; verbal coaching scheduled.",
   },
   {
     id: "case-2",
-    employeeName: "Dennis Lim",
-    employeeInitials: "DL",
+    employeeName: "Harold Lagman",
+    employeeInitials: "HL",
     type: "Conduct",
-    filedBy: "Rafael Ortiz",
+    filedBy: "Lorraine Santos",
     status: "Resolved",
     filedOn: "2026-08-02",
     summary: "Dress code violation during client visit; addressed with a written reminder. No recurrence since.",
   },
   {
     id: "case-3",
-    employeeName: "Bea Santos",
-    employeeInitials: "BS",
+    employeeName: "Katrina Enriquez",
+    employeeInitials: "KE",
     type: "Grievance",
-    filedBy: "Rafael Ortiz",
+    filedBy: "Lorraine Santos",
     status: "Open",
     filedOn: "2026-09-24",
     summary: "Raised a workload concern following overtime spikes; scheduling a 1:1 to review team capacity.",
@@ -526,8 +532,8 @@ export let professionalLicenses: ProfessionalLicense[] = [
   {
     id: "lic-1",
     employeeId: "MSMA-00482",
-    employeeName: "Angela Dela Cruz",
-    employeeInitials: "AD",
+    employeeName: "Victor Mangubat",
+    employeeInitials: "VM",
     licenseType: "CPA",
     licenseNumber: "0123456",
     cpdUnitsEarned: 58,
@@ -537,8 +543,8 @@ export let professionalLicenses: ProfessionalLicense[] = [
   {
     id: "lic-2",
     employeeId: "MSMA-00317",
-    employeeName: "Rafael Ortiz",
-    employeeInitials: "RO",
+    employeeName: "Lorraine Santos",
+    employeeInitials: "LS",
     licenseType: "CPA",
     licenseNumber: "0087654",
     cpdUnitsEarned: 50,
@@ -548,8 +554,8 @@ export let professionalLicenses: ProfessionalLicense[] = [
   {
     id: "lic-3",
     employeeId: "MSMA-00203",
-    employeeName: "Carla Uy",
-    employeeInitials: "CU",
+    employeeName: "Trisha Mae Jimenez",
+    employeeInitials: "TJ",
     licenseType: "CPA",
     licenseNumber: "0145233",
     cpdUnitsEarned: 60,
@@ -559,8 +565,8 @@ export let professionalLicenses: ProfessionalLicense[] = [
   {
     id: "lic-4",
     employeeId: "MSMA-00623",
-    employeeName: "Paolo Cruz",
-    employeeInitials: "PC",
+    employeeName: "Gino Ocampo",
+    employeeInitials: "GO",
     licenseType: "CPA",
     licenseNumber: "0198812",
     cpdUnitsEarned: 25,
@@ -778,7 +784,7 @@ export let auditLogEntries: AuditLogEntry[] = [
   {
     id: "audit-1",
     employeeId: "MSMA-00482",
-    actorName: "Dinah Marquez",
+    actorName: "Wendy Lacson",
     actorRole: "admin",
     action: "Verified",
     target: "Professional License",
@@ -788,7 +794,7 @@ export let auditLogEntries: AuditLogEntry[] = [
   {
     id: "audit-2",
     employeeId: "MSMA-00560",
-    actorName: "Rafael Ortiz",
+    actorName: "Lorraine Santos",
     actorRole: "manager",
     action: "Viewed",
     target: "201 File",

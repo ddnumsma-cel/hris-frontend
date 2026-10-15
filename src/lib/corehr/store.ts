@@ -3,6 +3,7 @@
 // employee master record; the shared directory and document lists other
 // pages read are kept in step with it (see syncShared).
 
+import { rosterEntry } from "../msmaRoster";
 import { buildEmployeeFileRecords } from "../employmentRecords";
 import {
   employeeDirectory,
@@ -34,7 +35,8 @@ export interface CoreHrState {
 
 // v2: the seven job titles, and clusters RPM / VCM / ADS only.
 // v3: the three partners, each heading the cluster named after their initials.
-const STORAGE_KEY = "heyhr-corehr-v3";
+// v4: MSMA's full-time employees from the FT_MSMA register replaced the earlier sample people.
+const STORAGE_KEY = "heyhr-corehr-v4";
 const SEED_ACTOR = "HR & People Operations";
 
 export function newId(prefix: string) {
@@ -62,7 +64,10 @@ const BRANCHES = [
 ] as const;
 
 const DEPARTMENT_CODES: Record<string, string> = {
-  "Audit & Assurance": "AUD",
+  "Audit & Assurance": "AAD",
+  "Accounting Services": "BAS",
+  "Special Engagements": "BSE",
+  "Support Services": "SUP",
   "Tax Advisory": "TAX",
   Bookkeeping: "BKP",
   "Corporate Legal": "LEG",
@@ -72,7 +77,8 @@ const DEPARTMENT_CODES: Record<string, string> = {
 };
 
 /** Accounting departments are split into client-group teams; support departments aren't. */
-const TEAMED_DEPARTMENTS = new Set(["Audit & Assurance", "Tax Advisory"]);
+// No cluster teams inside departments: the register groups people by department (class) only.
+const TEAMED_DEPARTMENTS = new Set<string>();
 
 function levelFor(title: string): JobLevel {
   if (/^partner$/i.test(title)) return "Executive";
@@ -152,7 +158,8 @@ function seed(): CoreHrState {
     const records = buildEmployeeFileRecords(e);
     const profile = personnelProfiles.find((p) => p.employeeId === e.id);
     const gov = (agency: string) => records.government.find((g) => g.agency === agency)?.number ?? "";
-    const { firstName, middleName, lastName, suffix } = splitName(e.name);
+    const roster = rosterEntry(e.id);
+    const { firstName, middleName, lastName, suffix } = roster ? { firstName: roster.firstName, middleName: "", lastName: roster.lastName, suffix: "" } : splitName(e.name);
     const dateHired = toIso(records.employment.dateHired);
     employees.push({
       id: e.id,
@@ -177,7 +184,7 @@ function seed(): CoreHrState {
         status: e.status === "On leave" ? "On leave" : "Active",
         dateHired,
         regularizationDate: records.employment.regularizedOn ? toIso(records.employment.regularizedOn) : undefined,
-        monthlySalary: payrollEntries.find((p) => p.employeeId === e.id)?.monthlyBasic ?? 0,
+        monthlySalary: roster?.monthly ?? payrollEntries.find((p) => p.employeeId === e.id)?.monthlyBasic ?? 0,
         workSchedule: records.employment.schedule,
       },
       createdAt: `${dateHired}T09:00:00`,
@@ -362,7 +369,7 @@ const CHRIS_MANAGER_FLAG = "heyhr-demo-chris-reports-to-antonio";
 export function reconcile() {
   let changed = false;
   let next = state;
-  // Once per browser: the employee demo login (Chris S. David) reports to Antonio Sanchez, who can
+  // Once per browser: the employee demo login (Danica Bernardo) reports to Antonio Sanchez, who can
   // approve. Saved data from before keeps any later change HR makes.
   try {
     const chris = next.employees.find((e) => e.id === "MSMA-00846");

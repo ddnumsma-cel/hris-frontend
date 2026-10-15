@@ -59,7 +59,8 @@ export interface SubscriptionState {
 }
 
 const KEY = "heyhr-subscription-v1";
-const VERSION = 1;
+// v2: on the Growth plan (50 seats) for MSMA's 45 full-time employees.
+const VERSION = 2;
 
 /** The roles that take an admin account. */
 export const ADMIN_ROLES: RoleKey[] = ["hr", "approver", "accounting"];
@@ -75,7 +76,7 @@ function seed(): SubscriptionState {
       { id: "plan-growth", name: "Growth", employeeSeatLimit: 50, adminAccountLimit: 15, gracePercent: 5 },
       { id: "plan-business", name: "Business", employeeSeatLimit: 150, adminAccountLimit: 30, gracePercent: 5 },
     ],
-    clients: [{ id: DEMO_CLIENT_ID, name: admin.settings.companyName || "MSMA Group", planId: "plan-starter", renewalDate: "2027-01-31", lastSeatLevel: 0 }],
+    clients: [{ id: DEMO_CLIENT_ID, name: admin.settings.companyName || "MSMA Group", planId: "plan-growth", renewalDate: "2027-01-31", lastSeatLevel: 0 }],
     events: [],
   };
 }
