@@ -10,6 +10,7 @@ export const tkKeys = {
   requests: ["timekeeping", "requests"] as const,
   tardinessFlags: ["timekeeping", "tardiness-flags"] as const,
   tardinessRule: ["timekeeping", "tardiness-rule"] as const,
+  shiftMoves: ["timekeeping", "shift-moves"] as const,
 };
 
 /** "8:07 AM" */

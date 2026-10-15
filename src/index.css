@@ -224,7 +224,7 @@
     --login-dot: rgba(255, 255, 255, 0.16);
     --login-shadow: rgba(0, 0, 0, 0.55);
     --login-bar: rgba(255, 255, 255, 0.25);
-    --login-mark-bg: transparent;
+    --login-mark-bg: #263040;
   }
 }
 
@@ -313,7 +313,7 @@
   --login-dot: rgba(255, 255, 255, 0.16);
   --login-shadow: rgba(0, 0, 0, 0.55);
   --login-bar: rgba(255, 255, 255, 0.25);
-  --login-mark-bg: transparent;
+  --login-mark-bg: #263040;
 }
 
 /* Browsers without backdrop-filter: glass becomes nearly opaque so text stays readable. */
@@ -396,6 +396,16 @@ body {
   color-scheme: light dark;
 }
 
+/* The browser's own controls (date pickers, scrollbars) follow the app's theme, not the
+   computer's: a dark Windows theme mustn't draw dark controls on the light app. */
+:root[data-theme="light"] body {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] body {
+  color-scheme: dark;
+}
+
 /* Tailwind v4's preflight no longer gives buttons a pointer cursor; restore it
    app-wide for every clickable control. */
 @layer base {
@@ -440,6 +450,71 @@ body {
   textarea {
     font: inherit;
     letter-spacing: inherit;
+  }
+
+  /* Tickboxes and radio buttons: one soft style in both themes, since the browser's own can
+     render as heavy dark squares. Field fill and hairline at rest, the accent when chosen. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-grid;
+    flex: none;
+    place-content: center;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    border: 1px solid var(--line-hover);
+    border-radius: 4px;
+    background: var(--field-bg);
+    vertical-align: middle;
+    transition:
+      background var(--ease-fast),
+      border-color var(--ease-fast);
+  }
+
+  input[type="radio"] {
+    border-radius: var(--radius-pill);
+  }
+
+  input[type="checkbox"]:hover:not(:disabled),
+  input[type="radio"]:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+
+  input[type="checkbox"]:checked,
+  input[type="checkbox"]:indeterminate {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+
+  /* The tick (or the dash when only some are ticked), in the colour that reads on the accent. */
+  input[type="checkbox"]:checked::before,
+  input[type="checkbox"]:indeterminate::before {
+    width: 10px;
+    height: 10px;
+    background: var(--on-accent);
+    content: "";
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 12 12%27%3E%3Cpath d=%27M2.5 6.2 4.9 8.6 9.5 3.6%27 fill=%27none%27 stroke=%27%23000%27 stroke-width=%271.8%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 12 12%27%3E%3Cpath d=%27M2.5 6.2 4.9 8.6 9.5 3.6%27 fill=%27none%27 stroke=%27%23000%27 stroke-width=%271.8%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+
+  input[type="checkbox"]:indeterminate::before {
+    height: 2px;
+    border-radius: 1px;
+    -webkit-mask: none;
+    mask: none;
+  }
+
+  input[type="radio"]:checked {
+    border-color: var(--accent);
+    background: var(--accent);
+    box-shadow: inset 0 0 0 3px var(--field-bg);
+  }
+
+  input[type="checkbox"]:disabled,
+  input[type="radio"]:disabled {
+    opacity: 0.5;
   }
 
   /* Digits in tables line up column to column (amounts, dates, IDs, counts). */
@@ -698,13 +773,21 @@ body {
   pointer-events: none;
   background-image: radial-gradient(var(--login-dot) 1px, transparent 1px);
   background-size: 24px 24px;
-  mask-image: radial-gradient(ellipse 65% 55% at 25% 45%, black, transparent 78%);
+  /* A long, soft fade centred on the welcome text, so the 1px dots never show a visible edge
+     (a short fade reads as a straight seam under the brand strip). */
+  mask-image: radial-gradient(ellipse 55% 50% at 28% 52%, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.45) 45%, transparent 100%);
 }
-/* The MSMA mark is white and lime: in light mode it sits on a small navy tile. */
+/* The MSMA mark is white and lime, so it sits on a square tile in both modes (navy in light,
+   the dark panel colour in dark), shaped like the app's other controls: 40px, control radius,
+   the mark centred inside. */
 .login-mark {
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-control);
   background: var(--login-mark-bg);
-  border-radius: var(--radius-logo);
-  padding: 4px 8px;
+  padding: 4px;
+  object-fit: contain;
 }
 /* The preview cards on the sign-in panel drift gently, one after another. */
 .login-float {
@@ -1549,12 +1632,18 @@ select.chip-filter {
 }
 
 /* The first pinned row (nothing pinned above it) also fills the space above it, up to and behind
-   the top bar's faded lower edge, since it pins where it rests; 16px wider each side so a card's
-   edge and glow under it don't show. */
-.page-body .page-top[data-page-top-first] {
-  box-shadow:
-    0 calc(var(--page-top-gap, 22px) / 2) 0 calc(var(--page-top-gap, 22px) / 2) var(--bg),
-    0 calc(-24px - var(--page-top-lead, 0px)) 0 16px var(--bg);
+   the top bar's faded lower edge, since it pins where it rests: a band of page colour drawn above
+   the row (its own layer, so it reaches the top bar however short the row is, and only 16px wider
+   than the row on each side, clear of the sidebar). */
+.page-body .page-top[data-page-top-first]::before {
+  content: "";
+  position: absolute;
+  right: -16px;
+  bottom: 100%;
+  left: -16px;
+  height: calc(24px + var(--page-top-lead, 0px));
+  background: var(--bg);
+  pointer-events: none;
 }
 
 /* A page table's column headers pin under the pinned rows (only tables that fit their box). */

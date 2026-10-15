@@ -244,11 +244,71 @@ export async function setUsualShift(employeeIds: string[], shiftId: string | nul
   const denied = deny("attendanceSettings", "edit");
   if (denied) return denied;
   const usualShift = { ...tk.usualShift };
+  // Keep where each person was, so Recent moves can show it and the move can be undone.
+  const batch = newId("mv");
+  const moved = employeeIds.map((id) => ({ id, from: tk.usualShift[id] ?? null }));
   for (const id of employeeIds) usualShift[id] = shiftId;
   const name = tk.shifts.find((s) => s.id === shiftId)?.name ?? "no shift";
-  save({ ...tk, usualShift, audit: [...employeeIds.map((id) => audit(id, todayIso(), actor, "Changed usual shift", `Now on ${name}`)), ...tk.audit] });
+  save({ ...tk, usualShift, audit: [...moved.map(({ id, from }) => ({ ...audit(id, todayIso(), actor, "Changed usual shift", `Now on ${name}`), move: { batch, from, to: shiftId } })), ...tk.audit] });
   tellEmployees(employeeIds, "schedule", "update", "Your usual shift changed", shiftId ? `You're now on ${name}. Check your schedule before your next workday.` : `${actor} removed your usual shift. Ask HR for your schedule.`);
   return respond(undefined);
+}
+
+/** One group of people moved to a shift together (one Move press, or one undo). */
+export interface ShiftMove {
+  batch: string;
+  at: string;
+  actor: string;
+  to: string | null;
+  people: { id: string; name: string; initials: string; from: string | null }[];
+  /** The batch this one undid, if it is an undo. */
+  undoOf?: string;
+  /** True once someone undid this move. */
+  undone: boolean;
+}
+
+/** Usual-shift changes in the last `days` days, newest first. */
+export async function listShiftMoves(days = 7): Promise<ShiftMove[]> {
+  const denied = deny("attendanceSettings", "view");
+  if (denied) return denied;
+  const since = Date.now() - days * 86_400_000;
+  const byId = new Map(people().map((p) => [p.id, p]));
+  const groups = new Map<string, ShiftMove>();
+  for (const a of tk.audit) {
+    if (!a.move || new Date(a.at).getTime() < since) continue;
+    let g = groups.get(a.move.batch);
+    if (!g) {
+      g = { batch: a.move.batch, at: a.at, actor: a.actor, to: a.move.to, people: [], undoOf: a.move.undoOf, undone: false };
+      groups.set(a.move.batch, g);
+    }
+    const p = byId.get(a.employeeId);
+    g.people.push({ id: a.employeeId, name: p?.name ?? a.employeeId, initials: p?.initials ?? "?", from: a.move.from });
+  }
+  const list = [...groups.values()];
+  for (const g of list) g.undone = list.some((x) => x.undoOf === g.batch);
+  return respond(list.sort((x, y) => y.at.localeCompare(x.at)));
+}
+
+/** Puts everyone from one move back on the shift they were on, if they haven't moved again since. */
+export async function undoShiftMove(batch: string, actor: string): Promise<number> {
+  const denied = deny("attendanceSettings", "edit");
+  if (denied) return denied;
+  const rows = tk.audit.filter((a) => a.move?.batch === batch);
+  if (!rows.length) return fail("That change can't be found any more.");
+  if (tk.audit.some((a) => a.move?.undoOf === batch)) return fail("That change was already undone.");
+  const back = rows.filter((a) => (tk.usualShift[a.employeeId] ?? null) === a.move!.to);
+  if (!back.length) return fail("These people have moved again since, so there is nothing to undo.");
+  const undo = newId("mv");
+  const usualShift = { ...tk.usualShift };
+  for (const a of back) usualShift[a.employeeId] = a.move!.from;
+  const nameOfShift = (id: string | null) => tk.shifts.find((s) => s.id === id)?.name ?? "no usual shift";
+  save({
+    ...tk,
+    usualShift,
+    audit: [...back.map((a) => ({ ...audit(a.employeeId, todayIso(), actor, "Undid a shift change", `Back on ${nameOfShift(a.move!.from)}`), move: { batch: undo, from: a.move!.to, to: a.move!.from, undoOf: batch } })), ...tk.audit],
+  });
+  tellEmployees(back.map((a) => a.employeeId), "schedule", "update", "Your usual shift changed back", "Your last shift change was undone. Check your schedule before your next workday.");
+  return respond(back.length);
 }
 
 /** One day only: a different shift, a rest day, or back to the usual schedule (null). */

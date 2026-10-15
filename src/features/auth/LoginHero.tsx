@@ -8,7 +8,7 @@ import { CalendarIcon, CheckIcon, FingerprintIcon, PayrollIcon } from "@/compone
 function Brand() {
   return (
     <div className="mx-auto flex w-full max-w-lg items-center gap-3">
-      <img src="/brand/msma-mark.png" alt="MSMA" className="login-mark h-9 w-auto" />
+      <img src="/brand/msma-mark.png" alt="MSMA" className="login-mark flex-none" />
       <div className="leading-tight">
         <div className="font-display text-base font-semibold">MSMA</div>
         <div className="text-xs text-[var(--login-ink-2)]">Mora, Sanchez, Meñoza and Associates</div>

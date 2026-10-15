@@ -1,4 +1,4 @@
-import { Suspense, useRef, type ReactNode } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { PageSkeleton } from "./PageLoadingFallback";
 import { useStickyPageTop } from "./useStickyPageTop";
@@ -6,15 +6,17 @@ import { useStickyPageTop } from "./useStickyPageTop";
 export function RolePage({ sidenav, children }: { sidenav: ReactNode; children: ReactNode }) {
   const location = useLocation();
   // The page's heading, tabs and toolbars stay pinned under the top bar (see useStickyPageTop).
-  const bodyRef = useRef<HTMLDivElement>(null);
-  useStickyPageTop(bodyRef, location.pathname);
+  // A callback ref (state, not a ref object), so pinning starts when the page area appears, which
+  // is after its code has loaded when Suspense showed the placeholder first.
+  const [body, setBody] = useState<HTMLDivElement | null>(null);
+  useStickyPageTop(body, location.pathname);
   return (
     <div className="flex flex-col sm:grid sm:grid-cols-[var(--sidenav-w)_1fr] sm:items-start">
       {sidenav}
       <main className="flex min-w-0 flex-col gap-5.5 px-4 py-5.5 pb-15 sm:px-6">
         {/* While a page's code loads, only the page area shows placeholders; the sidebar stays. */}
         <Suspense fallback={<PageSkeleton />}>
-          <div ref={bodyRef} key={location.pathname} className="page-body page-enter flex min-w-0 flex-col gap-5.5">
+          <div ref={setBody} key={location.pathname} className="page-body page-enter flex min-w-0 flex-col gap-5.5">
             {children}
           </div>
         </Suspense>

@@ -16,10 +16,6 @@ export interface ShiftTemplate {
   graceMinutes: number;
   /** Days of the week off, 0 = Sunday. */
   restDays: number[];
-  /** Flexible time: clock in any time between start and end; only the hours worked count. */
-  flexible?: boolean;
-  /** Hours to work on a flexible day, not counting the break. */
-  requiredHours?: number;
   /** A shorter Saturday on a six-day week: the shift ends at this time, with no lunch break. */
   saturdayEnd?: string;
   active: boolean;
@@ -192,6 +188,8 @@ export interface TimeAudit {
   action: string;
   detail: string;
   at: string;
+  /** A usual-shift change: everyone moved in one go shares a batch; undoOf marks an undo of another batch. */
+  move?: { batch: string; from: string | null; to: string | null; undoOf?: string };
 }
 
 /** Statutory premium, as a share of the daily/hourly rate. Stored as dated data, not code. */

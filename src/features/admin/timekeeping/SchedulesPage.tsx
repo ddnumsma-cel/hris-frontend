@@ -1,6 +1,6 @@
 import { ShiftTeams } from "./schedules/ShiftTeams";
 
-/** Who works which shift: one column per shift, everyone under their usual one. */
+/** Who works which shift: shift cards that filter a ticked list, and a panel to move people. */
 export function SchedulesPage() {
   return <ShiftTeams />;
 }

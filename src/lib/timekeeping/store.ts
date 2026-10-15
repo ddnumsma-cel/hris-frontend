@@ -84,17 +84,14 @@ const SHIFTS: ShiftTemplate[] = [
   { id: "sh-mid", name: "Mid shift", start: "09:00", end: "18:00", breakMinutes: 60, breakStart: "13:00", graceMinutes: 5, restDays: [0, 6], active: true },
   // Six-day week (payroll workbook): 7 hours Monday to Friday, 5 hours on Saturday.
   { id: "sh-6day", name: "Six-day week", start: "08:30", end: "16:30", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0], saturdayEnd: "13:30", active: true },
-  { id: "sh-flex", name: "Flexible time", start: "08:30", end: "19:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 0, restDays: [0, 6], active: true, flexible: true, requiredHours: 8 },
 ];
 
-/** Shifts that were retired; people on them move to the shift given here. */
-const RETIRED: Record<string, string> = { "sh-night": "sh-flex", "sh-weekend": "sh-day" };
+/** Shifts that were retired; people on them move to the shift given here. Flexible time isn't offered. */
+const RETIRED: Record<string, string> = { "sh-night": "sh-day", "sh-weekend": "sh-day", "sh-flex": "sh-day" };
 
-/** Brings saved data up to the current set of shifts: Busy season, Peak season, Mid and Flexible time. */
+/** Brings saved data up to the current set of shifts: Busy season, Peak season, Mid shift and Six-day week. */
 function normalizeShifts(s: TimekeepingState): TimekeepingState {
-  const shifts = [...s.shifts.filter((x) => !RETIRED[x.id]), ...SHIFTS.filter((x) => !s.shifts.some((y) => y.id === x.id))].map((x) => ({ ...x, breakStart: x.breakStart ?? defaultBreakStart(x) }))
-    // Flexible time now opens at 8:30 AM like the other shifts (it used to be 7:00 AM).
-    .map((x) => (x.id === "sh-flex" && x.start === "07:00" ? { ...x, start: "08:30" } : x));
+  const shifts = [...s.shifts.filter((x) => !RETIRED[x.id]), ...SHIFTS.filter((x) => !s.shifts.some((y) => y.id === x.id))].map((x) => ({ ...x, breakStart: x.breakStart ?? defaultBreakStart(x) }));
   const usualShift = Object.fromEntries(Object.entries(s.usualShift).map(([id, sh]) => [id, sh && RETIRED[sh] ? RETIRED[sh] : (sh ?? "sh-day")]));
   const overrides = Object.fromEntries(Object.entries(s.overrides).filter(([, v]) => !RETIRED[v]));
   return { ...s, shifts: s.seasonShifts ? shifts : toSeasonShifts(shifts), seasonShifts: true, usualShift, overrides };
@@ -105,7 +102,7 @@ function toSeasonShifts(shifts: ShiftTemplate[]): ShiftTemplate[] {
   return shifts.map((x) => {
     const base = SHIFTS.find((d) => d.id === x.id);
     const untouched = base && x.start === "08:00";
-    return { ...x, ...(untouched ? { name: base.name, start: base.start, end: base.end } : {}), graceMinutes: x.flexible ? 0 : 5 };
+    return { ...x, ...(untouched ? { name: base.name, start: base.start, end: base.end } : {}), graceMinutes: 5 };
   });
 }
 
@@ -121,7 +118,7 @@ function seed(): TimekeepingState {
   const usualShift: Record<string, string | null> = {};
   for (const e of core.employees) {
     const branch = branchOf(e.job.unitId);
-    usualShift[e.id] = e.id === "MSMA-00812" ? "sh-flex" : branch === "Manila" ? "sh-mid" : "sh-day";
+    usualShift[e.id] = branch === "Manila" ? "sh-mid" : "sh-day";
   }
   return { shifts: SHIFTS, usualShift, overrides: {}, corrections: [], voided: {}, confirmed: {}, requests: [], fixRequests: [], audit: [], seededRequests: false, seasonShifts: true };
 }

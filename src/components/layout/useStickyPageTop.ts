@@ -1,4 +1,4 @@
-import { useLayoutEffect, type RefObject } from "react";
+import { useLayoutEffect } from "react";
 
 // Keeps the top of every page in view while its content scrolls: the page heading (ContentHead)
 // and the rows of tabs, search and filters right under it stay pinned below the top bar, and a
@@ -29,9 +29,13 @@ const isControlRow = (el: HTMLElement) =>
 
 const isStart = (el: HTMLElement) => el.matches("[data-page-head], [data-page-top]");
 
-export function useStickyPageTop(ref: RefObject<HTMLElement | null>, key: string) {
+/**
+ * `body` is the page area itself (from a callback ref, not a ref object): while a page's code loads,
+ * Suspense shows a placeholder instead, so the area only appears later; passing the element makes
+ * this run again the moment it does.
+ */
+export function useStickyPageTop(body: HTMLElement | null, key: string) {
   useLayoutEffect(() => {
-    const body = ref.current;
     if (!body) return;
     let frame = 0;
 
@@ -179,5 +183,5 @@ export function useStickyPageTop(ref: RefObject<HTMLElement | null>, key: string
       mutate.disconnect();
       window.removeEventListener("resize", schedule);
     };
-  }, [ref, key]);
+  }, [body, key]);
 }
