@@ -5,7 +5,7 @@ import { state as core } from "../corehr/store";
 import { round2 } from "../reports/statutory";
 import { deny } from "../session";
 import { allLoans } from "./loanStore";
-import { approvedRuns, type PayrollRun } from "./runs";
+import { approvedRuns, loadRunsFromServer, type PayrollRun } from "./runs";
 
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), 200));
 
@@ -20,9 +20,11 @@ export interface RunSummary {
 }
 
 /** Approved runs, newest first. */
-export function listPayoutRuns(): Promise<RunSummary[]> {
+export async function listPayoutRuns(): Promise<RunSummary[]> {
   const denied = deny("payrollRuns", "view");
   if (denied) return denied;
+  // Opened straight from the menu, nothing has loaded the runs from the server yet.
+  await loadRunsFromServer();
   return respond(
     approvedRuns()
       .reverse()
@@ -71,9 +73,9 @@ function accountFor(adjId: string, amount: number, label: string) {
   if (adjId.startsWith("claim-")) return "Reimbursable expenses";
   if (adjId.startsWith("loan-")) {
     const kind = allLoans().find((l) => `loan-${l.id}` === adjId)?.kind ?? label;
-    if (kind.startsWith("SSS")) return "SSS loans payable";
-    if (kind.startsWith("Pag-IBIG")) return "Pag-IBIG loans payable";
-    if (kind === "Cash advance" || kind === "Company loan") return "Advances to employees";
+    if (kind.startsWith("SSS")) return "21302 SSS Loans Payable";
+    if (kind.startsWith("Pag-IBIG")) return "21301 Pag-ibig Loans Payable";
+    if (kind === "Cash advance" || kind === "Company loan") return "14500 Advances to employees";
     return "Other payroll deductions";
   }
   return amount > 0 ? "Allowances (non-taxable)" : "Other payroll deductions";
@@ -81,7 +83,9 @@ function accountFor(adjId: string, amount: number, label: string) {
 
 type Line = PayrollRun["lines"][number];
 
-/** The journal entry for a run, or for one department's share of it (the workbook's entry by class). */
+/** The journal entry for a run, or for one department's share of it (the workbook's entry by class).
+ * Account codes and names are the workbook's (FT_MSMA / Summary); the employer's contributions,
+ * which the workbook leaves out, are kept on their own lines without a code. */
 export function journalEntry(run: PayrollRun, only?: (l: Line) => boolean): JournalLine[] {
   const lines = only ? run.lines.filter(only) : run.lines;
   const sum = (f: (l: Line) => number) => round2(lines.reduce((n, l) => n + f(l), 0));
@@ -89,11 +93,13 @@ export function journalEntry(run: PayrollRun, only?: (l: Line) => boolean): Jour
   const credits = new Map<string, number>();
   const add = (map: Map<string, number>, k: string, v: number) => v && map.set(k, round2((map.get(k) ?? 0) + v));
 
-  add(debits, "Salaries and wages expense", sum((l) => l.gross));
+  add(debits, "51001 Salaries", sum((l) => l.gross - (l.pay.otMeal ?? 0) - (l.pay.clientCharge ?? 0)));
+  add(debits, "14002 Advances - Sphinx", sum((l) => l.pay.clientCharge ?? 0));
+  add(debits, "51402 Meals", sum((l) => l.pay.otMeal ?? 0));
+  add(debits, "51301 Fuel and gas (transportation allowance)", sum((l) => l.pay.transportAllowance ?? 0));
   add(debits, "SSS and EC contributions expense (employer)", sum((l) => l.sssEr + l.ec));
   add(debits, "PhilHealth contributions expense (employer)", sum((l) => l.phEr));
   add(debits, "Pag-IBIG contributions expense (employer)", sum((l) => l.piEr));
-  add(debits, "Transportation allowance", sum((l) => l.pay.transportAllowance ?? 0));
   // Non-taxable items (added after tax): reimbursements and allowances in, loans and deductions out.
   for (const l of lines) {
     const id = l.person.id;
@@ -102,11 +108,14 @@ export function journalEntry(run: PayrollRun, only?: (l: Line) => boolean): Jour
       add(a.amount > 0 ? debits : credits, accountFor(a.id, a.amount, a.label), Math.abs(a.amount));
     }
   }
-  add(credits, "SSS contributions payable", sum((l) => l.sssEe + l.sssEr + l.ec));
-  add(credits, "PhilHealth contributions payable", sum((l) => l.phEe + l.phEr));
-  add(credits, "Pag-IBIG contributions payable", sum((l) => l.piEe + l.piEr));
-  add(credits, "Withholding tax payable (BIR 1601-C)", sum((l) => l.tax));
-  add(credits, "Cash in bank (take-home pay)", sum((l) => l.net));
+  add(credits, "21401 WHT Payable - Compensation", sum((l) => l.tax));
+  add(credits, "21202 Phil Premiums Payable", sum((l) => l.phEe));
+  add(credits, "21201 Pag-ibig Premiums Payable", sum((l) => l.piEe));
+  add(credits, "21203 SSS Premiums Payable", sum((l) => l.sssEe));
+  add(credits, "SSS and EC payable (employer share)", sum((l) => l.sssEr + l.ec));
+  add(credits, "PhilHealth payable (employer share)", sum((l) => l.phEr));
+  add(credits, "Pag-IBIG payable (employer share)", sum((l) => l.piEr));
+  add(credits, "11000 Cash and cash equivalents (take-home pay)", sum((l) => l.net));
 
   const memo = `Payroll ${run.label}`;
   return [...[...debits].map(([account, v]) => ({ account, debit: v, credit: 0, memo })), ...[...credits].map(([account, v]) => ({ account, debit: 0, credit: v, memo }))];

@@ -102,7 +102,11 @@ const GROUPS: SideNavGroup[] = [
         label: "Onboarding",
         to: "/admin/onboarding",
         icon: <OnboardingIcon />,
-        children: [{ label: "Trainings", to: "/admin/onboarding/trainings" }],
+        children: [
+          { label: "Recruitment", to: "/admin/onboarding/recruitment" },
+          { label: "Pipeline", to: "/admin/onboarding/pipeline" },
+          { label: "Trainings", to: "/admin/onboarding/trainings" },
+        ],
       },
     ],
   },
@@ -119,11 +123,11 @@ const GROUPS: SideNavGroup[] = [
       },
       {
         label: "Presence",
-        to: "/admin/reports/attendance",
+        to: "/admin/reports/attendance-logs",
         icon: <AttendanceIcon />,
         children: [
-          { label: "Attendance report", to: "/admin/reports/attendance" },
           { label: "Attendance logs", to: "/admin/reports/attendance-logs" },
+          { label: "Attendance summary", to: "/admin/reports/attendance" },
           { label: "Tardiness", to: "/admin/reports/tardiness" },
         ],
       },

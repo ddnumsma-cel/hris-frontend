@@ -36,14 +36,28 @@ export const bankSchema = z
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+// Rules from the New Employees Template (BRD v1.1, 11.2.1); the database enforces the same ones.
+const NAME = /^[\p{L} .'-]+$/u;
+const name = (label: string) => z.string().trim().max(50, `${label} can be at most 50 characters`).refine((s) => !s || NAME.test(s), `${label} can only have letters`);
+const yearsAgo = (n: number) => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - n);
+  return d.toISOString().slice(0, 10);
+};
+const daysFromNow = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+
 export const personalSchema = z.object({
-  firstName: z.string().trim().min(1, "First name is required"),
-  middleName: z.string().trim(),
-  lastName: z.string().trim().min(1, "Last name is required"),
+  firstName: name("First name").refine((s) => s.length > 0, "First name is required"),
+  middleName: name("Middle name"),
+  lastName: name("Last name").refine((s) => s.length > 0, "Last name is required"),
   suffix: z.string().trim(),
-  birthDate: z.string().refine((s) => !s || s <= today(), "Birth date can't be in the future"),
-  sex: z.enum(["Male", "Female", ""]),
-  civilStatus: z.union([z.enum(CIVIL_STATUSES), z.literal("")]),
+  birthDate: z
+    .string()
+    .min(1, "Birth date is required")
+    .refine((s) => s <= today(), "Birth date can't be in the future")
+    .refine((s) => s <= yearsAgo(18), "Employee must be at least 18 years old"),
+  sex: z.enum(["Male", "Female", ""]).refine((s) => s.length > 0, "Choose the sex"),
+  civilStatus: z.union([z.enum(CIVIL_STATUSES), z.literal("")]).refine((s) => s.length > 0, "Choose the civil status"),
   nationality: z.string().trim(),
 });
 
@@ -65,7 +79,7 @@ const requiredPhone = (label: string) => phone.refine((s) => s.length > 0, `${la
 /** Every contact detail is required, both when hiring and when editing later. */
 export const contactSchema = z
   .object({
-  workEmail: z.string().trim().min(1, "Work email is required").email("Enter a valid email"),
+  workEmail: z.string().trim().min(1, "Work email is required").max(100, "Email can be at most 100 characters").email("Enter a valid email"),
   personalEmail: z.string().trim().min(1, "Personal email is required").email("Enter a valid email"),
   mobile: requiredPhone("Mobile number"),
   address: required("Home address"),
@@ -92,7 +106,7 @@ export const newHireJobSchema = z.object({
   teamId: z.string(),
   supervisorId: z.string(),
   employmentType: z.enum(EMPLOYMENT_TYPES),
-  dateHired: z.string().min(1, "Date hired is required"),
+  dateHired: z.string().min(1, "Date hired is required").refine((s) => s <= daysFromNow(30), "Date hired can't be more than 30 days ahead"),
   monthlySalary: z.number({ error: "Enter the monthly salary" }).positive("Enter the monthly salary"),
   workSchedule: z.string().trim().min(1, "Choose the work schedule"),
   /** The Timekeeping shift behind the schedule, so attendance uses it from day one. */

@@ -119,8 +119,7 @@ export interface EmployeeFileRecords {
 // Employees in the original seed data get a full history; anyone added later
 // through "Add employee" is treated as a new hire with a fresh file.
 /** Built-in demo people who joined recently: a new hire's record, not years of history. */
-// None now: the employee demo login (Danica Bernardo) is a regular employee on MSMA's payroll register.
-const RECENT_HIRES: Record<string, Date> = {};
+const RECENT_HIRES: Record<string, Date> = { "MSMA-00846": new Date(2026, 9, 12) };
 const seededIds = new Set(employeeDirectory.filter((e) => !RECENT_HIRES[e.id]).map((e) => e.id));
 
 /** Small deterministic PRNG so an employee's mock file never changes between renders. */
@@ -152,6 +151,10 @@ function addMonths(date: Date, months: number) {
 
 function hireDateFor(employee: Employee) {
   if (RECENT_HIRES[employee.id]) return RECENT_HIRES[employee.id];
+  if (employee.dateHired) {
+    const [y, m, d] = employee.dateHired.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
   if (!seededIds.has(employee.id)) return new Date();
   // Lower employee numbers joined earlier: MSMA-00098 in 2016, MSMA-00845 in 2024.
   const n = Number(employee.id.replace(/\D/g, ""));
@@ -184,8 +187,17 @@ function buildGovernment(employee: Employee, hired: Date, rand: () => number): G
     status: RecordStatus = "Verified",
   ): GovernmentRegistration =>
     isNew ? { agency, description, status: "Missing" } : { agency, description, number, registeredOn: registered, status, detail };
+  // A new hire's numbers are whatever HR typed in: on file, but not yet checked against the agency.
+  const entered = (
+    agency: GovernmentRegistration["agency"],
+    description: string,
+    number: string | undefined,
+    fallback: GovernmentRegistration,
+  ): GovernmentRegistration =>
+    isNew && number ? { agency, description, number, status: "Pending", detail: "Entered by HR · verify against the ID" } : fallback;
+  const nums = employee.governmentNumbers ?? {};
 
-  return [
+  return withEntered([
     entry("SSS", "Social Security System", `${digits(rand, 2)}-${digits(rand, 7)}-${digits(rand, 1)}`, "Contributions active"),
     entry("PhilHealth", "Philippine Health Insurance Corp.", `${digits(rand, 2)}-${digits(rand, 9)}-${digits(rand, 1)}`, "Member · premiums active"),
     entry(
@@ -196,7 +208,17 @@ function buildGovernment(employee: Employee, hired: Date, rand: () => number): G
       recent ? "On file" : "Verified",
     ),
     entry("BIR (TIN)", "Tax Identification Number", `${digits(rand, 3)}-${digits(rand, 3)}-${digits(rand, 3)}-000`, `RDO ${employee.office === "Manila" ? "039" : employee.office === "Davao" ? "113" : "081"} · Form 1902 filed`),
-  ];
+  ]);
+
+  function withEntered(rows: GovernmentRegistration[]) {
+    const key: Record<GovernmentRegistration["agency"], keyof typeof nums> = {
+      SSS: "sss",
+      PhilHealth: "philHealth",
+      "Pag-IBIG (HDMF)": "pagIbig",
+      "BIR (TIN)": "tin",
+    };
+    return rows.map((r) => entered(r.agency, r.description, nums[key[r.agency]], r));
+  }
 }
 
 function buildEmployment(employee: Employee, hired: Date, rand: () => number): EmploymentRecords {
@@ -243,7 +265,7 @@ function buildEmployment(employee: Employee, hired: Date, rand: () => number): E
     dateHired: formatDate(hired),
     employmentType: isNew ? "Probationary" : "Regular",
     regularizedOn: isNew ? undefined : formatDate(regularized),
-    probationEnds: isNew ? formatDate(regularized) : undefined,
+    probationEnds: isNew && (employee.employmentStatus ?? "Probationary") === "Probationary" ? formatDate(regularized) : undefined,
     schedule: "Mon–Fri · 8:30 AM – 5:30 PM",
     payrollType: "Semi-monthly · Payroll account (BDO)",
     supervisor,

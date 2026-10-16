@@ -31,37 +31,17 @@ import type {
   TrainingRecord,
   WorkforceAlert,
 } from "./types";
-import { MSMA_ROSTER, type RosterEntry } from "./msmaRoster";
+import { type Applicant, type ApplicantProfession } from "./types";
 
-/** A register row as a directory entry (everyone works at Cebu HQ). */
-function rosterEmployee(r: RosterEntry): Employee {
-  const name = `${r.firstName} ${r.lastName}`;
-  const n = r.no;
-  return {
-    id: r.id,
-    name,
-    initials: `${r.firstName[0]}${r.lastName[0]}`.toUpperCase(),
-    position: r.position,
-    department: r.department,
-    office: "Cebu HQ",
-    cluster: r.cluster,
-    // On study leave (no salary in the register).
-    status: r.monthly > 0 ? "Active" : "On leave",
-    email: r.id === "MSMA-00846" ? "ceb.msma@gmail.com" : `${r.firstName.split(" ")[0]!.toLowerCase()}.${r.lastName.toLowerCase().replace(/\s+/g, "")}@msma.ph`,
-    phone: `+63 917 ${String(200 + n).padStart(3, "0")} ${String(1000 + n * 37).slice(-4)}`,
-    reportsToId: r.reportsToId,
-  };
-}
-
-// The employee demo login (ceb.msma): Danica Bernardo, Associate 1 in Audit & Assurance.
+// The employee demo login (ceb.msma): Chris S. David, a new hire in Audit & Assurance.
 export let currentEmployee: Employee = {
   id: "MSMA-00846",
-  name: "Danica Bernardo",
-  initials: "DB",
-  position: "Associate 1",
+  name: "Chris S. David",
+  initials: "CD",
+  position: "Junior Associate",
   department: "Audit & Assurance",
   office: "Cebu HQ",
-  cluster: "VCM",
+  cluster: "RPM",
   status: "Active",
   email: "ceb.msma@gmail.com",
   phone: "09223344556",
@@ -73,241 +53,99 @@ export function setCurrentEmployee(next: Employee) {
 }
 
 export const employeeDtrSummary = {
-  onTimeRatePercent: 96,
-  lateCount: 1,
+  onTimeRatePercent: 0,
+  lateCount: 0,
   absentCount: 0,
 };
 
 export const employeeThirteenthMonth = {
-  accrued: 31500,
-  asOfLabel: "September 2026",
+  accrued: 0,
+  asOfLabel: "",
 };
 
-export const leaveBalances: LeaveBalance[] = [
-  { type: "Vacation", used: 6.5, entitlement: 15 },
-  { type: "Sick", used: 9, entitlement: 15 },
-  { type: "Emergency", used: 1, entitlement: 3 },
-  { type: "Bereavement", used: 0, entitlement: 3 },
-];
+export const leaveBalances: LeaveBalance[] = [];
 
-const standardPayslipBreakdown: Payslip["breakdown"] = [
-  { label: "Basic pay", amount: 35000, kind: "earning" },
-  { label: "Transportation allowance", amount: 4000, kind: "earning" },
-  { label: "Overtime pay", amount: 3000, kind: "earning" },
-  { label: "SSS contribution", amount: 1350, kind: "deduction" },
-  { label: "PhilHealth contribution", amount: 875, kind: "deduction" },
-  { label: "Pag-IBIG contribution", amount: 200, kind: "deduction" },
-  { label: "Withholding tax", amount: 1408.33, kind: "deduction" },
-  { label: "Pag-IBIG salary loan", amount: 200, kind: "deduction" },
-];
-
-export let payslips: Payslip[] = [
-  { id: "PS-2609B", cutoffLabel: "Sept 16–30, 2026", gross: 42000, deductions: 4033.33, net: 37966.67, status: "Processing", breakdown: standardPayslipBreakdown },
-  { id: "PS-2609A", cutoffLabel: "Sept 1–15, 2026", gross: 42000, deductions: 4033.33, net: 37966.67, status: "Paid", breakdown: standardPayslipBreakdown },
-  { id: "PS-2608B", cutoffLabel: "Aug 16–31, 2026", gross: 42000, deductions: 4033.33, net: 37966.67, status: "Paid", breakdown: standardPayslipBreakdown },
-];
+export let payslips: Payslip[] = [];
 
 export function setPayslips(next: Payslip[]) {
   payslips = next;
 }
 
-export let announcements: Announcement[] = [
-  { id: "an-1", title: "BIR Form 2316 for 2025 is now available for download", postedOn: "Posted Sept 20, 2026" },
-  { id: "an-2", title: "Cebu HQ town hall — Oct 3, 2026, 4:00 PM, 5th floor training room", postedOn: "Posted Sept 18, 2026" },
-  { id: "an-3", title: "HMO dependent enrollment closes Sept 30 — submit via Benefits", postedOn: "Posted Sept 12, 2026" },
-];
+export let announcements: Announcement[] = [];
 
 export function setAnnouncements(next: Announcement[]) {
   announcements = next;
 }
 
-export let leaveRequests: LeaveRequest[] = [
-  { id: "lr-1", employeeName: "Katrina Enriquez", employeeInitials: "KE", employeeRole: "Junior Associate", type: "Vacation", detail: "Oct 6–8 · 3 days", status: "Pending", requestedOn: "2026-09-21" },
-  { id: "lr-2", employeeName: "Andrea Joy Aquino", employeeInitials: "AA", employeeRole: "Junior Associate", type: "Overtime", detail: "Sept 24 · 2.5 hrs", status: "Pending", requestedOn: "2026-09-24" },
-  { id: "lr-3", employeeName: "Trisha Mae Jimenez", employeeInitials: "TJ", employeeRole: "Experienced Associate", type: "Sick", detail: "Sept 22 · 1 day", status: "Pending", requestedOn: "2026-09-22" },
-  { id: "lr-4", employeeName: "Olive Navarro", employeeInitials: "ON", employeeRole: "Junior Associate", type: "Certificate of Employment", detail: "Requested Sept 23", status: "Pending", requestedOn: "2026-09-23" },
-  { id: "lr-5", employeeName: "Harold Lagman", employeeInitials: "HL", employeeRole: "Junior Associate", type: "Emergency", detail: "Sept 25 · 1 day", status: "Pending", requestedOn: "2026-09-25" },
-];
+export let leaveRequests: LeaveRequest[] = [];
 
 export function setLeaveRequests(next: LeaveRequest[]) {
   leaveRequests = next;
 }
 
-export const onLeaveToday = [
-  { name: "Harold Lagman", initials: "HL", reason: "Emergency Leave" },
-  { name: "Isabel Escobar", initials: "IE", reason: "Vacation Leave" },
-];
+export const onLeaveToday: { name: string; initials: string; reason: string }[] = [];
 
-export const attendanceTrend: AttendancePoint[] = [
-  { date: "Sep 12", rate: 96 },
-  { date: "Sep 13", rate: 91 },
-  { date: "Sep 14", rate: 97 },
-  { date: "Sep 15", rate: 93 },
-  { date: "Sep 16", rate: 98 },
-  { date: "Sep 17", rate: 94 },
-  { date: "Sep 18", rate: 89 },
-  { date: "Sep 19", rate: 96 },
-  { date: "Sep 20", rate: 97 },
-  { date: "Sep 21", rate: 91 },
-  { date: "Sep 22", rate: 96 },
-  { date: "Sep 23", rate: 98 },
-  { date: "Sep 24", rate: 92 },
-  { date: "Sep 25", rate: 94 },
-];
+export const attendanceTrend: AttendancePoint[] = [];
 
 export const adminOverviewStats: AdminOverviewStats = {
-  totalHeadcount: 312,
-  newHiresThisMonth: 6,
-  attritionRateYtd: 4.2,
-  separationsYtd: 24,
-  openPositions: { total: 9, byDepartment: [{ name: "Tax", count: 4 }, { name: "Audit", count: 3 }, { name: "Legal", count: 2 }] },
+  totalHeadcount: 0,
+  newHiresThisMonth: 0,
+  attritionRateYtd: 0,
+  separationsYtd: 0,
+  openPositions: { total: 0, byDepartment: [] },
   onLeaveToday: 0,
-  payrollRunTotal: 13_400_000,
-  payrollCutoffLabel: "Oct 25",
+  payrollRunTotal: 0,
+  payrollCutoffLabel: "",
 };
 
-export const payrollRunSteps: PayrollRunStep[] = [
-  { label: "Timekeeping locked — Sept 25", status: "done" },
-  { label: "Payroll computation completed", status: "done" },
-  { label: "Statutory remittances (SSS, PhilHealth, Pag-IBIG) in progress", status: "current" },
-  { label: "Payslips released — scheduled Oct 30", status: "pending" },
-];
+export const payrollRunSteps: PayrollRunStep[] = [];
 
-export const headcountByOffice: OfficeHeadcount[] = [
-  { office: "Cebu HQ", count: 168 },
-  { office: "Manila", count: 96 },
-  { office: "Davao", count: 48 },
-];
+export const headcountByOffice: OfficeHeadcount[] = [];
 
-export const payrollCostBreakdown: PayrollCostSegment[] = [
-  { label: "Basic pay", percent: 68 },
-  { label: "Statutory", percent: 14 },
-  { label: "Allowances", percent: 11 },
-  { label: "Overtime", percent: 7 },
-];
+export const payrollCostBreakdown: PayrollCostSegment[] = [];
 
-export let complianceCalendar: ComplianceItem[] = [
-  { id: "c-1", filing: "Monthly contribution remittance", agency: "SSS", due: "Sept 30", status: "Filed" },
-  { id: "c-2", filing: "Monthly premium remittance", agency: "PhilHealth", due: "Sept 30", status: "Filed" },
-  { id: "c-3", filing: "Monthly contribution remittance", agency: "Pag-IBIG", due: "Sept 30", status: "Due soon", note: "Due in 5 days" },
-  { id: "c-4", filing: "Withholding tax remittance (1601-C)", agency: "BIR", due: "Oct 10", status: "Due soon", note: "Due in 15 days" },
-  { id: "c-5", filing: "Certificate of Compensation (2316)", agency: "BIR", due: "Sept 15", status: "Overdue", note: "3 employees" },
-];
+export let complianceCalendar: ComplianceItem[] = [];
 
 export function setComplianceCalendar(next: ComplianceItem[]) {
   complianceCalendar = next;
 }
 
-export let employeeDirectory: Employee[] = [
-  // The three partners. Each cluster is named after its partner's initials.
-  { id: "MSMA-00001", name: "Antonio Dandan Sanchez Jr.", initials: "AS", position: "Partner", department: "Partners", office: "Cebu HQ", cluster: "ADS", status: "Active", email: "antonio.sanchez@msma.ph", phone: "+63 917 100 0001", reportsToId: "admin" },
-  { id: "MSMA-00002", name: "Rheneir Paran Mora", initials: "RM", position: "Partner", department: "Partners", office: "Cebu HQ", cluster: "RPM", status: "Active", email: "rheneir.mora@msma.ph", phone: "+63 917 100 0002", reportsToId: "admin" },
-  { id: "MSMA-00003", name: "Victoria Cabalida Meñoza", initials: "VM", position: "Partner", department: "Partners", office: "Cebu HQ", cluster: "VCM", status: "Active", email: "victoria.menoza@msma.ph", phone: "+63 917 100 0003", reportsToId: "admin" },
-  // MSMA's full-time employees, from the FT_MSMA payroll register (lib/msmaRoster.ts).
-  ...MSMA_ROSTER.map(rosterEmployee),
-];
+export let employeeDirectory: Employee[] = [];
 
 export function setEmployeeDirectory(next: Employee[]) {
   employeeDirectory = next;
 }
 
-export const onboardingPipeline: OnboardingStage[] = [
-  { stage: "Offer accepted", count: 2 },
-  { stage: "Documents submitted", count: 3 },
-  { stage: "Day 1 setup", count: 1 },
-];
+export const onboardingPipeline: OnboardingStage[] = [];
 
-export const workforceAlerts: WorkforceAlert[] = [
-  {
-    id: "wa-1",
-    employeeName: "Katrina Enriquez",
-    employeeInitials: "KE",
-    category: "Punctuality",
-    message: "3 late clock-ins this week (avg 14 min) — breaks a 6-week on-time streak",
-    severity: "warn",
-    detectedLabel: "Detected 2 hrs ago",
-  },
-  {
-    id: "wa-2",
-    employeeName: "Andrea Joy Aquino",
-    employeeInitials: "AA",
-    category: "Overtime",
-    message: "Logged 12.5 hrs overtime this week — 3x the team average",
-    severity: "crit",
-    detectedLabel: "Detected this morning",
-  },
-  {
-    id: "wa-3",
-    employeeName: "Audit & Assurance",
-    employeeInitials: "AA",
-    category: "Attendance",
-    message: "Team attendance down 8% vs. the trailing 30-day average",
-    severity: "warn",
-    detectedLabel: "Detected yesterday",
-  },
-  {
-    id: "wa-4",
-    employeeName: "Olive Navarro",
-    employeeInitials: "ON",
-    category: "Leave pattern",
-    message: "Sick leave filed on 3 of the last 4 Fridays — recommend a check-in",
-    severity: "info",
-    detectedLabel: "Detected 3 days ago",
-  },
-];
+export const workforceAlerts: WorkforceAlert[] = [];
 
-export let employeeBenefits: EmployeeBenefit[] = [
-  { id: "b-1", name: "HMO", provider: "Maxicare", memberId: "MX-88213", status: "Active" },
-  { id: "b-2", name: "SSS", provider: "Social Security System", memberId: "34-1122334-5", status: "Active" },
-  { id: "b-3", name: "PhilHealth", provider: "PhilHealth", memberId: "12-345678901-2", status: "Active" },
-  { id: "b-4", name: "Pag-IBIG", provider: "HDMF", memberId: "1211-2233-4455", status: "Active" },
-  { id: "b-5", name: "HMO — Dependent", provider: "Maxicare", memberId: "Enrollment closes Sept 30", status: "Pending" },
-];
+export let employeeBenefits: EmployeeBenefit[] = [];
 
 export function setEmployeeBenefits(next: EmployeeBenefit[]) {
   employeeBenefits = next;
 }
 
-export const teamRoster: TeamRosterMember[] = [
-  { id: "MSMA-00560", name: "Katrina Enriquez", initials: "KE", position: "Junior Associate", tenureLabel: "2 yrs 3 mos", email: "katrina.enriquez@msma.ph", status: "On leave" },
-  { id: "MSMA-00591", name: "Andrea Joy Aquino", initials: "AA", position: "Junior Associate", tenureLabel: "1 yr 8 mos", email: "andrea.aquino@msma.ph", status: "Active" },
-  { id: "MSMA-00602", name: "Trisha Mae Jimenez", initials: "TJ", position: "Experienced Associate", tenureLabel: "3 yrs 1 mo", email: "trisha.jimenez@msma.ph", status: "Active" },
-  { id: "MSMA-00614", name: "Olive Navarro", initials: "ON", position: "Junior Associate", tenureLabel: "11 mos", email: "olive.navarro@msma.ph", status: "Active" },
-  { id: "MSMA-00625", name: "Harold Lagman", initials: "HL", position: "Junior Associate", tenureLabel: "9 mos", email: "harold.lagman@msma.ph", status: "On leave" },
-  { id: "MSMA-00398", name: "Isabel Escobar", initials: "IE", position: "Junior Associate", tenureLabel: "1 yr 4 mos", email: "isabel.escobar@msma.ph", status: "On leave" },
-];
+export const teamRoster: TeamRosterMember[] = [];
 
-export const jobRequisitions: JobRequisition[] = [
-  { id: "jr-1", title: "Junior Associate", department: "Audit & Assurance", openings: 3, applicants: 21, stage: "Interviewing" },
-  { id: "jr-2", title: "Junior Associate", department: "Tax Advisory", openings: 4, applicants: 14, stage: "Sourcing" },
-  { id: "jr-3", title: "Experienced Associate", department: "Corporate Legal", openings: 2, applicants: 6, stage: "Offer extended" },
-  { id: "jr-4", title: "Experienced Associate", department: "Bookkeeping", openings: 1, applicants: 9, stage: "Sourcing" },
-];
 
 export const managerTeamStats = {
-  teamHeadcount: 6,
-  onLeaveToday: 3,
-  attendanceRate: 94,
+  teamHeadcount: 0,
+  onLeaveToday: 0,
+  attendanceRate: 0,
 };
 
-export let performanceReviewStatuses: Record<string, "Submitted" | "Pending"> = {
-  "MSMA-00560": "Submitted",
-  "MSMA-00591": "Submitted",
-  "MSMA-00602": "Submitted",
-  "MSMA-00614": "Submitted",
-  "MSMA-00625": "Pending",
-  "MSMA-00398": "Pending",
-};
+export let performanceReviewStatuses: Record<string, "Submitted" | "Pending"> = {};
 
 export function setPerformanceReviewStatuses(next: Record<string, "Submitted" | "Pending">) {
   performanceReviewStatuses = next;
 }
 
 const defaultManagerProfile: PartnerProfile = {
-  name: "Lorraine Santos",
-  initials: "LS",
+  name: "Rafael Ortiz",
+  initials: "RO",
   title: "Associate Director",
-  email: "lorraine.santos@msma.ph",
+  email: "rafael.ortiz@msma.ph",
   phone: "+63 917 555 0142",
   office: "Cebu HQ",
   emergencyContact: "",
@@ -339,14 +177,7 @@ export function setCurrentManager(next: PartnerProfile) {
   }
 }
 
-export let attendanceRequests: AttendanceRequest[] = [
-  { id: "ar-1", employeeName: "Katrina Enriquez", employeeInitials: "KE", employeeRole: "Junior Associate", kind: "Missed clock-out", date: "Sept 24, 2026", recordedTime: "In 8:52 AM · Out —", requestedTime: "Out 6:15 PM", reason: "Left straight from the client site in Mandaue; scanner was not reachable.", status: "Pending", filedOn: "2026-09-25" },
-  { id: "ar-2", employeeName: "Trisha Mae Jimenez", employeeInitials: "TJ", employeeRole: "Experienced Associate", kind: "Late justification", date: "Sept 25, 2026", recordedTime: "In 9:32 AM", requestedTime: "In 9:32 AM (excused)", reason: "Flooding along Banilad; team lead was informed by 8:30 AM.", status: "Pending", filedOn: "2026-09-25" },
-  { id: "ar-3", employeeName: "Olive Navarro", employeeInitials: "ON", employeeRole: "Junior Associate", kind: "Remote work", date: "Sept 26, 2026", recordedTime: "No scan", requestedTime: "WFH 9:00 AM – 6:00 PM", reason: "Working remotely on the Q3 inventory count report.", status: "Pending", filedOn: "2026-09-26" },
-  { id: "ar-4", employeeName: "Andrea Joy Aquino", employeeInitials: "AA", employeeRole: "Junior Associate", kind: "Time correction", date: "Sept 23, 2026", recordedTime: "In 10:04 AM", requestedTime: "In 8:56 AM", reason: "Fingerprint scanner failed to read; security logbook shows 8:56 AM.", status: "Pending", filedOn: "2026-09-24" },
-  { id: "ar-5", employeeName: "Isabel Escobar", employeeInitials: "IE", employeeRole: "Junior Associate", kind: "Missed clock-in", date: "Sept 22, 2026", recordedTime: "In — · Out 6:02 PM", requestedTime: "In 8:48 AM", reason: "Forgot to scan in after the morning client call.", status: "Approved", filedOn: "2026-09-22" },
-  { id: "ar-6", employeeName: "Harold Lagman", employeeInitials: "HL", employeeRole: "Junior Associate", kind: "Late justification", date: "Sept 19, 2026", recordedTime: "In 10:40 AM", requestedTime: "In 10:40 AM (excused)", reason: "Overslept.", status: "Declined", filedOn: "2026-09-19" },
-];
+export let attendanceRequests: AttendanceRequest[] = [];
 
 export function setAttendanceRequests(next: AttendanceRequest[]) {
   attendanceRequests = next;
@@ -360,39 +191,13 @@ export const payrollCutoff = {
   payslipId: "PS-2609B",
 };
 
-export let payrollEntries: PayrollEntry[] = [
-  { employeeId: "MSMA-00482", monthlyBasic: 70000, allowance: 4000, overtimeHours: 6, otherDeductions: 200, status: "Draft" },
-  { employeeId: "MSMA-00317", monthlyBasic: 95000, allowance: 5000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00560", monthlyBasic: 32000, allowance: 2000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00611", monthlyBasic: 45000, allowance: 3000, overtimeHours: 4, otherDeductions: 500, status: "Draft" },
-  { employeeId: "MSMA-00098", monthlyBasic: 26000, allowance: 1500, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00203", monthlyBasic: 48000, allowance: 3000, overtimeHours: 8, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00001", monthlyBasic: 250000, allowance: 20000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00002", monthlyBasic: 250000, allowance: 20000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00003", monthlyBasic: 250000, allowance: 20000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00276", monthlyBasic: 28000, allowance: 2000, overtimeHours: 2.5, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00341", monthlyBasic: 28000, allowance: 2000, overtimeHours: 0, otherDeductions: 1000, status: "Draft" },
-  { employeeId: "MSMA-00398", monthlyBasic: 32000, allowance: 2000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00623", monthlyBasic: 34000, allowance: 2000, overtimeHours: 3, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00701", monthlyBasic: 25000, allowance: 1500, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00733", monthlyBasic: 30000, allowance: 2000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00812", monthlyBasic: 27000, allowance: 1500, overtimeHours: 5, otherDeductions: 0, status: "Draft" },
-  { employeeId: "MSMA-00845", monthlyBasic: 22000, allowance: 3000, overtimeHours: 0, otherDeductions: 0, status: "Draft" },
-];
+export let payrollEntries: PayrollEntry[] = [];
 
 export function setPayrollEntries(next: PayrollEntry[]) {
   payrollEntries = next;
 }
 
-export const myDtrLog: DtrLogEntry[] = [
-  { date: "Sept 25, 2026", timeIn: "8:58 AM", timeOut: "6:05 PM", status: "On time", location: "Onsite", method: "Fingerprint" },
-  { date: "Sept 24, 2026", timeIn: "9:14 AM", timeOut: "6:02 PM", status: "Late", location: "Remote", method: "Face Scan" },
-  { date: "Sept 23, 2026", timeIn: "8:47 AM", timeOut: "5:58 PM", status: "On time", location: "Onsite", method: "Fingerprint" },
-  { date: "Sept 22, 2026", timeIn: "8:52 AM", timeOut: "6:10 PM", status: "On time", location: "Remote", method: "Face Scan" },
-  { date: "Sept 19, 2026", timeIn: "8:55 AM", timeOut: "6:00 PM", status: "On time", location: "Onsite", method: "Fingerprint" },
-  { date: "Sept 18, 2026", timeIn: "—", timeOut: "—", status: "Absent", location: "Onsite", method: "Fingerprint" },
-  { date: "Sept 17, 2026", timeIn: "8:50 AM", timeOut: "6:03 PM", status: "On time", location: "Onsite", method: "Fingerprint" },
-];
+export const myDtrLog: DtrLogEntry[] = [];
 
 // Saved to localStorage so requests survive a refresh and a sign-out (HR handles them later).
 const CERTIFICATES_KEY = "heyhr-certificate-requests-v1";
@@ -402,9 +207,9 @@ function loadCertificateRequests(): CertificateRequest[] {
     const raw = localStorage.getItem(CERTIFICATES_KEY);
     if (raw) return JSON.parse(raw) as CertificateRequest[];
   } catch {
-    // Blocked or corrupt storage: start from the demo request.
+    // Blocked or corrupt storage: start empty.
   }
-  return [{ id: "cr-1", type: "Certificate of Employment", purpose: "Bank loan application", status: "Released", requestedOn: "2026-08-14", employeeId: "MSMA-00482", employeeName: "Victor Mangubat" }];
+  return [];
 }
 
 export let certificateRequests: CertificateRequest[] = loadCertificateRequests();
@@ -419,10 +224,10 @@ export function setCertificateRequests(next: CertificateRequest[]) {
 }
 
 const defaultAdminProfile: AdminProfile = {
-  name: "Wendy Lacson",
-  initials: "WL",
-  title: "HR Associate",
-  email: "wendy.lacson@msma.ph",
+  name: "Dinah Marquez",
+  initials: "DM",
+  title: "HR & People Operations Head",
+  email: "dinah.marquez@msma.ph",
   phone: "+63 917 555 0118",
   office: "Cebu HQ",
   emergencyContact: "",
@@ -453,127 +258,31 @@ export function setCurrentAdmin(next: AdminProfile) {
   }
 }
 
-export let offboardingCases: OffboardingCase[] = [
-  { id: "off-1", employeeName: "Isabel Escobar", employeeInitials: "IE", department: "Audit & Assurance", lastDay: "Oct 15, 2026", stage: "Clearance in progress" },
-  { id: "off-2", employeeName: "Gino Ocampo", employeeInitials: "GO", department: "Tax Advisory", lastDay: "Oct 31, 2026", stage: "Resignation filed" },
-];
+export let offboardingCases: OffboardingCase[] = [];
 
 export function setOffboardingCases(next: OffboardingCase[]) {
   offboardingCases = next;
 }
 
-export let companyAssets: CompanyAsset[] = [
-  { id: "as-1", type: "Laptop", assetTag: "LT-0231", assignedToName: "Victor Mangubat", assignedToInitials: "AD", issuedOn: "2024-02-10", status: "Issued" },
-  { id: "as-2", type: "Company ID", assetTag: "ID-0482", assignedToName: "Victor Mangubat", assignedToInitials: "AD", issuedOn: "2024-02-01", status: "Issued" },
-  { id: "as-3", type: "Laptop", assetTag: "LT-0198", assignedToName: "Lorraine Santos", assignedToInitials: "RO", issuedOn: "2022-06-15", status: "Issued" },
-  { id: "as-4", type: "Access Card", assetTag: "AC-1187", assignedToName: "Katrina Enriquez", assignedToInitials: "BS", issuedOn: "2023-11-20", status: "Issued" },
-  { id: "as-5", type: "Company Phone", assetTag: "PH-0344", assignedToName: "Andrea Joy Aquino", assignedToInitials: "MR", issuedOn: "2023-04-02", status: "Under repair" },
-  { id: "as-6", type: "Laptop", assetTag: "LT-0356", assignedToName: "Trisha Mae Jimenez", assignedToInitials: "CU", issuedOn: "2023-08-22", status: "Issued" },
-  { id: "as-7", type: "Access Card", assetTag: "AC-1203", assignedToName: "Olive Navarro", assignedToInitials: "JA", issuedOn: "2025-01-10", status: "Issued" },
-  { id: "as-8", type: "Laptop", assetTag: "LT-0104", assignedToName: "Isabel Escobar", assignedToInitials: "GT", issuedOn: "2024-11-05", status: "Returned" },
-];
+export let companyAssets: CompanyAsset[] = [];
 
 export function setCompanyAssets(next: CompanyAsset[]) {
   companyAssets = next;
 }
 
-export let trainingRecords: TrainingRecord[] = [
-  { id: "tr-1", employeeName: "Victor Mangubat", employeeInitials: "VM", course: "Data Privacy Act Refresher", dueDate: "Oct 15, 2026", status: "In progress" },
-  { id: "tr-2", employeeName: "Victor Mangubat", employeeInitials: "VM", course: "Anti-Money Laundering Basics", dueDate: "Nov 1, 2026", status: "Not started" },
-  { id: "tr-3", employeeName: "Katrina Enriquez", employeeInitials: "KE", course: "Data Privacy Act Refresher", dueDate: "Oct 15, 2026", status: "Completed" },
-  { id: "tr-4", employeeName: "Andrea Joy Aquino", employeeInitials: "AA", course: "Data Privacy Act Refresher", dueDate: "Oct 15, 2026", status: "Completed" },
-  { id: "tr-5", employeeName: "Trisha Mae Jimenez", employeeInitials: "TJ", course: "Anti-Money Laundering Basics", dueDate: "Nov 1, 2026", status: "In progress" },
-  { id: "tr-6", employeeName: "Olive Navarro", employeeInitials: "ON", course: "Workplace Safety Orientation", dueDate: "Oct 1, 2026", status: "Not started" },
-  { id: "tr-7", employeeName: "Harold Lagman", employeeInitials: "HL", course: "Workplace Safety Orientation", dueDate: "Oct 1, 2026", status: "Completed" },
-];
+export let trainingRecords: TrainingRecord[] = [];
 
 export function setTrainingRecords(next: TrainingRecord[]) {
   trainingRecords = next;
 }
 
-export let employeeCases: EmployeeCase[] = [
-  {
-    id: "case-1",
-    employeeName: "Olive Navarro",
-    employeeInitials: "ON",
-    type: "Attendance",
-    filedBy: "Lorraine Santos",
-    status: "Under review",
-    filedOn: "2026-09-18",
-    summary: "Recurring late clock-ins flagged by workforce intelligence; verbal coaching scheduled.",
-  },
-  {
-    id: "case-2",
-    employeeName: "Harold Lagman",
-    employeeInitials: "HL",
-    type: "Conduct",
-    filedBy: "Lorraine Santos",
-    status: "Resolved",
-    filedOn: "2026-08-02",
-    summary: "Dress code violation during client visit; addressed with a written reminder. No recurrence since.",
-  },
-  {
-    id: "case-3",
-    employeeName: "Katrina Enriquez",
-    employeeInitials: "KE",
-    type: "Grievance",
-    filedBy: "Lorraine Santos",
-    status: "Open",
-    filedOn: "2026-09-24",
-    summary: "Raised a workload concern following overtime spikes; scheduling a 1:1 to review team capacity.",
-  },
-];
+export let employeeCases: EmployeeCase[] = [];
 
 export function setEmployeeCases(next: EmployeeCase[]) {
   employeeCases = next;
 }
 
-export let professionalLicenses: ProfessionalLicense[] = [
-  {
-    id: "lic-1",
-    employeeId: "MSMA-00482",
-    employeeName: "Victor Mangubat",
-    employeeInitials: "VM",
-    licenseType: "CPA",
-    licenseNumber: "0123456",
-    cpdUnitsEarned: 58,
-    cpdUnitsRequired: 60,
-    cycleEndDate: "Oct 1, 2026",
-  },
-  {
-    id: "lic-2",
-    employeeId: "MSMA-00317",
-    employeeName: "Lorraine Santos",
-    employeeInitials: "LS",
-    licenseType: "CPA",
-    licenseNumber: "0087654",
-    cpdUnitsEarned: 50,
-    cpdUnitsRequired: 60,
-    cycleEndDate: "Sept 20, 2026",
-  },
-  {
-    id: "lic-3",
-    employeeId: "MSMA-00203",
-    employeeName: "Trisha Mae Jimenez",
-    employeeInitials: "TJ",
-    licenseType: "CPA",
-    licenseNumber: "0145233",
-    cpdUnitsEarned: 60,
-    cpdUnitsRequired: 60,
-    cycleEndDate: "Mar 15, 2027",
-  },
-  {
-    id: "lic-4",
-    employeeId: "MSMA-00623",
-    employeeName: "Gino Ocampo",
-    employeeInitials: "GO",
-    licenseType: "CPA",
-    licenseNumber: "0198812",
-    cpdUnitsEarned: 25,
-    cpdUnitsRequired: 60,
-    cycleEndDate: "Dec 1, 2026",
-  },
-];
+export let professionalLicenses: ProfessionalLicense[] = [];
 
 export function setProfessionalLicenses(next: ProfessionalLicense[]) {
   professionalLicenses = next;
@@ -583,71 +292,7 @@ export function setProfessionalLicenses(next: ProfessionalLicense[]) {
 // Full detail here is HR/manager-only; the employee-facing API layer
 // projects these down to a status-only checklist before returning them.
 
-export let personnelProfiles: PersonnelProfile[] = [
-  { employeeId: "MSMA-00482", birthDate: "1997-03-14", civilStatus: "Single", dependents: [] },
-  {
-    employeeId: "MSMA-00317",
-    birthDate: "1988-06-02",
-    civilStatus: "Married",
-    dependents: [
-      { id: "dep-1", name: "Liza Ortiz", relationship: "Spouse" },
-      { id: "dep-2", name: "Miko Ortiz", relationship: "Child", birthDate: "2015-09-10" },
-    ],
-  },
-  { employeeId: "MSMA-00560", birthDate: "2000-01-22", civilStatus: "Single", dependents: [] },
-  {
-    employeeId: "MSMA-00611",
-    birthDate: "1995-11-05",
-    civilStatus: "Married",
-    dependents: [{ id: "dep-3", name: "Anna Reyes", relationship: "Spouse" }],
-  },
-  {
-    employeeId: "MSMA-00098",
-    birthDate: "1974-04-18",
-    civilStatus: "Widowed",
-    dependents: [{ id: "dep-4", name: "Karl Vitug", relationship: "Child", birthDate: "2008-02-20" }],
-  },
-  {
-    employeeId: "MSMA-00203",
-    birthDate: "1993-02-27",
-    civilStatus: "Married",
-    dependents: [{ id: "dep-5", name: "Sofia Uy", relationship: "Child", birthDate: "2020-04-11" }],
-  },
-  { employeeId: "MSMA-00276", birthDate: "2002-08-30", civilStatus: "Single", dependents: [] },
-  { employeeId: "MSMA-00341", birthDate: "1999-05-12", civilStatus: "Single", dependents: [] },
-  {
-    employeeId: "MSMA-00398",
-    birthDate: "1997-07-19",
-    civilStatus: "Married",
-    dependents: [{ id: "dep-6", name: "Leo Tan", relationship: "Child", birthDate: "2022-01-30" }],
-  },
-  { employeeId: "MSMA-00623", birthDate: "1998-10-03", civilStatus: "Single", dependents: [] },
-  {
-    employeeId: "MSMA-00701",
-    birthDate: "1981-01-09",
-    civilStatus: "Married",
-    dependents: [
-      { id: "dep-7", name: "Ana Bautista", relationship: "Spouse" },
-      { id: "dep-8", name: "Rico Bautista", relationship: "Child", birthDate: "2010-06-18" },
-    ],
-  },
-  { employeeId: "MSMA-00733", birthDate: "1996-03-25", civilStatus: "Single", dependents: [] },
-  { employeeId: "MSMA-00001", birthDate: "1965-04-12", civilStatus: "Married", dependents: [] },
-  { employeeId: "MSMA-00002", birthDate: "1970-09-03", civilStatus: "Married", dependents: [] },
-  { employeeId: "MSMA-00003", birthDate: "1972-01-27", civilStatus: "Married", dependents: [] },
-  {
-    employeeId: "MSMA-00812",
-    birthDate: "1992-12-14",
-    civilStatus: "Married",
-    dependents: [{ id: "dep-9", name: "Mia Nierves", relationship: "Spouse" }],
-  },
-  {
-    employeeId: "MSMA-00845",
-    birthDate: "1966-02-08",
-    civilStatus: "Married",
-    dependents: [{ id: "dep-10", name: "Elena Salazar", relationship: "Spouse" }],
-  },
-];
+export let personnelProfiles: PersonnelProfile[] = [];
 
 export function setPersonnelProfiles(next: PersonnelProfile[]) {
   personnelProfiles = next;
@@ -666,45 +311,6 @@ const PERSONNEL_DOCUMENT_TYPES: PersonnelDocumentType[] = [
   "Police/Barangay Clearance",
   "Pre-Employment Medical Result",
 ];
-
-const LICENSED_EMPLOYEE_IDS = new Set(professionalLicenses.map((l) => l.employeeId));
-
-function buildPersonnelDocuments(
-  employeeId: string,
-  overrides: Partial<Record<PersonnelDocumentType, Partial<PersonnelDocument>>> = {},
-): PersonnelDocument[] {
-  const profile = personnelProfiles.find((p) => p.employeeId === employeeId);
-  const married = profile?.civilStatus === "Married";
-  const hasChild = profile?.dependents.some((d) => d.relationship === "Child") ?? false;
-  const licensed = LICENSED_EMPLOYEE_IDS.has(employeeId);
-
-  return PERSONNEL_DOCUMENT_TYPES.map((type, i) => {
-    let status: PersonnelDocument["status"] = "Submitted";
-    if (type === "Marriage Certificate (PSA)" && !married) status = "Not applicable";
-    if (type === "Child's Birth Certificate" && !hasChild) status = "Not applicable";
-    if (type === "Professional License" && !licensed) status = "Not applicable";
-
-    const doc: PersonnelDocument = {
-      id: `doc-${employeeId}-${i + 1}`,
-      employeeId,
-      type,
-      status,
-      ...(status === "Submitted"
-        ? { fileName: `${type.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pdf`, uploadedOn: "2024-01-15" }
-        : {}),
-      ...(type === "Valid Government ID" && status === "Submitted"
-        ? { idType: "UMID", idNumber: `01-${employeeId.slice(-7)}-0`, idExpiry: "2028-05-01" }
-        : {}),
-      ...(type === "Professional License" && licensed
-        ? {
-            licenseNumber: professionalLicenses.find((l) => l.employeeId === employeeId)?.licenseNumber,
-            licenseExpiry: "2029-01-01",
-          }
-        : {}),
-    };
-    return { ...doc, ...overrides[type] };
-  });
-}
 
 export interface NewHireGovernmentId {
   idType: string;
@@ -737,71 +343,119 @@ export function buildNewHireDocuments(employeeId: string, governmentId?: NewHire
   });
 }
 
-export let personnelDocuments: PersonnelDocument[] = [
-  ...buildPersonnelDocuments("MSMA-00482", {
-    "Valid Government ID": { idType: "UMID", idNumber: "01-0482-1997-0", idExpiry: "2026-10-05" },
-    "Professional License": { status: "Verified", licenseNumber: "0123456", licenseExpiry: "2027-06-15" },
-    "Pre-Employment Medical Result": { status: "Missing", fileName: undefined, uploadedOn: undefined },
-  }),
-  ...buildPersonnelDocuments("MSMA-00317", {
-    "Application Form / Resume": { status: "Verified" },
-    "Birth Certificate (PSA)": { status: "Verified" },
-    "Valid Government ID": { status: "Verified", idType: "Passport", idNumber: "P1234567A", idExpiry: "2030-01-01" },
-    "Professional License": { status: "Verified", licenseNumber: "0087654", licenseExpiry: "2029-01-01" },
-    "NBI Clearance": { status: "Verified" },
-  }),
-  ...buildPersonnelDocuments("MSMA-00560", {
-    "NBI Clearance": { status: "Missing", fileName: undefined, uploadedOn: undefined },
-    "Police/Barangay Clearance": { status: "Missing", fileName: undefined, uploadedOn: undefined },
-  }),
-  ...buildPersonnelDocuments("MSMA-00611"),
-  ...buildPersonnelDocuments("MSMA-00098"),
-  ...buildPersonnelDocuments("MSMA-00203", {
-    "Professional License": { status: "Verified", licenseNumber: "0145233", licenseExpiry: "2028-03-15" },
-  }),
-  ...buildPersonnelDocuments("MSMA-00276"),
-  ...buildPersonnelDocuments("MSMA-00341"),
-  ...buildPersonnelDocuments("MSMA-00398"),
-  ...buildPersonnelDocuments("MSMA-00623", {
-    "Professional License": { status: "Submitted", licenseNumber: "0198812", licenseExpiry: "2027-12-01" },
-  }),
-  ...buildPersonnelDocuments("MSMA-00701"),
-  ...buildPersonnelDocuments("MSMA-00733"),
-  ...buildPersonnelDocuments("MSMA-00812"),
-  ...buildPersonnelDocuments("MSMA-00845"),
-  // A new hire: nothing handed in yet.
-  ...buildPersonnelDocuments("MSMA-00846").map((d): PersonnelDocument => (d.status === "Not applicable" ? d : { id: d.id, employeeId: d.employeeId, type: d.type, status: "Missing" })),
-  ...buildPersonnelDocuments("MSMA-00001"),
-  ...buildPersonnelDocuments("MSMA-00002"),
-  ...buildPersonnelDocuments("MSMA-00003"),
-];
+export let personnelDocuments: PersonnelDocument[] = [];
 
 export function setPersonnelDocuments(next: PersonnelDocument[]) {
   personnelDocuments = next;
 }
 
-export let auditLogEntries: AuditLogEntry[] = [
-  {
-    id: "audit-1",
-    employeeId: "MSMA-00482",
-    actorName: "Wendy Lacson",
-    actorRole: "admin",
-    action: "Verified",
-    target: "Professional License",
-    detail: "Marked Verified",
-    timestamp: "2026-09-20T10:15:00",
-  },
-  {
-    id: "audit-2",
-    employeeId: "MSMA-00560",
-    actorName: "Lorraine Santos",
-    actorRole: "manager",
-    action: "Viewed",
-    target: "201 File",
-    timestamp: "2026-09-25T09:02:00",
-  },
-];
+export let auditLogEntries: AuditLogEntry[] = [];
 
 export function setAuditLogEntries(next: AuditLogEntry[]) {
   auditLogEntries = next;
+}
+
+// ---- Recruitment, careers and onboarding (from feature/onboarding-pipeline-careers) ----
+// Requisitions and applicants are kept in this browser under their own key.
+
+const seedProfessions: Record<string, ApplicantProfession> = {
+  "ap-1": "BS Accountancy graduate",
+  "ap-2": "Accounting student / undergrad",
+  "ap-3": "CPA",
+  "ap-4": "CPA",
+  "ap-5": "BS Accountancy graduate",
+  "ap-6": "CPA",
+  "ap-7": "BS Accountancy graduate",
+  "ap-8": "CPA",
+  "ap-9": "CPA",
+  "ap-10": "BS Accountancy graduate",
+  "ap-11": "Other",
+  "ap-12": "CPA",
+  "ap-13": "Other",
+  "ap-14": "Other",
+  "ap-15": "BS Accountancy graduate",
+};
+
+const seedApplicants: Applicant[] = ([
+  { id: "ap-1", requisitionId: "jr-1", firstName: "Kristine Mae", lastName: "Abellana", email: "kristine.abellana@gmail.com", stage: "Applied", note: "JobStreet · Sep 28" },
+  { id: "ap-2", requisitionId: "jr-1", firstName: "John Paul", lastName: "Ybañez", email: "jp.ybanez@gmail.com", stage: "Applied", note: "Referral · Sep 27" },
+  { id: "ap-3", requisitionId: "jr-1", firstName: "Cyril", lastName: "Go", email: "cyril.go@yahoo.com", stage: "Applied", note: "LinkedIn · Sep 26" },
+  { id: "ap-4", requisitionId: "jr-1", firstName: "Angelica", lastName: "Sy", email: "angelica.sy@gmail.com", stage: "Screening", note: "Exam 86% · Sep 24" },
+  { id: "ap-5", requisitionId: "jr-1", firstName: "Mark", lastName: "Lao", email: "mark.lao@gmail.com", stage: "Screening", note: "Exam 79% · Sep 23" },
+  { id: "ap-6", requisitionId: "jr-1", firstName: "Rachelle", lastName: "Tumulak", email: "rachelle.tumulak@gmail.com", stage: "Interview", note: "Partner interview · Oct 1, 2:00 PM" },
+  { id: "ap-7", requisitionId: "jr-1", firstName: "Mark Anthony", lastName: "Cabahug", email: "ma.cabahug@gmail.com", stage: "Interview", note: "HR interview · Oct 2, 10:00 AM" },
+  { id: "ap-8", requisitionId: "jr-1", firstName: "Cyrus", lastName: "Villamor", email: "cyrus.villamor@gmail.com", stage: "Offered", note: "Offer sent Sep 26 · expires Oct 3", offerExpires: "2026-10-03" },
+  { id: "ap-9", requisitionId: "jr-1", firstName: "Joanna", lastName: "Villacura", email: "joanna.villacura@gmail.com", phone: "+63 917 552 0184", stage: "Hired", note: "Accepted · starts Oct 16", startDate: "2026-10-16" },
+  { id: "ap-10", requisitionId: "jr-1", firstName: "Kenneth", lastName: "Go", email: "kenneth.go@gmail.com", stage: "Rejected", note: "Did not meet CPA requirement" },
+  { id: "ap-11", requisitionId: "jr-2", firstName: "Patricia", lastName: "Lim", email: "patricia.lim@gmail.com", stage: "Applied", note: "JobStreet · Sep 29" },
+  { id: "ap-12", requisitionId: "jr-2", firstName: "Ramon", lastName: "Dizon", email: "ramon.dizon@gmail.com", stage: "Screening", note: "Exam scheduled · Oct 1" },
+  { id: "ap-13", requisitionId: "jr-3", firstName: "Liza", lastName: "Moreno", email: "liza.moreno@gmail.com", stage: "Applied", note: "Referral · Sep 25" },
+  { id: "ap-14", requisitionId: "jr-3", firstName: "Paolo", lastName: "Santiago", email: "paolo.santiago@gmail.com", stage: "Screening", note: "Bar passer 2025 · Sep 22" },
+  { id: "ap-15", requisitionId: "jr-4", firstName: "Jenny", lastName: "Alcantara", email: "jenny.alcantara@gmail.com", stage: "Applied", note: "Walk-in · Sep 28" },
+] as Applicant[]).map((a) => ({ ...a, profession: seedProfessions[a.id] }));
+
+const SEED_REQUISITIONS: JobRequisition[] = [
+  { id: "jr-1", title: "Audit Associate", department: "Audit & Assurance", cluster: "VCM", office: "Cebu HQ", openings: 3, applicants: 21, applicantsThisWeek: 5, stage: "Interviewing", approval: "Approved" },
+  { id: "jr-2", title: "Tax Associate", department: "Tax Advisory", cluster: "RPM", office: "Cebu HQ", openings: 4, applicants: 14, applicantsThisWeek: 3, stage: "Sourcing", approval: "Approved" },
+  { id: "jr-3", title: "Corporate Lawyer", department: "Corporate Legal", cluster: "ADS", office: "Manila", openings: 2, applicants: 6, applicantsThisWeek: 1, stage: "Offer extended", approval: "Approved" },
+  { id: "jr-4", title: "Bookkeeper", department: "Bookkeeping", cluster: "RPM", office: "Davao", openings: 1, applicants: 9, applicantsThisWeek: 3, stage: "Sourcing", approval: "Pending L2" },
+];
+
+const RECRUITMENT_KEY = "msma-demo-recruitment-v1";
+
+interface RecruitmentStore {
+  applicants?: Applicant[];
+  jobRequisitions?: JobRequisition[];
+}
+
+function loadRecruitment(): RecruitmentStore {
+  try {
+    const raw = typeof localStorage === "undefined" ? null : localStorage.getItem(RECRUITMENT_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+    if (!parsed || typeof parsed !== "object") return {};
+    // Anything that isn't the shape we expect is ignored rather than trusted.
+    const list = <T,>(v: unknown) => (Array.isArray(v) ? (v.filter((x) => x && typeof x === "object") as T[]) : undefined);
+    return {
+      applicants: list<Applicant>(parsed.applicants)?.filter((a) => typeof a.id === "string" && typeof a.firstName === "string" && typeof a.lastName === "string" && typeof a.requisitionId === "string"),
+      jobRequisitions: list<JobRequisition>(parsed.jobRequisitions)?.filter((r) => typeof r.id === "string" && typeof r.title === "string"),
+    };
+  } catch {
+    return {};
+  }
+}
+
+function saveRecruitment() {
+  try {
+    localStorage.setItem(RECRUITMENT_KEY, JSON.stringify({ applicants, jobRequisitions }));
+  } catch {
+    // Storage full or blocked: the data still lives until the page reloads.
+  }
+}
+
+const stored = loadRecruitment();
+
+export let jobRequisitions: JobRequisition[] = stored.jobRequisitions ?? SEED_REQUISITIONS;
+
+export function setJobRequisitions(next: JobRequisition[]) {
+  jobRequisitions = next;
+  saveRecruitment();
+}
+
+// Saved applicants (including ones sent through the job link) come first; any sample missing from them is added back.
+export let applicants: Applicant[] = stored.applicants
+  ? [...stored.applicants, ...seedApplicants.filter((s) => !stored.applicants!.some((a) => a.id === s.id))]
+  : seedApplicants;
+
+export function setApplicants(next: Applicant[]) {
+  applicants = next;
+  saveRecruitment();
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key !== RECRUITMENT_KEY) return;
+    const next = loadRecruitment();
+    if (next.applicants) applicants = next.applicants;
+    if (next.jobRequisitions) jobRequisitions = next.jobRequisitions;
+  });
 }

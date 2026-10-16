@@ -8,7 +8,7 @@ import type { TimeRequest } from "@/lib/timekeeping/types";
 import { useCreateParam } from "@/lib/useCreateParam";
 import { LoadError, Pill } from "../admin/corehr/ui";
 import { SimpleTable, type Col } from "../admin/timekeeping/common";
-import { duration, shortDate } from "../admin/timekeeping/format";
+import { requestSpan, shortDate } from "../admin/timekeeping/format";
 import { TimeRequestDialog, fileableDays, type Ask } from "./TimeRequestDialog";
 
 const STATUS = { pending: { tone: "warn", label: "Waiting for your approver" }, approved: { tone: "good", label: "Approved" }, declined: { tone: "crit", label: "Declined" } } as const;
@@ -18,7 +18,7 @@ const STATUS = { pending: { tone: "warn", label: "Waiting for your approver" }, 
  * one. They go straight to the approver; HR only sees them once approved.
  */
 export function EmployeeTimeRequests({ kind }: { kind: Ask["kind"] }) {
-  const data = useQuery({ queryKey: ["ess", "attendance"], queryFn: myAttendance, staleTime: 0 });
+  const data = useQuery({ queryKey: ["ess", "attendance"], queryFn: () => myAttendance(), staleTime: 0 });
   const [ask, setAsk] = useState<Ask | null>(null);
   useCreateParam(kind, () => setAsk({ kind }));
   if (data.isError) return <LoadError onRetry={() => data.refetch()} />;
@@ -30,7 +30,7 @@ export function EmployeeTimeRequests({ kind }: { kind: Ask["kind"] }) {
 
   const cols: Col<TimeRequest>[] = [
     { header: "Day", cell: (r) => <span className="font-medium">{shortDate(r.date)}</span> },
-    { header: kind === "overtime" ? "Minutes claimed" : "Left early by", cell: (r) => duration(r.minutes) },
+    { header: kind === "overtime" ? "Overtime" : "Left early by", cell: (r) => requestSpan(r) },
     { header: "Reason", cell: (r) => <span className="inline-block max-w-72 truncate align-bottom text-ink-2" title={r.reason}>{r.reason}</span> },
     { header: "Filed", cell: (r) => <span className="text-ink-2">{shortDate(r.filedAt.slice(0, 10))}</span> },
     {

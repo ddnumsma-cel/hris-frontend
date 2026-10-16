@@ -42,9 +42,16 @@ const resetOldServiceWorker = (): Plugin => ({
 })
 
 // https://vite.dev/config/
+// The API server (server/) runs on 3001; the browser reaches it through this same origin.
+// API_PROXY_TARGET points it elsewhere (the end-to-end tests run their own server).
+const proxy = { '/api': { target: process.env.API_PROXY_TARGET ?? 'http://127.0.0.1:3001', changeOrigin: false } }
+
+// Basic protective headers while developing and previewing; the production web server sets its own.
+const headers = { 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin' }
+
 export default defineConfig({
-  server: { https },
-  preview: { https },
+  server: { https, proxy, headers },
+  preview: { https, proxy, headers },
   plugins: [
     resetOldServiceWorker(),
     react(),
@@ -69,6 +76,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // API calls always go to the server, never the offline cache.
+        navigateFallbackDenylist: [/^\/api\//],
       },
     }),
   ],

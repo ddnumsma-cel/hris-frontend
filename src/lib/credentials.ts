@@ -1,7 +1,7 @@
 import type { Role } from "./types";
 
 /** The built-in demo logins: one per role (and the older "Admin" one, now an HR account). */
-export type DemoKey = "sysadmin" | "superadmin" | "admin" | "hr" | "approver" | "partner-sanchez" | "accounting" | "employee";
+export type DemoKey = "sysadmin" | "superadmin" | "admin" | "hr" | "approver" | "accounting" | "employee";
 
 export interface DemoCredential {
   key: DemoKey;
@@ -24,8 +24,6 @@ const defaultCredentials: DemoCredential[] = [
   { key: "admin", username: "admin", password: "Heyhr-Admin-2026!", role: "admin", label: "HR (Office Administrator)", listed: false },
   { key: "hr", username: "admin1", password: "Heyhr-HR-2026!", role: "admin", label: "HR" },
   { key: "approver", username: "approver", password: "Heyhr-Approver-2026!", role: "manager", label: "Approver", listed: false },
-  // A Partner: approver for the people who report to him.
-  { key: "partner-sanchez", username: "antonio.sanchez", password: "Heyhr-Partner1-2026!", role: "manager", label: "Approver · Antonio Sanchez (Partner)" },
   { key: "accounting", username: "accounting", password: "Heyhr-Accounting-2026!", role: "admin", label: "Accounting" },
   { key: "employee", username: "ceb.msma", password: "Malunggay-4800", role: "employee", label: "Employee" },
 ];

@@ -29,7 +29,8 @@ export interface OrgUnit {
 export const JOB_LEVELS = ["Rank and file", "Supervisor", "Manager", "Executive"] as const;
 export type JobLevel = (typeof JOB_LEVELS)[number];
 
-export const EMPLOYMENT_TYPES = ["Probationary", "Regular", "Project-based", "Fixed-term", "Part-time", "Intern"] as const;
+/** BRD v1.1 New Employees Template: PROBATIONARY, REGULAR, FIXED_TERM. */
+export const EMPLOYMENT_TYPES = ["Probationary", "Regular", "Fixed-term"] as const;
 export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
 
 export interface Position {
@@ -51,6 +52,9 @@ export interface Position {
 
 export const EMPLOYMENT_STATUSES = ["Active", "On leave", "Suspended", "Separated"] as const;
 export type EmploymentStatus = (typeof EMPLOYMENT_STATUSES)[number];
+
+/** Why someone is leaving (Core HR › Separation). Here so the API server checks the same list. */
+export const SEPARATION_REASONS = ["Resigned", "End of contract", "Retired", "Terminated", "Redundancy", "Death", "Other"] as const;
 
 export const CIVIL_STATUSES = ["Single", "Married", "Widowed", "Separated"] as const;
 export type CivilStatus = (typeof CIVIL_STATUSES)[number];
@@ -114,6 +118,8 @@ export interface CoreEmployee {
   bank?: BankDetails;
   job: JobInfo;
   createdAt: string;
+  /** Face template enrolled, so they can clock in from home with a face scan. */
+  faceEnrolled?: boolean;
 }
 
 // ---- Documents ----
@@ -132,6 +138,8 @@ export interface EmployeeDocument {
   verifiedAt?: string;
   /** IDs and licenses. */
   referenceNo?: string;
+  /** For government IDs: UMID, Passport… */
+  idType?: string;
   expiresOn?: string;
   note?: string;
 }

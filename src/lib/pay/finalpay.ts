@@ -8,14 +8,16 @@ import { fullName, newId, state as core } from "../corehr/store";
 import { creditsFor } from "../leave/store";
 import { payroll, type Period } from "../reports/api";
 import { round2, THIRTEENTH_MONTH_EXEMPT } from "../reports/statutory";
-import { claims, claimType, saveClaims } from "../reimbursements/store";
+import { claims, claimType, refreshClaims, saveClaims } from "../reimbursements/store";
+import { api, serverMode } from "../http";
 import { deny } from "../session";
 import { tellAssigned, tellEmployees } from "../requestNotices";
 import { outstandingLoans, settleLoans } from "./loans";
-import { loadCases, saveCases, type FinalPayCase, type FinalPayItem } from "./finalPayStore";
-import { approvedRuns } from "./runs";
+import { refreshLoans } from "./loanStore";
+import { loadCases, refreshCases, saveCases, type FinalPayCase, type FinalPayItem } from "./finalPayStore";
+import { approvedRuns, loadRunsFromServer } from "./runs";
 import { annualTax, yearToDate } from "./yearend";
-import { cutoffOf } from "./settings";
+import { cutoffOf, refreshPaySettings } from "./settings";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -33,10 +35,18 @@ const save = saveCases;
 
 const person = (id: string) => core.employees.find((e) => e.id === id);
 
+/** The claims paid out and loan balances deducted: the server only releases figures worked out from the latest ones. */
+export interface FinalPayBasis {
+  claimIds: string[];
+  loans: { id: string; balance: number }[];
+}
+
 /** The computation, item by item. */
-export async function computeFinalPay(employeeId: string, lastDay: string): Promise<{ items: FinalPayItem[]; total: number; notes: string[] }> {
+export async function computeFinalPay(employeeId: string, lastDay: string): Promise<{ items: FinalPayItem[]; total: number; notes: string[]; basis: FinalPayBasis }> {
   const e = person(employeeId);
   if (!e) throw new Error("That employee no longer exists");
+  // With the API server: the approved runs, loans and claims the figures come from.
+  if (serverMode) await Promise.all([loadRunsFromServer(), refreshLoans(), refreshClaims(), refreshPaySettings(2000)]);
   const salary = e.job.monthlySalary;
   const daily = (salary * 12) / WORKING_DAYS_PER_YEAR;
   const year = Number(lastDay.slice(0, 4));
@@ -76,12 +86,17 @@ export async function computeFinalPay(employeeId: string, lastDay: string): Prom
   if (before.estimated) notes.push(`${before.estimated} earlier ${before.estimated === 1 ? "cutoff has" : "cutoffs have"} no approved payroll run; their pay and tax are estimated from the salary on file.`);
 
   // 4. Approved reimbursements not paid out yet.
+  const basis: FinalPayBasis = { claimIds: [], loans: [] };
   for (const c of claims.filter((x) => x.employeeId === employeeId && x.status === "approved" && !x.paidAt)) {
+    basis.claimIds.push(c.id);
     items.push({ label: `Reimbursement: ${claimType(c)}`, detail: `${c.merchant} · ${c.purchaseDate}`, amount: c.amount });
   }
 
   // 5. Loan balances, deducted in full.
-  for (const l of outstandingLoans(employeeId)) items.push({ label: `${l.kind} balance`, detail: l.reference, amount: -l.balance });
+  for (const l of outstandingLoans(employeeId)) {
+    basis.loans.push({ id: l.id, balance: l.balance });
+    items.push({ label: `${l.kind} balance`, detail: l.reference, amount: -l.balance });
+  }
 
   // 6. The year's tax: what's due on the whole year's taxable pay, less what was withheld.
   const thirteenthTaxable = Math.max(0, thirteenth - THIRTEENTH_MONTH_EXEMPT);
@@ -92,7 +107,7 @@ export async function computeFinalPay(employeeId: string, lastDay: string): Prom
 
   const total = round2(items.reduce((n, i) => n + i.amount, 0));
   if (total < 0) notes.push("The deductions are more than what's owed: the employee owes the difference.");
-  return { items, total, notes };
+  return { items, total, notes, basis };
 }
 
 export interface FinalPayRow {
@@ -107,9 +122,10 @@ export interface FinalPayRow {
 }
 
 /** Open and released cases, plus anyone HR has marked separated this year without a case yet. */
-export function listFinalPay(): Promise<FinalPayRow[]> {
+export async function listFinalPay(): Promise<FinalPayRow[]> {
   const denied = deny("payrollRuns", "view");
   if (denied) return denied;
+  if (serverMode) await refreshCases();
   const cases = load();
   const year = String(new Date().getFullYear());
   const rows: FinalPayRow[] = cases.map((c) => {
@@ -117,7 +133,8 @@ export function listFinalPay(): Promise<FinalPayRow[]> {
     return { employeeId: c.employeeId, name: e ? fullName(e.personal) : c.employeeId, position: core.positions.find((p) => p.id === e?.job.positionId)?.title ?? "", salary: e?.job.monthlySalary ?? 0, lastDay: c.lastDay, reason: c.reason, caseId: c.id, released: c.released };
   });
   for (const e of core.employees) {
-    if (e.job.status !== "Separated" || !(e.job.separationDate ?? "").startsWith(year) || cases.some((c) => c.employeeId === e.id)) continue;
+    // No basic pay on file yet: nothing to work final pay out from until it's filled in.
+    if (e.job.status !== "Separated" || !(e.job.separationDate ?? "").startsWith(year) || cases.some((c) => c.employeeId === e.id) || !(e.job.monthlySalary > 0)) continue;
     rows.push({ employeeId: e.id, name: fullName(e.personal), position: core.positions.find((p) => p.id === e.job.positionId)?.title ?? "", salary: e.job.monthlySalary, lastDay: e.job.separationDate!, reason: "Separated" });
   }
   return respond(rows.sort((a, b) => Number(!!a.released) - Number(!!b.released) || b.lastDay.localeCompare(a.lastDay)));
@@ -133,6 +150,11 @@ export async function openFinalPay(input: { employeeId: string; lastDay: string;
   if (!input.reason) return fail("Choose why they're leaving");
   const cases = load();
   if (cases.some((c) => c.employeeId === input.employeeId)) return fail(`${fullName(e.personal)} already has a final pay case`);
+  if (serverMode) {
+    const opened = await api<FinalPayCase>("POST", "/payroll/final-pay", input);
+    await refreshCases();
+    return opened;
+  }
   const c: FinalPayCase = { id: newId("fp"), employeeId: input.employeeId, lastDay: input.lastDay, reason: input.reason, openedBy: actor, openedAt: new Date().toISOString() };
   save([c, ...cases]);
   logAdmin({ actor, module: "Payroll", action: "Opened final pay", target: fullName(e.personal), detail: `Last day ${input.lastDay} · ${input.reason}` });
@@ -146,6 +168,11 @@ export async function removeFinalPay(caseId: string): Promise<void> {
   const c = cases.find((x) => x.id === caseId);
   if (!c) return fail("That case no longer exists");
   if (c.released) return fail("Released final pay stays on record");
+  if (serverMode) {
+    await api("DELETE", `/payroll/final-pay/${encodeURIComponent(caseId)}`);
+    await refreshCases();
+    return;
+  }
   save(cases.filter((x) => x.id !== caseId));
   return respond(undefined);
 }
@@ -160,7 +187,13 @@ export async function releaseFinalPay(row: Pick<FinalPayRow, "employeeId" | "las
   const cases = load();
   const existing = cases.find((c) => c.id === row.caseId || c.employeeId === row.employeeId);
   if (existing?.released) return fail("This final pay was already released");
-  const { items, total } = await computeFinalPay(row.employeeId, row.lastDay);
+  const { items, total, basis } = await computeFinalPay(row.employeeId, row.lastDay);
+  if (serverMode) {
+    // The server freezes the figures, settles the loans and marks the reimbursements paid.
+    const released = await api<FinalPayCase>("POST", "/payroll/final-pay/release", { employeeId: row.employeeId, lastDay: row.lastDay, reason: row.reason, reference: reference.trim(), items, total, basis });
+    await Promise.all([refreshCases(), refreshLoans(), refreshClaims()]);
+    return released;
+  }
   const now = new Date().toISOString();
   const c: FinalPayCase = { ...(existing ?? { id: newId("fp"), employeeId: row.employeeId, lastDay: row.lastDay, reason: row.reason, openedBy: actor, openedAt: now }), released: { at: now, by: actor, reference: reference.trim(), items, total } };
   save(existing ? cases.map((x) => (x.id === c.id ? c : x)) : [c, ...cases]);

@@ -4,7 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import "./index.css";
 import App from "./App.tsx";
-import { AuthProvider } from "./features/auth/AuthContext";
+import { AuthProvider, prepareSession } from "./features/auth/AuthContext";
 import { ToastProvider } from "./components/ui/ToastContext";
 import { ErrorBoundary } from "./components/layout/ErrorBoundary";
 import { queryClient } from "./lib/queryClient";
@@ -14,6 +14,9 @@ import "./lib/corehr/store";
 
 const storedTheme = getStoredTheme();
 if (storedTheme) document.documentElement.dataset.theme = storedTheme;
+
+// With the API server, check the session and load its records before the first page reads them.
+await prepareSession();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

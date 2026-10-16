@@ -1,18 +1,17 @@
-// The Core HR store: seeded once from the prototype's existing mock data,
+// The Core HR store: seeded once with the company structure (no employees),
 // then saved to localStorage so HR's edits survive a reload. Core HR owns the
 // employee master record; the shared directory and document lists other
 // pages read are kept in step with it (see syncShared).
 
-import { rosterEntry } from "../msmaRoster";
-import { buildEmployeeFileRecords } from "../employmentRecords";
 import {
   employeeDirectory,
-  payrollEntries,
   personnelDocuments,
   personnelProfiles,
+  setCurrentEmployee,
   setEmployeeDirectory,
   setPersonnelDocuments,
 } from "../mockData";
+import { api, serverMode } from "../http";
 import type { Employee, PersonnelDocument } from "../types";
 import type {
   AuditEntry,
@@ -35,7 +34,7 @@ export interface CoreHrState {
 
 // v2: the seven job titles, and clusters RPM / VCM / ADS only.
 // v3: the three partners, each heading the cluster named after their initials.
-// v4: MSMA's full-time employees from the FT_MSMA register replaced the earlier sample people.
+// v4: no sample employees; only the company structure is seeded.
 const STORAGE_KEY = "heyhr-corehr-v4";
 const SEED_ACTOR = "HR & People Operations";
 
@@ -48,14 +47,30 @@ export function isoDate(d: Date = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function toIso(display: string) {
-  const d = new Date(display);
-  return Number.isNaN(d.getTime()) ? display : isoDate(d);
-}
-
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
 // ---- Seed ----
+
+/** The firm's starting structure: [branch, department, position, team]. One row per budgeted slot. */
+const ORG_SEED: [string, string, string, string][] = [
+  ["Cebu HQ", "Partners", "Partner", "ADS"],
+  ["Cebu HQ", "Partners", "Partner", "RPM"],
+  ["Cebu HQ", "Partners", "Partner", "VCM"],
+  ["Cebu HQ", "Tax Advisory", "Experienced Associate", "RPM"],
+  ["Cebu HQ", "Audit & Assurance", "Associate Director", "VCM"],
+  ["Cebu HQ", "Audit & Assurance", "Junior Associate", "VCM"],
+  ["Manila", "Corporate Legal", "Experienced Associate", "ADS"],
+  ["Davao", "Bookkeeping", "Experienced Associate", "RPM"],
+  ["Cebu HQ", "Audit & Assurance", "Experienced Associate", "VCM"],
+  ["Cebu HQ", "Audit & Assurance", "Junior Associate", "ADS"],
+  ["Cebu HQ", "Audit & Assurance", "Junior Associate", "RPM"],
+  ["Cebu HQ", "Audit & Assurance", "Junior Associate", "VCM"],
+  ["Cebu HQ", "Tax Advisory", "Junior Associate", "ADS"],
+  ["Davao", "Bookkeeping", "Experienced Associate", "RPM"],
+  ["Manila", "Corporate Legal", "Executive Assistant / Secretary", "ADS"],
+  ["Cebu HQ", "Admin & Support", "BSS Team Leader", "ADS"],
+  ["Cebu HQ", "Admin & Support", "Experienced Admin Assistant", "VCM"],
+];
 
 const BRANCHES = [
   { name: "Cebu HQ", code: "CEB", address: "8F Park Centrale Tower, Cebu IT Park, Lahug, Cebu City" },
@@ -64,10 +79,7 @@ const BRANCHES = [
 ] as const;
 
 const DEPARTMENT_CODES: Record<string, string> = {
-  "Audit & Assurance": "AAD",
-  "Accounting Services": "BAS",
-  "Special Engagements": "BSE",
-  "Support Services": "SUP",
+  "Audit & Assurance": "AUD",
   "Tax Advisory": "TAX",
   Bookkeeping: "BKP",
   "Corporate Legal": "LEG",
@@ -77,8 +89,7 @@ const DEPARTMENT_CODES: Record<string, string> = {
 };
 
 /** Accounting departments are split into client-group teams; support departments aren't. */
-// No cluster teams inside departments: the register groups people by department (class) only.
-const TEAMED_DEPARTMENTS = new Set<string>();
+const TEAMED_DEPARTMENTS = new Set(["Audit & Assurance", "Tax Advisory"]);
 
 function levelFor(title: string): JobLevel {
   if (/^partner$/i.test(title)) return "Executive";
@@ -150,73 +161,15 @@ function seed(): CoreHrState {
     return p;
   };
 
-  const employees: CoreEmployee[] = [];
-  const events: JobEvent[] = [];
-  for (const e of employeeDirectory) {
-    const position = positionFor(e);
-    const unitId = TEAMED_DEPARTMENTS.has(e.department) && e.department !== "Admin & Support" ? addTeam(e.office, e.department, e.cluster) : position.departmentId;
-    const records = buildEmployeeFileRecords(e);
-    const profile = personnelProfiles.find((p) => p.employeeId === e.id);
-    const gov = (agency: string) => records.government.find((g) => g.agency === agency)?.number ?? "";
-    const roster = rosterEntry(e.id);
-    const { firstName, middleName, lastName, suffix } = roster ? { firstName: roster.firstName, middleName: "", lastName: roster.lastName, suffix: "" } : splitName(e.name);
-    const dateHired = toIso(records.employment.dateHired);
-    employees.push({
-      id: e.id,
-      personal: { firstName, middleName, lastName, suffix, birthDate: profile?.birthDate ?? "", sex: "", civilStatus: profile?.civilStatus ?? "", nationality: "Filipino" },
-      contact: {
-        workEmail: e.email ?? "",
-        personalEmail: "",
-        mobile: e.phone ?? "",
-        address: "",
-        city: e.office === "Cebu HQ" ? "Cebu City" : e.office === "Manila" ? "Makati City" : "Davao City",
-        province: e.office === "Cebu HQ" ? "Cebu" : e.office === "Manila" ? "Metro Manila" : "Davao del Sur",
-        emergencyName: e.emergencyContact ?? (profile?.dependents.find((d) => d.relationship === "Spouse")?.name || ""),
-        emergencyRelationship: profile?.dependents.some((d) => d.relationship === "Spouse") ? "Spouse" : "",
-        emergencyPhone: "",
-      },
-      government: { sss: gov("SSS"), philhealth: gov("PhilHealth"), pagibig: gov("Pag-IBIG (HDMF)"), tin: gov("BIR (TIN)") },
-      job: {
-        positionId: position.id,
-        unitId,
-        supervisorId: e.reportsToId && e.reportsToId !== "admin" ? e.reportsToId : undefined,
-        employmentType: records.employment.employmentType,
-        status: e.status === "On leave" ? "On leave" : "Active",
-        dateHired,
-        regularizationDate: records.employment.regularizedOn ? toIso(records.employment.regularizedOn) : undefined,
-        monthlySalary: roster?.monthly ?? payrollEntries.find((p) => p.employeeId === e.id)?.monthlyBasic ?? 0,
-        workSchedule: records.employment.schedule,
-      },
-      createdAt: `${dateHired}T09:00:00`,
-    });
-    records.employment.movements.forEach((m, i) => {
-      const [from, to] = m.detail.includes(" → ") ? m.detail.split(" → ") : [undefined, m.detail];
-      const base = { id: `ev-${e.id}-${i}`, employeeId: e.id, effectiveDate: toIso(m.date), remarks: m.reference, recordedBy: SEED_ACTOR, recordedAt: `${toIso(m.date)}T09:00:00` };
-      if (m.action === "Hired") events.push({ ...base, kind: "Hired", changes: [{ label: "Position", to: m.detail }, { label: "Employment type", to: "Probationary" }] });
-      else if (m.action === "Regularized") events.push({ ...base, kind: "Regularization", changes: [{ label: "Employment type", from: "Probationary", to: "Regular" }] });
-      else if (m.action === "Promoted") events.push({ ...base, kind: "Promotion", changes: [{ label: "Position", from, to: to! }] });
-      else if (m.action === "Transferred") events.push({ ...base, kind: "Transfer", changes: [{ label: "Branch", from, to: to! }] });
-      else events.push({ ...base, kind: "Salary adjustment", changes: [{ label: "Monthly salary", to: m.detail }] });
-    });
+  // Roles and teams the firm is set up with; nobody is assigned to them yet.
+  for (const [office, department, position, cluster] of ORG_SEED) {
+    positionFor({ office, department, position } as Employee);
+    if (TEAMED_DEPARTMENTS.has(department)) addTeam(office, department, cluster);
   }
 
   // Some headroom: a couple of open slots, and one budgeted role nobody holds yet.
   for (const p of positions) if (p.level === "Rank and file" && p.slots >= 2) p.slots++;
   positions.push({ id: "ps-cebu-hq-human-resources-experienced-admin-assistant", title: "Experienced Admin Assistant", code: "EAA", departmentId: "dp-cebu-hq-human-resources", level: "Rank and file", employmentType: "Probationary", slots: 2, active: true, description: "Recruitment, onboarding and 201 file upkeep." });
-
-  // Everyone sits under the partner whose initials name their cluster (ADS, RPM, VCM),
-  // unless they already report to someone in that same cluster, or to a partner named directly.
-  const clusterOf = new Map(employeeDirectory.map((e) => [e.id, e.cluster]));
-  const partnerOf = new Map(employeeDirectory.filter((e) => e.position === "Partner").map((e) => [e.cluster, e.id]));
-  const partners = new Set(partnerOf.values());
-  for (const c of employees) {
-    const cluster = clusterOf.get(c.id);
-    const partner = cluster && partnerOf.get(cluster);
-    if (!partner || partner === c.id) continue;
-    const sup = c.job.supervisorId;
-    if (sup && partners.has(sup)) continue;
-    if (!sup || clusterOf.get(sup) !== cluster) c.job.supervisorId = partner;
-  }
 
   // Rank-and-file report to their department's supervisory position.
   for (const p of positions) {
@@ -224,24 +177,15 @@ function seed(): CoreHrState {
     const lead = positions.find((x) => x.departmentId === p.departmentId && x.level !== "Rank and file");
     if (lead) p.reportsToPositionId = lead.id;
   }
-  // Each department's head is whoever holds its most senior position.
-  for (const u of units.filter((x) => x.type === "department")) {
-    const lead = positions.find((p) => p.departmentId === u.id && p.level !== "Rank and file");
-    const holder = lead && employees.find((e) => e.job.positionId === lead.id);
-    if (holder) u.headEmployeeId = holder.id;
-  }
 
-  const documents = personnelDocuments.map(documentFromShared);
-  // One lapsed clearance so the expired queue has something real in it.
-  const nbi = documents.find((d) => d.employeeId === "MSMA-00317" && d.type === "NBI Clearance");
-  if (nbi) nbi.expiresOn = "2026-09-20";
-
-  return { units, positions, employees, documents, events, audit: [] };
+  return { units, positions, employees: [], documents: [], events: [], audit: [] };
 }
 
 // ---- Persistence ----
 
 function load(): CoreHrState {
+  // With the API server, the records come from the database after sign-in (see refreshCoreHr).
+  if (serverMode) return { units: [], positions: [], employees: [], documents: [], events: [], audit: [] };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -254,33 +198,6 @@ function load(): CoreHrState {
   return seed();
 }
 
-/**
- * Sample bank accounts for the demo, added once to records that have none (two are left
- * without, so Accounting's "missing bank account" check has something to show).
- */
-function withSampleBanks(s: CoreHrState): CoreHrState {
-  const FLAG = "heyhr-sample-banks-v1";
-  try {
-    if (localStorage.getItem(FLAG)) return s;
-    localStorage.setItem(FLAG, "1");
-  } catch {
-    return s;
-  }
-  const banks = ["BDO Unibank", "BPI", "Metrobank", "UnionBank", "Landbank", "Security Bank"];
-  const employees = s.employees.map((e, i) => {
-    if (e.bank || i % 8 === 7) return e;
-    const digits = e.id.replace(/D/g, "").padStart(5, "0");
-    return { ...e, bank: { bank: banks[i % banks.length]!, accountName: fullName(e.personal).toUpperCase(), accountNumber: `00${(i + 3) % 10}${digits.slice(-5)}${String((i * 7919) % 10000).padStart(4, "0")}` } };
-  });
-  const next = { ...s, employees };
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  } catch {
-    // Kept for this session only.
-  }
-  return next;
-}
-
 /** Someone whose last day has passed becomes separated (HR recorded it ahead of time). */
 function withSeparationsDue(s: CoreHrState): CoreHrState {
   const today = isoDate();
@@ -288,10 +205,11 @@ function withSeparationsDue(s: CoreHrState): CoreHrState {
   return { ...s, employees: s.employees.map((e) => (e.job.separationDate && e.job.separationDate < today && e.job.status !== "Separated" ? { ...e, job: { ...e.job, status: "Separated" as const } } : e)) };
 }
 
-export let state: CoreHrState = withSeparationsDue(withSampleBanks(load()));
+export let state: CoreHrState = withSeparationsDue(load());
 
 export function commit(next: CoreHrState) {
   state = next;
+  if (serverMode) return syncShared();
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
@@ -341,6 +259,7 @@ function syncShared() {
         email: c.contact.workEmail || undefined,
         phone: c.contact.mobile || undefined,
         emergencyContact: c.contact.emergencyName || undefined,
+        faceEnrolled: c.faceEnrolled ?? prev?.faceEnrolled,
       };
     }),
   );
@@ -356,7 +275,7 @@ function syncShared() {
         status: d.status,
         fileName: d.fileName,
         uploadedOn: d.uploadedAt,
-        ...(isLicense ? { licenseNumber: d.referenceNo, licenseExpiry: d.expiresOn } : { idNumber: d.referenceNo, idExpiry: d.expiresOn }),
+        ...(isLicense ? { licenseNumber: d.referenceNo, licenseExpiry: d.expiresOn } : { idNumber: d.referenceNo, idExpiry: d.expiresOn, idType: d.idType }),
       };
     }),
   );
@@ -367,9 +286,11 @@ const CHRIS_MANAGER_FLAG = "heyhr-demo-chris-reports-to-antonio";
 /** Picks up what other pages did to the shared lists: someone added through the
  * Overview's Add employee, or an employee uploading their own document. */
 export function reconcile() {
+  // The server owns the records; nothing in the browser adds to them behind its back.
+  if (serverMode) return;
   let changed = false;
   let next = state;
-  // Once per browser: the employee demo login (Danica Bernardo) reports to Antonio Sanchez, who can
+  // Once per browser: the employee demo login (Chris S. David) reports to Antonio Sanchez, who can
   // approve. Saved data from before keeps any later change HR makes.
   try {
     const chris = next.employees.find((e) => e.id === "MSMA-00846");
@@ -396,7 +317,7 @@ export function reconcile() {
       personal: { firstName, middleName, lastName, suffix, birthDate: profile?.birthDate ?? "", sex: "", civilStatus: "", nationality: "Filipino" },
       contact: { workEmail: e.email ?? "", personalEmail: "", mobile: e.phone ?? "", address: "", city: "", province: "", emergencyName: "", emergencyRelationship: "", emergencyPhone: "" },
       government: { sss: "", philhealth: "", pagibig: "", tin: "" },
-      job: { positionId: position?.id ?? "", unitId: dept?.id ?? "", employmentType: "Probationary", status: "Active", dateHired: toIso(buildEmployeeFileRecords(e).employment.dateHired) || today, monthlySalary: 0, workSchedule: "Mon–Fri, 8:30 AM – 5:00 PM" },
+      job: { positionId: position?.id ?? "", unitId: dept?.id ?? "", employmentType: "Probationary", status: "Active", dateHired: today, monthlySalary: 0, workSchedule: "Mon–Fri, 8:30 AM – 5:00 PM" },
       createdAt: new Date().toISOString(),
     };
     next = {
@@ -423,3 +344,50 @@ export function reconcile() {
 }
 
 syncShared();
+
+let loading: Promise<void> | null = null;
+let loadedAt = 0;
+
+/** Loads Core HR from the API server into this store, so every module reads the database's records.
+ * Reads within a moment of the last load reuse it, so one page opening doesn't fetch the same data many times. */
+export function refreshCoreHr(maxAgeMs = 0): Promise<void> {
+  if (!serverMode) return Promise.resolve();
+  if (loading) return loading;
+  if (maxAgeMs && Date.now() - loadedAt < maxAgeMs) return Promise.resolve();
+  loading = api<CoreHrState>("GET", "/corehr/state")
+    .then((next) => {
+      state = next;
+      loadedAt = Date.now();
+      syncShared();
+      applySignedInEmployee();
+    })
+    .finally(() => (loading = null));
+  return loading;
+}
+
+// The signed-in account's own employee record, which the Employee workspace shows as "me".
+let signedIn: { employeeId?: string; name: string } | null = null;
+
+/** With the API server, "me" is the employee linked to the account (or no one), not the demo profile. */
+export function setSignedInEmployee(account: { employeeId?: string; name: string } | null) {
+  signedIn = account;
+  applySignedInEmployee();
+}
+
+function applySignedInEmployee() {
+  if (!serverMode || !signedIn) return;
+  const e = signedIn.employeeId ? employeeDirectory.find((x) => x.id === signedIn!.employeeId) : undefined;
+  const initials = signedIn.name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  setCurrentEmployee(
+    e ?? { id: "", name: signedIn.name, initials, position: "No employee record linked", department: "", office: "Cebu HQ", cluster: "RPM", status: "Active" },
+  );
+}
+
+/** Signed out: drop everything the server sent. */
+export function clearCoreHr() {
+  if (!serverMode) return;
+  loadedAt = 0;
+  signedIn = null;
+  state = load();
+  syncShared();
+}

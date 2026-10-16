@@ -17,7 +17,7 @@ import { formatValue } from "./format";
 const COPY: Record<Category, { title: string; subtitle: string }> = {
   hr: { title: "HR reports", subtitle: "Employee lists, headcount and movements. Download or print any report." },
   leave: { title: "Leave report", subtitle: "Leave taken by each employee, by leave type." },
-  attendance: { title: "Attendance report", subtitle: "Attendance, lates and overtime, from the time logs." },
+  attendance: { title: "Attendance reports", subtitle: "Attendance, lates and overtime, from the time logs." },
   payroll: { title: "Payroll reports", subtitle: "Pay per cut-off, worked out from salaries and attendance." },
   statutory: { title: "Government reports", subtitle: "SSS, PhilHealth, Pag-IBIG, BIR tax and 13th month, ready for remittance." },
   management: { title: "Management reports", subtitle: "Turnover, attendance and costs by department, for decisions." },
