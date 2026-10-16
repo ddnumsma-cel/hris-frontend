@@ -5,7 +5,7 @@ import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/ToastContext";
 import { adjustCredits, fmtCredits, listAdjustments, listCredits, type CreditRow } from "@/lib/leave/api";
-import { CREDITS_ADJUSTMENT, LEAVE_CREDITS_PER_YEAR } from "@/lib/leave/store";
+import { CREDITS_ADJUSTMENT, isoToday, leaveYearOf } from "@/lib/leave/store";
 import { useOfficeFilter } from "../OfficeFilterContext";
 import { inputClass, useActor } from "../corehr/format";
 import { Drawer, ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
@@ -18,7 +18,7 @@ import { dateRange, leaveKeys, num, useLeaveRefresh } from "./format";
 function Dots({ c }: { c: CreditRow["credits"] }) {
   return (
     <span className="flex gap-1" aria-hidden="true">
-      {Array.from({ length: c.total }, (_, i) => (
+      {Array.from({ length: Math.ceil(c.total) }, (_, i) => (
         <span key={i} className={clsx("h-2.5 w-2.5 rounded-full", i < c.used ? "bg-brand" : i < c.used + c.pending ? "bg-brand/35" : "border border-ink-3/60")} />
       ))}
     </span>
@@ -72,7 +72,7 @@ function CreditsDrawer({ row, onClose, onFile }: { row: CreditRow; onClose: () =
       <div className="flex flex-col gap-5">
         <div className="rounded-xl border border-border p-4">
           <div className="flex items-baseline justify-between gap-3">
-            <div className="text-sm font-semibold">Leave credits · {new Date().getFullYear()}</div>
+            <div className="text-sm font-semibold">VL/SL · {leaveYearOf(isoToday()).label}</div>
             <Dots c={c} />
           </div>
           <div className="mt-1 flex items-baseline gap-1.5">
@@ -80,7 +80,7 @@ function CreditsDrawer({ row, onClose, onFile }: { row: CreditRow; onClose: () =
             <span className="text-sm text-ink-2">of {num(c.total)} left</span>
           </div>
           <div className="mt-3 border-t border-border pt-2">
-            <Row label="Given this year" value={String(LEAVE_CREDITS_PER_YEAR)} />
+            <Row label="By length of service" value={String(c.total - c.adjusted)} />
             <Row label="Changed by HR" value={c.adjusted > 0 ? `+${c.adjusted}` : String(c.adjusted)} />
             <Row label="Used" value={`− ${c.used}`} />
             <Row label="Waiting for approval" value={`− ${c.pending}`} />
@@ -177,7 +177,7 @@ export function BalancesPage() {
   const cols: Col<CreditRow>[] = [
     { header: "Employee", cell: (r) => <Name name={r.person.name} sub={r.person.departmentName} /> },
     {
-      header: "Leaves left",
+      header: "VL/SL days left",
       cell: (r) => (
         <span className="flex items-center gap-3">
           <span className="inline-flex w-14 items-baseline gap-1">
@@ -213,8 +213,8 @@ export function BalancesPage() {
           onChange={setShow}
           options={[
             { value: "all", label: "Everyone" },
-            { value: "low", label: "1–2 leaves left" },
-            { value: "none", label: "No leaves left" },
+            { value: "low", label: "1–2 days left" },
+            { value: "none", label: "No VL/SL days left" },
           ]}
         />
       </Toolbar>

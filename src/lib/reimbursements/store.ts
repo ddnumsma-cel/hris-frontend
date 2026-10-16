@@ -1,5 +1,8 @@
 // Reimbursements: expense claims employees file with a photo of the POS receipt. Two approvals:
-// the employee's approver (supervisor) first, then Accounting's final approval. HR isn't involved. Saved to localStorage, receipts as compressed JPEG data URLs.
+// the employee's approver (supervisor) first, then Accounting's final approval. HR isn't involved. Saved to localStorage, receipts as compressed JPEG data URLs;
+// with the API server, in the database (receipts served from /api/files).
+
+import { api, serverMode } from "../http";
 
 import { state as core } from "../corehr/store";
 
@@ -48,9 +51,7 @@ export const PAYOUT_LABEL: Record<PayoutMethod | "payroll" | "final pay", string
 /** The expense name to show: what they typed for "Other", else the category. */
 export const claimType = (c: Pick<Claim, "category" | "otherType">) => (c.category === "Other" && c.otherType ? c.otherType : c.category);
 
-/** Receipts older than this can't be claimed. */
-export const CLAIM_WINDOW_DAYS = 60;
-export const MAX_AMOUNT = 50_000;
+export { CLAIM_WINDOW_DAYS, MAX_AMOUNT } from "./rules";
 
 const KEY = "heyhr-reimbursements-v1";
 
@@ -86,6 +87,8 @@ function seed(): Claim[] {
 }
 
 function load(): Claim[] {
+  // With the API server, claims come from the database (see refreshClaims).
+  if (serverMode) return [];
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw) as Claim[];
@@ -96,6 +99,11 @@ function load(): Claim[] {
 }
 
 export let claims: Claim[] = load();
+
+/** With the API server: the claims this account may see. Receipts load from /api/files. */
+export async function refreshClaims() {
+  if (serverMode) claims = await api<Claim[]>("GET", "/reimbursements/claims");
+}
 
 /** Saves the claims; false when storage is full (receipt photos are the heavy part). */
 export function saveClaims(next: Claim[]): boolean {

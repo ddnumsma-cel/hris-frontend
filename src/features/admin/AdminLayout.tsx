@@ -102,7 +102,11 @@ const GROUPS: SideNavGroup[] = [
         label: "Onboarding",
         to: "/admin/onboarding",
         icon: <OnboardingIcon />,
-        children: [{ label: "Trainings", to: "/admin/onboarding/trainings" }],
+        children: [
+          { label: "Recruitment", to: "/admin/onboarding/recruitment" },
+          { label: "Pipeline", to: "/admin/onboarding/pipeline" },
+          { label: "Trainings", to: "/admin/onboarding/trainings" },
+        ],
       },
     ],
   },

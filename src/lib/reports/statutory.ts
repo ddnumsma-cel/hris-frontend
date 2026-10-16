@@ -4,6 +4,9 @@
 // never an edit of the old one, so past pay can still be worked out. Verify on
 // the official site before using these for real pay.
 
+import { api, serverMode } from "../http";
+import { BUILT_IN_RATES } from "../pay/rateRules";
+
 export interface Rule<T> {
   effectiveFrom: string;
   source: string;
@@ -29,42 +32,15 @@ export interface RateVersion<A extends Agency = Agency> {
   savedAt: string;
 }
 
-type RateBook = { [A in Agency]: RateVersion<A>[] };
+export type RateBook = { [A in Agency]: RateVersion<A>[] };
 
-const BUILT_IN: RateBook = {
-  sss: [{ id: "sss-2025", effectiveFrom: "2025-01-01", source: "SSS contribution schedule 2025 (sss.gov.ph)", savedBy: "Built in", savedAt: "2026-09-01T00:00:00", rates: { eeRate: 0.05, erRate: 0.1, mscMin: 5000, mscMax: 35000, mscStep: 500, ecLow: 10, ecHigh: 30, ecThreshold: 15000 } }],
-  philhealth: [{ id: "ph-2024", effectiveFrom: "2024-01-01", source: "PhilHealth premium schedule (philhealth.gov.ph)", savedBy: "Built in", savedAt: "2026-09-01T00:00:00", rates: { rate: 0.05, floor: 10000, ceiling: 100000 } }],
-  pagibig: [{ id: "pi-2024", effectiveFrom: "2024-02-01", source: "HDMF Circular (pagibigfund.gov.ph)", savedBy: "Built in", savedAt: "2026-09-01T00:00:00", rates: { eeRate: 0.02, eeLowRate: 0.01, lowLimit: 1500, erRate: 0.02, maxFundSalary: 10000 } }],
-  bir: [
-    {
-      id: "bir-2023",
-      effectiveFrom: "2023-01-01",
-      source: "BIR withholding tax table, RR 11-2018 as amended (TRAIN)",
-      savedBy: "Built in",
-      savedAt: "2026-09-01T00:00:00",
-      rates: {
-        monthly: [
-          { over: 20_833, base: 0, rate: 0.15 },
-          { over: 33_333, base: 1_875, rate: 0.2 },
-          { over: 66_667, base: 8_541.8, rate: 0.25 },
-          { over: 166_667, base: 33_541.8, rate: 0.3 },
-          { over: 666_667, base: 183_541.8, rate: 0.35 },
-        ],
-        semiMonthly: [
-          { over: 10_417, base: 0, rate: 0.15 },
-          { over: 16_667, base: 937.5, rate: 0.2 },
-          { over: 33_333, base: 4_270.7, rate: 0.25 },
-          { over: 83_333, base: 16_770.7, rate: 0.3 },
-          { over: 333_333, base: 91_770.7, rate: 0.35 },
-        ],
-      },
-    },
-  ],
-};
+const BUILT_IN = BUILT_IN_RATES;
 
 const KEY = "heyhr-contributions-v1";
 
 function load(): RateBook {
+  // With the API server, the built-in rates stand in until the database's arrive (see refreshRates).
+  if (serverMode) return BUILT_IN;
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -78,6 +54,13 @@ function load(): RateBook {
 }
 
 let book: RateBook = load();
+
+/** With the API server: loads every agency's versions from the database. */
+export async function refreshRates() {
+  if (!serverMode) return;
+  const next = await api<RateBook>("GET", "/payroll/rates");
+  book = { sss: next.sss?.length ? next.sss : BUILT_IN.sss, philhealth: next.philhealth?.length ? next.philhealth : BUILT_IN.philhealth, pagibig: next.pagibig?.length ? next.pagibig : BUILT_IN.pagibig, bir: next.bir?.length ? next.bir : BUILT_IN.bir };
+}
 
 const todayIso = () => {
   const d = new Date();
@@ -126,13 +109,21 @@ export function removeVersion(agency: Agency, id: string) {
 /** Non-taxable ceiling for 13th month and other benefits. */
 export const THIRTEENTH_MONTH_EXEMPT = 90_000;
 
-export const round2 = (n: number) => Math.round(n * 100) / 100;
+// Like Excel's ROUND (halves away from zero): toPrecision drops float noise, so 493.245 → 493.25, not 493.24.
+export const round2 = (n: number) => (Math.sign(n) * Math.round(Number((Math.abs(n) * 100).toPrecision(15)))) / 100;
 
-/** Monthly Salary Credit: the ₱500 bracket the pay falls in, within the floor and ceiling. */
+/** Rounds a halfway value to the even neighbour (12.5 → 12, 13.5 → 14), as the workbook's sheet C amounts are. */
+export const roundHalfEven = (n: number) => {
+  const x = Number(n.toPrecision(15));
+  const f = Math.floor(x);
+  return x - f === 0.5 ? (f % 2 === 0 ? f : f + 1) : Math.round(x);
+};
+
+/** Monthly Salary Credit: the pay to the nearest ₱500 step, halfway to the even step (as MSMA's workbook, sheet C), within the floor and ceiling. */
 export function sssMsc(monthly: number, on?: string) {
   const r = ratesOn("sss", on);
   if (monthly <= 0) return 0;
-  const msc = Math.round(monthly / r.mscStep) * r.mscStep;
+  const msc = roundHalfEven(monthly / r.mscStep) * r.mscStep;
   return Math.min(r.mscMax, Math.max(r.mscMin, msc));
 }
 

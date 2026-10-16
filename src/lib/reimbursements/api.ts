@@ -2,7 +2,9 @@
 
 import { newId } from "../corehr/store";
 import { people, type LeavePerson } from "../leave/api";
-import { CLAIM_WINDOW_DAYS, claims, MAX_AMOUNT, saveClaims, type Category, type Claim, type PayoutMethod } from "./store";
+import { claimProblems, type ClaimInput } from "./rules";
+import { api, serverMode } from "../http";
+import { claims, refreshClaims, saveClaims, type Category, type Claim, type PayoutMethod } from "./store";
 import { can, visible } from "../permissions";
 import { deny, forbidden, sessionWho } from "../session";
 import { tellApprover, tellAssigned, tellEmployees, who as nameFor } from "../requestNotices";
@@ -10,56 +12,27 @@ import { tellApprover, tellAssigned, tellEmployees, who as nameFor } from "../re
 const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const what = (c: Claim) => (c.category === "Other" ? (c.otherType ?? "Other") : c.category);
 
+export type { ClaimInput };
+
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
 const fail = (m: string): Promise<never> => new Promise((_, rej) => setTimeout(() => rej(new Error(m)), DELAY));
 
 const FULL_STORAGE = "Couldn't save the receipt photo: this browser's storage is full. Try a smaller or cropped photo.";
 
-function localIso(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-export interface ClaimInput {
-  employeeId: string;
-  category: Category | "";
-  otherType?: string;
-  merchant: string;
-  purchaseDate: string;
-  amount: number;
-  description: string;
-  receipt: string;
-}
-
 /** Problems that stop a claim from being filed, keyed by field. */
 export function checkClaim(input: ClaimInput): Partial<Record<keyof ClaimInput, string>> {
-  const errors: Partial<Record<keyof ClaimInput, string>> = {};
-  const today = localIso(new Date());
-  const oldest = new Date();
-  oldest.setDate(oldest.getDate() - CLAIM_WINDOW_DAYS);
-  if (!input.receipt) errors.receipt = "Add a photo of the receipt";
-  if (!input.category) errors.category = "Choose what the expense was for";
-  else if (input.category === "Other" && !input.otherType?.trim()) errors.otherType = "Type what kind of expense it is";
-  else if ((input.otherType?.trim().length ?? 0) > 60) errors.otherType = "Keep it under 60 characters";
-  if (!input.merchant.trim()) errors.merchant = "Enter the store or merchant on the receipt";
-  if (!input.purchaseDate) errors.purchaseDate = "Enter the date on the receipt";
-  else if (input.purchaseDate > today) errors.purchaseDate = "The receipt date can't be in the future";
-  else if (input.purchaseDate < localIso(oldest)) errors.purchaseDate = `Receipts older than ${CLAIM_WINDOW_DAYS} days can't be claimed`;
-  if (!Number.isFinite(input.amount) || input.amount <= 0) errors.amount = "Enter the total on the receipt";
-  else if (input.amount > MAX_AMOUNT) errors.amount = `Claims over ₱${MAX_AMOUNT.toLocaleString("en-PH")} go through Finance, not here`;
-  if (!input.description.trim()) errors.description = "Say what it was for";
-  if (!errors.amount && !errors.purchaseDate) {
-    const dup = claims.find(
-      (c) => c.employeeId === input.employeeId && c.status !== "rejected" && c.purchaseDate === input.purchaseDate && c.amount === Math.round(input.amount * 100) / 100 && c.merchant.trim().toLowerCase() === input.merchant.trim().toLowerCase(),
-    );
-    if (dup) errors.receipt = "You've already claimed this receipt";
-  }
-  return errors;
+  return claimProblems(input, claims);
 }
 
 export async function fileClaim(input: ClaimInput): Promise<Claim> {
   const denied = deny("claims", "create", input.employeeId);
   if (denied) return denied;
+  if (serverMode) {
+    const claim = await api<Claim>("POST", "/reimbursements/claims", input);
+    await refreshClaims();
+    return claim;
+  }
   const errors = Object.values(checkClaim(input));
   if (errors.length) return fail(errors[0]!);
   const claim: Claim = {
@@ -80,9 +53,10 @@ export async function fileClaim(input: ClaimInput): Promise<Claim> {
   return respond(claim);
 }
 
-export function listMyClaims(employeeId: string): Promise<Claim[]> {
+export async function listMyClaims(employeeId: string): Promise<Claim[]> {
   const denied = deny("claims", "view", employeeId);
   if (denied) return denied;
+  if (serverMode) await refreshClaims();
   return respond(claims.filter((c) => c.employeeId === employeeId).sort((a, b) => b.filedAt.localeCompare(a.filedAt)));
 }
 
@@ -92,10 +66,11 @@ export interface ClaimRow extends Claim {
   person: LeavePerson;
 }
 
-export function listClaims(): Promise<ClaimRow[]> {
+export async function listClaims(): Promise<ClaimRow[]> {
   // Approvers see their team's claims, Accounting and Super Admins everyone's; HR none.
   const who = sessionWho();
   if (!can(who, "view", "claims")) return forbidden();
+  if (serverMode) await refreshClaims();
   const ps = people();
   return respond(
     visible(who, "claims", claims, (c) => c.employeeId)
@@ -113,6 +88,11 @@ export function listClaims(): Promise<ClaimRow[]> {
  * Each step records who, when and the reason.
  */
 export async function decideClaim(id: string, approve: boolean, note: string, actor: string): Promise<Claim> {
+  if (serverMode) {
+    const claim = await api<Claim>("POST", `/reimbursements/claims/${encodeURIComponent(id)}/decision`, { approve, note });
+    await refreshClaims();
+    return claim;
+  }
   const c = claims.find((x) => x.id === id);
   if (!c) return fail("That claim no longer exists");
   if (c.status !== "pending" && c.status !== "endorsed") return fail("This claim was already decided");
@@ -153,6 +133,12 @@ export async function releaseClaims(ids: string[], method: PayoutMethod, referen
   if (picked.some((c) => c.status !== "approved" || c.paidAt)) return fail("Only approved claims that aren't paid yet can be paid out");
   if (method !== "cash" && !reference.trim()) return fail(method === "check" ? "Enter the check number" : "Enter the transfer reference");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(paidOn)) return fail("Enter the date it was released");
+  if (serverMode) {
+    // The server stores the method, reference, date and who released it.
+    const { paid } = await api<{ paid: number }>("POST", "/reimbursements/claims/pay", { ids, method, reference: reference.trim() || (method === "cash" ? "Cash" : ""), paidOn });
+    await refreshClaims();
+    return paid;
+  }
   const at = `${paidOn}T12:00:00`;
   const set = new Set(ids);
   if (!saveClaims(claims.map((c) => (set.has(c.id) ? { ...c, paidAt: at, paidBy: actor, payoutMethod: method, payoutRef: reference.trim() || (method === "cash" ? "Cash" : "") } : c)))) return fail(FULL_STORAGE);

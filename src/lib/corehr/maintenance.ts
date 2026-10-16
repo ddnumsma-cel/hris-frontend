@@ -1,9 +1,11 @@
 // Maintenance of the organization's building blocks: departments and locations (offices).
 // They are org units ("department" under a "branch"); employees sit in a department or one of its teams.
+// With the API server, changes are saved to the database (org_units) and the tree is reloaded.
 
+import { api, serverMode } from "../http";
 import { can } from "../permissions";
 import { deny, forbidden, sessionWho } from "../session";
-import { commit, fullName, newId, state } from "./store";
+import { commit, fullName, newId, refreshCoreHr, state } from "./store";
 import type { OrgUnit } from "./types";
 
 const DELAY_MS = 250;
@@ -63,10 +65,11 @@ const locationRow = (u: OrgUnit): LocationRow => ({
 /** PH mobile or landline, e.g. 0917 123 4567 or (032) 234 5678. */
 const phoneOk = (v: string) => /^(\+?63|0)\d{7,10}$/.test(v.replace(/[\s()-]/g, ""));
 
-export function listLocations(): Promise<LocationRow[]> {
+export async function listLocations(): Promise<LocationRow[]> {
   // Departments' office picker needs the list too.
   const who = sessionWho();
   if (!can(who, "view", "locations") && !can(who, "view", "departments")) return forbidden();
+  if (serverMode) await refreshCoreHr(2000);
   return respond(
     state.units
       .filter((u) => u.type === "branch")
@@ -94,6 +97,13 @@ export async function saveLocation(input: { id?: string; name: string; code: str
   const branches = state.units.filter((u) => u.type === "branch" && u.id !== input.id);
   if (branches.some((b) => b.name.toLowerCase() === name.toLowerCase())) return fail("There's already an office with that name");
   if (branches.some((b) => b.code === code)) return fail("Another office already uses that code");
+  if (serverMode) {
+    const body = { name, code, address: clean(input.address), contactName, contactPhone, managerId };
+    const { id } = await (existing ? api<{ id: string }>("PUT", `/corehr/locations/${encodeURIComponent(existing.id)}`, body) : api<{ id: string }>("POST", "/corehr/locations", body));
+    await refreshCoreHr();
+    const u = state.units.find((x) => x.id === id);
+    return locationRow(u ?? { id, type: "branch", name, code, parentId: null, address: body.address, contactName, contactPhone, headEmployeeId: managerId, active: true });
+  }
   const fields = { code, address: clean(input.address), contactName, contactPhone, headEmployeeId: managerId };
   const unit: OrgUnit = existing ? { ...existing, ...fields } : { id: newId("br"), type: "branch", name, parentId: company()?.id ?? null, active: true, ...fields };
   commit({ ...state, units: existing ? state.units.map((u) => (u.id === unit.id ? unit : u)) : [...state.units, unit] });
@@ -106,6 +116,10 @@ export async function setLocationActive(id: string, active: boolean): Promise<vo
   const u = state.units.find((x) => x.id === id && x.type === "branch");
   if (!u) return fail("That office no longer exists");
   if (!active && headcountOf(id) > 0) return fail(`${headcountOf(id)} people still work in ${u.name}. Move them to another office first.`);
+  if (serverMode) {
+    await api("PUT", `/corehr/locations/${encodeURIComponent(id)}/active`, { active });
+    return refreshCoreHr();
+  }
   commit({ ...state, units: state.units.map((x) => (x.id === id ? { ...x, active } : x)) });
   return respond(undefined);
 }
@@ -125,9 +139,10 @@ export interface DepartmentRow {
   teams: number;
 }
 
-export function listDepartments(): Promise<DepartmentRow[]> {
+export async function listDepartments(): Promise<DepartmentRow[]> {
   const denied = deny("departments", "view");
   if (denied) return denied;
+  if (serverMode) await refreshCoreHr(2000);
   return respond(
     state.units
       .filter((u) => u.type === "department")
@@ -159,6 +174,11 @@ export async function saveDepartment(input: { id?: string; name: string; code: s
   if (state.units.some((u) => u.type === "department" && u.id !== input.id && u.parentId === office.id && u.name.toLowerCase() === name.toLowerCase())) return fail(`${office.name} already has a department with that name`);
   if (input.headEmployeeId && !state.employees.some((e) => e.id === input.headEmployeeId && e.job.status !== "Separated")) return fail("Choose a current employee as head");
   const existing = state.units.find((u) => u.id === input.id && u.type === "department");
+  if (serverMode) {
+    const body = { name, code, officeId: office.id, headEmployeeId: input.headEmployeeId || undefined };
+    await (existing ? api("PUT", `/corehr/departments/${encodeURIComponent(existing.id)}`, body) : api("POST", "/corehr/departments", body));
+    return refreshCoreHr();
+  }
   const unit: OrgUnit = existing
     ? { ...existing, name, code, parentId: office.id, headEmployeeId: input.headEmployeeId || undefined }
     : { id: newId("dp"), type: "department", name, code, parentId: office.id, headEmployeeId: input.headEmployeeId || undefined, active: true };
@@ -172,6 +192,10 @@ export async function setDepartmentActive(id: string, active: boolean): Promise<
   const u = state.units.find((x) => x.id === id && x.type === "department");
   if (!u) return fail("That department no longer exists");
   if (!active && headcountOf(id) > 0) return fail(`${headcountOf(id)} people are still in ${u.name}. Move them to another department first.`);
+  if (serverMode) {
+    await api("PUT", `/corehr/departments/${encodeURIComponent(id)}/active`, { active });
+    return refreshCoreHr();
+  }
   commit({ ...state, units: state.units.map((x) => (x.id === id ? { ...x, active } : x)) });
   return respond(undefined);
 }

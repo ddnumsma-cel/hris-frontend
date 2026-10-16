@@ -1,5 +1,8 @@
 // Loans and other recurring deductions: stored here, deducted by payroll runs (runs.ts) and
 // managed on Payroll → Loans & deductions (loans.ts). No imports from runs, so both can use it.
+// With the API server they're kept in the database (see refreshLoans).
+
+import { api, serverMode } from "../http";
 
 export const LOAN_KINDS = ["SSS salary loan", "SSS calamity loan", "Pag-IBIG multi-purpose loan", "Pag-IBIG calamity loan", "Cash advance", "Company loan", "Other deduction"] as const;
 export type LoanKind = (typeof LOAN_KINDS)[number];
@@ -43,20 +46,39 @@ function seed(): Loan[] {
 }
 
 function load(): Loan[] {
+  // With the API server, loans come from the database (see refreshLoans).
+  if (serverMode) return [];
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw) as Loan[];
   } catch {
-    // Blocked or corrupt storage: start from the samples.
+    // Blocked or corrupt storage: start from the sample loans.
   }
   return seed();
 }
 
 let loans: Loan[] = load();
 
+/** With the API server: what approved payroll runs have taken for each loan so far. */
+const paidOnServer = new Map<string, number>();
+
+/** With the API server: the loans this account may see, and what's been paid on each. */
+export async function refreshLoans() {
+  if (!serverMode) return;
+  const rows = await api<(Loan & { paid: number })[]>("GET", "/payroll/loans");
+  paidOnServer.clear();
+  loans = rows.map(({ paid, ...l }) => {
+    paidOnServer.set(l.id, paid);
+    return l;
+  });
+}
+
+/** With the API server: what approved runs have taken for a loan (as of the last refreshLoans). */
+export const serverLoanPaid = (loanId: string) => paidOnServer.get(loanId) ?? 0;
+
 /** Re-read what's saved, so another tab's change is seen. */
 export function allLoans(): Loan[] {
-  loans = load();
+  if (!serverMode) loans = load();
   return loans;
 }
 

@@ -3,7 +3,7 @@
 
 import { fullName, state } from "../corehr/store";
 import { deny } from "../session";
-import { payProfileOf, type PayProfile } from "./settings";
+import { payProfileOf, refreshPaySettings, type PayProfile } from "./settings";
 
 export interface PayDetail {
   id: string;
@@ -43,9 +43,10 @@ function placeOf(unitId: string) {
 }
 
 /** Current employees, plus anyone who left this year (they still get final pay and a 2316). */
-export function listPayDetails(): Promise<PayDetail[]> {
+export async function listPayDetails(): Promise<PayDetail[]> {
   const denied = deny("payrollRuns", "view");
   if (denied) return denied;
+  await refreshPaySettings();
   const year = String(new Date().getFullYear());
   return respond(
     state.employees

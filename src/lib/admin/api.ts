@@ -3,6 +3,7 @@
 import { fullName, state as core } from "../corehr/store";
 import { leave } from "../leave/store";
 import { tk } from "../timekeeping/store";
+import { api, serverMode } from "../http";
 import { admin, logAdmin, saveAdmin, type Access, type ModuleKey, type RequestKind, type Settings, type SystemRole, type UserAccount, type Workflow } from "./store";
 import { LIMITS, type RoleKey } from "../permissions";
 import { deny, employeeOfAccount, forbidden, sessionWho } from "../session";
@@ -29,6 +30,39 @@ const fail = (m: string): Promise<never> => new Promise((_, rej) => setTimeout((
 const ACCESS_LABEL: Record<Access, string> = { none: "No access", view: "View only", edit: "View and edit", approve: "Edit and approve" };
 export { ACCESS_LABEL };
 
+// ---- With the API server ----
+// Accounts, roles, settings and the sign-in / administration log live in the database.
+// What comes back is also kept in the browser's Administration store, which the
+// rest of the app reads synchronously (access checks, idle time, account names).
+
+async function syncAccounts() {
+  const rows = await api<AccountRow[]>("GET", "/admin/accounts");
+  saveAdmin({ ...admin, accounts: rows.map(({ roleName: _r, employeeName: _e, locked: _l, ...a }) => a) });
+  return rows;
+}
+
+/** Role definitions every signed-in user needs (what each role can open). */
+export async function syncRoles() {
+  const roles = await api<SystemRole[]>("GET", "/roles");
+  saveAdmin({ ...admin, roles });
+}
+
+export async function syncWorkflows() {
+  const workflows = await api<Workflow[]>("GET", "/workflows");
+  if (workflows.length) saveAdmin({ ...admin, workflows });
+}
+
+export async function syncSettings() {
+  const settings = await api<Settings>("GET", "/settings");
+  saveAdmin({ ...admin, settings });
+}
+
+/** Loads accounts too, when the signed-in role may see them; otherwise leaves them alone. */
+export async function syncAdminCache() {
+  await Promise.all([syncRoles(), syncSettings(), syncWorkflows()]);
+  await syncAccounts().catch(() => undefined);
+}
+
 // ---- Accounts ----
 
 export interface AccountRow extends Omit<UserAccount, "password"> {
@@ -48,7 +82,7 @@ function rows(): AccountRow[] {
 }
 
 /** Every account, for whoever manages users (System Admin creates them, Super Admin oversees them). */
-export const listAccounts = () => deny("roleAssignment", "view") ?? respond(rows());
+export const listAccounts = () => deny("roleAssignment", "view") ?? (serverMode ? syncAccounts().then(() => rows()) : respond(rows()));
 
 export interface UserAccountRow extends AccountRow {
   /** The temporary password, only until the person sets their own (then null: we never show it). */
@@ -61,13 +95,15 @@ export interface UserAccountRow extends AccountRow {
 export function listUserAccounts(): Promise<UserAccountRow[]> {
   const denied = deny("userAccounts", "view");
   if (denied) return denied;
-  return respond(
+  const build = () =>
     rows().map((r) => {
       const a = admin.accounts.find((x) => x.id === r.id);
       const e = core.employees.find((x) => x.id === r.employeeId);
       return { ...r, tempPassword: a && !a.demo && a.mustChangePassword ? (a.password ?? null) : null, employeeCode: e?.id, email: e?.contact.workEmail };
-    }),
-  );
+    });
+  // Server: refresh the cached accounts; the server never returns passwords, so tempPassword stays null there.
+  if (serverMode) return syncAccounts().then(build);
+  return respond(build());
 }
 
 export function employeesWithoutAccount() {
@@ -103,6 +139,7 @@ export async function createAccount(input: { name: string; username: string; rol
   // One person, one account.
   const holder = input.employeeId ? admin.accounts.find((a) => employeeOfAccount(a) === input.employeeId) : undefined;
   if (holder) return fail(`This person already has an account (username ${holder.username}).`);
+  if (serverMode) return api<{ username: string; password: string }>("POST", "/admin/accounts", input);
   const name = input.name.trim();
   const username = input.username.trim().toLowerCase();
   if (!name) return fail("Enter the person's name");
@@ -131,6 +168,7 @@ export async function setAccountRole(id: string, roleId: string, actor: string, 
   const current = admin.accounts.find((x) => x.id === id);
   const giving = admin.roles.find((r) => r.id === roleId)?.key;
   if (!current || !giving || !mayAssign(giving) || !mayAssign(roleKeyOf(current.roleId))) return forbidden("You can't give or change that role.");
+  if (serverMode) return void (await api("PUT", `/admin/accounts/${id}/role`, { roleId }));
   const a = admin.accounts.find((x) => x.id === id);
   const role = admin.roles.find((r) => r.id === roleId);
   if (!a || !role) return fail("Choose a role");
@@ -149,6 +187,7 @@ export async function setAccountRole(id: string, roleId: string, actor: string, 
 export async function setAccountStatus(id: string, status: UserAccount["status"], actor: string, actorAccountId?: string) {
   const denied = deny("roleAssignment", "edit") ?? (mayAssign(roleKeyOf(admin.accounts.find((x) => x.id === id)?.roleId)) ? null : forbidden());
   if (denied) return denied;
+  if (serverMode) return void (await api("PUT", `/admin/accounts/${id}/status`, { status }));
   const a = admin.accounts.find((x) => x.id === id);
   if (!a) return fail("That account no longer exists");
   const next = admin.accounts.map((x) => (x.id === id ? { ...x, status } : x));
@@ -164,6 +203,7 @@ export async function setAccountStatus(id: string, status: UserAccount["status"]
 export async function unlockAccount(id: string, actor: string, _actorAccountId?: string) {
   const denied = deny("roleAssignment", "edit") ?? (mayAssign(roleKeyOf(admin.accounts.find((x) => x.id === id)?.roleId)) ? null : forbidden());
   if (denied) return denied;
+  if (serverMode) return void (await api("POST", `/admin/accounts/${id}/unlock`));
   const a = admin.accounts.find((x) => x.id === id);
   if (!a) return fail("That account no longer exists");
   saveAdmin({ ...admin, accounts: admin.accounts.map((x) => (x.id === id ? { ...x, lockedUntil: undefined, failedAttempts: 0 } : x)) });
@@ -174,6 +214,7 @@ export async function unlockAccount(id: string, actor: string, _actorAccountId?:
 export async function resetPassword(id: string, actor: string, _actorAccountId?: string) {
   const denied = deny("userAccounts", "edit") === null ? null : (deny("roleAssignment", "edit") ?? (mayAssign(roleKeyOf(admin.accounts.find((x) => x.id === id)?.roleId)) ? null : forbidden()));
   if (denied) return denied;
+  if (serverMode) return api<{ username: string; password: string }>("POST", `/admin/accounts/${id}/reset-password`);
   const a = admin.accounts.find((x) => x.id === id);
   if (!a) return fail("That account no longer exists");
   if (a.demo) return fail("This is a demo login. Its password is set on the sign-in screen's demo list.");
@@ -189,7 +230,12 @@ export interface RoleRow extends SystemRole {
   users: number;
 }
 
-export const listRoles = () => respond(admin.roles.map((r) => ({ ...r, users: admin.accounts.filter((a) => a.roleId === r.id).length })));
+export async function listRoles(): Promise<RoleRow[]> {
+  if (!serverMode) return respond(admin.roles.map((r) => ({ ...r, users: admin.accounts.filter((a) => a.roleId === r.id).length })));
+  const rows = await api<RoleRow[]>("GET", "/admin/roles");
+  saveAdmin({ ...admin, roles: rows.map(({ users: _u, ...r }) => r) });
+  return rows;
+}
 
 /** The six roles are fixed: what they can do is the access matrix in lib/permissions.ts. */
 export async function saveRole(_input: { id?: string; name: string; description: string; access: Record<ModuleKey, Access> }, _actor: string, _actorAccountId?: string): Promise<SystemRole> {
@@ -210,11 +256,21 @@ export const WORKFLOW_LABEL: Record<RequestKind, { name: string; description: st
   profile: { name: "Profile change", description: "Employee updates to their own 201 file" },
 };
 
-export const listWorkflows = () => deny("rules", "view") ?? respond(admin.workflows);
+export const listWorkflows = async () => {
+  const denied = deny("rules", "view");
+  if (denied) return denied;
+  if (serverMode) await syncWorkflows();
+  return respond(admin.workflows);
+};
 
 export async function saveWorkflow(input: Workflow, actor: string) {
   const denied = deny("rules", "edit");
   if (denied) return denied;
+  if (serverMode) {
+    const saved = await api<Workflow>("PUT", "/admin/workflows", input);
+    await syncWorkflows();
+    return saved;
+  }
   if (input.steps.length === 0) return fail("Add at least one approval step");
   if (input.steps.length > 3) return fail("Keep it to 3 steps or fewer so requests don't get stuck");
   if (input.steps.some((s) => s.approver === "role" && !admin.roles.some((r) => r.id === s.roleId))) return fail("Choose the role for each 'Anyone with a role' step");
@@ -268,11 +324,16 @@ export function sampleEmployees() {
 
 // ---- Settings ----
 
-export const getSettings = () => respond(admin.settings);
+export const getSettings = () => (serverMode ? syncSettings().then(() => structuredClone(admin.settings)) : respond(admin.settings));
 
 export async function saveSettings(input: Settings, actor: string, _actorAccountId?: string) {
   const denied = deny("systemSettings", "edit");
   if (denied) return denied;
+  if (serverMode) {
+    const settings = await api<Settings>("PUT", "/admin/settings", input);
+    saveAdmin({ ...admin, settings });
+    return settings;
+  }
   if (!input.companyName.trim()) return fail("Enter the company name");
   if (input.tin && !/^\d{3}-\d{3}-\d{3}(-\d{3,5})?$/.test(input.tin.trim())) return fail("TIN looks like 000-000-000-00000");
   if (input.contactEmail && !/^\S+@\S+\.\S+$/.test(input.contactEmail.trim())) return fail("Enter a valid HR email");
@@ -309,11 +370,13 @@ export interface AuditRow {
 }
 
 /** Everything recorded across the system, newest first. Read-only: there is no edit or delete. */
-export function listAudit(): Promise<AuditRow[]> {
+export async function listAudit(): Promise<AuditRow[]> {
   const denied = deny("audit", "view");
   if (denied) return denied;
   // Each role sees its own areas of the trail (lib/permissions.ts LIMITS.auditAreas).
   const areas = LIMITS.auditAreas[sessionWho().role ?? "employee"];
+  // Sign-in and administration entries come from the database; the modules still in the browser add theirs.
+  const adminRows: AuditRow[] = serverMode ? await api<AuditRow[]>("GET", "/admin/audit") : admin.log.map((l) => ({ ...l }));
   const name = (id: string) => {
     const e = core.employees.find((x) => x.id === id);
     return e ? fullName(e.personal) : id;
@@ -321,7 +384,7 @@ export function listAudit(): Promise<AuditRow[]> {
   const typeName = (id: string) => leave.types.find((t) => t.id === id)?.name ?? "Leave";
   const range = (a: string, b: string) => (a === b ? a : `${a} to ${b}`);
   const rows: AuditRow[] = [
-    ...admin.log.map((l) => ({ ...l })),
+    ...adminRows,
     ...core.audit.map((a) => ({ id: `c-${a.id}`, at: a.at, actor: a.actor, module: "People" as const, action: `${a.action} ${a.section.toLowerCase()}`, target: name(a.employeeId), detail: a.summary })),
     ...tk.audit.map((a) => ({ id: `t-${a.id}`, at: a.at, actor: a.actor, module: "Timekeeping" as const, action: a.action, target: name(a.employeeId), detail: `${a.workDate}: ${a.detail}` })),
     ...tk.requests.flatMap((r) => [

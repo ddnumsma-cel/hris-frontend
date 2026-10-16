@@ -124,7 +124,7 @@ export function PayDetailsPage() {
               <span className="flex items-start gap-3">
                 <span className="text-xs text-ink-2">
                   <span className="block font-medium text-ink">{p.profile.workWeek === "6-day" ? "6-day week" : "5-day week"}</span>
-                  {[p.profile.transportAllowance && `Transport ${peso(p.profile.transportAllowance)}`, p.profile.otMealRate && `OT meal ${peso(p.profile.otMealRate)}`, p.profile.deMinimis && `De minimis ${peso(p.profile.deMinimis)}`, p.profile.otherNonTaxable && `Non-taxable ${peso(p.profile.otherNonTaxable)}`].filter(Boolean).join(" · ") || "No allowances"}
+                  {[p.profile.transportAllowance && `Transport ${peso(p.profile.transportAllowance)}`, p.profile.otMealRate && `OT meal ${peso(p.profile.otMealRate)}`, p.profile.deMinimis && `De minimis ${peso(p.profile.deMinimis)}`, p.profile.otherNonTaxable && `Non-taxable ${peso(p.profile.otherNonTaxable)}`, p.profile.clientShare && `${p.profile.clientShare}% to ${p.profile.client || "client"}`, (p.profile.skipSss || p.profile.skipPhilhealth || p.profile.skipPagibig) && `No ${[p.profile.skipSss && "SSS", p.profile.skipPhilhealth && "PhilHealth", p.profile.skipPagibig && "Pag-IBIG"].filter(Boolean).join(", ")}`].filter(Boolean).join(" · ") || "No allowances"}
                 </span>
                 {canEdit && (
                   <Button size="sm" variant="ghost" onClick={() => setEditing(p)}>

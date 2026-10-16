@@ -1,12 +1,14 @@
-// Timekeeping data. Device punches are generated deterministically from the
-// employee and date, so "today" fills in as the clock moves and nothing large
-// sits in localStorage. What HR changes (shifts, schedules, corrections,
-// set-aside punches, requests, audit) is saved.
+// Timekeeping data. In the browser-only demo, device punches are generated deterministically from
+// the employee and date, so "today" fills in as the clock moves. With the API server, punches come
+// only from the database (remote clock-ins and HR's corrections) and this store is a cache.
+// What HR changes (shifts, schedules, corrections, set-aside punches, requests, audit) is saved.
 
 import { state as core } from "../corehr/store";
 import { addDays, at, defaultBreakStart, isOvernight, toIsoDate, weekday } from "./compute";
-import { HOLIDAYS, holidayOn } from "../holidays";
+import { HOLIDAYS } from "../holidays";
+import { api, serverMode } from "../http";
 import { approvedLeaveSpans } from "../leave/store";
+import { DEFAULT_SHIFT_ID, DEFAULT_SHIFTS, DEFAULT_TARDINESS_RULE } from "./rules";
 import type { AttendanceNotice, Punch, RemoteDay, ShiftTemplate, TardinessRule, TimeAudit, FixRequest, TimeRequest } from "./types";
 
 export interface TimekeepingState {
@@ -69,7 +71,7 @@ export function remoteDayFor(employeeId: string, date: string): RemoteDay | unde
 /** True when the remote day is one the person chose themselves (they can switch back before clocking in). */
 export const isOwnWfh = (d: RemoteDay | undefined) => d?.declaredBy === "self";
 
-export const DEFAULT_TARDINESS_RULE: TardinessRule = { consecutive: 3, perMonth: 5 };
+export { DEFAULT_TARDINESS_RULE };
 export const tardinessRule = () => tk.tardinessRule ?? DEFAULT_TARDINESS_RULE;
 
 const KEY = "heyhr-timekeeping-v1";
@@ -78,14 +80,7 @@ export const HISTORY_DAYS = 40;
 
 export { HOLIDAYS };
 
-const SHIFTS: ShiftTemplate[] = [
-  { id: "sh-day", name: "Busy season", start: "08:30", end: "17:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0, 6], active: true },
-  { id: "sh-peak", name: "Peak season", start: "08:30", end: "17:30", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0, 6], active: true },
-  { id: "sh-mid", name: "Mid shift", start: "09:00", end: "18:00", breakMinutes: 60, breakStart: "13:00", graceMinutes: 5, restDays: [0, 6], active: true },
-  // Six-day week (payroll workbook): 7 hours Monday to Friday, 5 hours on Saturday.
-  { id: "sh-6day", name: "Six-day week", start: "08:30", end: "16:30", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0], saturdayEnd: "13:30", active: true },
-  { id: "sh-flex", name: "Flexible time", start: "08:30", end: "19:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 0, restDays: [0, 6], active: true, flexible: true, requiredHours: 8 },
-];
+const SHIFTS: ShiftTemplate[] = DEFAULT_SHIFTS;
 
 /** Shifts that were retired; people on them move to the shift given here. */
 const RETIRED: Record<string, string> = { "sh-night": "sh-flex", "sh-weekend": "sh-day" };
@@ -126,7 +121,11 @@ function seed(): TimekeepingState {
   return { shifts: SHIFTS, usualShift, overrides: {}, corrections: [], voided: {}, confirmed: {}, requests: [], fixRequests: [], audit: [], seededRequests: false, seasonShifts: true };
 }
 
+const empty = (): TimekeepingState => ({ shifts: [], usualShift: {}, overrides: {}, corrections: [], voided: {}, confirmed: {}, requests: [], fixRequests: [], audit: [], seededRequests: true, seasonShifts: true });
+
 function load(): TimekeepingState {
+  // With the API server, the records come from the database (see refreshTimekeeping).
+  if (serverMode) return empty();
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -143,6 +142,7 @@ export let tk: TimekeepingState = load();
 
 export function save(next: TimekeepingState) {
   tk = next;
+  if (serverMode) return;
   try {
     localStorage.setItem(KEY, JSON.stringify(tk));
   } catch {
@@ -185,7 +185,7 @@ export function shiftFor(employeeId: string, date: string): { kind: "work" | "re
     if (s) return { kind: "work", shift: onDate(s, date), override: true };
   }
   // Anyone without a usual shift yet (e.g. newly added) works the Day shift.
-  const usual = tk.shifts.find((x) => x.id === (tk.usualShift[employeeId] ?? "sh-day"));
+  const usual = tk.shifts.find((x) => x.id === (tk.usualShift[employeeId] ?? DEFAULT_SHIFT_ID));
   if (!usual) return { kind: "unscheduled", override: false };
   return usual.restDays.includes(weekday(date)) ? { kind: "rest", shift: usual, override: false } : { kind: "work", shift: onDate(usual, date), override: false };
 }
@@ -260,7 +260,7 @@ function devicePunchesFor(employeeId: string, date: string): Punch[] {
   }
 
   const { kind, shift } = shiftFor(employeeId, date);
-  if (kind !== "work" || !shift || isOnLeave(employeeId, date) || holidayOn(date, branchOfEmployee(employeeId))) return [];
+  if (kind !== "work" || !shift || isOnLeave(employeeId, date) || HOLIDAYS.some((h) => h.date === date)) return [];
 
   const start = at(date, shift.start);
   let end = at(date, shift.end);
@@ -290,10 +290,36 @@ function devicePunchesFor(employeeId: string, date: string): Punch[] {
 export function punchesFor(employeeId: string, date: string): Punch[] {
   const mark = (p: Punch): Punch => ({ ...p, ...(tk.voided[p.id] ? { voided: tk.voided[p.id] } : {}), ...(tk.confirmed[p.id] ? { confirmed: tk.confirmed[p.id] } : {}) });
   // On a remote work day nobody is at the office, so the scanners have nothing; only remote clock-ins count.
-  const device = remoteDayFor(employeeId, date) ? [] : devicePunchesFor(employeeId, date).map(mark);
+  // Generated sample punches are for the browser-only demo; real ones come from the server.
+  const device = serverMode || remoteDayFor(employeeId, date) ? [] : devicePunchesFor(employeeId, date).map(mark);
   const manual = tk.corrections.filter((p) => p.employeeId === employeeId && p.workDate === date).map(mark);
   const remote = (tk.remotePunches ?? []).filter((p) => p.employeeId === employeeId && p.workDate === date).map(mark);
   return [...device, ...manual, ...remote];
 }
 
 export const todayIso = today;
+
+// ---- With the API server ----
+
+let loading: Promise<void> | null = null;
+let loadedAt = 0;
+
+/** Loads timekeeping from the API server. Reads within a moment of the last load reuse it. */
+export function refreshTimekeeping(maxAgeMs = 0): Promise<void> {
+  if (!serverMode) return Promise.resolve();
+  if (loading) return loading;
+  if (maxAgeMs && Date.now() - loadedAt < maxAgeMs) return Promise.resolve();
+  loading = api<TimekeepingState>("GET", "/timekeeping/state")
+    .then((next) => {
+      tk = next;
+      loadedAt = Date.now();
+    })
+    .finally(() => (loading = null));
+  return loading;
+}
+
+export function clearTimekeeping() {
+  if (!serverMode) return;
+  loadedAt = 0;
+  tk = empty();
+}

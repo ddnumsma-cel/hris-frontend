@@ -1,45 +1,9 @@
 import { escapeHtml, openPrintDocument } from "@/lib/printDocument";
-import { formatPHP } from "@/lib/format";
 import { certificateStatement } from "@/lib/certificates";
-import type { CertificateRequest, Employee, Payslip } from "@/lib/types";
+import type { CertificateRequest, Employee } from "@/lib/types";
 
 const generatedOn = () =>
   new Date().toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" });
-
-export function printPayslip(employee: Employee | undefined, payslip: Payslip) {
-  const rows = payslip.breakdown
-    .map(
-      (line) =>
-        `<tr><td>${escapeHtml(line.label)}</td><td class="num">${line.kind === "deduction" ? "−" : ""}${formatPHP(line.amount)}</td></tr>`,
-    )
-    .join("");
-
-  const body = `
-    <div class="doc-header">
-      <div class="doc-brand">MSMA</div>
-      <div class="doc-title">
-        <h1>Payslip</h1>
-        <p>${escapeHtml(payslip.cutoffLabel)}</p>
-      </div>
-    </div>
-    <div class="meta-grid">
-      <div><span class="meta-label">Employee</span><span class="meta-value">${escapeHtml(employee?.name ?? "")}</span></div>
-      <div><span class="meta-label">Employee ID</span><span class="meta-value">${escapeHtml(employee?.id ?? "")}</span></div>
-      <div><span class="meta-label">Position</span><span class="meta-value">${escapeHtml(employee?.position ?? "")}</span></div>
-      <div><span class="meta-label">Status</span><span class="meta-value">${escapeHtml(payslip.status)}</span></div>
-    </div>
-    <table>
-      <thead><tr><th>Description</th><th class="num">Amount</th></tr></thead>
-      <tbody>
-        ${rows}
-        <tr class="total-row"><td>Net pay</td><td class="num">${formatPHP(payslip.net)}</td></tr>
-      </tbody>
-    </table>
-    <p class="doc-footer">Generated from MSMA HRIS on ${generatedOn()}. This is a system-generated payslip for reference — official copies are issued by HR/Payroll.</p>
-  `;
-
-  openPrintDocument(`Payslip ${payslip.id}`, body);
-}
 
 export function print201File(employee: Employee) {
   const rows: [string, string][] = [

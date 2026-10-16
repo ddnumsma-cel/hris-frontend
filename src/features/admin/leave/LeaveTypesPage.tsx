@@ -14,7 +14,7 @@ import { ELIGIBILITY, leaveKeys, proofText, useLeaveRefresh } from "./format";
 import { useCreateParam } from "@/lib/useCreateParam";
 import { leavePolicy } from "@/lib/leave/store";
 
-/** Paid types use one of the yearly leaves; unpaid ones (Leave without pay) have no limit. */
+/** Paid types use VL/SL days; unpaid ones (Leave without pay) have no limit. */
 type Draft = Omit<LeaveType, "id" | "active" | "earning"> & { id?: string; usesCredit: boolean };
 
 const BLANK: Draft = { name: "", code: "", daysPerYear: LEAVE_CREDITS_PER_YEAR, usesCredit: true, paid: true, carryOverMax: 0, countBy: "workdays", eligibility: "everyone", attachmentOver: null, confidential: false, basis: "Company policy" };
@@ -66,9 +66,9 @@ function TypeDialog({ initial, onClose }: { initial: Draft; onClose: () => void 
         <Field id="lt-code" label="Short code" required>
           <input id="lt-code" className={inputClass} value={d.code} maxLength={5} placeholder="e.g. BDL" onChange={(e) => set({ code: e.target.value })} />
         </Field>
-        <Field id="lt-earn" label="Uses a leave credit" className="col-span-2" hint={d.usesCredit ? `Each one filed uses 1 of the employee's ${LEAVE_CREDITS_PER_YEAR} leaves a year.` : "Doesn't touch the yearly leaves. Use this for unpaid leave."}>
+        <Field id="lt-earn" label="Uses a leave credit" className="col-span-2" hint={d.usesCredit ? "Each one filed uses its days from the employee's VL/SL (by length of service, June to May)." : "Doesn't touch VL/SL. Use this for unpaid leave."}>
           <select id="lt-earn" className={inputClass} value={d.usesCredit ? "yes" : "no"} onChange={(e) => set({ usesCredit: e.target.value === "yes", paid: e.target.value === "yes" ? d.paid : false })}>
-            <option value="yes">Yes, 1 of the {LEAVE_CREDITS_PER_YEAR} a year</option>
+            <option value="yes">Yes, uses VL/SL days</option>
             <option value="no">No limit (unpaid)</option>
           </select>
         </Field>
@@ -148,7 +148,7 @@ export function LeaveTypesPage() {
         </span>
       ),
     },
-    { header: "Uses", cell: (t) => (t.earning.kind === "unlimited" ? "No limit, unpaid" : `1 of the ${LEAVE_CREDITS_PER_YEAR} yearly leaves`) },
+    { header: "Uses", cell: (t) => (t.earning.kind === "unlimited" ? "No limit, unpaid" : "VL/SL days") },
     { header: "Who", cell: (t) => ELIGIBILITY[t.eligibility] },
     { header: "Document", cell: (t) => proofText(t.attachmentOver) },
     { header: "Status", cell: (t) => <Pill tone={t.active ? "good" : "neutral"}>{t.active ? "In use" : "Off"}</Pill> },
