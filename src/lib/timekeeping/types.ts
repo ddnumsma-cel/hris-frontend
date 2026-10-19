@@ -106,6 +106,9 @@ export interface TimeRequest {
   date: string;
   type: "overtime" | "undertime";
   minutes: number;
+  /** When the overtime starts and ends (ISO); minutes = end − start. Missing on older requests. */
+  startAt?: string;
+  endAt?: string;
   reason: string;
   status: "pending" | "approved" | "declined";
   filedBy: string;

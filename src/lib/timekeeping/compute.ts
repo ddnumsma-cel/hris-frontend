@@ -176,8 +176,9 @@ export function computeDay(input: DayInput): DayResult {
       }
     } else status = "done";
   } else if (tIn !== undefined) {
-    // Work on a rest day, holiday or unscheduled day: all of it is extra time.
-    extra = worked;
+    // Work on a rest day, holiday or unscheduled day: all of it is extra time. A leave day is paid as
+    // leave (DTR_FT "VL"/"SL"), so time-ins on it are never overtime.
+    extra = kind === "leave" ? 0 : worked;
     status = tOut === undefined ? (now < tIn + 12 * HOUR ? "working" : "done") : "done";
     if (tOut === undefined && status === "done") issues.push({ kind: "missing-out", text: "No time-out recorded" });
   } else {

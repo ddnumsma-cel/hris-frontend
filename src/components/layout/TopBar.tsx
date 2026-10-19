@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
@@ -11,8 +11,9 @@ import { teamNotices } from "@/lib/teamNotices";
 import { listMyNotifications, markMyNotificationsRead } from "@/lib/notifications";
 import { fmtDay } from "@/lib/preferences";
 import { myNotices } from "@/lib/ess/more";
-import { BellIcon, BuildingIcon, CheckIcon, ChevronDownIcon, LogOutIcon, SearchIcon, SettingsIcon } from "../icons";
+import { BellIcon, BuildingIcon, CheckIcon, ChevronDownIcon, LogOutIcon, SettingsIcon } from "../icons";
 import { BrandName, WorkspaceLabel } from "./Brand";
+import { PageSearch } from "./PageSearch";
 import { SettingsMenu } from "./SettingsMenu";
 import { NotificationsPanel, type NotificationItem, type NotificationKind } from "./NotificationsPanel";
 import { timeAgo } from "@/lib/timeAgo";
@@ -48,11 +49,10 @@ export function TopBar() {
   };
   const settings = useMySettings();
   const notificationsOn = settings.data?.notifications.enabled ?? true;
-  const [searchValue, setSearchValue] = useState("");
   const headerRef = useRef<HTMLElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Ctrl/⌘ K (or "/" when not typing in a field) jumps to the employee search.
+  // Ctrl/⌘ K (or "/" when not typing in a field) jumps to the page search.
   useEffect(() => {
     function onKey(e: globalThis.KeyboardEvent) {
       const combo = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k";
@@ -131,20 +131,13 @@ export function TopBar() {
     enabled: !!user && user.role !== "employee",
   });
   const photo = user?.role === "employee" ? photoQuery.data : avatarQuery.data;
-  function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Escape") e.currentTarget.blur();
-    if (e.key === "Enter" && searchValue.trim()) {
-      navigate(`/admin/maintenance/people?q=${encodeURIComponent(searchValue.trim())}`);
-    }
-  }
-
   function handleLogout() {
     logout();
     navigate("/login", { replace: true });
   }
 
   if (!user) return null;
-  // System-only accounts (Super Admin) don't get the office filter or employee search.
+  // System-only accounts (Super Admin) don't get the office filter.
   const hr = user.role !== "admin" || hasHrAccess(user.accountId);
 
   return (
@@ -208,25 +201,16 @@ export function TopBar() {
       </div>
 
       <div className="mx-auto flex min-w-0 justify-center sm:mx-0">
-        {user.role === "admin" && hr && (
-          <div className="topbar-field hidden sm:flex sm:w-64 md:w-80 lg:w-96">
-            <SearchIcon className="h-3.5 w-3.5" />
-            <input
-              ref={searchRef}
-              type="text"
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              placeholder="Search employee directory"
-              aria-label="Search employee directory"
-              aria-keyshortcuts={isApple ? "Meta+K /" : "Control+K /"}
-              className="w-full min-w-0 bg-transparent font-normal focus:outline-none"
-            />
+        {/* Everyone can jump to any page of their own sidebar (PageSearch). */}
+        <PageSearch
+          inputRef={searchRef}
+          keyshortcuts={isApple ? "Meta+K /" : "Control+K /"}
+          shortcut={
             <kbd aria-hidden="true" className="flex-none rounded-[var(--radius-logo)] border border-[var(--line-strong)] bg-[var(--tint)] px-1.5 font-sans text-[10.5px] leading-5 font-medium text-ink-2">
               {SEARCH_SHORTCUT}
             </kbd>
-          </div>
-        )}
+          }
+        />
       </div>
 
       <div className="ml-auto flex items-center justify-end gap-1.5 sm:ml-0 sm:gap-2">

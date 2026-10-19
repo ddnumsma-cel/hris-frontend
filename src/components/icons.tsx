@@ -65,7 +65,9 @@ import {
   ShieldCheck,
   Sun,
   Trash2,
+  Undo2,
   Upload,
+  Share2,
   User,
   UserMinus,
   UserPlus,
@@ -376,4 +378,12 @@ export function ReceiptIcon(props: IconProps) {
 
 export function MinusIcon(props: IconProps) {
   return <Minus strokeWidth={strokeWidth} {...props} />;
+}
+
+export function ReturnIcon(props: IconProps) {
+  return <Undo2 strokeWidth={strokeWidth} {...props} />;
+}
+
+export function ShareIcon(props: IconProps) {
+  return <Share2 strokeWidth={strokeWidth} {...props} />;
 }

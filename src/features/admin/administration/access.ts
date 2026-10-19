@@ -35,7 +35,7 @@ export function featureForPath(pathname: string): Feature | null {
       return null;
     }
     if (seg === "requests") return (REQUEST_TYPES.find((t) => t.id === sub) ?? REQUEST_TYPES[0])!.feature;
-    if (seg === "onboarding") return "trainings";
+    if (seg === "onboarding") return sub === "recruitment" || sub === "pipeline" ? "people" : "trainings";
     if (seg === "administration") {
       if (sub === "users" || sub === "roles") return "roleAssignment";
       if (sub === "audit") return "audit";

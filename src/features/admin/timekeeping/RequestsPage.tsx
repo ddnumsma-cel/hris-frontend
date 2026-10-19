@@ -13,7 +13,7 @@ import { useOfficeFilter } from "../OfficeFilterContext";
 import { inputClass, useActor } from "../corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 import { Name, SearchBox, SimpleTable, Tabs, Toolbar, type Col } from "./common";
-import { clock, duration, hhmm, shortDate, tkKeys } from "./format";
+import { clock, duration, hhmm, requestSpan, shortDate, tkKeys } from "./format";
 
 type Kind = TimeRequest["type"];
 type Tab = "pending" | "approved" | "declined" | "unfiled";
@@ -164,7 +164,7 @@ export function RequestsPage({ kind }: { kind: Kind }) {
     { header: "Shift", cell: (r) => shiftCell(dayMap.get(`${r.employeeId}|${r.date}`)!) },
     { header: kind === "overtime" ? "Time out" : "Left at", cell: (r) => { const d = dayMap.get(`${r.employeeId}|${r.date}`)!; return d.timeOut ? clock(d.timeOut.at) : "—"; } },
     { header: copy.measure, cell: (r) => measure(dayMap.get(`${r.employeeId}|${r.date}`)!) },
-    { header: "Requested", cell: (r) => <span className="font-medium">{duration(r.minutes)}</span> },
+    { header: "Requested", cell: (r) => <span className="font-medium">{requestSpan(r)}</span> },
     { header: "Reason", cell: (r) => <span className="inline-block max-w-44 truncate align-bottom text-ink-2" title={r.reason}>{r.reason}</span> },
     {
       header: tab === "pending" ? "" : "Decision",

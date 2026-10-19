@@ -17,8 +17,9 @@ import type { FixCause } from "@/lib/timekeeping/types";
 import { isoToday } from "@/lib/leave/api";
 import { inputClass } from "../admin/corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../admin/corehr/ui";
-import { SimpleTable, Tabs, type Col } from "../admin/timekeeping/common";
-import { FIX_CAUSES, clock, dayStatus, duration, hhmm, lunchText, shortDate } from "../admin/timekeeping/format";
+import { Choice, SimpleTable, Tabs, Toolbar, type Col } from "../admin/timekeeping/common";
+import { filterSelectClass } from "../admin/corehr/format";
+import { FIX_CAUSES, clock, dayStatus, duration, hhmm, lunchText, requestSpan, shortDate } from "../admin/timekeeping/format";
 
 const KEY = ["ess", "attendance"] as const;
 
@@ -173,7 +174,25 @@ function Notices() {
 }
 
 export function EmployeeAttendance() {
-  const data = useQuery({ queryKey: KEY, queryFn: myAttendance, staleTime: 0 });
+  // Which days to show: this month by default, last month, everything, or picked dates.
+  const today = isoToday();
+  const [period, setPeriod] = useState("month");
+  const [custom, setCustom] = useState({ from: addDays(today, -13), to: today });
+  const month = (back: number) => {
+    const d = new Date(`${today.slice(0, 7)}-01T12:00:00`);
+    d.setMonth(d.getMonth() - back);
+    const from = d.toISOString().slice(0, 10);
+    d.setMonth(d.getMonth() + 1, 0);
+    return { from, to: d.toISOString().slice(0, 10) };
+  };
+  const periods: Record<string, { label: string; from: string; to: string }> = {
+    all: { label: "All time", from: "all", to: today },
+    lastMonth: { label: "Last month", ...month(1) },
+    month: { label: "This month", ...month(0) },
+    custom: { label: "Custom dates…", ...custom },
+  };
+  const range = periods[period] ?? periods.month!;
+  const data = useQuery({ queryKey: [...KEY, range.from, range.to], queryFn: () => myAttendance(range.from, range.to), staleTime: 0 });
   const [tab, setTab] = useState<"logs" | "requests" | "wfh">("logs");
   const wfh = useQuery({ queryKey: ["ess", "wfh-days"], queryFn: myWfhDays, staleTime: 0 });
   const [ask, setAsk] = useState<Ask | null>(null);
@@ -192,7 +211,7 @@ export function EmployeeAttendance() {
   const otHours = Math.round((days.reduce((n, d) => n + d.approvedOvertimeMinutes, 0) / 60) * 10) / 10;
 
   const rows: RequestRow[] = [
-    ...requests.map((r) => ({ id: r.id, date: r.date, what: r.type === "overtime" ? "Overtime" : "Leaving early", detail: duration(r.minutes), reason: r.reason, status: r.status, note: r.note, filedAt: r.filedAt })),
+    ...requests.map((r) => ({ id: r.id, date: r.date, what: r.type === "overtime" ? "Overtime" : "Leaving early", detail: requestSpan(r), reason: r.reason, status: r.status, note: r.note, filedAt: r.filedAt })),
     ...fixes.map((r) => ({
       id: r.id,
       date: r.workDate,
@@ -259,7 +278,7 @@ export function EmployeeAttendance() {
   ];
 
   const stats = [
-    { label: "Days worked", value: String(worked.length), sub: "Last 2 weeks" },
+    { label: "Days worked", value: String(worked.length), sub: period === "custom" ? `${shortDate(custom.from)} – ${shortDate(custom.to)}` : range.label },
     { label: "Late arrivals", value: String(late.length), sub: late.length ? `${duration(late.reduce((n, d) => n + d.lateMinutes, 0))} in total` : "Nice, all on time" },
     { label: "Approved overtime", value: `${otHours} hrs`, sub: "Paid in your next payslip" },
     { label: "Waiting for approval", value: String(waiting), sub: waiting === 1 ? "request" : "requests" },
@@ -296,10 +315,23 @@ export function EmployeeAttendance() {
           { value: "wfh", label: "Work from home", count: wfh.data?.length ?? 0 },
         ]}
       />
+      {tab === "logs" && (
+        <Toolbar>
+          <Choice label="Period" value={period} onChange={setPeriod} options={Object.entries(periods).map(([value, p]) => ({ value, label: p.label }))} />
+          {period === "custom" && (
+            <>
+              <input type="date" aria-label="From" className={`${filterSelectClass} pr-3`} max={custom.to} value={custom.from} onChange={(e) => e.target.value && setCustom({ ...custom, from: e.target.value })} />
+              <span className="text-xs text-ink-3">to</span>
+              <input type="date" aria-label="To" className={`${filterSelectClass} pr-3`} min={custom.from} max={today} value={custom.to} onChange={(e) => e.target.value && setCustom({ ...custom, to: e.target.value })} />
+            </>
+          )}
+        </Toolbar>
+      )}
       {tab === "logs" ? (
-        <SimpleTable rows={days} rowKey={(d) => d.date} cols={dayCols} loading={data.isLoading} empty="No time logs yet." />
+        <SimpleTable pageSize={10} rows={days} rowKey={(d) => d.date} cols={dayCols} loading={data.isLoading} empty="No time logs yet." />
       ) : tab === "wfh" ? (
         <SimpleTable
+          pageSize={10}
           rows={wfh.data ?? []}
           rowKey={(d) => d.date}
           loading={wfh.isLoading}
@@ -313,7 +345,7 @@ export function EmployeeAttendance() {
           ]}
         />
       ) : (
-        <SimpleTable rows={rows} rowKey={(r) => r.id} cols={reqCols} loading={data.isLoading} empty="You haven't sent any requests." />
+        <SimpleTable pageSize={10} rows={rows} rowKey={(r) => r.id} cols={reqCols} loading={data.isLoading} empty="You haven't sent any requests." />
       )}
       {ask && <TimeRequestDialog ask={ask} onClose={() => setAsk(null)} />}
       {adjust && <AdjustDialog adjust={adjust} days={days} onClose={() => setAdjust(null)} />}

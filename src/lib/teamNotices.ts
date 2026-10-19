@@ -4,7 +4,7 @@
 import { fullName, state as core } from "./corehr/store";
 import { fmtTime } from "./preferences";
 import { sessionWho } from "./session";
-import { tk, todayIso } from "./timekeeping/store";
+import { refreshTimekeeping, tk, todayIso } from "./timekeeping/store";
 
 export interface TeamNotice {
   id: string;
@@ -13,7 +13,10 @@ export interface TeamNotice {
   postedOn: string;
 }
 
-export function teamNotices(): Promise<TeamNotice[]> {
+export async function teamNotices(): Promise<TeamNotice[]> {
+  // With the API server, work-from-home days and clock-ins from home come from the database (the
+  // approver's team only; the location only shows to whoever may see it). A failed load keeps the last one.
+  await refreshTimekeeping(2000).catch((e) => console.warn(e));
   const team = new Set(sessionWho().team);
   const date = todayIso();
   const notices = (tk.wfh ?? [])
@@ -30,5 +33,5 @@ export function teamNotices(): Promise<TeamNotice[]> {
         postedOn: inAt ? `Clocked in ${fmtTime(inAt.at)} with a face scan${where}` : "Hasn't clocked in yet",
       };
     });
-  return Promise.resolve(notices);
+  return notices;
 }

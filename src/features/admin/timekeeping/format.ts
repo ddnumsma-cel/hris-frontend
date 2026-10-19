@@ -33,6 +33,11 @@ export function lunchText(d: Pick<DayResult, "lunchOut" | "lunchIn">) {
 export const shortDate = (iso: string) => fmtDayWithWeekday(iso);
 
 /** "1 h 20 min", "45 min" */
+/** A request's length, with its start and end when it has them: "2 h 30 min · 5:30 PM – 8:00 PM". */
+export function requestSpan(r: { minutes: number; startAt?: string; endAt?: string }) {
+  return r.startAt && r.endAt ? `${duration(r.minutes)} · ${fmtTime(r.startAt)} – ${fmtTime(r.endAt)}` : duration(r.minutes);
+}
+
 export function duration(minutes: number) {
   if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);

@@ -62,10 +62,12 @@ const tk = await import("../src/lib/timekeeping/api");
 coreStore.commit({ ...coreStore.state, positions: coreStore.state.positions.map((p) => ({ ...p, slots: 999, active: true })) });
 const position = coreStore.state.positions[0]!;
 let n = 0;
+// Names are letters only (Add employee checks), so each test hire gets a letter pair: "Hire BA", "Hire CA"…
+const ABC = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const newHire = () => {
   n++;
   return {
-    personal: { firstName: "Test", middleName: "", lastName: `Hire ${n}`, suffix: "", birthDate: "1995-01-01", sex: "" as const, civilStatus: "" as const, nationality: "Filipino" },
+    personal: { firstName: "Test", middleName: "", lastName: `Hire ${ABC[n % 26]}${ABC[Math.floor(n / 26) % 26]}`, suffix: "", birthDate: "1995-01-01", sex: "Female" as const, civilStatus: "Single" as const, nationality: "Filipino" },
     contact: { workEmail: `test.hire${n}@msma.ph`, personalEmail: `hire${n}@mail.com`, mobile: `0917${String(1000000 + n).slice(-7)}`, address: "1 Test St", city: "Cebu City", province: "Cebu", emergencyName: "Kin", emergencyRelationship: "Parent", emergencyPhone: `0918${String(1000000 + n).slice(-7)}` },
     government: { sss: "1234567890", philhealth: "", pagibig: "", tin: "" },
     job: { cluster: "RPM", positionId: position.id, teamId: "", supervisorId: "", employmentType: "Regular" as const, dateHired: "2026-10-01", monthlySalary: 25000, workSchedule: "Mon–Fri", shiftId: "" },
@@ -156,7 +158,7 @@ signIn("accounting");
 check("Accounting can still open payroll runs", (await errorOf(runs.listRuns())) === null);
 signIn("admin1");
 check("HR can still open attendance", (await errorOf(tk.listDays("2026-10-01", "2026-10-15"))) === null);
-check("HR can still edit an employee", (await errorOf(core.updateEmployeeSection(coreStore.state.employees[0]!.id, "personal", { ...coreStore.state.employees[0]!.personal, nationality: "Filipino" }, "Dinah"))) === null);
+check("HR can still edit an employee", (await errorOf(core.updateEmployeeSection(coreStore.state.employees[0]!.id, "personal", { ...coreStore.state.employees[0]!.personal, sex: coreStore.state.employees[0]!.personal.sex || "Male", nationality: "Filipino" }, "Dinah"))) === null);
 
 console.log("\n— Separation frees a seat; reactivating takes one —");
 signIn("admin1");

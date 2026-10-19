@@ -10,9 +10,11 @@ import {
   payrollEntries,
   personnelDocuments,
   personnelProfiles,
+  setCurrentEmployee,
   setEmployeeDirectory,
   setPersonnelDocuments,
 } from "../mockData";
+import { api, serverMode } from "../http";
 import type { Employee, PersonnelDocument } from "../types";
 import type {
   AuditEntry,
@@ -242,6 +244,8 @@ function seed(): CoreHrState {
 // ---- Persistence ----
 
 function load(): CoreHrState {
+  // With the API server, the records come from the database after sign-in (see refreshCoreHr).
+  if (serverMode) return { units: [], positions: [], employees: [], documents: [], events: [], audit: [] };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -252,6 +256,13 @@ function load(): CoreHrState {
     // Blocked or corrupt storage — start from the seed.
   }
   return seed();
+}
+
+/** Someone whose last day has passed becomes separated (HR recorded it ahead of time). */
+function withSeparationsDue(s: CoreHrState): CoreHrState {
+  const today = isoDate();
+  if (!s.employees.some((e) => e.job.separationDate && e.job.separationDate < today && e.job.status !== "Separated")) return s;
+  return { ...s, employees: s.employees.map((e) => (e.job.separationDate && e.job.separationDate < today && e.job.status !== "Separated" ? { ...e, job: { ...e.job, status: "Separated" as const } } : e)) };
 }
 
 /**
@@ -281,17 +292,11 @@ function withSampleBanks(s: CoreHrState): CoreHrState {
   return next;
 }
 
-/** Someone whose last day has passed becomes separated (HR recorded it ahead of time). */
-function withSeparationsDue(s: CoreHrState): CoreHrState {
-  const today = isoDate();
-  if (!s.employees.some((e) => e.job.separationDate && e.job.separationDate < today && e.job.status !== "Separated")) return s;
-  return { ...s, employees: s.employees.map((e) => (e.job.separationDate && e.job.separationDate < today && e.job.status !== "Separated" ? { ...e, job: { ...e.job, status: "Separated" as const } } : e)) };
-}
-
 export let state: CoreHrState = withSeparationsDue(withSampleBanks(load()));
 
 export function commit(next: CoreHrState) {
   state = next;
+  if (serverMode) return syncShared();
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
@@ -341,6 +346,7 @@ function syncShared() {
         email: c.contact.workEmail || undefined,
         phone: c.contact.mobile || undefined,
         emergencyContact: c.contact.emergencyName || undefined,
+        faceEnrolled: c.faceEnrolled ?? prev?.faceEnrolled,
       };
     }),
   );
@@ -356,7 +362,7 @@ function syncShared() {
         status: d.status,
         fileName: d.fileName,
         uploadedOn: d.uploadedAt,
-        ...(isLicense ? { licenseNumber: d.referenceNo, licenseExpiry: d.expiresOn } : { idNumber: d.referenceNo, idExpiry: d.expiresOn }),
+        ...(isLicense ? { licenseNumber: d.referenceNo, licenseExpiry: d.expiresOn } : { idNumber: d.referenceNo, idExpiry: d.expiresOn, idType: d.idType }),
       };
     }),
   );
@@ -367,6 +373,8 @@ const CHRIS_MANAGER_FLAG = "heyhr-demo-chris-reports-to-antonio";
 /** Picks up what other pages did to the shared lists: someone added through the
  * Overview's Add employee, or an employee uploading their own document. */
 export function reconcile() {
+  // The server owns the records; nothing in the browser adds to them behind its back.
+  if (serverMode) return;
   let changed = false;
   let next = state;
   // Once per browser: the employee demo login (Danica Bernardo) reports to Antonio Sanchez, who can
@@ -423,3 +431,50 @@ export function reconcile() {
 }
 
 syncShared();
+
+let loading: Promise<void> | null = null;
+let loadedAt = 0;
+
+/** Loads Core HR from the API server into this store, so every module reads the database's records.
+ * Reads within a moment of the last load reuse it, so one page opening doesn't fetch the same data many times. */
+export function refreshCoreHr(maxAgeMs = 0): Promise<void> {
+  if (!serverMode) return Promise.resolve();
+  if (loading) return loading;
+  if (maxAgeMs && Date.now() - loadedAt < maxAgeMs) return Promise.resolve();
+  loading = api<CoreHrState>("GET", "/corehr/state")
+    .then((next) => {
+      state = next;
+      loadedAt = Date.now();
+      syncShared();
+      applySignedInEmployee();
+    })
+    .finally(() => (loading = null));
+  return loading;
+}
+
+// The signed-in account's own employee record, which the Employee workspace shows as "me".
+let signedIn: { employeeId?: string; name: string } | null = null;
+
+/** With the API server, "me" is the employee linked to the account (or no one), not the demo profile. */
+export function setSignedInEmployee(account: { employeeId?: string; name: string } | null) {
+  signedIn = account;
+  applySignedInEmployee();
+}
+
+function applySignedInEmployee() {
+  if (!serverMode || !signedIn) return;
+  const e = signedIn.employeeId ? employeeDirectory.find((x) => x.id === signedIn!.employeeId) : undefined;
+  const initials = signedIn.name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  setCurrentEmployee(
+    e ?? { id: "", name: signedIn.name, initials, position: "No employee record linked", department: "", office: "Cebu HQ", cluster: "RPM", status: "Active" },
+  );
+}
+
+/** Signed out: drop everything the server sent. */
+export function clearCoreHr() {
+  if (!serverMode) return;
+  loadedAt = 0;
+  signedIn = null;
+  state = load();
+  syncShared();
+}

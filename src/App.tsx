@@ -69,6 +69,9 @@ const LocationsPage = lazy(() => import("@/features/admin/maintenance/LocationsP
 const RulesPage = lazy(() => import("@/features/admin/maintenance/RulesPage").then((m) => ({ default: m.RulesPage })));
 const RequestsPage = lazy(() => import("@/features/admin/requests/RequestsPage").then((m) => ({ default: m.RequestsPage })));
 const TrainingsPage = lazy(() => import("@/features/admin/onboarding/TrainingsPage").then((m) => ({ default: m.TrainingsPage })));
+const AdminRecruitment = lazy(() => import("@/features/admin/AdminRecruitment").then((m) => ({ default: m.AdminRecruitment })));
+const AdminPipelinePage = lazy(() => import("@/features/admin/pipeline/AdminPipelinePage").then((m) => ({ default: m.AdminPipelinePage })));
+const ApplyPage = lazy(() => import("@/features/apply/ApplyPage").then((m) => ({ default: m.ApplyPage })));
 const DirectoryRedirect = lazy(() =>
   import("@/features/admin/corehr/DirectoryRedirect").then((m) => ({ default: m.DirectoryRedirect })),
 );
@@ -201,6 +204,9 @@ function App() {
         <Suspense fallback={<PageLoadingFallback />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            {/* Careers: the public job link applicants open (Pipeline › Share job link). */}
+            <Route path="/apply" element={<ApplyPage />} />
+            <Route path="/apply/:requisitionId" element={<ApplyPage />} />
             <Route path="/" element={<RootRedirect />} />
             <Route path="/settings/*" element={<SettingsRedirect />} />
 
@@ -319,6 +325,8 @@ function App() {
               {/* Onboarding */}
               <Route path="onboarding" element={<Navigate to="/admin/onboarding/trainings" replace />} />
               <Route path="onboarding/trainings" element={<TrainingsPage />} />
+              <Route path="onboarding/recruitment" element={<AdminRecruitment />} />
+              <Route path="onboarding/pipeline" element={<AdminPipelinePage />} />
 
               <Route path="administration" element={<Navigate to="/admin/administration/users" replace />} />
               <Route path="administration/users" element={<UsersPage />} />

@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "npm --prefix server run dev",
+    "server:install": "npm --prefix server install",
+    "db:seed": "npm --prefix server run seed",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "check:payroll": "npx --yes tsx --tsconfig tsconfig.app.json scripts/payroll-examples.ts",
@@ -12,7 +15,8 @@
     "check:register": "npx --yes tsx --tsconfig tsconfig.app.json scripts/register-check.ts",
     "check:subscription": "npx --yes tsx --tsconfig tsconfig.app.json scripts/subscription-check.ts",
     "preview": "vite preview",
-    "check:notifications": "npx --yes tsx --tsconfig tsconfig.app.json scripts/notifications-check.ts"
+    "check:notifications": "npx --yes tsx --tsconfig tsconfig.app.json scripts/notifications-check.ts",
+    "check:pages": "npx --yes tsx --tsconfig tsconfig.app.json scripts/page-search-check.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -21,6 +25,7 @@
     "clsx": "^2.1.1",
     "jsqr": "^1.4.0",
     "lucide-react": "^1.48.0",
+    "pdfjs-dist": "^5.7.284",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-hook-form": "^7.89.0",

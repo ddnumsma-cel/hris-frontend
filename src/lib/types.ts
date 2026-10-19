@@ -16,6 +16,20 @@ export interface Employee {
   phone?: string;
   emergencyContact?: string;
   faceEnrolled?: boolean;
+  // Set for people added through "Add employee"; the hire date and name
+  // parts decide their YYYY-MM-NN employee ID (see lib/employeeIds.ts).
+  dateHired?: string;
+  lastName?: string;
+  firstName?: string;
+  nickname?: string;
+  personalEmail?: string;
+  /** BRD §3.3 classification chosen when HR added them. */
+  employmentStatus?: "Probationary" | "Regular" | "Project-Based" | "Contractual" | "Part-Time";
+  /** Numbers HR typed in when adding them; shown as Pending in the 201 file until verified. */
+  governmentNumbers?: Partial<Record<"tin" | "sss" | "philHealth" | "pagIbig", string>>;
+  /** Set for people hired through Onboarding: when they sent the form, and when HR accepted it. */
+  onboardingSubmittedAt?: string;
+  acceptedAt?: string;
 }
 
 export interface LeaveBalance {
@@ -44,6 +58,10 @@ export interface Announcement {
   id: string;
   title: string;
   postedOn: string;
+  /** Longer text, when there is one. */
+  body?: string;
+  /** Who posted it. */
+  postedBy?: string;
 }
 
 export type LeaveType = "Vacation" | "Sick" | "Emergency" | "Bereavement";
@@ -55,8 +73,38 @@ export interface LeaveRequest {
   employeeRole: string;
   type: LeaveType | "Overtime" | "Certificate of Employment";
   detail: string;
-  status: "Pending" | "Approved" | "Declined";
+  /** "Returned" sends it back to the employee to edit and resubmit. */
+  status: "Pending" | "Approved" | "Declined" | "Returned";
   requestedOn: string;
+  /** Leave goes Filed → Partner → HR; set once the Partner signs off. */
+  partnerApproved?: boolean;
+  /** ISO dates, for the leave calendar and overlap checks. */
+  startDate?: string;
+  endDate?: string;
+  /** Leave credits this request uses (overtime and COE requests have none). */
+  days?: number;
+  /** The employee's reason, shown in quotes. */
+  reason?: string;
+  /** Supporting document, e.g. "Medical certificate attached". */
+  attachmentNote?: string;
+  /** HR's note when returning the request. */
+  returnNote?: string;
+}
+
+export interface LeavePolicy {
+  code: string;
+  type: string;
+  days: number;
+  accrual: string;
+  cashConversion: string;
+}
+
+export interface LeaveOverviewStats {
+  onLeaveToday: number;
+  onLeaveOffices: number;
+  utilizationPercent: number;
+  utilizationLastYearPercent: number;
+  vlToConvertDays: number;
 }
 
 export interface AttendancePoint {
@@ -81,6 +129,11 @@ export interface ComplianceItem {
   due: string;
   status: "Filed" | "Due soon" | "Overdue";
   note?: string;
+  /** e.g. "September 2026". */
+  periodCovered?: string;
+  amount?: number;
+  /** PRN, eFPS or bank reference once filed. */
+  referenceNo?: string;
 }
 
 export interface OnboardingStage {
@@ -154,13 +207,87 @@ export interface TeamRosterMember {
 
 export type RequisitionStage = "Sourcing" | "Interviewing" | "Offer extended";
 
+export type RequisitionApproval = "Approved" | "Pending L1" | "Pending L2";
+
+export type EmploymentType = "Probationary → Regular" | "Project-based" | "Fixed-term" | "Part-time";
+
 export interface JobRequisition {
   id: string;
   title: string;
-  department: "Audit & Assurance" | "Tax Advisory" | "Corporate Legal" | "Bookkeeping";
+  department: string;
+  cluster?: Cluster;
+  office: Employee["office"];
   openings: number;
   applicants: number;
+  applicantsThisWeek: number;
   stage: RequisitionStage;
+  approval: RequisitionApproval;
+  employmentType?: EmploymentType;
+  /** ISO date. */
+  targetStart?: string;
+  salaryRange?: string;
+  justification?: string;
+}
+
+export type ApplicantStage = "Applied" | "Screening" | "Interview" | "Offered" | "Hired" | "Rejected";
+
+/** What an applicant says they are; CPAs and accountancy graduates are reviewed first. */
+export type ApplicantProfession = "CPA" | "BS Accountancy graduate" | "Accounting student / undergrad" | "Other";
+
+export interface ApplicantRole {
+  title: string;
+  company: string;
+  /** "2024-02" */
+  start: string;
+  /** "2025-05", or empty while still there. */
+  end: string;
+  description?: string;
+}
+
+export interface ApplicantEducation {
+  degree: string;
+  school: string;
+  /** Year finished, or expected. */
+  finished: string;
+}
+
+export interface Applicant {
+  id: string;
+  requisitionId: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  stage: ApplicantStage;
+  profession?: ApplicantProfession;
+  /** ISO timestamp, for newest-first ordering. */
+  appliedAt?: string;
+  /** Where they came from, e.g. "Shared link", "JobStreet". */
+  source?: string;
+  city?: string;
+  province?: string;
+  yearsExperience?: number;
+  prcLicenseNumber?: string;
+  resumeFileName?: string;
+  message?: string;
+  experienceLevel?: "Fresh graduate" | "Has work experience";
+  /** Their own words about their work experience. */
+  workExperience?: string;
+  /** What they picked for "Which describes your … background?". */
+  background?: string;
+  coverLetter?: { kind: "upload"; fileName: string } | { kind: "write"; text: string };
+  languages?: string[];
+  careerHistory?: ApplicantRole[];
+  education?: ApplicantEducation[];
+  skills?: string[];
+  /** One-line status under the name, e.g. "Exam 86% · Sep 24". */
+  note: string;
+  /** ISO date an open offer lapses. */
+  offerExpires?: string;
+  /** ISO start date once hired. */
+  startDate?: string;
+  /** Set once HR creates the 201 file from this application. */
+  employeeId?: string;
 }
 
 export type DtrStatus = "On time" | "Late" | "Absent";
@@ -286,6 +413,8 @@ export interface PersonnelDocument {
   type: PersonnelDocumentType;
   status: PersonnelDocumentStatus;
   fileName?: string;
+  /** Further images of the same document, e.g. the back of an ID card. */
+  extraFileNames?: string[];
   uploadedOn?: string;
   // Populated only for the document types where it applies.
   idType?: string;
@@ -293,6 +422,12 @@ export interface PersonnelDocument {
   idExpiry?: string;
   licenseNumber?: string;
   licenseExpiry?: string;
+}
+
+/** A 201 document the new hire attached in Onboarding (mock: the file name only). */
+export interface UploadedDocument {
+  type: PersonnelDocumentType;
+  fileName: string;
 }
 
 /** The employee-safe projection of a PersonnelDocument — status only, no
@@ -315,19 +450,64 @@ export interface Dependent {
   birthDate?: string;
 }
 
+/** Everything a new hire tells HR in Onboarding: personal details only. HR adds the
+ * employment details (position, department, start date…) in Pipeline. */
+export interface OnboardingSubmissionInput {
+  lastName: string;
+  firstName: string;
+  middleName?: string;
+  suffix?: string;
+  nickname?: string;
+  birthDate?: string;
+  civilStatus?: CivilStatus;
+  /** Work email, if they already have one. */
+  email?: string;
+  personalEmail?: string;
+  phone?: string;
+  bloodType?: string;
+  address?: string;
+  emergencyContact?: { name: string; relationship?: string; phone?: string };
+  governmentNumbers?: Employee["governmentNumbers"];
+  dependents?: Omit<Dependent, "id">[];
+  license?: { profession?: string; number: string; expiry?: string };
+  previousEmployer?: { name: string; lastDay?: string };
+  /** Scanned or typed ID details — becomes the "Valid Government ID" 201 document.
+   * `fileName` is the first image; `extraFileNames` holds any others (e.g. the back). */
+  governmentId?: { idType: string; idNumber?: string; idExpiry?: string; fileName?: string; extraFileNames?: string[] };
+  /** 201 documents they attached; HR verifies them. */
+  uploadedDocuments?: UploadedDocument[];
+  /** Answers to the extra fields HR added to the form (nickname, education, bank…). */
+  otherDetails?: { label: string; value: string }[];
+}
+
+export interface OnboardingSubmission {
+  id: string;
+  /** ISO timestamp. */
+  submittedAt: string;
+  input: OnboardingSubmissionInput;
+  /** Made by the signed-in employee in this demo; their account becomes the new record. */
+  fromSignedInEmployee: boolean;
+}
+
 export interface PersonnelProfile {
   employeeId: string;
   photoDataUrl?: string;
   birthDate?: string;
   civilStatus?: CivilStatus;
   dependents: Dependent[];
+  bloodType?: string;
+  address?: string;
+  /** Declared during Onboarding, for the BIR 2316 from their last job. */
+  previousEmployer?: { name: string; lastDay?: string };
+  /** Answers to the extra fields HR added to the Onboarding form. */
+  otherDetails?: { label: string; value: string }[];
 }
 
 // --- Audit log for restricted personnel data ---
 // Every view, edit, verify, or removal touching a 201 File's sensitive
 // fields is recorded here — who did it, to whose record, and when.
 
-export type AuditAction = "Viewed" | "Edited" | "Verified" | "Removed";
+export type AuditAction = "Created" | "Viewed" | "Edited" | "Verified" | "Removed";
 
 export interface AuditLogEntry {
   id: string;
@@ -391,4 +571,8 @@ export interface PayrollEntry {
   overtimeHours: number;
   otherDeductions: number;
   status: PayrollEntryStatus;
+  /** Overtime paid last cutoff, to flag unusual jumps before release. */
+  lastCutoffOvertimeHours?: number;
+  /** Overtime approved in advance; hours above this need review. Unset means all of it was pre-approved. */
+  preApprovedOvertimeHours?: number;
 }

@@ -1,79 +1,23 @@
-// Leave data: leave types, requests and balance adjustments, seeded once and
-// saved to localStorage. Balances are always computed, never stored.
+// Leave data: leave types, requests and balance adjustments. Balances are always
+// computed, never stored. The rules themselves live in ./rules (shared with the
+// API server); this file holds the data and binds the rules to it.
+//
+// Without the API server the data is saved to localStorage. With it, the
+// database is the source and this store is a cache loaded after sign-in.
 
-import { fullName, state as core } from "../corehr/store";
-import { HOLIDAYS } from "../holidays";
+import { state as core, fullName } from "../corehr/store";
+import { api, serverMode } from "../http";
 import { admin } from "../admin/store";
-import type { Adjustment, Balance, LeaveRequest, LeaveType } from "./types";
+import { addDays, balanceOf, countDays as countDaysIn, creditsOf, DEFAULT_LEAVE_POLICY, isoToday, policyOf, type LeaveData, type LeavePolicy } from "./rules";
+import type { Balance, LeaveType, LeaveRequest } from "./types";
 
-export interface LeaveState {
-  types: LeaveType[];
-  requests: LeaveRequest[];
-  adjustments: Adjustment[];
-  /** Unused days brought over from last year, by "employeeId|typeId". */
-  carryOver: Record<string, number>;
-  /** Company-wide defaults from Settings > Time off & leave. */
-  policy?: Partial<LeavePolicy>;
-}
+export { addDays, CREDITS_ADJUSTMENT, DEFAULT_TYPES, isoToday, leaveYearOf, LEAVE_CREDITS_PER_YEAR, type Credits } from "./rules";
+export { DEFAULT_LEAVE_POLICY, type LeavePolicy };
+import { DEFAULT_TYPES } from "./rules";
 
-export interface LeavePolicy {
-  /** Off: filing is whole days only. */
-  allowHalfDays: boolean;
-  /** On: people can file beyond their remaining credits. */
-  allowNegative: boolean;
-  /** Carry-over limit pre-filled for new leave types. */
-  defaultCarryOver: number;
-  /** TODO: credits are granted yearly today; monthly and per-payroll accrual aren't calculated yet. */
-  accrual: "yearly" | "monthly" | "per-payroll";
-}
-
-export const DEFAULT_LEAVE_POLICY: LeavePolicy = { allowHalfDays: true, allowNegative: false, defaultCarryOver: 0, accrual: "yearly" };
-export const leavePolicy = (): LeavePolicy => ({ ...DEFAULT_LEAVE_POLICY, ...leave.policy });
+export type LeaveState = LeaveData;
 
 const KEY = "heyhr-leave-v1";
-
-export const DEFAULT_TYPES: LeaveType[] = [
-  { id: "vl", name: "Vacation leave", code: "VL", daysPerYear: 15, earning: { kind: "yearly" }, paid: true, carryOverMax: 5, countBy: "workdays", eligibility: "everyone", attachmentOver: null, confidential: false, basis: "Company policy (covers the 5-day Service Incentive Leave)", active: true },
-  { id: "sl", name: "Sick leave", code: "SL", daysPerYear: 15, earning: { kind: "yearly" }, paid: true, carryOverMax: 5, countBy: "workdays", eligibility: "everyone", attachmentOver: 2, confidential: false, basis: "Company policy", active: true },
-  { id: "el", name: "Emergency leave", code: "EL", daysPerYear: 3, earning: { kind: "yearly" }, paid: true, carryOverMax: 0, countBy: "workdays", eligibility: "everyone", attachmentOver: null, confidential: false, basis: "Company policy", active: true },
-  { id: "bl", name: "Bereavement leave", code: "BL", daysPerYear: 3, earning: { kind: "yearly" }, paid: true, carryOverMax: 0, countBy: "workdays", eligibility: "everyone", attachmentOver: 0, confidential: false, basis: "Company policy", active: true },
-  { id: "ml", name: "Maternity leave", code: "ML", daysPerYear: 105, earning: { kind: "per-event" }, paid: true, carryOverMax: 0, countBy: "calendar", eligibility: "female", attachmentOver: 0, confidential: false, basis: "RA 11210 (105 days, +15 for solo parents)", active: true },
-  { id: "pl", name: "Paternity leave", code: "PL", daysPerYear: 7, earning: { kind: "per-event" }, paid: true, carryOverMax: 0, countBy: "workdays", eligibility: "male-married", attachmentOver: 0, confidential: false, basis: "RA 8187 (married male, first 4 deliveries)", active: true },
-  { id: "sp", name: "Solo parent leave", code: "SPL", daysPerYear: 7, earning: { kind: "yearly" }, paid: true, carryOverMax: 0, countBy: "workdays", eligibility: "solo-parent", attachmentOver: 0, confidential: false, basis: "RA 11861 (after 6 months, with Solo Parent ID)", active: true },
-  { id: "vawc", name: "VAWC leave", code: "VAWC", daysPerYear: 10, earning: { kind: "per-event" }, paid: true, carryOverMax: 0, countBy: "workdays", eligibility: "female", attachmentOver: 0, confidential: true, basis: "RA 9262 (up to 10 days; details confidential)", active: true },
-  { id: "slw", name: "Special leave for women", code: "SLW", daysPerYear: 60, earning: { kind: "per-event" }, paid: true, carryOverMax: 0, countBy: "workdays", eligibility: "female", attachmentOver: 0, confidential: false, basis: "RA 9710 (up to 2 months after gynecological surgery)", active: true },
-  { id: "lwop", name: "Leave without pay", code: "LWOP", daysPerYear: 0, earning: { kind: "unlimited" }, paid: false, carryOverMax: 0, countBy: "workdays", eligibility: "everyone", attachmentOver: null, confidential: false, basis: "Company policy", active: true },
-];
-
-// ---- Dates ----
-
-export function isoToday() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-export function addDays(date: string, n: number) {
-  const d = new Date(`${date}T12:00:00`);
-  d.setDate(d.getDate() + n);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-const weekday = (date: string) => new Date(`${date}T12:00:00`).getDay();
-// Leave days are counted for the whole company, so only holidays every office has are skipped.
-const isHoliday = (date: string) => HOLIDAYS.some((h) => h.date === date && !h.offices?.length);
-/** A working day per Settings > Organization (Monday–Friday unless changed). */
-const isWorkday = (date: string) => (admin.settings.workWeek ?? [1, 2, 3, 4, 5]).includes(weekday(date));
-
-/** Days a request covers: working days (the company's work week, not holidays) or every calendar day. */
-export function countDays(start: string, end: string, countBy: LeaveType["countBy"], halfDay?: "am" | "pm") {
-  if (!start || !end || end < start) return 0;
-  if (halfDay && start === end) return countBy === "calendar" || (isWorkday(start) && !isHoliday(start)) ? 0.5 : 0;
-  let n = 0;
-  for (let d = start; d <= end; d = addDays(d, 1)) {
-    if (countBy === "calendar" || (isWorkday(d) && !isHoliday(d))) n++;
-  }
-  return n;
-}
 
 // ---- Seed ----
 
@@ -144,6 +88,8 @@ function notInFuture(s: LeaveState): LeaveState {
 }
 
 function load(): LeaveState {
+  // With the API server, the records come from the database (see refreshLeave).
+  if (serverMode) return { types: [], requests: [], adjustments: [], carryOver: {} };
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -160,6 +106,7 @@ export let leave: LeaveState = load();
 
 export function saveLeave(next: LeaveState) {
   leave = next;
+  if (serverMode) return;
   try {
     localStorage.setItem(KEY, JSON.stringify(leave));
   } catch {
@@ -169,93 +116,15 @@ export function saveLeave(next: LeaveState) {
 
 // ---- Balances ----
 
-/** Months credited so far this year: 1.25 days land on the 1st of each month, from the month after hire. */
-function monthsEarned(hireDate: string, today: string) {
-  const year = Number(today.slice(0, 4));
-  const thisMonth = Number(today.slice(5, 7));
-  const hiredYear = Number(hireDate.slice(0, 4));
-  const firstMonth = hiredYear < year ? 1 : hiredYear === year ? Number(hireDate.slice(5, 7)) + 1 : 13;
-  return Math.max(0, thisMonth - firstMonth + 1);
+const personFacts = (employeeId: string) => core.employees.find((x) => x.id === employeeId);
+
+export function balanceFor(employeeId: string, type: LeaveType, today?: string): Balance {
+  return balanceOf(leave, employeeId, personFacts(employeeId), type, today);
 }
 
-function eligibility(employeeId: string, type: LeaveType): { eligible: boolean; note?: string } {
-  const e = core.employees.find((x) => x.id === employeeId);
-  if (!e) return { eligible: false, note: "Employee not found" };
-  const sex = e.personal.sex;
-  const months = (Date.now() - new Date(`${e.job.dateHired}T00:00:00`).getTime()) / (30.44 * 86_400_000);
-  switch (type.eligibility) {
-    case "female":
-      return sex === "Male" ? { eligible: false, note: "For female employees" } : { eligible: true, note: sex ? undefined : "Sex not recorded in the 201 file" };
-    case "male-married":
-      if (sex === "Female") return { eligible: false, note: "For married male employees" };
-      return e.personal.civilStatus && e.personal.civilStatus !== "Married" ? { eligible: false, note: "For married male employees" } : { eligible: true, note: sex && e.personal.civilStatus ? undefined : "Check sex and civil status in the 201 file" };
-    case "solo-parent":
-      return months < 6 ? { eligible: false, note: "After 6 months of service" } : { eligible: true, note: "Needs a valid Solo Parent ID" };
-    case "after-1-year":
-      return months < 12 ? { eligible: false, note: "After 1 year of service" } : { eligible: true };
-    case "after-6-months":
-      return months < 6 ? { eligible: false, note: "After 6 months of service" } : { eligible: true };
-    default:
-      return { eligible: true };
-  }
-}
-
-export function balanceFor(employeeId: string, type: LeaveType, today = isoToday()): Balance {
-  const year = today.slice(0, 4);
-  const e = core.employees.find((x) => x.id === employeeId);
-  const mine = leave.requests.filter((r) => r.employeeId === employeeId && r.typeId === type.id && r.start.slice(0, 4) === year);
-  const used = mine.filter((r) => r.status === "approved").reduce((n, r) => n + r.days, 0);
-  const pending = mine.filter((r) => r.status === "pending").reduce((n, r) => n + r.days, 0);
-  const adjusted = leave.adjustments.filter((a) => a.employeeId === employeeId && a.typeId === type.id && a.at.slice(0, 4) === year).reduce((n, a) => n + a.days, 0);
-  const carriedOver = type.carryOverMax ? Math.min(type.carryOverMax, leave.carryOver[`${employeeId}|${type.id}`] ?? 0) : 0;
-  const elig = eligibility(employeeId, type);
-  const unlimited = type.earning.kind === "unlimited";
-  const earned =
-    type.earning.kind === "monthly" ? Math.min(type.daysPerYear, monthsEarned(e?.job.dateHired ?? `${year}-01-01`, today) * type.earning.perMonth) : unlimited ? 0 : type.daysPerYear;
-  const remaining = unlimited ? Infinity : Math.max(0, earned + carriedOver + adjusted - used);
-  return {
-    typeId: type.id,
-    earned,
-    yearTotal: type.daysPerYear,
-    carriedOver,
-    adjusted,
-    used,
-    pending,
-    remaining,
-    available: unlimited ? Infinity : Math.max(0, remaining - pending),
-    unlimited,
-    eligible: elig.eligible,
-    eligibilityNote: elig.note,
-  };
-}
-
-/** Every employee can file this many leaves a year, any paid type. Each leave uses 1, however many days it covers. */
-export const LEAVE_CREDITS_PER_YEAR = 6;
-
-/** Adjustments with this type id change the yearly pool, not a leave type. */
-export const CREDITS_ADJUSTMENT = "credits";
-
-export interface Credits {
-  /** The 6 everyone gets, plus HR's changes. */
-  total: number;
-  /** Added (+) or removed (−) by HR this year. */
-  adjusted: number;
-  used: number;
-  pending: number;
-  /** total − used − pending: what can still be filed. */
-  available: number;
-}
-
-/** The yearly credit pool. Leave without pay doesn't use credits. */
-export function creditsFor(employeeId: string, today = isoToday()): Credits {
-  const year = today.slice(0, 4);
-  const paid = new Set(leave.types.filter((t) => t.earning.kind !== "unlimited").map((t) => t.id));
-  const mine = leave.requests.filter((r) => r.employeeId === employeeId && paid.has(r.typeId) && r.start.slice(0, 4) === year);
-  const used = mine.filter((r) => r.status === "approved").length;
-  const pending = mine.filter((r) => r.status === "pending").length;
-  const adjusted = leave.adjustments.filter((a) => a.employeeId === employeeId && a.typeId === CREDITS_ADJUSTMENT && a.at.slice(0, 4) === year).reduce((n, a) => n + a.days, 0);
-  const total = Math.max(0, LEAVE_CREDITS_PER_YEAR + adjusted);
-  return { total, adjusted, used, pending, available: Math.max(0, total - used - pending) };
+/** The VL/SL days for the leave year (sheet SIL). Leave without pay doesn't use them. */
+export function creditsFor(employeeId: string, today?: string) {
+  return creditsOf(leave, employeeId, today, personFacts(employeeId)?.job.dateHired);
 }
 
 /** Approved leave spans, for Timekeeping. */
@@ -264,3 +133,47 @@ export function approvedLeaveSpans() {
     .filter((r) => r.status === "approved")
     .map((r) => ({ employeeId: r.employeeId, type: leave.types.find((t) => t.id === r.typeId)?.name ?? "Leave", from: r.start, to: r.end }));
 }
+
+// ---- With the API server ----
+
+let loading: Promise<void> | null = null;
+let loadedAt = 0;
+
+/** Loads leave from the API server. Reads within a moment of the last load reuse it. */
+export function refreshLeave(maxAgeMs = 0): Promise<void> {
+  if (!serverMode) return Promise.resolve();
+  if (loading) return loading;
+  if (maxAgeMs && Date.now() - loadedAt < maxAgeMs) return Promise.resolve();
+  loading = api<LeaveState>("GET", "/leave/state")
+    .then((next) => {
+      leave = next;
+      loadedAt = Date.now();
+    })
+    .finally(() => (loading = null));
+  return loading;
+}
+
+export function clearLeave() {
+  if (!serverMode) return;
+  loadedAt = 0;
+  leave = load();
+}
+
+// ---- Company settings that change how leave counts ----
+
+/** Settings > Organization: the working days (Monday–Friday unless changed). */
+// A function, so the sample leave (built while this module loads) can already use it.
+function workWeek() {
+  return admin.settings.workWeek ?? [1, 2, 3, 4, 5];
+}
+
+/** Settings > Time off & leave. */
+export const leavePolicy = (): LeavePolicy => policyOf(leave);
+
+/** Days a request covers: working days (the company's work week, not holidays) or every calendar day. */
+export function countDays(start: string, end: string, countBy: LeaveType["countBy"], halfDay?: "am" | "pm") {
+  return countDaysIn(start, end, countBy, halfDay, workWeek());
+}
+
+/** The leave data plus the settings the rules read, for the shared rules in ./rules. */
+export const leaveData = (): LeaveData => ({ ...leave, workWeek: workWeek() });
