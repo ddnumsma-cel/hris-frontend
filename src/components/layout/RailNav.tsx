@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { NavLink, useLocation } from "react-router-dom";
 import clsx from "clsx";
-import { PinIcon, SidebarExpandIcon, SlidersIcon } from "@/components/icons";
+import { ChevronRightIcon, PinIcon, SidebarExpandIcon, SlidersIcon } from "@/components/icons";
 import { CreateMenu } from "./CreateMenu";
 import { CustomizeNavDialog } from "./CustomizeNavDialog";
 import { isHome, isItemActive, toSections, type NavSection } from "./navItems";
@@ -39,6 +39,8 @@ export function RailNav({
   const current = sections.find((s) => sectionActive(s, pathname));
   const [open, setOpen] = useState<{ key: string; top: number } | null>(null);
   const closeTimer = useRef(0);
+  // Pages with sub-pages folded open in the drawer (by their address).
+  const [unfolded, setUnfolded] = useState<Set<string>>(new Set());
 
   // Following a link closes the panel.
   const [seen, setSeen] = useState(pathname);
@@ -49,15 +51,17 @@ export function RailNav({
   useEffect(() => () => window.clearTimeout(closeTimer.current), []);
 
   // The drawer opens beside the hovered module: its 48px title band lines up with the module's
-  // row (the icon's centre sits 24px down, as does the band's), moved up only to stay on screen.
+  // row (the icon's centre sits 24px down, as does the band's), moved up only to stay on screen, 24px clear of the window's bottom edge.
   const show = (s: NavSection, el: HTMLElement) => {
     window.clearTimeout(closeTimer.current);
     const r = el.getBoundingClientRect();
     // 48px title band + 8px padding above and below + 40px rows 4px apart (+2px border).
-    // A page with sub-pages adds its 28px heading (12px more above it after the first) and its sub-pages as rows.
-    const height = 62 + s.pages.reduce((n, p, i) => n + (p.children ? (i ? 44 : 32) + p.children.length * 44 : 44), 0);
+    // A page with sub-pages is one row, plus its sub-pages when it starts unfolded (one of them is the current page).
+    const unfold = s.pages.filter((p) => p.children?.some((c) => isItemActive(c, pathname)));
+    const height = 62 + s.pages.reduce((n, p) => n + 44 + (unfold.includes(p) ? p.children!.length * 44 : 0), 0);
     // -1 for the drawer's top border, so the band's centre meets the icon's exactly.
-    setOpen({ key: s.key, top: Math.max(8, Math.min(r.top - 1, window.innerHeight - height - 8)) });
+    if (open?.key !== s.key) setUnfolded(new Set(unfold.map((p) => p.to)));
+    setOpen({ key: s.key, top: Math.max(16, Math.min(r.top - 1, window.innerHeight - height - 24)) });
   };
 
   // A short delay lets the pointer travel from the icon to the panel.
@@ -171,7 +175,7 @@ export function RailNav({
             onFocus={keep}
             onBlur={hide}
             onKeyDown={(e) => e.key === "Escape" && setOpen(null)}
-            className="sidebar glass-surface fixed left-[var(--sidenav-w)] z-50 flex max-h-[calc(100dvh-1rem)] w-max max-w-80 min-w-60 flex-col overflow-y-auto rounded-r-[var(--radius-dropdown)] !border-l-0 !bg-transparent !shadow-[var(--shadow-drawer)] !backdrop-filter-none"
+            className="sidebar glass-surface fixed left-[var(--sidenav-w)] z-50 flex max-h-[calc(100dvh-40px)] w-max max-w-80 min-w-72 flex-col overflow-y-auto rounded-r-[var(--radius-dropdown)] !border-l-0 !bg-transparent !shadow-[var(--shadow-drawer)] !backdrop-filter-none"
             style={{ top: open!.top }}
           >
             {/* Drawer attached to the rail beside the hovered module, as tall as its pages. */}
@@ -182,16 +186,27 @@ export function RailNav({
               </span>
             </div>
             <div className="flex flex-col gap-1 p-2">
-              {openSection.pages.map((p, i) =>
+              {openSection.pages.map((p) =>
                 p.children ? (
-                  // A page with sub-pages (e.g. Reports › Presence) lists them under its name, so each report is one click away.
-                  <div key={p.to} role="group" aria-label={p.label} className={`flex flex-col gap-1 ${i ? "mt-3" : ""}`}>
-                    <span className="flex h-7 items-end px-3 pb-1 text-[11px] font-semibold tracking-[0.1em] text-[var(--nav-label)] uppercase">{p.label}</span>
-                    {p.children.map((c) => (
-                      <NavLink key={c.to} to={c.to} end={c.end} role="menuitem" className="sidebar-item min-h-10 text-[13.5px]">
-                        <span className="truncate">{c.label}</span>
-                      </NavLink>
-                    ))}
+                  // A page with sub-pages (e.g. Leave, Reports › Presence) is a row like the others with a › that folds its
+                  // sub-pages open underneath, as in the full sidebar; it starts open while one of them is the current page.
+                  <div key={p.to} role="group" aria-label={p.label} className="flex flex-col gap-1">
+                    <button
+                      type="button"
+                      aria-expanded={unfolded.has(p.to)}
+                      onClick={() => setUnfolded((u) => (u.has(p.to) ? new Set([...u].filter((x) => x !== p.to)) : new Set(u).add(p.to)))}
+                      data-child-active={p.children.some((c) => isItemActive(c, pathname))}
+                      className="sidebar-item min-h-10 text-[13.5px]"
+                    >
+                      <span className="flex-1 truncate text-left">{p.label}</span>
+                      <ChevronRightIcon className={clsx("h-3.5 w-3.5 flex-none text-[var(--sb-muted)] transition-transform", unfolded.has(p.to) && "rotate-90")} />
+                    </button>
+                    {unfolded.has(p.to) &&
+                      p.children.map((c) => (
+                        <NavLink key={c.to} to={c.to} end={c.end} role="menuitem" className="sidebar-item min-h-10 !pl-7 text-[13.5px]">
+                          <span className="truncate">{c.label}</span>
+                        </NavLink>
+                      ))}
                   </div>
                 ) : (
                   <NavLink key={p.to} to={p.to} end={p.end} role="menuitem" className="sidebar-item min-h-10 text-[13.5px]">
