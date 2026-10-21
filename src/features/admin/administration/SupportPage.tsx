@@ -28,12 +28,12 @@ import {
 import { inputClass } from "../corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
 
-const KEY = ["support", "tickets"] as const;
-const panel = "rounded-[var(--radius-card)] border border-[var(--card-border)] bg-surface";
-const statusTone: Record<TicketStatus, "warn" | "info" | "neutral" | "good" | "crit"> = { open: "warn", in_progress: "info", waiting: "crit", resolved: "good", closed: "neutral" };
+export const KEY = ["support", "tickets"] as const;
+export const panel = "rounded-[var(--radius-card)] border border-[var(--card-border)] bg-surface";
+export const statusTone: Record<TicketStatus, "warn" | "info" | "neutral" | "good" | "crit"> = { open: "warn", in_progress: "info", waiting: "crit", resolved: "good", closed: "neutral" };
 const priorityTone: Record<TicketPriority, "neutral" | "info" | "warn" | "crit"> = { low: "neutral", normal: "info", high: "warn", urgent: "crit" };
 const nice = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const when = (iso: string) => `${fmtDay(iso.slice(0, 10))} · ${fmtTime(iso)}`;
+export const when = (iso: string) => `${fmtDay(iso.slice(0, 10))} · ${fmtTime(iso)}`;
 
 function NewTicketDialog({ onClose, onFiled }: { onClose: () => void; onFiled: (t: Ticket) => void }) {
   const [form, setForm] = useState({ subject: "", category: "Bug or error" as TicketCategory, priority: "normal" as TicketPriority, text: "" });
@@ -49,7 +49,7 @@ function NewTicketDialog({ onClose, onFiled }: { onClose: () => void; onFiled: (
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={file.isPending} onClick={() => file.mutate()}>
+          <Button loading={file.isPending} succeeded={file.isSuccess} disabled={file.isPending} onClick={() => file.mutate()}>
             {file.isPending ? "Sending…" : "Send to support"}
           </Button>
         </div>
@@ -126,7 +126,7 @@ function TicketDetail({ t, support }: { t: Ticket; support: boolean }) {
           <div className="flex items-center gap-2">
             <Pill tone={statusTone[t.status]}>{STATUS_LABEL[t.status]}</Pill>
             {t.status !== "closed" && (
-              <Button size="sm" variant="ghost" disabled={close.isPending} onClick={() => close.mutate()}>
+              <Button loading={close.isPending} succeeded={close.isSuccess} size="sm" variant="ghost" disabled={close.isPending} onClick={() => close.mutate()}>
                 Close ticket
               </Button>
             )}
@@ -151,11 +151,11 @@ function TicketDetail({ t, support }: { t: Ticket; support: boolean }) {
           <textarea id="t-reply" rows={3} className={inputClass} value={reply} onChange={(e) => setReply(e.target.value)} />
           <div className="flex justify-end gap-2">
             {support && (
-              <Button variant="ghost" disabled={!reply.trim() || send.isPending} onClick={() => send.mutate(undefined, { onSuccess: () => change.mutate({ status: "waiting" }) })}>
+              <Button loading={send.isPending} succeeded={send.isSuccess} variant="ghost" disabled={!reply.trim() || send.isPending} onClick={() => send.mutate(undefined, { onSuccess: () => change.mutate({ status: "waiting" }) })}>
                 Reply and wait for client
               </Button>
             )}
-            <Button disabled={!reply.trim() || send.isPending} onClick={() => send.mutate()}>
+            <Button loading={send.isPending} succeeded={send.isSuccess} disabled={!reply.trim() || send.isPending} onClick={() => send.mutate()}>
               Send reply
             </Button>
           </div>

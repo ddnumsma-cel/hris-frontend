@@ -162,7 +162,7 @@ function NewRatesDialog({ agency, base, onClose }: { agency: Agency; base: RateV
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={save.isPending} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} succeeded={save.isSuccess} disabled={save.isPending} onClick={() => save.mutate()}>
             Save rates
           </Button>
         </div>
@@ -340,7 +340,7 @@ export function ContributionsPage() {
               align: "right",
               cell: (v) =>
                 canEdit && statusOf(all, v) === "upcoming" ? (
-                  <Button size="sm" variant="remove" disabled={remove.isPending} onClick={() => remove.mutate(v)}>
+                  <Button loading={remove.isPending} succeeded={remove.isSuccess} size="sm" variant="remove" disabled={remove.isPending} onClick={() => remove.mutate(v)}>
                     Remove
                   </Button>
                 ) : null,

@@ -75,7 +75,7 @@ function NotifyDialog({ onClose }: { onClose: () => void }) {
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button icon={<BellIcon className="h-4 w-4" />} disabled={!chosen.size || send.isPending} onClick={() => send.mutate()}>
+            <Button loading={send.isPending} succeeded={send.isSuccess} icon={<BellIcon className="h-4 w-4" />} disabled={!chosen.size || send.isPending} onClick={() => send.mutate()}>
               {send.isPending ? "Sending…" : `Send to ${chosen.size}`}
             </Button>
           </span>

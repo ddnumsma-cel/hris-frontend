@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Switch } from "@/components/ui/Switch";
 import { useAuth } from "@/features/auth/AuthContext";
-import { useSettingsAreas } from "@/features/settings/SettingsLayout";
+import { useSettingsAreas } from "@/features/settings/settingsAreas";
 import { useMySettings, useSaveSettings } from "@/features/settings/useSettings";
 import { fetchMyAvatar, fetchMyProfile } from "@/lib/settings/api";
 import { settingsKeyFor, type ThemePreference } from "@/lib/settings/store";

@@ -15,6 +15,7 @@ import { OfficeFilterProvider } from "@/features/admin/OfficeFilterContext";
 import { FirstLoginTour } from "@/components/shared/FirstLoginTour";
 import { applyAccountPrefs, applyAppearance, resetPreferences, usePreferencesVersion } from "@/lib/preferences";
 import { settingsFor, settingsKeyFor } from "@/lib/settings/store";
+import { useLogoPreloader } from "@/features/auth/LogoPreloader";
 
 const AssistantWidget = lazy(() =>
   import("@/features/assistant/AssistantWidget").then((m) => ({ default: m.AssistantWidget })),
@@ -101,6 +102,7 @@ const EmployeeReimbursements = lazy(() =>
   import("@/features/employee/EmployeeReimbursements").then((m) => ({ default: m.EmployeeReimbursements })),
 );
 const EmployeeTimeRequests = lazy(() => import("@/features/employee/EmployeeTimeRequests").then((m) => ({ default: m.EmployeeTimeRequests })));
+const EmployeeSupportPage = lazy(() => import("@/features/employee/EmployeeSupportPage").then((m) => ({ default: m.EmployeeSupportPage })));
 const EmployeeRequests = lazy(() => import("@/features/employee/EmployeeRequests").then((m) => ({ default: m.EmployeeRequests })));
 const EmployeePolicies = lazy(() => import("@/features/employee/EmployeePolicies").then((m) => ({ default: m.EmployeePolicies })));
 const EmployeeTrainings = lazy(() =>
@@ -184,6 +186,8 @@ function App() {
   // Apply the signed-in person's saved preferences before paint (no flash); defaults when signed out.
   // The theme isn't touched: it belongs to this device (moon toggle).
   const prefsKey = user ? settingsKeyFor(user) : null;
+  // The MSMA logo draws itself on every full page load, then gets out of the way.
+  const preloader = useLogoPreloader();
   useLayoutEffect(() => {
     if (!prefsKey) return resetPreferences();
     const saved = settingsFor(prefsKey);
@@ -193,7 +197,8 @@ function App() {
 
   return (
     <OfficeFilterProvider>
-      <div className="min-h-screen text-ink" data-role={user?.role}>
+      {preloader.overlay}
+      <div className="min-h-screen text-ink" data-role={user?.role} aria-busy={preloader.busy || undefined}>
         <div className="app-background" aria-hidden="true" />
         <ScrollToTop />
         <DocumentTitle />
@@ -224,6 +229,7 @@ function App() {
               <Route path="policies" element={<EmployeePolicies />} />
               <Route path="reimbursements" element={<EmployeeReimbursements />} />
               <Route path="requests" element={<EmployeeRequests />} />
+              <Route path="support" element={<EmployeeSupportPage />} />
               <Route path="overtime" element={<EmployeeTimeRequests key="overtime" kind="overtime" />} />
               <Route path="undertime" element={<EmployeeTimeRequests key="undertime" kind="undertime" />} />
               {settingsRoutes()}

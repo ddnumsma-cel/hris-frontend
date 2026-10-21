@@ -17,6 +17,8 @@ import type { FixCause, FixRequest, TimeRequest } from "../timekeeping/types";
 import { updateEmployeeSection } from "../corehr/api";
 import type { CoreEmployee } from "../corehr/types";
 import type { Balance, LeaveRequest, LeaveType } from "../leave/types";
+import { backendOn } from "../backend/client";
+import { backendFileFix, backendFileLeave, backendFileTimeRequest, backendMyAttendance, backendMyLeave } from "../backend/requests";
 
 const DELAY = 200;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -39,6 +41,7 @@ export interface MyLeave {
 }
 
 export function myLeave(): Promise<MyLeave> {
+  if (backendOn()) return backendMyLeave();
   const types = leave.types.filter((t) => t.active);
   const balances = types.map((t) => ({ ...balanceFor(myId(), t), type: t })).filter((b) => b.eligible || b.used > 0 || b.pending > 0);
   const requests = leave.requests
@@ -51,7 +54,7 @@ export function myLeave(): Promise<MyLeave> {
   return respond({ types, credits: creditsFor(myId()), balances, requests });
 }
 
-export const fileMyLeave = (input: Omit<FileInput, "employeeId">) => fileLeave({ ...input, employeeId: myId() }, myName());
+export const fileMyLeave = (input: Omit<FileInput, "employeeId">) => (backendOn() ? backendFileLeave(input) : fileLeave({ ...input, employeeId: myId() }, myName()));
 export const withdrawMyLeave = (id: string) => cancelRequest(id, "Withdrawn by the employee", myName());
 
 // ---- Attendance ----
@@ -63,6 +66,7 @@ export interface MyAttendance {
 }
 
 export async function myAttendance(): Promise<MyAttendance> {
+  if (backendOn()) return backendMyAttendance();
   const today = todayIso();
   const days = (await listDays(addDays(today, -13), today)).filter((d) => d.person.id === myId()).sort((a, b) => b.date.localeCompare(a.date));
   return respond({
@@ -72,9 +76,9 @@ export async function myAttendance(): Promise<MyAttendance> {
   });
 }
 
-export const fileMyTimeRequest = (input: { date: string; type: TimeRequest["type"]; minutes: number; reason: string }) => fileRequest({ ...input, employeeId: myId() }, myName());
+export const fileMyTimeRequest = (input: { date: string; type: TimeRequest["type"]; minutes: number; reason: string }) => (backendOn() ? backendFileTimeRequest(input) : fileRequest({ ...input, employeeId: myId() }, myName()));
 
-export const fileMyFix = (input: { workDate: string; kind: "in" | "out"; time: string; nextDay?: boolean; cause: FixCause; reason: string }) => fileFix({ ...input, employeeId: myId() }, myName());
+export const fileMyFix = (input: { workDate: string; kind: "in" | "out"; time: string; nextDay?: boolean; cause: FixCause; reason: string }) => (backendOn() ? backendFileFix(input) : fileFix({ ...input, employeeId: myId() }, myName()));
 
 /** Memos HR sent me about lateness or AWOL, newest first. */
 export const myNotices = () => listNotices(myId());

@@ -1,10 +1,13 @@
-// Support tickets: a client's people (Super Admin, HR, Accounting) report a problem or ask for
-// help, and our System Admins answer, set priority and close them. Kept in this browser like the
+// Support tickets: a client's people (Super Admin, HR, Accounting, and employees for problems on
+// their own side) report a problem or ask for help, and our System Admins answer, set priority and
+// close them. An employee's ticket goes straight to us: only they and System Admins see it. Kept in this browser like the
 // other mock stores. TODO(backend): tickets live with us (the vendor), not in the client's data.
 
 import { admin, roleOf } from "../admin/store";
 import { deny } from "../session";
 import { sessionWho } from "../session";
+import { LIMITS, scopeFor } from "../permissions";
+import { tellEmployees, tellRoles } from "../requestNotices";
 
 export type TicketStatus = "open" | "in_progress" | "waiting" | "resolved" | "closed";
 export type TicketPriority = "low" | "normal" | "high" | "urgent";
@@ -33,6 +36,10 @@ export interface Ticket {
   status: TicketStatus;
   filedBy: string;
   filedById: string;
+  /** The filer's employee record, so replies reach them. */
+  filedByEmployeeId?: string;
+  /** The workspace it was filed from; tickets from the HR workspace are shared there, others are private. Missing = "admin". */
+  workspace?: "admin" | "manager" | "employee";
   /** The page they were on, to help reproduce it. */
   page?: string;
   assignee?: string;
@@ -116,14 +123,20 @@ function me() {
     // No session.
   }
   const a = admin.accounts.find((x) => x.id === id);
-  return { id, name: a?.name ?? "Someone", support: sessionWho().role === "system_admin", roleName: roleOf(a)?.name ?? "" };
+  const { role, employeeId } = sessionWho();
+  return { id, employeeId, name: a?.name ?? "Someone", support: scopeFor(sessionWho(), "view", "support") === "all", workspace: role ? LIMITS.workspace[role] : ("employee" as const), roleName: roleOf(a)?.name ?? "" };
 }
 
-/** Support sees every ticket; clients see the tickets their company filed. */
+/** Support sees every ticket; the HR workspace shares the tickets filed there; anyone else sees only their own. */
+function mayOpen(t: Ticket, who: ReturnType<typeof me>) {
+  return who.support || t.filedById === who.id || (who.workspace === "admin" && (t.workspace ?? "admin") === "admin");
+}
+
 export function listTickets(): Promise<Ticket[]> {
   const denied = deny("support", "view");
   if (denied) return denied;
-  return respond([...tickets].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
+  const who = me();
+  return respond(tickets.filter((t) => mayOpen(t, who)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
 }
 
 export function fileTicket(input: { subject: string; category: TicketCategory; priority: TicketPriority; text: string; page?: string }): Promise<Ticket> {
@@ -144,27 +157,32 @@ export function fileTicket(input: { subject: string; category: TicketCategory; p
     status: "open",
     filedBy: who.name,
     filedById: who.id,
+    filedByEmployeeId: who.employeeId,
+    workspace: who.workspace,
     page: input.page,
     createdAt: now,
     updatedAt: now,
     messages: [{ id: "m1", by: who.name, side: who.support ? "support" : "client", text, at: now }],
   };
   save([t, ...tickets]);
+  tellRoles(["system_admin"], "support", "request", `New support ticket #${t.number}: ${t.subject}`, `${who.name} · ${t.category} · ${t.priority} priority.`);
   return respond(t);
 }
 
 export function replyTicket(id: string, text: string): Promise<Ticket> {
   const denied = deny("support", "create");
   if (denied) return denied;
-  const t = tickets.find((x) => x.id === id);
+  const who = me();
+  const t = tickets.find((x) => x.id === id && mayOpen(x, who));
   if (!t) return fail("That ticket is gone.");
   if (!text.trim()) return fail("Write a reply first.");
-  const who = me();
   const now = new Date().toISOString();
   // A client's reply reopens a ticket waiting on them or marked resolved; support's reply waits on the client.
   const status: TicketStatus = who.support ? (t.status === "open" ? "in_progress" : t.status) : t.status === "waiting" || t.status === "resolved" ? "open" : t.status;
   const next = { ...t, status, updatedAt: now, messages: [...t.messages, { id: `m${t.messages.length + 1}`, by: who.support ? "Support team" : who.name, side: who.support ? ("support" as const) : ("client" as const), text: text.trim(), at: now }] };
   save(tickets.map((x) => (x.id === id ? next : x)));
+  if (who.support) tellEmployees([t.filedByEmployeeId], "support", "update", `Support replied to ticket #${t.number}`, text.trim().slice(0, 140));
+  else tellRoles(["system_admin"], "support", "update", `${who.name} replied on ticket #${t.number}`, text.trim().slice(0, 140));
   return respond(next);
 }
 
@@ -176,6 +194,7 @@ export function updateTicket(id: string, patch: Partial<Pick<Ticket, "status" | 
   if (!t) return fail("That ticket is gone.");
   const next = { ...t, ...patch, updatedAt: new Date().toISOString() };
   save(tickets.map((x) => (x.id === id ? next : x)));
+  if (patch.status && patch.status !== t.status) tellEmployees([t.filedByEmployeeId], "support", "update", `Ticket #${t.number} is now ${STATUS_LABEL[patch.status]}`, t.subject);
   return respond(next);
 }
 
@@ -183,7 +202,7 @@ export function updateTicket(id: string, patch: Partial<Pick<Ticket, "status" | 
 export function closeTicket(id: string): Promise<Ticket> {
   const denied = deny("support", "create");
   if (denied) return denied;
-  const t = tickets.find((x) => x.id === id);
+  const t = tickets.find((x) => x.id === id && mayOpen(x, me()));
   if (!t) return fail("That ticket is gone.");
   const next = { ...t, status: "closed" as const, updatedAt: new Date().toISOString() };
   save(tickets.map((x) => (x.id === id ? next : x)));

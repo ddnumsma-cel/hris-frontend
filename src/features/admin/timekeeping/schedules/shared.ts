@@ -39,6 +39,4 @@ export function useWeek() {
   return { week, setWeek, query, setQuery, department, setDepartment, departments, rows, all, days: Array.from({ length: 7 }, (_, i) => addDays(week, i)), query_: rosterQuery };
 }
 
-export const cellText = (c: RosterCell) => (c.kind === "work" ? c.label : c.kind === "rest" ? "Rest day" : c.kind === "leave" ? "On leave" : c.kind === "holiday" ? "Holiday" : "No shift");
-
 export type Editing = { row: RosterRow; cell: RosterCell } | null;

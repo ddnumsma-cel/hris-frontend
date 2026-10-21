@@ -56,7 +56,7 @@ function DeclineDialog({ r, name, onClose }: { r: TimeRequest; name: string; onC
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="danger" onClick={() => decline.mutate()} disabled={decline.isPending}>
+          <Button loading={decline.isPending} succeeded={decline.isSuccess} variant="danger" onClick={() => decline.mutate()} disabled={decline.isPending}>
             Decline
           </Button>
         </div>
@@ -95,7 +95,7 @@ function FileDialog({ day, kind, onClose }: { day: DayRow; kind: Kind; onClose: 
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => file.mutate()} disabled={file.isPending}>
+          <Button loading={file.isPending} succeeded={file.isSuccess} onClick={() => file.mutate()} disabled={file.isPending}>
             File request
           </Button>
         </div>
@@ -145,9 +145,12 @@ export function RequestsPage({ kind }: { kind: Kind }) {
   });
 
   const dayMap = useMemo(() => new Map((daysQuery.data ?? []).map((d) => [`${d.person.id}|${d.date}`, d])), [daysQuery.data]);
+  // From the HR server a request carries its filer instead (it has no team attendance): a day with no punches.
+  const dayOf = (r: TimeRequest): DayRow | undefined =>
+    dayMap.get(`${r.employeeId}|${r.date}`) ?? (r.person ? ({ person: r.person, employeeId: r.employeeId, date: r.date, kind: "work", extraMinutes: r.type === "overtime" ? r.minutes : 0, undertimeMinutes: r.type === "undertime" ? r.minutes : 0 } as DayRow) : undefined);
   const q = query.trim().toLowerCase();
   const keep = (d?: DayRow) => !!d && (office === "All offices" || d.person.branch === office) && (!q || d.person.name.toLowerCase().includes(q));
-  const requests = (requestsQuery.data ?? []).filter((r) => r.type === kind && keep(dayMap.get(`${r.employeeId}|${r.date}`)));
+  const requests = (requestsQuery.data ?? []).filter((r) => r.type === kind && keep(dayOf(r)));
   const filed = new Set((requestsQuery.data ?? []).filter((r) => r.type === kind && r.status !== "declined").map((r) => `${r.employeeId}|${r.date}`));
   const unfiled = (daysQuery.data ?? []).filter((d) => d.date >= addDays(today, -13) && keep(d) && !filed.has(`${d.person.id}|${d.date}`) && (kind === "overtime" ? d.extraMinutes >= 30 : d.undertimeMinutes > 0));
   const loading = requestsQuery.isLoading || daysQuery.isLoading;
@@ -156,14 +159,14 @@ export function RequestsPage({ kind }: { kind: Kind }) {
   if (requestsQuery.isError || daysQuery.isError) return <LoadError onRetry={() => (requestsQuery.refetch(), daysQuery.refetch())} />;
 
   const measure = (d: DayRow) => duration(kind === "overtime" ? d.extraMinutes : d.undertimeMinutes);
-  const shiftCell = (d: DayRow) => (d.shift && d.kind === "work" ? `${hhmm(d.shift.start)} – ${hhmm(d.shift.end)}` : "Day off");
+  const shiftCell = (d: DayRow) => (d.shift && d.kind === "work" ? `${hhmm(d.shift.start)} – ${hhmm(d.shift.end)}` : d.kind === "work" ? "—" : "Day off");
 
   const requestCols: Col<TimeRequest>[] = [
-    { header: "Employee", cell: (r) => <Name name={dayMap.get(`${r.employeeId}|${r.date}`)!.person.name} sub={dayMap.get(`${r.employeeId}|${r.date}`)!.person.departmentName} /> },
+    { header: "Employee", cell: (r) => <Name name={dayOf(r)!.person.name} sub={dayOf(r)!.person.departmentName} /> },
     { header: "Date", cell: (r) => shortDate(r.date) },
-    { header: "Shift", cell: (r) => shiftCell(dayMap.get(`${r.employeeId}|${r.date}`)!) },
-    { header: kind === "overtime" ? "Time out" : "Left at", cell: (r) => { const d = dayMap.get(`${r.employeeId}|${r.date}`)!; return d.timeOut ? clock(d.timeOut.at) : "—"; } },
-    { header: copy.measure, cell: (r) => measure(dayMap.get(`${r.employeeId}|${r.date}`)!) },
+    { header: "Shift", cell: (r) => shiftCell(dayOf(r)!) },
+    { header: kind === "overtime" ? "Time out" : "Left at", cell: (r) => { const d = dayOf(r)!; return d.timeOut ? clock(d.timeOut.at) : "—"; } },
+    { header: copy.measure, cell: (r) => measure(dayOf(r)!) },
     { header: "Requested", cell: (r) => <span className="font-medium">{duration(r.minutes)}</span> },
     { header: "Reason", cell: (r) => <span className="inline-block max-w-44 truncate align-bottom text-ink-2" title={r.reason}>{r.reason}</span> },
     {
@@ -174,10 +177,10 @@ export function RequestsPage({ kind }: { kind: Kind }) {
           <Pill tone="warn">Waiting for approver</Pill>
         ) : r.status === "pending" ? (
           <span className="flex justify-end gap-1.5">
-            <Button size="sm" variant="ghost" onClick={() => setDeclining({ r, name: dayMap.get(`${r.employeeId}|${r.date}`)!.person.name })}>
+            <Button size="sm" variant="ghost" onClick={() => setDeclining({ r, name: dayOf(r)!.person.name })}>
               Decline
             </Button>
-            <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate(r)}>
+            <Button loading={approve.isPending} succeeded={approve.isSuccess} size="sm" disabled={approve.isPending} onClick={() => approve.mutate(r)}>
               Approve
             </Button>
           </span>

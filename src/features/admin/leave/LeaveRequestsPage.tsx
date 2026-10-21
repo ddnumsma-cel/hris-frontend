@@ -73,7 +73,7 @@ export function LeaveRequestsPage() {
             <Button size="sm" variant="ghost" onClick={() => setOpen({ r, reject: true })}>
               Reject
             </Button>
-            <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate(r)}>
+            <Button loading={approve.isPending} succeeded={approve.isSuccess} size="sm" disabled={approve.isPending} onClick={() => approve.mutate(r)}>
               Approve
             </Button>
           </span>

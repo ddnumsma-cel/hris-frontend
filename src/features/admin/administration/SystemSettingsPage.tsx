@@ -74,7 +74,7 @@ function Form({ initial }: { initial: Settings }) {
         <Button variant="ghost" disabled={!dirty} onClick={() => setS(initial)}>
           Undo changes
         </Button>
-        <Button disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
+        <Button loading={save.isPending} succeeded={save.isSuccess} disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
           Save settings
         </Button>
       </div>

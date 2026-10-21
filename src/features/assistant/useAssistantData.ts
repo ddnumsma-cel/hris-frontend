@@ -70,7 +70,7 @@ export function useAssistantData(): AssistantData {
     enabled: role === "manager",
   });
   const approvalsQuery = useQuery({
-    queryKey: ["approvals-queue"],
+    queryKey: ["assistant", "approvals-queue"],
     queryFn: fetchApprovalsQueue,
     enabled: role === "manager",
   });

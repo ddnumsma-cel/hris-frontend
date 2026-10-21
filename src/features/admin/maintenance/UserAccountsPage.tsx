@@ -79,14 +79,14 @@ export function UserAccountsPage() {
         r.demo || r.id === user?.accountId ? null : (
           <span className="flex justify-end gap-1.5">
             {r.locked && (
-              <Button size="sm" variant="ghost" disabled={doUnlock.isPending} onClick={() => doUnlock.mutate(r)}>
+              <Button loading={doUnlock.isPending} succeeded={doUnlock.isSuccess} size="sm" variant="ghost" disabled={doUnlock.isPending} onClick={() => doUnlock.mutate(r)}>
                 Unlock
               </Button>
             )}
-            <Button size="sm" variant="ghost" disabled={doReset.isPending} onClick={() => doReset.mutate(r)}>
+            <Button loading={doReset.isPending} succeeded={doReset.isSuccess} size="sm" variant="ghost" disabled={doReset.isPending} onClick={() => doReset.mutate(r)}>
               Reset password
             </Button>
-            <Button size="sm" variant="ghost" disabled={doStatus.isPending} onClick={() => doStatus.mutate(r)}>
+            <Button loading={doStatus.isPending} succeeded={doStatus.isSuccess} size="sm" variant="ghost" disabled={doStatus.isPending} onClick={() => doStatus.mutate(r)}>
               {r.status === "active" ? "Turn off" : "Turn on"}
             </Button>
           </span>

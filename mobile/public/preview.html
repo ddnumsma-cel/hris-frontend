@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mobile UI Preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      /* Live preview of the Mobile UI app (Expo web) in a phone frame. Colours: the website's tokens. */
+      :root {
+        --bg: #e9eff7;
+        --card: #ffffff;
+        --text: #1e293b;
+        --muted: #536279;
+        --line: rgba(30, 41, 59, 0.14);
+        --accent: #1d4ed8;
+        --frame: #1e293b;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1a212b;
+          --card: #232c38;
+          --text: #e9eef3;
+          --muted: #a0aab7;
+          --line: #333e4c;
+          --accent: #9cd3f7;
+          --frame: #0b0f14;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Lexend, "Segoe UI", system-ui, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        padding: 16px;
+      }
+      header { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+      h1 { font-size: 16px; font-weight: 600; margin: 0 8px 0 0; }
+      .tag { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 999px; background: rgba(90, 176, 240, 0.16); color: var(--accent); }
+      button, a.btn {
+        font: 500 13px Lexend, sans-serif; color: var(--text); background: var(--card); border: 1px solid var(--line);
+        border-radius: 9px; height: 36px; padding: 0 12px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center;
+      }
+      button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+      button:focus-visible, a.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+      .phone {
+        background: var(--frame); border-radius: 48px; padding: 12px; box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+        transition: width 150ms, height 150ms;
+      }
+      iframe { display: block; border: 0; border-radius: 36px; width: 100%; height: 100%; background: var(--bg); }
+      p { margin: 0; font-size: 12px; color: var(--muted); text-align: center; max-width: 520px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>MSMA HRIS</h1>
+      <span class="tag">Mobile UI · live</span>
+      <span role="group" aria-label="Phone size" id="sizes"></span>
+      <button type="button" id="reload">Reload</button>
+      <a class="btn" href="/" target="_blank" rel="noopener">Open full screen</a>
+    </header>
+    <div class="phone" id="phone"><iframe id="app" src="/" title="Mobile app"></iframe></div>
+    <p>This is the mobile app itself, running in the browser. It reloads by itself when the code changes. Phone-only features (fingerprint/face confirm) need Expo Go.</p>
+    <script>
+      const SIZES = [
+        { label: "iPhone 15", w: 393, h: 852 },
+        { label: "Pixel 8", w: 412, h: 915 },
+        { label: "Small", w: 360, h: 740 },
+      ];
+      const phone = document.getElementById("phone");
+      const sizes = document.getElementById("sizes");
+      function pick(s) {
+        phone.style.width = s.w + 24 + "px";
+        phone.style.height = Math.min(s.h, window.innerHeight - 140) + 24 + "px";
+        for (const b of sizes.children) b.setAttribute("aria-pressed", String(b.textContent === s.label));
+      }
+      for (const s of SIZES) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = s.label;
+        b.onclick = () => pick(s);
+        sizes.append(b, " ");
+      }
+      pick(SIZES[0]);
+
+      document.getElementById("reload").onclick = () => document.getElementById("app").contentWindow.location.reload();
+    </script>
+  </body>
+</html>

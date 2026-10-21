@@ -58,16 +58,6 @@ const OCR_WIDTH = 2000;
 // from coming back as "%", "»", "©"… ("<" is the passport MRZ filler.)
 const CHAR_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÑñ0123456789 -,./':<";
 
-/** Reads an ID, returning only the values confident enough to prefill. */
-export async function scanIdImage(file: File, onProgress?: (p: ScanProgress) => void): Promise<ScannedIdFields> {
-  const { fields, confidence } = await scanIdImageDetailed(file, onProgress);
-  return clean(
-    Object.fromEntries(
-      Object.entries(fields).filter(([k]) => (confidence[k as ScannedField] ?? 0) >= CONFIDENT),
-    ) as ScannedIdFields,
-  );
-}
-
 /** Reads an ID, returning every validated value with its confidence (0–1). */
 export async function scanIdImageDetailed(
   file: File,

@@ -235,7 +235,7 @@ export function LeaveOverviewPage() {
                           View
                         </Button>
                         {canApprove(r) && (
-                          <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate(r)}>
+                          <Button loading={approve.isPending} succeeded={approve.isSuccess} size="sm" disabled={approve.isPending} onClick={() => approve.mutate(r)}>
                             Approve
                           </Button>
                         )}

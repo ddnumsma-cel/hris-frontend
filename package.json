@@ -12,7 +12,8 @@
     "check:register": "npx --yes tsx --tsconfig tsconfig.app.json scripts/register-check.ts",
     "check:subscription": "npx --yes tsx --tsconfig tsconfig.app.json scripts/subscription-check.ts",
     "preview": "vite preview",
-    "check:notifications": "npx --yes tsx --tsconfig tsconfig.app.json scripts/notifications-check.ts"
+    "check:notifications": "npx --yes tsx --tsconfig tsconfig.app.json scripts/notifications-check.ts",
+    "check:backend": "npx --yes tsx --tsconfig tsconfig.app.json scripts/backend-check.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -28,12 +29,14 @@
     "recharts": "^3.10.1",
     "tailwindcss": "^4.3.3",
     "tesseract.js": "^7.0.0",
+    "three": "^0.180.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
+    "@types/three": "^0.180.0",
     "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",

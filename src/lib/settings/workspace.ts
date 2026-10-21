@@ -5,13 +5,13 @@
 //   GET/PUT  /settings/scheduling          -> getSchedulingRules / saveSchedulingRules
 //   GET      /exports/{dataset}.csv        -> exportDataset
 
-import { admin, logAdmin, roleOf } from "@/lib/admin/store";
-import { fullName, state as core } from "@/lib/corehr/store";
-import { toCsv } from "@/lib/download";
-import { customHolidays, setCustomHolidays, type Holiday } from "@/lib/holidays";
-import { leave, leavePolicy, saveLeave, type LeavePolicy } from "@/lib/leave/store";
-import { save as saveTk, schedulingRules, tk, type SchedulingRules } from "@/lib/timekeeping/store";
-import { deny } from "@/lib/session";
+import { admin, logAdmin, roleOf } from "../admin/store";
+import { fullName, state as core } from "../corehr/store";
+import { toCsv } from "../download";
+import { customHolidays, setCustomHolidays, type Holiday } from "../holidays";
+import { leave, leavePolicy, saveLeave, type LeavePolicy } from "../leave/store";
+import { save as saveTk, schedulingRules, tk, type SchedulingRules } from "../timekeeping/store";
+import { deny } from "../session";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));

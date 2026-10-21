@@ -1,0 +1,31 @@
+{
+  "name": "@msma/db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prisma schema, migrations, client and synthetic seed for MSMA HRIS (PostgreSQL 16)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "generate": "prisma generate",
+    "build": "node scripts/generate-if-changed.mjs && tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "migrate:dev": "dotenv -e ../../.env -- prisma migrate dev",
+    "migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
+    "migrate:reset": "dotenv -e ../../.env -- prisma migrate reset --force --skip-seed",
+    "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
+    "studio": "dotenv -e ../../.env -- prisma studio"
+  },
+  "dependencies": {
+    "@msma/shared": "workspace:*",
+    "@prisma/client": "6.19.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "bcryptjs": "^3.0.3",
+    "dotenv-cli": "^11.0.0",
+    "prisma": "6.19.3",
+    "tsx": "^4.20.6",
+    "typescript": "~5.9.3"
+  }
+}

@@ -19,7 +19,6 @@
 //      it.
 
 import {
-  isLabelWord,
   validBirthDate,
   validExpiry,
   validIdNumber,
@@ -1062,63 +1061,6 @@ export function passesDisagree(passes: Candidates[]): boolean {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-// ---------------------------------------------------------------------------
-// Plain-text entry point (kept for callers with OCR text but no word boxes)
-// ---------------------------------------------------------------------------
-
-/**
- * Parses plain OCR text. Without word boxes, rows are the text lines and
- * columns are approximated by character position.
- */
-export function parseIdText(raw: string, { positional = false } = {}): ScannedIdFields {
-  const words: OcrWord[] = [];
-  raw
-    .replace(/\r/g, "")
-    .split("\n")
-    .forEach((line, y) => {
-      for (const m of line.matchAll(/\S+/g)) {
-        words.push({
-          text: m[0],
-          confidence: 90,
-          bbox: { x0: m.index * 12, x1: (m.index + m[0].length) * 12, y0: y * 30, y1: y * 30 + 20 },
-        });
-      }
-    });
-  const parsed = parseOcrWords(words, { positional });
-  return clean(Object.fromEntries(Object.entries(parsed).map(([k, c]) => [k, c?.value])) as ScannedIdFields);
-}
-
-/** Merge a later OCR pass into earlier results — earlier values win. */
-export function mergeScans(base: ScannedIdFields, extra: ScannedIdFields): ScannedIdFields {
-  const merged: ScannedIdFields = { ...extra, ...base };
-  if (base.idType === "Other" && extra.idType && extra.idType !== "Other") merged.idType = extra.idType;
-  return merged;
-}
-
-export function hasCoreFields(fields: ScannedIdFields) {
-  return CORE_FIELDS.every((f) => fields[f]);
-}
-
-/**
- * Keeps the uppercase name words in a string and drops the rest ("Ll i DELA
- * CRUZ" → "Dela Cruz"). IDs print names in capitals, so mixed-case fragments
- * are background noise or label text.
- */
-export function cleanName(value: string | undefined): string | undefined {
-  if (!value) return undefined;
-  const words = value
-    .replace(/[^A-Za-zÑñ.'\s-]/g, " ")
-    .split(/\s+/)
-    .map((w) => w.replace(/^[.'-]+|[.'-]+$/g, ""))
-    .filter((w) => w.length > 0);
-  const kept = words.filter((w) => {
-    const bare = w.replace(/[.'-]/g, "");
-    if (bare !== bare.toUpperCase()) return false;
-    return (bare.length >= 2 || NAME_PARTICLES.has(bare)) && !isLabelWord(bare);
-  });
-  return validName(titleCase(kept.join(" ")));
-}
-
 function detectIdType(upper: string): string | undefined {
   if (/PHILSYS|PAMBANSANG|PAGKAKAKILANLAN|PHILIPPINE\s*IDENTIFICATION/.test(upper)) return "PhilSys National ID";
   if (/UNIFIED\s*MULTI|\bUMID\b/.test(upper)) return "UMID";
@@ -1176,10 +1118,6 @@ function normalizeSex(value: string | undefined): IdSex | undefined {
   if (v === "M" || v === "MALE" || v === "LALAKI") return "Male";
   if (v === "F" || v === "FEMALE" || v === "BABAE") return "Female";
   return undefined;
-}
-
-export function normalizeSuffix(value: string | undefined): string | undefined {
-  return validSuffix(value);
 }
 
 export function titleCase(value: string | undefined): string | undefined {

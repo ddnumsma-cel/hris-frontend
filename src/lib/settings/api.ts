@@ -14,11 +14,11 @@ import {
   updateEmployeeProfile,
   updateManagerProfile,
   updateMyPhoto,
-} from "@/lib/api";
-import { admin, logAdmin, saveAdmin } from "@/lib/admin/store";
-import { getCredential, setCredential } from "@/lib/credentials";
-import type { AuthUser } from "@/features/auth/AuthContext";
-import type { Employee } from "@/lib/types";
+} from "../api";
+import { admin, logAdmin, saveAdmin } from "../admin/store";
+import { getCredential, setCredential } from "../credentials";
+import type { AuthUser } from "../../features/auth/AuthContext";
+import type { Employee } from "../types";
 import { saveSettingsFor, settingsFor, settingsKeyFor, type UserSettings } from "./store";
 
 const DELAY = 250;

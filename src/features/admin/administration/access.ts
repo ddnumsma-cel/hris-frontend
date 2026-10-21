@@ -65,6 +65,7 @@ export function featureForPath(pathname: string): Feature | null {
     if (seg === "trainings") return "trainings";
     if (seg === "reimbursements") return "claims";
     if (seg === "requests") return "selfService";
+    if (seg === "support") return "support";
     return null;
   }
   return null;

@@ -55,7 +55,7 @@ function OpenDialog({ onClose }: { onClose: () => void }) {
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={open.isPending} onClick={() => open.mutate()}>
+          <Button loading={open.isPending} succeeded={open.isSuccess} disabled={open.isPending} onClick={() => open.mutate()}>
             Start
           </Button>
         </div>
@@ -159,7 +159,7 @@ function CaseDrawer({ row, onClose }: { row: FinalPayRow; onClose: () => void })
             </Field>
             <ErrorNote error={release.error} />
             <div className="flex justify-end">
-              <Button disabled={release.isPending || live.isLoading} onClick={() => release.mutate()}>
+              <Button loading={release.isPending} succeeded={release.isSuccess} disabled={release.isPending || live.isLoading} onClick={() => release.mutate()}>
                 Release final pay
               </Button>
             </div>
@@ -212,7 +212,7 @@ export function FinalPayPage() {
             cell: (r) => (
               <span className="flex justify-end gap-2">
                 {!r.released && r.caseId && canCreate && (
-                  <Button size="sm" variant="remove" onClick={() => window.confirm(`Remove the final pay case for ${r.name}?`) && remove.mutate(r.caseId!)}>
+                  <Button disabled={remove.isPending} loading={remove.isPending} succeeded={remove.isSuccess} size="sm" variant="remove" onClick={() => window.confirm(`Remove the final pay case for ${r.name}?`) && remove.mutate(r.caseId!)}>
                     Remove
                   </Button>
                 )}

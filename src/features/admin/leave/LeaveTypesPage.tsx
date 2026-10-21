@@ -53,7 +53,7 @@ function TypeDialog({ initial, onClose }: { initial: Draft; onClose: () => void 
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={save.isPending} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} succeeded={save.isSuccess} disabled={save.isPending} onClick={() => save.mutate()}>
             Save
           </Button>
         </div>
@@ -157,7 +157,7 @@ export function LeaveTypesPage() {
       align: "right",
       cell: (t) => (
         <span className="flex justify-end gap-1.5">
-          <Button size="sm" variant="ghost" disabled={toggle.isPending} onClick={() => toggle.mutate(t)}>
+          <Button loading={toggle.isPending} succeeded={toggle.isSuccess} size="sm" variant="ghost" disabled={toggle.isPending} onClick={() => toggle.mutate(t)}>
             {t.active ? "Turn off" : "Turn on"}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setEditing(toDraft(t))}>

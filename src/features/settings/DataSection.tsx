@@ -77,13 +77,13 @@ export function DataSection() {
       <SettingsCard title="Export data" description="Download as CSV files you can open in Excel or Google Sheets. Exports are recorded in the audit trail.">
         {DATASETS.map((d) => (
           <SettingsRow key={d.key} label={d.label} help={d.description}>
-            <Button variant="ghost" size="sm" disabled={exportOne.isPending || exportAll.isPending} onClick={() => exportOne.mutate(d.key)}>
+            <Button loading={exportOne.isPending} succeeded={exportOne.isSuccess} variant="ghost" size="sm" disabled={exportOne.isPending || exportAll.isPending} onClick={() => exportOne.mutate(d.key)}>
               Export CSV
             </Button>
           </SettingsRow>
         ))}
         <div className="flex justify-end px-5 py-4">
-          <Button disabled={exportAll.isPending} onClick={() => setConfirmAll(true)}>
+          <Button loading={exportAll.isPending} succeeded={exportAll.isSuccess} disabled={exportAll.isPending} onClick={() => setConfirmAll(true)}>
             Export all data
           </Button>
         </div>

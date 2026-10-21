@@ -113,7 +113,7 @@ export function TimeOffSection() {
           </SettingsRow>
         ))}
         <form
-          className="grid gap-3 px-5 py-4 sm:grid-cols-[9rem_1fr_11rem_auto] sm:items-end"
+          className="grid gap-3 px-5 py-4 sm:grid-cols-2 sm:items-end xl:grid-cols-[9rem_1fr_11rem_auto]"
           onSubmit={(e) => {
             e.preventDefault();
             add.mutate();
@@ -140,7 +140,7 @@ export function TimeOffSection() {
               <option value="regular">Regular holiday</option>
             </select>
           </div>
-          <Button type="submit" disabled={add.isPending || !newHoliday.date || !newHoliday.name.trim()}>
+          <Button loading={add.isPending} succeeded={add.isSuccess} type="submit" disabled={add.isPending || !newHoliday.date || !newHoliday.name.trim()}>
             Add holiday
           </Button>
         </form>

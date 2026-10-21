@@ -34,8 +34,8 @@ const APPROVAL_AGING_WARN_DAYS = 2;
 export function ManagerOverview() {
   const navigate = useNavigate();
   // The signed-in manager's own team (direct reports), from the real records.
-  const attendanceQuery = useQuery({ queryKey: ["manager", "attendance-trend"], queryFn: teamAttendanceTrend });
-  const onLeaveQuery = useQuery({ queryKey: ["manager", "on-leave-today"], queryFn: async () => teamOnLeaveToday() });
+  const attendanceQuery = useQuery({ queryKey: ["manager", "team-attendance-trend"], queryFn: teamAttendanceTrend });
+  const onLeaveQuery = useQuery({ queryKey: ["manager", "team-on-leave-today"], queryFn: async () => teamOnLeaveToday() });
   const me = managerProfile();
   const headcount = teamSize();
   const leaveThisWeek = teamLeaveThisWeek();

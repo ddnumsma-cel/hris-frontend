@@ -1,0 +1,298 @@
+// People and 201 files from the backend, shaped like the in-browser Core HR data so the People
+// pages work unchanged. Employees are keyed by their employee number (MSMA-0095), like the local
+// records; the backend's own id is looked up when a detail call needs it.
+
+import type { EmployeeRecord, EmployeeSummary, UnitSummary } from "../corehr/api";
+import type { CivilStatus, CoreEmployee, DocumentType, EmployeeDocument, EmploymentType, JobEvent } from "../corehr/types";
+import type { TkPerson } from "../timekeeping/api";
+import { api } from "./client";
+
+interface BackendEmployee {
+  id: string;
+  employeeNo: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  status: "PROBATIONARY" | "REGULAR" | "CONTRACTUAL" | "PROJECT";
+  hireDate: string;
+  site: { id: string; name: string } | null;
+  department: { id: string; name: string } | null;
+  position: string | null;
+  dailyRate: string | null;
+  todayStatus: string | null;
+  record201: { percent: number; missing: number; expiring: number; expired: number } | null;
+}
+
+interface BackendEmployeeDetail extends BackendEmployee {
+  middleName: string | null;
+  email: string | null;
+  mobileNo: string | null;
+  birthDate: string | null;
+  manager: { id: string; fullName: string } | null;
+  shift: { name: string } | null;
+  govIds: { tin: string | null; sss: string | null; philhealth: string | null; pagibig: string | null } | null;
+  personal: {
+    civilStatus: string | null;
+    address: string | null;
+    personalEmail: string | null;
+    emergencyContact: { name: string; relationship: string; phone: string } | null;
+    regularizationDate: string | null;
+    separationDate: string | null;
+  } | null;
+  history: { id: string; type: string; effectiveDate: string; positionTitle: string | null; siteName: string | null; dailyRate: string | null; remarks: string | null }[];
+}
+
+const EMPLOYMENT_TYPE: Record<BackendEmployee["status"], EmploymentType> = {
+  PROBATIONARY: "Probationary",
+  REGULAR: "Regular",
+  CONTRACTUAL: "Fixed-term",
+  PROJECT: "Project-based",
+};
+
+/** employee number → backend id, filled by every list and detail call. */
+const backendIds = new Map<string, string>();
+
+/** The backend's departments are company-wide; the app keeps one department per office, so each site + department pair is a unit. */
+const unitIdOf = (e: Pick<BackendEmployee, "site" | "department">) => (e.department ? `${e.site?.id ?? "all"}:${e.department.id}` : (e.site?.id ?? ""));
+
+const initials =(first: string, last: string) => `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase();
+
+/** The backend's daily rate as a monthly salary (daily = monthly × 12 ÷ 261, lib/pay/engine.ts). */
+const monthlyOf = (daily: string | null) => (daily ? Math.round((Number(daily) * 261) / 12) : 0);
+
+function summarize(e: BackendEmployee, detail?: BackendEmployeeDetail): EmployeeSummary {
+  backendIds.set(e.employeeNo, e.id);
+  const unit = unitIdOf(e);
+  const r = e.record201;
+  // The list gives a percent and counts, not each paper: "verified" of 100 matches the percent bar.
+  const documents = r ? { verified: r.percent, required: 100, needsAction: r.missing + r.expiring + r.expired } : { verified: 0, required: 0, needsAction: 0 };
+  return {
+    id: e.employeeNo,
+    name: e.fullName,
+    initials: initials(e.firstName, e.lastName),
+    positionTitle: e.position ?? "Unassigned",
+    unitId: unit,
+    departmentId: e.department ? unit : undefined,
+    departmentName: e.department?.name ?? "—",
+    branchId: e.site?.id,
+    branchName: e.site?.name ?? "—",
+    employmentType: EMPLOYMENT_TYPE[e.status] ?? "Regular",
+    status: detail?.personal?.separationDate ? "Separated" : e.todayStatus === "ON_LEAVE" ? "On leave" : "Active",
+    dateHired: e.hireDate,
+    workEmail: detail?.email ?? "",
+    mobile: detail?.mobileNo ?? "",
+    documents,
+  };
+}
+
+async function fetchAll(): Promise<BackendEmployee[]> {
+  const all: BackendEmployee[] = [];
+  for (let page = 1; ; page++) {
+    const res = await api<{ items: BackendEmployee[]; total: number }>("/employees", { query: { page, pageSize: 200 } });
+    all.push(...res.items);
+    if (!res.items.length || all.length >= res.total) break;
+  }
+  return all;
+}
+
+export async function backendListEmployees(): Promise<EmployeeSummary[]> {
+  return (await fetchAll()).map((e) => summarize(e)).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Everyone in scope, as the attendance pages list people. */
+export async function backendPeople(): Promise<TkPerson[]> {
+  return (await backendListEmployees()).map((e) => ({ id: e.id, name: e.name, initials: e.initials, positionTitle: e.positionTitle, departmentId: e.departmentId ?? "", departmentName: e.departmentName, branch: e.branchName, monthlySalary: 0, usualShiftId: null }));
+}
+
+/** Offices (the backend's sites) and their departments, with head counts. */
+export async function backendListUnits(): Promise<UnitSummary[]> {
+  const people = await fetchAll();
+  const base = { code: "", active: true, openSlots: 0, positionCount: 0 };
+  const units = new Map<string, UnitSummary>([["company", { ...base, id: "company", type: "company", name: "MSMA", parentId: null, headcount: people.length }]]);
+  for (const e of people) {
+    if (e.site && !units.has(e.site.id)) units.set(e.site.id, { ...base, id: e.site.id, type: "branch", name: e.site.name, parentId: "company", headcount: 0 });
+    if (e.site) units.get(e.site.id)!.headcount++;
+    if (!e.department) continue;
+    const id = unitIdOf(e);
+    if (!units.has(id)) units.set(id, { ...base, id, type: "department", name: e.department.name, parentId: e.site?.id ?? "company", headcount: 0 });
+    units.get(id)!.headcount++;
+  }
+  return [...units.values()];
+}
+
+/** The backend id for an employee number (or a backend id passed straight through). */
+async function backendIdOf(employeeNo: string): Promise<string | null> {
+  if (backendIds.has(employeeNo)) return backendIds.get(employeeNo)!;
+  if (!/^MSMA-/i.test(employeeNo)) return employeeNo;
+  const res = await api<{ items: BackendEmployee[] }>("/employees", { query: { q: employeeNo, pageSize: 5 } });
+  const hit = res.items.find((e) => e.employeeNo === employeeNo);
+  if (hit) backendIds.set(hit.employeeNo, hit.id);
+  return hit?.id ?? null;
+}
+
+const civil = (s: string | null): CivilStatus | "" => {
+  const v = (s ?? "").charAt(0) + (s ?? "").slice(1).toLowerCase();
+  return (["Single", "Married", "Widowed", "Separated"] as const).find((c) => c === v) ?? "";
+};
+
+async function detailOf(employeeNo: string): Promise<BackendEmployeeDetail | null> {
+  const id = await backendIdOf(employeeNo);
+  if (!id) return null;
+  try {
+    return await api<BackendEmployeeDetail>(`/employees/${id}`);
+  } catch (err) {
+    if (err instanceof Error && "status" in err && (err as { status: number }).status === 404) return null;
+    throw err;
+  }
+}
+
+export async function backendGetEmployee(employeeNo: string): Promise<EmployeeRecord | null> {
+  const d = await detailOf(employeeNo);
+  if (!d) return null;
+  const summary = summarize(d, d);
+  const p = d.personal;
+  const employee: CoreEmployee = {
+    id: d.employeeNo,
+    personal: { firstName: d.firstName, middleName: d.middleName ?? "", lastName: d.lastName, suffix: "", birthDate: d.birthDate ?? "", sex: "", civilStatus: civil(p?.civilStatus ?? null), nationality: "Filipino" },
+    contact: {
+      workEmail: d.email ?? "",
+      personalEmail: p?.personalEmail ?? "",
+      mobile: d.mobileNo ?? "",
+      address: p?.address ?? "",
+      city: "",
+      province: "",
+      emergencyName: p?.emergencyContact?.name ?? "",
+      emergencyRelationship: p?.emergencyContact?.relationship ?? "",
+      emergencyPhone: p?.emergencyContact?.phone ?? "",
+    },
+    government: { sss: d.govIds?.sss ?? "", philhealth: d.govIds?.philhealth ?? "", pagibig: d.govIds?.pagibig ?? "", tin: d.govIds?.tin ?? "" },
+    job: {
+      positionId: "",
+      unitId: summary.unitId,
+      supervisorId: undefined,
+      employmentType: summary.employmentType,
+      status: summary.status,
+      dateHired: d.hireDate,
+      regularizationDate: p?.regularizationDate ?? undefined,
+      separationDate: p?.separationDate ?? undefined,
+      monthlySalary: monthlyOf(d.dailyRate),
+      workSchedule: d.shift?.name ?? "",
+    },
+    createdAt: d.hireDate,
+  };
+  return {
+    employee,
+    summary,
+    unitPath: [d.site?.name, d.department?.name].filter(Boolean).join(" › "),
+    // The backend names the manager but not their employee number, so the link uses its id.
+    supervisor: d.manager ? { id: d.manager.id, name: d.manager.fullName, positionTitle: "" } : undefined,
+  };
+}
+
+/** Save a record section the backend keeps (civil status, contact details, government numbers). */
+export async function backendUpdateSection(employeeNo: string, section: "personal" | "contact" | "government" | "bank", values: unknown): Promise<CoreEmployee> {
+  const id = await backendIdOf(employeeNo);
+  if (!id) throw new Error("That employee no longer exists");
+  let body: Record<string, unknown>;
+  if (section === "personal") body = { civilStatus: (values as CoreEmployee["personal"]).civilStatus.toUpperCase() || null };
+  else if (section === "contact") {
+    const c = values as CoreEmployee["contact"];
+    body = {
+      address: [c.address, c.city, c.province].filter(Boolean).join(", ") || null,
+      mobileNo: c.mobile || null,
+      personalEmail: c.personalEmail,
+      emergencyContact: c.emergencyName ? { name: c.emergencyName, relationship: c.emergencyRelationship, phone: c.emergencyPhone } : null,
+    };
+  } else if (section === "government") body = { govIds: values };
+  else throw new Error("Bank details aren't kept on the HR server yet.");
+  await api(`/employees/${id}/personal`, { method: "PATCH", body });
+  const record = await backendGetEmployee(employeeNo);
+  if (!record) throw new Error("That employee no longer exists");
+  return record.employee;
+}
+
+const EVENT_KIND: Record<string, JobEvent["kind"]> = {
+  HIRED: "Hired",
+  PROMOTED: "Promotion",
+  TRANSFERRED: "Transfer",
+  SALARY_ADJUSTED: "Salary adjustment",
+  REGULARIZED: "Regularization",
+  SEPARATED: "Separation",
+};
+
+export async function backendListEvents(employeeNo: string): Promise<JobEvent[]> {
+  const d = await detailOf(employeeNo);
+  if (!d) return [];
+  return d.history.map((h) => ({
+    id: h.id,
+    employeeId: employeeNo,
+    kind: EVENT_KIND[h.type] ?? "Status change",
+    effectiveDate: h.effectiveDate,
+    changes: [
+      ...(h.positionTitle ? [{ label: "Position", to: h.positionTitle }] : []),
+      ...(h.siteName ? [{ label: "Site", to: h.siteName }] : []),
+      ...(h.dailyRate ? [{ label: "Monthly salary", to: `₱${monthlyOf(h.dailyRate).toLocaleString("en-PH")}` }] : []),
+    ],
+    remarks: h.remarks ?? undefined,
+    recordedBy: "HR server",
+    recordedAt: h.effectiveDate,
+  }));
+}
+
+// ---- 201 file ----
+
+/** Backend paper types that match the app's checklist; the backend's other papers aren't shown here. */
+const DOCUMENT_TYPE: Record<string, DocumentType> = {
+  RESUME: "Application Form / Resume",
+  BIRTH_CERTIFICATE: "Birth Certificate (PSA)",
+  MARRIAGE_CERTIFICATE: "Marriage Certificate (PSA)",
+  CHILD_BIRTH_CERTIFICATE: "Child's Birth Certificate",
+  GOVERNMENT_ID: "Valid Government ID",
+  DIPLOMA_TOR: "Diploma / Transcript of Records",
+  PROFESSIONAL_LICENSE: "Professional License",
+  PREVIOUS_COE: "Certificate of Employment (Previous)",
+  NBI_CLEARANCE: "NBI Clearance",
+  POLICE_CLEARANCE: "Police/Barangay Clearance",
+  MEDICAL_RESULTS: "Pre-Employment Medical Result",
+};
+
+interface Backend201 {
+  items: {
+    type: string;
+    status: "ON_FILE" | "MISSING" | "EXPIRED" | "EXPIRING" | "NOT_NEEDED" | "NONE_YET" | "AUTOMATIC";
+    expiresOn: string | null;
+    documents: { id: string; fileName: string; uploadedAt: string; uploadedBy: string | null; expiresOn: string | null; referenceNo: string | null; notes: string | null }[];
+  }[];
+}
+
+export function mapDocuments(employeeNo: string, file: Backend201): EmployeeDocument[] {
+  return file.items.flatMap((item) => {
+    const type = DOCUMENT_TYPE[item.type];
+    if (!type) return [];
+    const doc = item.documents[0];
+    const status: EmployeeDocument["status"] = item.status === "NOT_NEEDED" ? "Not applicable" : doc ? "Verified" : "Missing";
+    return [
+      {
+        id: doc?.id ?? `${employeeNo}-${item.type}`,
+        employeeId: employeeNo,
+        type,
+        status,
+        fileName: doc?.fileName,
+        uploadedAt: doc?.uploadedAt,
+        verifiedBy: doc?.uploadedBy ?? undefined,
+        verifiedAt: doc?.uploadedAt,
+        referenceNo: doc?.referenceNo ?? undefined,
+        expiresOn: doc?.expiresOn ?? item.expiresOn ?? undefined,
+        note: doc?.notes ?? undefined,
+      },
+    ];
+  });
+}
+
+export async function backendListDocuments(employeeNo?: string): Promise<EmployeeDocument[]> {
+  // shortcut: without an employee only the list's counts exist (one 201 call per person would be 180 calls); load a person's papers when their record opens.
+  if (!employeeNo) return [];
+  const id = await backendIdOf(employeeNo);
+  if (!id) return [];
+  return mapDocuments(employeeNo, await api<Backend201>(`/employees/${id}/201-file`));
+}

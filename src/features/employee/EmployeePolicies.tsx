@@ -63,7 +63,7 @@ function PolicyActions({ p, className }: { p: MyPolicy; className?: string }) {
         </Button>
       )}
       {needsAck(p) && (
-        <Button size="sm" className="ml-auto" disabled={ack.isPending} onClick={() => ack.mutate()}>
+        <Button loading={ack.isPending} succeeded={ack.isSuccess} size="sm" className="ml-auto" disabled={ack.isPending} onClick={() => ack.mutate()}>
           I have read and understood this
         </Button>
       )}

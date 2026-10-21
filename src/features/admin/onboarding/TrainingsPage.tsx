@@ -48,7 +48,7 @@ function TimelineView({ rows, all }: { rows: TrainingRecord[]; all: TrainingReco
     ...[...new Set(rest.map((t) => t.dueDate))].map((d) => ({ key: d, title: `Due ${d}`, items: rest.filter((t) => t.dueDate === d) })),
   ];
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[16rem_minmax(0,1fr)]">
+    <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[16rem_minmax(0,1fr)]">
       <Card className="flex flex-col items-center gap-3 p-5 text-center">
         <Ring pct={pct} />
         <div>

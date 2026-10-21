@@ -100,7 +100,7 @@ export function SecuritySection() {
                 Cancel
               </Button>
             )}
-            <Button type="submit" disabled={changePassword.isPending || (tried && invalid) || !typing}>
+            <Button loading={changePassword.isPending} succeeded={changePassword.isSuccess} type="submit" disabled={changePassword.isPending || (tried && invalid) || !typing}>
               {changePassword.isPending ? "Updating…" : "Update password"}
             </Button>
           </div>
@@ -136,7 +136,7 @@ export function SecuritySection() {
             <Button variant="ghost" onClick={() => setSetupOpen(false)}>
               Cancel
             </Button>
-            <Button
+            <Button loading={saveSecurity.isPending} succeeded={saveSecurity.isSuccess}
               disabled={saveSecurity.isPending}
               onClick={() => saveSecurity.mutate({ ...settings.data!.security, twoFactor: true }, { onSuccess: () => setSetupOpen(false) })}
             >

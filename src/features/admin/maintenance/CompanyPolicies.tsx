@@ -49,7 +49,7 @@ function PolicyDialog({ row, onClose }: { row?: PolicyRow; onClose: () => void }
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={save.isPending} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} succeeded={save.isSuccess} disabled={save.isPending} onClick={() => save.mutate()}>
             Save
           </Button>
         </div>
@@ -196,21 +196,21 @@ export function CompanyPolicies() {
                 )}
                 {canEdit && r.status === "draft" && (
                   <>
-                    <Button size="sm" variant="remove" disabled={remove.isPending} onClick={() => window.confirm(`Delete the draft "${r.title}"?`) && remove.mutate(r)}>
+                    <Button loading={remove.isPending} succeeded={remove.isSuccess} size="sm" variant="remove" disabled={remove.isPending} onClick={() => window.confirm(`Delete the draft "${r.title}"?`) && remove.mutate(r)}>
                       Delete
                     </Button>
-                    <Button size="sm" disabled={status.isPending} onClick={() => status.mutate({ r, s: "published" })}>
+                    <Button loading={status.isPending} succeeded={status.isSuccess} size="sm" disabled={status.isPending} onClick={() => status.mutate({ r, s: "published" })}>
                       Publish
                     </Button>
                   </>
                 )}
                 {canEdit && r.status === "published" && (
-                  <Button size="sm" variant="ghost" disabled={status.isPending} onClick={() => window.confirm(`Archive "${r.title}"? Employees will no longer see it.`) && status.mutate({ r, s: "archived" })}>
+                  <Button loading={status.isPending} succeeded={status.isSuccess} size="sm" variant="ghost" disabled={status.isPending} onClick={() => window.confirm(`Archive "${r.title}"? Employees will no longer see it.`) && status.mutate({ r, s: "archived" })}>
                     Archive
                   </Button>
                 )}
                 {canEdit && r.status === "archived" && (
-                  <Button size="sm" variant="ghost" disabled={status.isPending} onClick={() => status.mutate({ r, s: "published" })}>
+                  <Button loading={status.isPending} succeeded={status.isSuccess} size="sm" variant="ghost" disabled={status.isPending} onClick={() => status.mutate({ r, s: "published" })}>
                     Publish again
                   </Button>
                 )}

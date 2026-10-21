@@ -1,0 +1,46 @@
+{
+  "name": "@msma/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MSMA HRIS employee app (Expo + Expo Router) for Android and iOS; development builds via EAS",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "export:web": "expo export --platform web",
+    "eas-build-post-install": "pnpm --filter \"@msma/mobile^...\" run build",
+    "build:dev:android": "npx --yes eas-cli@^24 build --platform android --profile development",
+    "build:dev:ios": "npx --yes eas-cli@^24 build --platform ios --profile development",
+    "build:dev:ios-simulator": "npx --yes eas-cli@^24 build --platform ios --profile development-simulator"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~57.0.16",
+    "@expo/vector-icons": "^15.1.1",
+    "@msma/api-client": "workspace:*",
+    "@msma/shared": "workspace:*",
+    "@tanstack/react-query": "^5.104.0",
+    "expo": "~57.0.25",
+    "expo-constants": "~57.0.19",
+    "expo-dev-client": "~57.0.19",
+    "expo-linking": "~57.0.11",
+    "expo-local-authentication": "~57.0.3",
+    "expo-router": "~57.0.23",
+    "expo-secure-store": "~57.0.4",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.4",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "~0.21.0"
+  },
+  "devDependencies": {
+    "@expo/ngrok": "^4.1.3",
+    "@types/react": "~19.2.18",
+    "typescript": "~6.0.3"
+  }
+}

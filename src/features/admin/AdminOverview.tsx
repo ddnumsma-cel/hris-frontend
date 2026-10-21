@@ -237,11 +237,11 @@ export function AdminOverview() {
           <Card className="h-full">
             <CardHeader title="Headcount by department" meta={stats ? `${stats.totalHeadcount} people` : undefined} />
             <CardBody className="flex flex-col gap-2.5">
-              {departments.slice(0, 6).map((d) => (
+              {departments.slice(0, 6).map((d, i) => (
                 <div key={d.name} className="flex items-center gap-3 text-[13px]">
                   <span className="w-32 flex-none truncate text-ink-2">{d.name}</span>
-                  <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
-                    <span className="block h-full rounded-full bg-[var(--color-cat-1)]" style={{ width: `${(d.count / Math.max(1, departments[0]!.count)) * 100}%` }} />
+                  <span className="dash-bar flex-1">
+                    <span style={{ width: `${(d.count / Math.max(1, departments[0]!.count)) * 100}%`, "--i": i } as React.CSSProperties} />
                   </span>
                   <span className="w-6 text-right font-semibold">{d.count}</span>
                 </div>

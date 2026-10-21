@@ -49,7 +49,7 @@ function PayDialog({ picked, onClose, onDone }: { picked: ClaimRow[]; onClose: (
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={pay.isPending} onClick={() => pay.mutate()}>
+          <Button loading={pay.isPending} succeeded={pay.isSuccess} disabled={pay.isPending} onClick={() => pay.mutate()}>
             Release {peso(total)}
           </Button>
         </div>
@@ -127,7 +127,7 @@ function ReviewDialog({ c, canApprove, startWith, onClose }: { c: ClaimRow; canA
                 <Button variant="ghost" onClick={() => setRejecting(false)}>
                   Back
                 </Button>
-                <Button variant="danger" disabled={decide.isPending} onClick={() => decide.mutate(false)}>
+                <Button loading={decide.isPending} succeeded={decide.isSuccess} variant="danger" disabled={decide.isPending} onClick={() => decide.mutate(false)}>
                   Reject claim
                 </Button>
               </>
@@ -136,7 +136,7 @@ function ReviewDialog({ c, canApprove, startWith, onClose }: { c: ClaimRow; canA
                 <Button variant="ghost" onClick={() => setRejecting(true)}>
                   Reject
                 </Button>
-                <Button disabled={decide.isPending} onClick={() => decide.mutate(true)}>
+                <Button loading={decide.isPending} succeeded={decide.isSuccess} disabled={decide.isPending} onClick={() => decide.mutate(true)}>
                   Approve {peso(c.amount)}
                 </Button>
               </>
@@ -260,7 +260,7 @@ export function ReimbursementsPage() {
             <Button size="sm" variant="ghost" onClick={() => setOpen({ c, reject: true })}>
               Reject
             </Button>
-            <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate(c)}>
+            <Button loading={approve.isPending} succeeded={approve.isSuccess} size="sm" disabled={approve.isPending} onClick={() => approve.mutate(c)}>
               Approve
             </Button>
           </span>

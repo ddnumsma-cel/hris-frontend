@@ -6,7 +6,7 @@ import type { Role } from "../types";
 import { fullName, state as core } from "../corehr/store";
 import { can } from "../permissions";
 import { employeeOfAccount, whoFor } from "../session";
-import { admin, logAdmin, roleOf, saveAdmin, type Access, type ModuleKey, type UserAccount } from "./store";
+import { admin, logAdmin, roleOf, saveAdmin, type UserAccount } from "./store";
 
 export type SignInResult = { ok: true; workspace: Role; account: UserAccount } | { ok: false; error: string };
 
@@ -38,6 +38,12 @@ export function signIn(username: string, password: string): SignInResult {
     update(account.id, { failedAttempts: lock ? 0 : failed, lockedUntil: lock ? new Date(now.getTime() + admin.settings.lockMinutes * 60000).toISOString() : account.lockedUntil });
     return fail(lock ? `Too many wrong passwords. Your account is locked for ${admin.settings.lockMinutes} minutes.` : "Incorrect username or password.", lock ? `Wrong password; locked after ${failed} tries` : `Wrong password (${failed} of ${admin.settings.lockAfterFailed})`);
   }
+  return admit(account, fail, "");
+}
+
+/** The checks after the person is known (password or Google): turned off, employment ended, no role. */
+function admit(account: UserAccount, fail: (error: string, detail: string) => SignInResult, via: string): SignInResult {
+  const now = new Date();
   if (account.status === "disabled") return fail("This account has been turned off. Please contact HR.", "Account turned off");
   // Someone whose last day has passed can't sign in, even if their account wasn't turned off yet.
   const who = account.employeeId ?? employeeOfAccount(account) ?? core.employees.find((e) => fullName(e.personal).toLowerCase() === account.name.trim().toLowerCase())?.id;
@@ -46,8 +52,20 @@ export function signIn(username: string, password: string): SignInResult {
   const role = roleOf(account);
   if (!role) return fail("This account has no role yet. Please contact HR.", "No role");
   update(account.id, { failedAttempts: 0, lockedUntil: undefined, lastSignIn: now.toISOString() });
-  logAdmin({ actor: account.name, module: "Sign-in", action: "Signed in", target: account.username, detail: role.name });
+  logAdmin({ actor: account.name, module: "Sign-in", action: "Signed in", target: account.username, detail: via ? `${role.name} · ${via}` : role.name });
   return { ok: true, workspace: role.workspace, account: admin.accounts.find((a) => a.id === account.id)! };
+}
+
+/** Signs in whoever registered (or was given an account) with this Google email; Google has already verified it. */
+export function signInWithGoogleEmail(email: string): SignInResult {
+  const u = email.trim().toLowerCase();
+  const account = admin.accounts.find((a) => !a.demo && a.username.toLowerCase() === u);
+  const fail = (error: string, detail: string): SignInResult => {
+    logAdmin({ actor: account?.name ?? u, module: "Sign-in", action: "Failed sign-in", target: u || "(blank)", detail: `${detail} · Google` });
+    return { ok: false, error };
+  };
+  if (!account) return fail(`No account uses ${u}. Register first, or sign in with your username and password.`, "Unknown Google email");
+  return admit(account, fail, "Google");
 }
 
 export function recordSignOut(accountId: string | undefined, reason: "manual" | "idle") {
@@ -57,14 +75,6 @@ export function recordSignOut(accountId: string | undefined, reason: "manual" | 
 
 export const accountById = (id: string | undefined) => admin.accounts.find((a) => a.id === id);
 
-const FULL: Record<ModuleKey, Access> = { people: "edit", company: "edit", documents: "edit", timekeeping: "approve", leave: "approve", reimbursements: "approve", reports: "edit", payroll: "edit", administration: "edit" };
-
-/** What the signed-in account can open in the HR workspace. Older sessions with no account get full access. */
-export function accessFor(accountId: string | undefined): Record<ModuleKey, Access> {
-  const account = accountById(accountId);
-  if (!account) return FULL;
-  return roleOf(account)?.access ?? FULL;
-}
 
 /** Still allowed to be signed in? (turned off or role removed while signed in; sign-ins without an account are no longer accepted) */
 export function sessionValid(accountId: string | undefined) {
@@ -111,12 +121,4 @@ export function consumeSignInFlag() {
   } catch {
     return false;
   }
-}
-
-/** The employee record behind a sign-in: the one linked in Users, or else the employee with the same name. */
-export function employeeIdFor(accountId: string | undefined, name: string): string | undefined {
-  const linked = accountById(accountId)?.employeeId;
-  if (linked) return linked;
-  const wanted = name.trim().toLowerCase();
-  return core.employees.find((e) => e.job.status !== "Separated" && fullName(e.personal).toLowerCase() === wanted)?.id;
 }

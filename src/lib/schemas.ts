@@ -40,24 +40,6 @@ export const clusterOptions = ["RPM", "VCM", "ADS"] as const;
 /** The only job titles used across the company. */
 export const POSITION_TITLES = ["Executive Assistant / Secretary", "Junior Associate", "Experienced Associate", "Experienced Admin Assistant", "BSS Team Leader", "Associate Director", "Partner"] as const;
 
-// Department and cluster are picked together as one "Department · Cluster"
-// assignment; each cluster only offers the departments it actually staffs.
-export const departmentsByCluster: Record<(typeof clusterOptions)[number], string[]> = {
-  RPM: ["Audit & Assurance", "Accounting Services", "Special Engagements", "Support Services"],
-  VCM: ["Audit & Assurance", "Accounting Services", "Special Engagements", "Support Services"],
-  ADS: ["Audit & Assurance", "Accounting Services", "Special Engagements", "Support Services"],
-};
-
-const ASSIGNMENT_SEPARATOR = "::";
-
-export function toAssignment(cluster: string, department: string) {
-  return `${cluster}${ASSIGNMENT_SEPARATOR}${department}`;
-}
-
-export function fromAssignment(assignment: string) {
-  const [cluster, department = ""] = assignment.split(ASSIGNMENT_SEPARATOR);
-  return { cluster: cluster as (typeof clusterOptions)[number], department };
-}
 
 export const sexOptions = ["Male", "Female"] as const;
 
@@ -83,7 +65,8 @@ export type AddEmployeeFormValues = z.infer<typeof addEmployeeSchema>;
 export const registerSchema = z.object({
   name: z.string().min(1, "Full name is required"),
   position: z.string().min(1, "Position is required"),
-  email: z.union([z.literal(""), z.email("Enter a valid email address")]),
+  // Their username from now on.
+  email: z.email("Enter your email address. You'll sign in with it."),
   phone: z.union([z.literal(""), z.string().regex(/^9\d{9}$/, "Enter a 10-digit mobile number, e.g. 9171234567")]),
   cluster: z.enum(clusterOptions),
   office: z.enum(officeOptions),

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { CameraIcon, UploadIcon } from "@/components/icons";
-import { cpdTone, type DocRow, type File201 } from "./useFile201";
+import { type DocRow, type File201 } from "./useFile201";
 
 /** A file picker that looks like whatever its className says. */
 export function UploadAction({ row, f, className, children }: { row: DocRow; f: File201; className?: string; children?: ReactNode }) {
@@ -38,31 +38,6 @@ export function Bar({ percent, tone = "brand" }: { percent: number; tone?: "bran
   return (
     <div className="h-2 overflow-hidden rounded-full bg-surface-2">
       <span className={clsx("block h-full rounded-full", tone === "crit" ? "bg-critical" : "bg-brand")} style={{ width: `${Math.min(100, Math.max(0, percent))}%` }} />
-    </div>
-  );
-}
-
-export function LicensePanel({ f }: { f: File201 }) {
-  const { license, cpd } = f;
-  if (!license || !cpd) return <p className="text-sm text-ink-2">No professional license on file.</p>;
-  const pct = Math.round((license.cpdUnitsEarned / license.cpdUnitsRequired) * 100);
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <div className="text-[0.9rem] font-semibold">{license.licenseType} · No. {license.licenseNumber}</div>
-          <div className="text-xs text-ink-2">CPD cycle ends {license.cycleEndDate}</div>
-        </div>
-        <Chip variant={cpdTone[cpd.status]}>{cpd.status}</Chip>
-      </div>
-      <div className="flex justify-between text-xs text-ink-2">
-        <span>CPD units</span>
-        <span className="font-num font-semibold text-ink">{cpd.note}</span>
-      </div>
-      <Bar percent={pct} tone={cpd.status === "Overdue" ? "crit" : "brand"} />
-      <Button variant="ghost" className="self-start" onClick={f.logCpd}>
-        Log CPD units
-      </Button>
     </div>
   );
 }

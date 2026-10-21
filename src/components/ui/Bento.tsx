@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -8,6 +8,41 @@ import { Skeleton } from "@/components/ui/Skeleton";
  * content handed to them; the palette and card styling come from `.dash` and
  * the per-page `.bento-*` grid templates in index.css.
  */
+
+/** A hero number ("48", "100%", "₱12,500.00") counts up to its value over 700ms; anything else shows as is. */
+function CountUp({ value }: { value: ReactNode }) {
+  const m = (typeof value === "number" || typeof value === "string") && /^(D*?)(d[d,]*(?:.d+)?)(.*)$/.exec(String(value));
+  const target = m ? Number(m[2]!.replace(/,/g, "")) : 0;
+  const decimals = m ? (m[2]!.split(".")[1] ?? "").length : 0;
+  // Starts from 0 (or straight at the value under reduced motion), so the first frame never flashes the end.
+  const [shown, setShown] = useState(() => (m && !window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : target));
+  const from = useRef(0);
+  useEffect(() => {
+    if (!m || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return setShown(target);
+    const start = performance.now();
+    const begin = from.current;
+    let raf = 0;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / 700);
+      setShown(begin + (target - begin) * (1 - Math.pow(1 - t, 3)));
+      if (t < 1) raf = requestAnimationFrame(step);
+      else from.current = target;
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target]);
+  if (!m) return <>{value}</>;
+  const grouped = m[2]!.includes(",");
+  const text = shown.toLocaleString("en-PH", { minimumFractionDigits: decimals, maximumFractionDigits: decimals, useGrouping: grouped });
+  return (
+    <>
+      {m[1]}
+      {text}
+      {m[3]}
+    </>
+  );
+}
 
 /** Places a child into a named area of the page's bento grid. */
 export function BentoArea({ area, className, children }: { area: string; className?: string; children: ReactNode }) {
@@ -38,8 +73,10 @@ export function BentoHero({
     <Card className="flex h-full flex-col">
       <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5">
         <div className="min-w-0">
-          <div className="text-[13px] font-medium text-ink-2">{title}</div>
-          <div className="dash-hero-value font-num mt-1">{value}</div>
+          <div className="dash-hero-label">{title}</div>
+          <div className="dash-hero-value font-num mt-2">
+            <CountUp value={value} />
+          </div>
           {label && <div className="mt-1 text-[13px] text-ink-2">{label}</div>}
         </div>
         <div className="flex flex-col items-end gap-2">

@@ -88,7 +88,7 @@ function AdjustDialog({ adjust, days, onClose }: { adjust: Adjust; days: DayRow[
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={send.isPending} onClick={() => send.mutate()}>
+          <Button loading={send.isPending} succeeded={send.isSuccess} disabled={send.isPending} onClick={() => send.mutate()}>
             Send to your manager
           </Button>
         </div>
@@ -163,7 +163,7 @@ function Notices() {
             </span>
           </div>
           <p className="text-sm whitespace-pre-line text-ink">{n.message}</p>
-          <Button size="sm" className="self-start" disabled={ack.isPending} onClick={() => ack.mutate(n.id)}>
+          <Button loading={ack.isPending} succeeded={ack.isSuccess} size="sm" className="self-start" disabled={ack.isPending} onClick={() => ack.mutate(n.id)}>
             I&#39;ve read this
           </Button>
         </section>

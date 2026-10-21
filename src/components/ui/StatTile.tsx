@@ -28,7 +28,7 @@ export function StatTile({
       <span data-slot="stat-label" className="text-[11px] font-medium text-ink-2 sm:text-xs">{label}</span>
       <span data-slot="stat-value" className="font-display font-num text-xl font-semibold text-ink sm:text-2xl">{value}</span>
       {delta && (
-        <span data-slot="stat-delta" className={clsx("flex items-center gap-1 text-[0.7rem] font-semibold sm:text-xs", toneClasses[tone])}>
+        <span data-slot="stat-delta" data-tone={tone} className={clsx("flex items-center gap-1 text-[0.7rem] font-semibold sm:text-xs", toneClasses[tone])}>
           {icon}
           {delta}
         </span>

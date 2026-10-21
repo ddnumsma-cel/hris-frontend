@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import type { Eligibility, LeaveType, RequestStatus } from "@/lib/leave/types";
+import type { Eligibility, RequestStatus } from "@/lib/leave/types";
 import { fmtDayShort } from "@/lib/preferences";
 
 export const leaveKeys = {
@@ -37,19 +37,6 @@ export const ELIGIBILITY: Record<Eligibility, string> = {
   "after-1-year": "After 1 year of service",
   "after-6-months": "After 6 months of service",
 };
-
-export function earningText(t: Pick<LeaveType, "earning" | "daysPerYear">) {
-  switch (t.earning.kind) {
-    case "monthly":
-      return `${t.earning.perMonth} a month, up to ${t.daysPerYear} a year`;
-    case "yearly":
-      return `${t.daysPerYear} days every January`;
-    case "per-event":
-      return `${t.daysPerYear} days each time it applies`;
-    default:
-      return "No limit";
-  }
-}
 
 export function proofText(over: number | null) {
   if (over === null) return "Not needed";

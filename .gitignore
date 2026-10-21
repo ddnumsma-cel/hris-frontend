@@ -29,3 +29,7 @@ docs/inbox
 *.njsproj
 *.sln
 *.sw?
+
+# Mobile UI (Expo)
+mobile/.expo
+mobile/.env

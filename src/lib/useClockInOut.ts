@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useToast } from "@/components/ui/ToastContext";
+import { useToast } from "../components/ui/ToastContext";
 import { fmtTime } from "./preferences";
 
 /**

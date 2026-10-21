@@ -141,7 +141,7 @@ export function File201View({ f }: { f: File201 }) {
                 ))}
               </div>
             </div>
-            <div className="flex flex-col overflow-x-auto rounded-2xl border border-border bg-surface lg:flex-1">
+            <div className="relative flex flex-col overflow-x-auto rounded-2xl border border-border bg-surface lg:flex-1">
               <div className="flex min-w-[560px] flex-1 flex-col">
                 <div className="grid grid-cols-[minmax(0,1fr)_7.5rem_10rem] items-center gap-4 border-b border-border px-5 py-3 text-xs font-semibold text-ink-2">
                   <span>Document</span>

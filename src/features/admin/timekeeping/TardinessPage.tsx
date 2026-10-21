@@ -40,7 +40,7 @@ function RuleDialog({ rule, onClose }: { rule: TardinessRule; onClose: () => voi
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={save.isPending} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} succeeded={save.isSuccess} disabled={save.isPending} onClick={() => save.mutate()}>
             Save
           </Button>
         </div>
@@ -100,7 +100,7 @@ function NoticeDialog({ target, onClose }: { target: NoticeTarget; onClose: () =
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={send.isPending} onClick={() => send.mutate()}>
+          <Button loading={send.isPending} succeeded={send.isSuccess} disabled={send.isPending} onClick={() => send.mutate()}>
             Send notice
           </Button>
         </div>

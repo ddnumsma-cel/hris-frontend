@@ -15,6 +15,8 @@ import { myId } from "./api";
 import { approversFor, supervisorOf } from "../admin/approvers";
 import type { RequestKind } from "../admin/store";
 import { ROLE_LABEL } from "../permissions";
+import { backendOn } from "../backend/client";
+import { backendMyRequests } from "../backend/requests";
 
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), 150));
 const me = () => core.employees.find((e) => e.id === myId());
@@ -70,6 +72,7 @@ const toneOf = (s: string): MyRequest["tone"] => (/approv|paid|released|ready/i.
 const nice = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function myRequests(): Promise<MyRequest[]> {
+  if (backendOn()) return backendMyRequests();
   const id = myId();
   const out: MyRequest[] = [];
   for (const r of leave.requests.filter((x) => x.employeeId === id)) {

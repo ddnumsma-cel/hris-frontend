@@ -78,7 +78,7 @@ await core.setReportsTo("MSMA-00846", "MSMA-00317", "Wendy Lacson");
 check("Rafael is told Chris now reports to him", (await bell("ua-approver")).some((x) => x.includes("now reports to you")));
 check("Chris is told she reports to Rafael", (await bell("ua-employee")).some((x) => x.includes("You now report to Lorraine Santos")));
 as("ua-employee");
-const ot2 = await tkApi.fileRequest({ employeeId: "MSMA-00846", date: new Date(Date.now() - 86400000).toISOString().slice(0, 10), type: "undertime", minutes: 60, reason: "Doctor" }, "Angela");
+await tkApi.fileRequest({ employeeId: "MSMA-00846", date: new Date(Date.now() - 86400000).toISOString().slice(0, 10), type: "undertime", minutes: 60, reason: "Doctor" }, "Angela");
 check("Her next request now goes to Rafael", (await bell("ua-approver")).some((x) => x.includes("Danica Bernardo filed undertime")));
 
 console.log("\n— Assigned roles: the matrix decides who handles each next step —");
@@ -103,7 +103,8 @@ as("ua-employee");
 const freeType = leaveStore.leave.types.find((t) => t.earning.kind === "unlimited")?.id ?? typeId;
 const long1 = nextWeekday(40);
 let lastDay = long1;
-for (let n = 1; n < 4; ) { const x = new Date(lastDay); x.setDate(x.getDate() + 1); lastDay = x.toISOString().slice(0, 10); if (![0, 6].includes(x.getDay())) n++; }
+// 6 workdays, so the leave stays over the 3-day step even when one or two holidays fall inside it.
+for (let n = 1; n < 6; ) { const x = new Date(lastDay); x.setDate(x.getDate() + 1); lastDay = x.toISOString().slice(0, 10); if (![0, 6].includes(x.getDay())) n++; }
 await leaveApi.fileLeave({ employeeId: "MSMA-00846", typeId: freeType, start: long1, end: lastDay, reason: "Long trip" } as never, "Angela").catch((e: Error) => console.log("long leave:", e.message));
 const rafLong = (await bell("ua-approver")).some((x) => x.includes("Long trip"));
 const superLong = (await bell("ua-super")).some((x) => x.includes("Long trip"));
@@ -131,5 +132,17 @@ const cert2 = await legacy.createCertificateRequest({ type: "Certificate of Tax 
 as("ua-hr");
 await legacy.declineCertificate(cert2.id, "Your 2316 isn't filed yet", "Wendy Lacson");
 check("HR declines one: the employee is told why", (await bell("ua-employee")).some((x) => x.startsWith("[rejected]") && x.includes("declined") && x.includes("isn't filed yet")));
+
+console.log("\n— Support: an employee reports a problem straight to IT —");
+const support = await import("../src/lib/support/store");
+as("ua-employee");
+const tk = await support.fileTicket({ subject: "Clock-in button does nothing", category: "Bug or error", priority: "normal", text: "I tap Clock in and nothing happens." });
+check("System Admin gets the ticket, linked to Support tickets", (await bell("ua-sysadmin")).some((x) => x.startsWith("[request]") && x.includes(`#${tk.number}`) && x.includes("/admin/administration/support")));
+check("HR isn't told and can't see it", !(await bell("ua-hr")).some((x) => x.includes(`#${tk.number}`)) && (as("ua-hr"), !(await support.listTickets()).some((t) => t.id === tk.id)));
+as("ua-employee");
+check("The employee sees only their own tickets", (await support.listTickets()).every((t) => t.filedById === "ua-employee"));
+as("ua-sysadmin");
+await support.replyTicket(tk.id, "Fixed, please try again.");
+check("The employee is told support replied, linked to their Support page", (await bell("ua-employee")).some((x) => x.includes(`Support replied to ticket #${tk.number}`) && x.includes("/employee/support")));
 
 console.log(failed ? `\n${failed} failed` : "\nAll notification checks passed");

@@ -5,6 +5,7 @@ import { useToast } from "@/components/ui/ToastContext";
 import { CopyIcon, EditIcon, EyeIcon, FileIcon, MailIcon, MapPinIcon, MoreVerticalIcon, PhoneIcon, TrashIcon } from "@/components/icons";
 import { useCan } from "@/lib/useCan";
 import type { EmployeeSummary } from "@/lib/corehr/api";
+import { useTilt } from "@/lib/useTilt";
 import { formatDate, statusTone, tenure } from "./format";
 import { DeletePersonDialog, EditPersonDialog } from "./PersonActions";
 import { Drawer, Initials, Pill } from "./ui";
@@ -106,9 +107,14 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
     setMenu(false);
   };
   const where = [e.branchName, e.teamName].filter(Boolean).join(" · ");
+  // Leans toward the pointer; flat while its menu is open.
+  const tilt = useTilt<HTMLElement>(menu);
 
+  // The wrapper rises in and holds the grid cell; the card inside tilts (an animation would hold its transform).
   return (
-    <article style={{ "--i": index } as React.CSSProperties} className={clsx("rise-in lift relative flex flex-col rounded-2xl border border-border bg-surface px-4 py-3.5 shadow-sm", menu && "z-30", e.status === "Separated" && "opacity-60")}>
+    <div style={{ "--i": index } as React.CSSProperties} className={clsx("rise-in relative flex", menu && "z-30")}>
+    <article ref={tilt} className={clsx("tilt-card relative flex w-full flex-col rounded-2xl border border-border bg-surface px-4 py-3.5", e.status === "Separated" && "opacity-60")}>
+      <span aria-hidden="true" className="tilt-glare" />
       <header className="flex h-[4.25rem] items-start gap-2.5">
         <Initials initials={e.initials} size="md" />
         <div className="min-w-0 flex-1 pt-0.5">
@@ -235,5 +241,6 @@ export function EmployeeCard({ e, index }: { e: EmployeeSummary; index: number }
       {deleting && <DeletePersonDialog e={e} onClose={() => setDeleting(false)} />}
       {editing && <EditPersonDialog employeeId={e.id} onClose={() => setEditing(false)} />}
     </article>
+    </div>
   );
 }

@@ -81,7 +81,7 @@ export function RequestCertificateDialog({
           <Button type="button" variant="ghost" onClick={close}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting || mutation.isPending}>
+          <Button loading={mutation.isPending} succeeded={mutation.isSuccess} type="submit" disabled={isSubmitting || mutation.isPending}>
             {mutation.isPending ? "Submitting…" : "Submit request"}
           </Button>
         </div>

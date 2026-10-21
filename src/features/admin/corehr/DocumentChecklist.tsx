@@ -61,7 +61,7 @@ export function DocumentChecklist({ employeeId, employeeName, columns = 2, onOpe
           <span className="text-xs text-ink-2">
             <span className="font-semibold text-ink">{toCheck.length}</span> submitted and waiting to be checked
           </span>
-          <Button size="sm" icon={<CheckIcon className="h-4 w-4" />} disabled={verify.isPending} onClick={() => verify.mutate(toCheck.map((d) => d.id))}>
+          <Button loading={verify.isPending} succeeded={verify.isSuccess} size="sm" icon={<CheckIcon className="h-4 w-4" />} disabled={verify.isPending} onClick={() => verify.mutate(toCheck.map((d) => d.id))}>
             Mark all {toCheck.length} as checked
           </Button>
         </div>
@@ -89,7 +89,7 @@ export function DocumentChecklist({ employeeId, employeeName, columns = 2, onOpe
                 )}
               </button>
               {canCheck && submitted && (
-                <Button size="sm" disabled={verify.isPending} onClick={() => verify.mutate([d.id])} aria-label={`Mark ${d.type} as checked`}>
+                <Button loading={verify.isPending} succeeded={verify.isSuccess} size="sm" disabled={verify.isPending} onClick={() => verify.mutate([d.id])} aria-label={`Mark ${d.type} as checked`}>
                   Check
                 </Button>
               )}

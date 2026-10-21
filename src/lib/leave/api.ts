@@ -8,6 +8,8 @@ import { can, canFor, visible } from "../permissions";
 import { deny, forbidden, sessionWho } from "../session";
 import { managerOf, nameOf, notifyEmployee } from "../outbox";
 import { dates, tellApprover, tellEmployees, who as nameFor } from "../requestNotices";
+import { backendOn } from "../backend/client";
+import { BACKEND_LEAVE_TYPES, backendDecide, backendLeaveRows } from "../backend/requests";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -37,6 +39,7 @@ export function people(): LeavePerson[] {
 // ---- Leave types ----
 
 export function listTypes() {
+  if (backendOn()) return respond(BACKEND_LEAVE_TYPES);
   return respond(leave.types);
 }
 
@@ -70,6 +73,7 @@ export interface RequestRow extends LeaveRequest {
 export function listRequests(): Promise<RequestRow[]> {
   const who = sessionWho();
   if (!can(who, "view", "leave")) return forbidden();
+  if (backendOn()) return backendLeaveRows();
   const ps = people();
   return respond(
     visible(who, "leave", leave.requests, (r) => r.employeeId)
@@ -174,6 +178,10 @@ export async function fileLeave(input: FileInput, actor: string, approveNow = fa
 }
 
 export async function decideRequest(id: string, approve: boolean, note: string, actor: string): Promise<LeaveRequest> {
+  if (backendOn()) {
+    await backendDecide(id, approve, note);
+    return (await backendLeaveRows()).find((r) => r.id === id)!;
+  }
   const target = leave.requests.find((x) => x.id === id);
   const denied = deny("leave", "approve", target?.employeeId);
   if (denied) return denied;
@@ -263,31 +271,6 @@ export function listAdjustments(employeeId: string) {
   const denied = deny("leaveBalances", "view", employeeId);
   if (denied) return denied;
   return respond(leave.adjustments.filter((a) => a.employeeId === employeeId).sort((a, b) => b.at.localeCompare(a.at)));
-}
-
-// ---- Calendar ----
-
-export interface AwayEntry {
-  person: LeavePerson;
-  type: LeaveType;
-  request: LeaveRequest;
-}
-
-/** Everyone away (approved or pending) between two dates. */
-export function listAway(from: string, to: string): Promise<AwayEntry[]> {
-  const who = sessionWho();
-  if (!can(who, "view", "leave")) return forbidden();
-  const ps = people();
-  return respond(
-    visible(who, "leave", leave.requests, (r) => r.employeeId)
-      .filter((r) => (r.status === "approved" || r.status === "pending") && r.start <= to && r.end >= from)
-      .flatMap((r) => {
-        const person = ps.find((p) => p.id === r.employeeId);
-        const type = leave.types.find((t) => t.id === r.typeId);
-        return person && type ? [{ person, type, request: r }] : [];
-      })
-      .sort((a, b) => a.request.start.localeCompare(b.request.start)),
-  );
 }
 
 export { addDays, isoToday };

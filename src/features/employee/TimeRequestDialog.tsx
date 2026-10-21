@@ -53,7 +53,7 @@ export function TimeRequestDialog({ ask, choices, onClose }: { ask: Ask; choices
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={!day || send.isPending} onClick={() => send.mutate()}>
+          <Button loading={send.isPending} succeeded={send.isSuccess} disabled={!day || send.isPending} onClick={() => send.mutate()}>
             Send to approver
           </Button>
         </div>

@@ -3,7 +3,7 @@
 import { fullName, state as core } from "../corehr/store";
 import { leave } from "../leave/store";
 import { tk } from "../timekeeping/store";
-import { admin, logAdmin, saveAdmin, type Access, type ModuleKey, type RequestKind, type Settings, type SystemRole, type UserAccount, type Workflow } from "./store";
+import { admin, logAdmin, saveAdmin, type Access, type RequestKind, type Settings, type SystemRole, type UserAccount, type Workflow } from "./store";
 import { LIMITS, type RoleKey } from "../permissions";
 import { deny, employeeOfAccount, forbidden, sessionWho } from "../session";
 import { assertAdminAccountAvailable } from "../subscription/api";
@@ -190,15 +190,6 @@ export interface RoleRow extends SystemRole {
 }
 
 export const listRoles = () => respond(admin.roles.map((r) => ({ ...r, users: admin.accounts.filter((a) => a.roleId === r.id).length })));
-
-/** The six roles are fixed: what they can do is the access matrix in lib/permissions.ts. */
-export async function saveRole(_input: { id?: string; name: string; description: string; access: Record<ModuleKey, Access> }, _actor: string, _actorAccountId?: string): Promise<SystemRole> {
-  return fail("Roles are fixed. Their access is set in the access matrix, not here.");
-}
-
-export async function deleteRole(_id: string, _actor: string, _actorAccountId?: string): Promise<void> {
-  return fail("Roles are fixed and can't be deleted.");
-}
 
 // ---- Workflows ----
 

@@ -298,7 +298,7 @@ export function RequestUpgradeDialog({ open, onClose }: { open: boolean; onClose
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+          <Button loading={mutation.isPending} succeeded={mutation.isSuccess} disabled={mutation.isPending} onClick={() => mutation.mutate()}>
             {mutation.isPending ? "Sending…" : "Send request"}
           </Button>
         </div>

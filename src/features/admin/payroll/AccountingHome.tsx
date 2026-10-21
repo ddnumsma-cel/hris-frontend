@@ -25,18 +25,18 @@ export function AdminHome() {
 
 function Tile({ label, value, sub, to, tone }: { label: string; value: ReactNode; sub: ReactNode; to: string; tone?: "warn" | "good" }) {
   return (
-    <Link to={to} className="flex flex-col gap-1 rounded-[var(--radius-card)] border border-[var(--card-border)] bg-surface p-4 transition-colors hover:bg-surface-2">
-      <span className="text-xs font-medium text-ink-2">{label}</span>
-      <span className="font-display text-2xl font-semibold">{value}</span>
-      <span className={tone === "warn" ? "text-xs text-warning" : tone === "good" ? "text-xs text-good" : "text-xs text-ink-2"}>{sub}</span>
+    <Link to={to} data-slot="stat" className="flex flex-col gap-1 rounded-[var(--radius-card)] border border-[var(--card-border)] bg-surface p-4 transition-colors hover:bg-surface-2">
+      <span data-slot="stat-label" className="text-xs font-medium text-ink-2">{label}</span>
+      <span data-slot="stat-value" className="font-display text-2xl font-semibold">{value}</span>
+      <span data-slot="stat-delta" data-tone={tone} className={tone === "warn" ? "text-xs text-warning" : tone === "good" ? "text-xs text-good" : "text-xs text-ink-2"}>{sub}</span>
     </Link>
   );
 }
 
 function Panel({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <section className="flex flex-col rounded-[var(--radius-card)] border border-[var(--card-border)] bg-surface">
-      <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] px-5 py-4">
+    <section data-slot="card" className="flex flex-col rounded-[var(--radius-card)] border border-[var(--card-border)] bg-surface">
+      <div data-slot="card-header" className="flex items-center justify-between gap-4 border-b border-[var(--line)] px-5 py-4">
         <h2 className="text-sm font-semibold">{title}</h2>
         {action}
       </div>
@@ -98,7 +98,7 @@ export function AccountingHome() {
   const loading = runs.isLoading || claims.isLoading;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="dash">
       <ContentHead title="Payroll & payouts" subtitle={formatToday()} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {loading ? (

@@ -250,8 +250,6 @@ export async function undoHolidayChange(ruleId: string, year: number): Promise<v
 const COMPANY = "Company";
 const isCompanyRule = (r: HolidayRule) => !r.builtIn && r.source === COMPANY && r.repeat.kind === "once";
 
-export const isCustomHoliday = (h: Holiday) => h.source === COMPANY;
-
 export function customHolidays(): Holiday[] {
   return saved.rules
     .filter((r) => r.active && isCompanyRule(r))

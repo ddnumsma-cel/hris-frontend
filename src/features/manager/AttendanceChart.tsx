@@ -10,7 +10,7 @@ export function AttendanceChart({ data, variant = "area" }: { data: AttendancePo
     return (
       <div className="h-56 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 0, left: 0, bottom: 0 }} barCategoryGap="18%">
+          <BarChart data={data} margin={{ top: 8, right: 0, left: 0, bottom: 0 }} barCategoryGap="18%" accessibilityLayer>
             <defs>
               <linearGradient id="attendanceHighlight" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--chart-highlight-top)" />
@@ -52,7 +52,7 @@ export function AttendanceChart({ data, variant = "area" }: { data: AttendancePo
               {data.map((point, i) => (
                 <Cell
                   key={point.date}
-                  fill={i === data.length - 1 ? "url(#attendanceHighlight)" : "var(--chart-bar)"}
+                  fill={i === data.length - 1 ? "url(#attendanceHighlight)" : "var(--dash-bar-idle, var(--chart-bar))"}
                   style={i === data.length - 1 ? { filter: "var(--chart-highlight-glow)" } : undefined}
                 />
               ))}

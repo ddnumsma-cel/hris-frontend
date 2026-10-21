@@ -49,7 +49,7 @@ function DeclareDialog({ onClose }: { onClose: () => void }) {
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button icon={<HomeIcon className="h-3.75 w-3.75" />} disabled={save.isPending} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} succeeded={save.isSuccess} icon={<HomeIcon className="h-3.75 w-3.75" />} disabled={save.isPending} onClick={() => save.mutate()}>
             Declare
           </Button>
         </div>
@@ -168,7 +168,7 @@ export function RemoteDaysPage() {
             align: "right",
             cell: (d) =>
               canEdit && statusOf(d) !== "past" ? (
-                <Button size="sm" variant="ghost" disabled={cancel.isPending} onClick={() => window.confirm(`Cancel the remote work day ${range(d)}?`) && cancel.mutate(d)}>
+                <Button loading={cancel.isPending} succeeded={cancel.isSuccess} size="sm" variant="ghost" disabled={cancel.isPending} onClick={() => window.confirm(`Cancel the remote work day ${range(d)}?`) && cancel.mutate(d)}>
                   Cancel
                 </Button>
               ) : null,

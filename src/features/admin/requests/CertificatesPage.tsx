@@ -61,7 +61,7 @@ function IssueDialog({ request, employee, onClose }: { request: CertificateReque
               {sent ? "Close" : "Cancel"}
             </Button>
             {!sent && (
-              <Button disabled={send.isPending || !employee} onClick={() => send.mutate()}>
+              <Button loading={send.isPending} succeeded={send.isSuccess} disabled={send.isPending || !employee} onClick={() => send.mutate()}>
                 {send.isPending ? "Sending…" : "Send to employee"}
               </Button>
             )}
@@ -125,7 +125,7 @@ function DeclineDialog({ request, onClose }: { request: CertificateRequest; onCl
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="remove" disabled={decline.isPending || !reason.trim()} onClick={() => decline.mutate()}>
+          <Button loading={decline.isPending} succeeded={decline.isSuccess} variant="remove" disabled={decline.isPending || !reason.trim()} onClick={() => decline.mutate()}>
             Decline
           </Button>
         </div>
@@ -193,7 +193,7 @@ export function CertificatesPage() {
             <Button size="sm" variant="remove" onClick={() => setDeclining(r)}>
               Decline
             </Button>
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => ready.mutate(r)}>
+            <Button loading={ready.isPending} succeeded={ready.isSuccess} size="sm" variant="ghost" disabled={busy || ready.isPending} onClick={() => ready.mutate(r)}>
               Ready for pickup
             </Button>
             <Button size="sm" onClick={() => setIssuing(r)}>
@@ -209,7 +209,7 @@ export function CertificatesPage() {
             <Button size="sm" variant="ghost" onClick={() => setIssuing(r)}>
               Send digital copy
             </Button>
-            <Button size="sm" disabled={busy} onClick={() => released.mutate(r)}>
+            <Button loading={released.isPending} succeeded={released.isSuccess} size="sm" disabled={busy || released.isPending} onClick={() => released.mutate(r)}>
               Mark released
             </Button>
           </span>

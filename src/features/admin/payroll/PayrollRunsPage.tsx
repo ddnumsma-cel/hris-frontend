@@ -53,7 +53,7 @@ function NewRunDialog({ onClose }: { onClose: () => void }) {
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={!id || create.isPending} onClick={() => create.mutate()}>
+          <Button loading={create.isPending} succeeded={create.isSuccess} disabled={!id || create.isPending} onClick={() => create.mutate()}>
             {create.isPending ? "Computing…" : "Compute payroll"}
           </Button>
         </div>
@@ -251,7 +251,7 @@ function Breakdown({ run, line, canEdit, onClose }: { run: PayrollRun; line: Pay
                 <input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} /> Taxable (counts toward withholding tax)
               </label>
               <ErrorNote error={add.error} />
-              <Button size="sm" className="self-start" disabled={add.isPending} onClick={() => add.mutate()}>
+              <Button loading={add.isPending} succeeded={add.isSuccess} size="sm" className="self-start" disabled={add.isPending} onClick={() => add.mutate()}>
                 Add adjustment
               </Button>
             </div>
@@ -285,7 +285,7 @@ function ApproveDialog({ run, onClose }: { run: PayrollRun; onClose: () => void 
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button icon={<LockIcon className="h-3.75 w-3.75" />} disabled={approve.isPending} onClick={() => approve.mutate()}>
+          <Button loading={approve.isPending} succeeded={approve.isSuccess} icon={<LockIcon className="h-3.75 w-3.75" />} disabled={approve.isPending} onClick={() => approve.mutate()}>
             Approve and lock
           </Button>
         </div>
@@ -396,11 +396,11 @@ export function PayrollRunPage() {
             </Button>
             {draft && canEdit && (
               <>
-                <Button variant="ghost" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
+                <Button loading={refresh.isPending} succeeded={refresh.isSuccess} variant="ghost" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
                   Recompute
                 </Button>
                 {canDelete && (
-                  <Button variant="remove" icon={<TrashIcon className="h-3.75 w-3.75" />} disabled={remove.isPending} onClick={() => window.confirm(`Delete the draft run for ${r.label}?`) && remove.mutate()}>
+                  <Button loading={remove.isPending} succeeded={remove.isSuccess} variant="remove" icon={<TrashIcon className="h-3.75 w-3.75" />} disabled={remove.isPending} onClick={() => window.confirm(`Delete the draft run for ${r.label}?`) && remove.mutate()}>
                     Delete
                   </Button>
                 )}

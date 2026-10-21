@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "MSMA HRIS",
+    "slug": "msma-hris",
+    "scheme": "msmahris",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#F6F5F1",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.msma.hris"
+    },
+    "android": {
+      "package": "com.msma.hris"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow $(PRODUCT_NAME) to use Face ID to confirm it's you when you clock in or out."
+        }
+      ]
+    ],
+    "owner": "msma-solutions",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1969107e-4943-42a7-9730-4e22afaf183d"
+      }
+    }
+  }
+}

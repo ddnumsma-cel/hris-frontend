@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { ContentHead } from "@/components/layout/RolePage";
@@ -40,7 +40,9 @@ export function ShiftTeams() {
       {w.query_.isLoading ? (
         <Skeleton className="h-80 w-full" />
       ) : (
-        <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
+        // One column per team when there's room (each at least 14rem); in a narrower box (tablets, inside Settings)
+        // the teams wrap onto the next row instead of squeezing.
+        <div className="grid grid-cols-1 gap-3 sm:[grid-template-columns:var(--team-cols)]" style={{ "--team-cols": `repeat(auto-fit, minmax(min(100%, 14rem), 1fr))` } as CSSProperties}>
           {columns.map(({ id, sh }) => {
             const list = people.filter((p) => (p.usualShiftId ?? null) === id);
             return (

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ContentHead } from "@/components/layout/RolePage";
+import { ContentHead, InnerPage } from "@/components/layout/RolePage";
 import { LeaveRequestsPage } from "@/features/admin/leave/LeaveRequestsPage";
 import { ReimbursementsPage } from "@/features/admin/reimbursements/ReimbursementsPage";
 import { CorrectionsPage } from "@/features/admin/timekeeping/CorrectionsPage";
@@ -36,9 +36,9 @@ export function ManagerApprovals() {
           { value: "claims", label: "Claims" },
         ]}
       />
-      <div className="settings-embed flex min-w-0 flex-col gap-5">
+      <InnerPage>
         {tab === "leave" ? <LeaveRequestsPage /> : tab === "overtime" ? <OvertimePage /> : tab === "undertime" ? <UndertimePage /> : tab === "adjustments" ? <CorrectionsPage /> : <ReimbursementsPage />}
-      </div>
+      </InnerPage>
     </>
   );
 }

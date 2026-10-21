@@ -1,0 +1,139 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Design tokens: keep in sync with packages/shared/src/theme.ts */
+:root {
+  --bg: #f6f5f1;
+  --card: #ffffff;
+  --sidebar: #1b1d1f;
+  --sidebar-text: #eceae4;
+  --sidebar-muted: #9a9ea3;
+  --fg: #1b1d1f;
+  --muted: #5f6368;
+  --border: #e4e2dc;
+  --accent: #0e6b63;
+  --accent-hover: #0b5953;
+  --accent-soft: #e3f0ee;
+  --on-accent: #ffffff;
+  --success: #067647;
+  --success-soft: #e6f4ec;
+  --warning: #b45309;
+  --warning-soft: #fdf1e3;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --grid: #eceae4;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #111315;
+  --card: #1b1d1f;
+  --sidebar: #0b0c0d;
+  --sidebar-text: #eceae4;
+  --sidebar-muted: #8b8f94;
+  --fg: #eceae4;
+  --muted: #a1a4a8;
+  --border: #2c2f33;
+  --accent: #3db5a8;
+  --accent-hover: #52c4b8;
+  --accent-soft: #15302d;
+  --on-accent: #0b0c0d;
+  --success: #47cd89;
+  --success-soft: #142b20;
+  --warning: #f5a524;
+  --warning-soft: #33250f;
+  --danger: #f97066;
+  --danger-soft: #3a1a17;
+  --grid: #26292c;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+html {
+  font-size: 100%;
+}
+/* Settings > Text size: Large */
+html[data-text-size='LARGE'] {
+  font-size: 112.5%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers: monospace, tabular, right-aligned in tables */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Settings > Table density */
+.data-table td,
+.data-table th {
+  padding: 0.625rem 0.75rem;
+}
+html[data-density='COMPACT'] .data-table td,
+html[data-density='COMPACT'] .data-table th {
+  padding: 0.3rem 0.6rem;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Printouts are always light and without navigation */
+@media print {
+  :root,
+  .dark {
+    --bg: #ffffff;
+    --card: #ffffff;
+    --fg: #000000;
+    --muted: #444444;
+    --border: #cccccc;
+    color-scheme: light;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-full {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+}

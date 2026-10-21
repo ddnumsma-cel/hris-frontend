@@ -68,7 +68,7 @@ function NewClaimDialog({ onClose }: { onClose: () => void }) {
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button
+          <Button loading={submit.isPending} succeeded={submit.isSuccess}
             disabled={submit.isPending || reading}
             onClick={() => {
               setTried(true);

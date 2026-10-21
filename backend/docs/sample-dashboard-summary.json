@@ -1,0 +1,272 @@
+{
+  "date": "2026-09-26",
+  "siteId": null,
+  "generatedAt": "2026-09-26T08:07:13.835Z",
+  "kpis": {
+    "headcount": 180,
+    "present": 167,
+    "late": 13,
+    "absent": 8,
+    "onLeave": 5,
+    "pendingApprovals": 9
+  },
+  "presentBySite": [
+    {
+      "siteId": "cmui3w7310000t02waebe0qgh",
+      "siteName": "HQ Cebu City",
+      "present": 90,
+      "scheduled": 93
+    },
+    {
+      "siteId": "cmui3w7370001t02wu821p47l",
+      "siteName": "Mandaue branch",
+      "present": 44,
+      "scheduled": 47
+    },
+    {
+      "siteId": "cmui3w73b0002t02wezd27248",
+      "siteName": "Lapu-Lapu branch",
+      "present": 33,
+      "scheduled": 35
+    }
+  ],
+  "trend": [
+    {
+      "date": "2026-09-11",
+      "present": 174,
+      "scheduled": 180,
+      "rate": 96.7
+    },
+    {
+      "date": "2026-09-12",
+      "present": 174,
+      "scheduled": 180,
+      "rate": 96.7
+    },
+    {
+      "date": "2026-09-14",
+      "present": 173,
+      "scheduled": 178,
+      "rate": 97.2
+    },
+    {
+      "date": "2026-09-15",
+      "present": 174,
+      "scheduled": 180,
+      "rate": 96.7
+    },
+    {
+      "date": "2026-09-16",
+      "present": 174,
+      "scheduled": 180,
+      "rate": 96.7
+    },
+    {
+      "date": "2026-09-17",
+      "present": 171,
+      "scheduled": 177,
+      "rate": 96.6
+    },
+    {
+      "date": "2026-09-18",
+      "present": 171,
+      "scheduled": 175,
+      "rate": 97.7
+    },
+    {
+      "date": "2026-09-19",
+      "present": 169,
+      "scheduled": 178,
+      "rate": 94.9
+    },
+    {
+      "date": "2026-09-21",
+      "present": 177,
+      "scheduled": 180,
+      "rate": 98.3
+    },
+    {
+      "date": "2026-09-22",
+      "present": 172,
+      "scheduled": 179,
+      "rate": 96.1
+    },
+    {
+      "date": "2026-09-23",
+      "present": 176,
+      "scheduled": 179,
+      "rate": 98.3
+    },
+    {
+      "date": "2026-09-24",
+      "present": 175,
+      "scheduled": 180,
+      "rate": 97.2
+    },
+    {
+      "date": "2026-09-25",
+      "present": 173,
+      "scheduled": 180,
+      "rate": 96.1
+    },
+    {
+      "date": "2026-09-26",
+      "present": 167,
+      "scheduled": 175,
+      "rate": 95.4
+    }
+  ],
+  "latestPunches": [
+    {
+      "id": "cmui3w8ay02g3t02w4appv0za",
+      "punchedAt": "2026-09-26T08:01:17.000Z",
+      "employeeId": "3c6b60e5-e3cc-44c8-97af-1ad86c67b83e",
+      "employeeName": "Evelyn Flores",
+      "siteName": "Mandaue branch",
+      "method": "FACE",
+      "kind": "OUT",
+      "lateMinutes": 0,
+      "deviceName": "Mandaue entrance"
+    },
+    {
+      "id": "cmui3w8bl03t2t02wqje5tv9h",
+      "punchedAt": "2026-09-26T07:40:12.000Z",
+      "employeeId": "011441a0-2a68-42de-8bb8-c582f2a05b04",
+      "employeeName": "Ruby Chiong",
+      "siteName": "Lapu-Lapu branch",
+      "method": "FACE",
+      "kind": "OUT",
+      "lateMinutes": 0,
+      "deviceName": "Lapu-Lapu entrance"
+    },
+    {
+      "id": "cmui3w8ac0168t02w5fxfs7lk",
+      "punchedAt": "2026-09-26T00:40:49.000Z",
+      "employeeId": "974b8ee6-8dab-4da3-9ffd-2ab75f4de158",
+      "employeeName": "Analyn Rivera",
+      "siteName": "HQ Cebu City",
+      "method": "FINGER",
+      "kind": "IN",
+      "lateMinutes": 40,
+      "deviceName": "HQ main entrance"
+    },
+    {
+      "id": "cmui3w8b302q7t02wltl02p9r",
+      "punchedAt": "2026-09-26T00:38:50.000Z",
+      "employeeId": "c96d4cd4-472d-49f4-914a-9a1b30119b93",
+      "employeeName": "Joanna Quijano",
+      "siteName": "Mandaue branch",
+      "method": "FINGER",
+      "kind": "IN",
+      "lateMinutes": 38,
+      "deviceName": "Mandaue entrance"
+    },
+    {
+      "id": "cmui3w8ax02dwt02w7e7ijvwq",
+      "punchedAt": "2026-09-26T00:36:13.000Z",
+      "employeeId": "d8d4ec70-9a1d-4687-a7bc-35e95afc81f7",
+      "employeeName": "Jasmine Patalinghug",
+      "siteName": "Mandaue branch",
+      "method": "FACE",
+      "kind": "IN",
+      "lateMinutes": 36,
+      "deviceName": "Mandaue entrance"
+    },
+    {
+      "id": "cmui3w8ak01mvt02wpkmyk391",
+      "punchedAt": "2026-09-26T00:30:31.000Z",
+      "employeeId": "7f7c7723-d0f9-4ac5-88fe-ff8c87f861c9",
+      "employeeName": "Michael Castillo",
+      "siteName": "HQ Cebu City",
+      "method": "FACE",
+      "kind": "IN",
+      "lateMinutes": 30,
+      "deviceName": "HQ warehouse"
+    },
+    {
+      "id": "cmui3w8af01c3t02w8oht7z0l",
+      "punchedAt": "2026-09-26T00:30:03.000Z",
+      "employeeId": "b96d3d9b-bf07-4529-a662-eaabb148c168",
+      "employeeName": "Mylene Labra",
+      "siteName": "HQ Cebu City",
+      "method": "FINGER",
+      "kind": "IN",
+      "lateMinutes": 30,
+      "deviceName": "HQ warehouse"
+    },
+    {
+      "id": "cmui3w8b102mht02wq5f34k8s",
+      "punchedAt": "2026-09-26T00:28:13.000Z",
+      "employeeId": "a1f19948-3558-42d3-b9a8-2e18a51c4249",
+      "employeeName": "Alvin Navarro",
+      "siteName": "Mandaue branch",
+      "method": "FACE",
+      "kind": "IN",
+      "lateMinutes": 28,
+      "deviceName": "Mandaue entrance"
+    },
+    {
+      "id": "cmui3w8ai01j9t02w6nj8ve7p",
+      "punchedAt": "2026-09-26T00:27:05.000Z",
+      "employeeId": "cf46cce8-9c42-4e89-bf4f-fb50770e9221",
+      "employeeName": "Aileen Cabahug",
+      "siteName": "HQ Cebu City",
+      "method": "FINGER",
+      "kind": "IN",
+      "lateMinutes": 27,
+      "deviceName": "HQ warehouse"
+    },
+    {
+      "id": "cmui3w8a9011yt02wk6pguny0",
+      "punchedAt": "2026-09-26T00:26:40.000Z",
+      "employeeId": "40346496-3be8-4185-a2c5-7e681d1176d2",
+      "employeeName": "Ryan Lumapas",
+      "siteName": "HQ Cebu City",
+      "method": "FACE",
+      "kind": "IN",
+      "lateMinutes": 26,
+      "deviceName": "HQ main entrance"
+    }
+  ],
+  "devices": [
+    {
+      "serial": "ZKHQ0001",
+      "name": "HQ main entrance",
+      "siteName": "HQ Cebu City",
+      "lastSeenAt": "2026-09-26T08:06:52.055Z",
+      "online": true
+    },
+    {
+      "serial": "ZKHQ0002",
+      "name": "HQ warehouse",
+      "siteName": "HQ Cebu City",
+      "lastSeenAt": "2026-09-26T08:05:52.055Z",
+      "online": true
+    },
+    {
+      "serial": "ZKLL0001",
+      "name": "Lapu-Lapu entrance",
+      "siteName": "Lapu-Lapu branch",
+      "lastSeenAt": "2026-09-26T07:54:52.055Z",
+      "online": false
+    },
+    {
+      "serial": "ZKMD0001",
+      "name": "Mandaue entrance",
+      "siteName": "Mandaue branch",
+      "lastSeenAt": "2026-09-26T08:06:52.055Z",
+      "online": true
+    }
+  ],
+  "payroll": {
+    "sample": true,
+    "cutoff": "2026-09-16..2026-09-30",
+    "label": "16–30 Sep 2026",
+    "payDate": "2026-10-05",
+    "employees": 180,
+    "gross": "1721048.73",
+    "deductions": "203003.20",
+    "net": "1518045.53",
+    "openIssues": 20
+  }
+}

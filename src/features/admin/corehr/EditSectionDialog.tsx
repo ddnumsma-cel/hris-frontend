@@ -118,7 +118,7 @@ export function EditSectionDialog({ employee, section, onClose }: { employee: Co
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={mutation.isPending || !isDirty}>
+          <Button loading={mutation.isPending} succeeded={mutation.isSuccess} onClick={submit} disabled={mutation.isPending || !isDirty}>
             {mutation.isPending ? "Saving…" : "Save changes"}
           </Button>
         </div>

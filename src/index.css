@@ -35,6 +35,15 @@
   /* Shadows that use the brand blue */
   --shadow-logo: 0 4px 12px rgba(37, 99, 235, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
   --shadow-primary: 0 6px 16px rgba(37, 99, 235, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  --shadow-morph: 0 6px 16px rgba(37, 99, 235, 0.35);
+  --tilt-glare: rgba(255, 255, 255, 0.7);
+  --shadow-tilt: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px -12px rgba(15, 23, 42, 0.18), 0 24px 48px -28px rgba(15, 23, 42, 0.2);
+  /* Dashboards: crisp cards on the page, hairlines, and the column chart's blues. */
+  --dash-card: #ffffff;
+  --dash-hairline: rgba(30, 41, 59, 0.1);
+  --dash-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --chart-base: #bfdbfe;
+  --chart-mid: #60a5fa;
   --shadow-primary-hover: 0 8px 20px rgba(37, 99, 235, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   --shadow-chart-highlight: 0 6px 18px rgba(37, 99, 235, 0.4);
   /* Chart highlight gradient stops and glow, for SVG fills (which can't take a CSS gradient). */
@@ -125,15 +134,29 @@
   --login-ink-3: #536279;
   --login-panel: rgba(255, 255, 255, 0.72);
   --login-card: rgba(255, 255, 255, 0.78);
-  --login-tile: rgba(29, 78, 216, 0.08);
   --login-field: #ffffff;
   --login-field-focus: #ffffff;
   --login-line: rgba(30, 41, 59, 0.14);
   --login-hover: rgba(30, 41, 59, 0.06);
   --login-link: #1d4ed8;
-  --login-dot: rgba(30, 41, 59, 0.14);
   --login-shadow: rgba(30, 41, 59, 0.16);
-  --login-bar: rgba(30, 41, 59, 0.15);
+  --login-dot: rgba(30, 41, 59, 0.14);
+  /* Sign-in point cloud in MSMA's colours: --cloud-deep is the main colour, --cloud-light the ~30% lime accent.
+     Light: the logo tile's navy (white would vanish on the pale page); dark: the logo's white. */
+  --cloud-deep: #1e293b;
+  --cloud-light: #bfd813;
+  /* Sign-in page constellation lines and dots (at most 40% strong): the palest MSMA lime that keeps the
+     page's muted text at 4.5:1 with a line behind it. */
+  --constellation: #bfd813;
+  --logo-ink: #1e293b;
+  /* Page background particles: the palest accent tint muted text still reads over (4.5:1 at full dot strength). */
+  --drift: #b5def9;
+  /* The MSMA mark: white shapes and lime triangles (same in both modes; it sits on --login-mark-bg). */
+  --mark-ink: #ffffff;
+  --brand-lime: #bfd813;
+  /* A button's success state (Button loading → done): solid green with the check on it. */
+  --done-bg: #17734a;
+  --done-ink: #ffffff;
   --login-mark-bg: #1e293b;
 }
 
@@ -177,6 +200,15 @@
     --border-on-accent: rgba(255, 255, 255, 0.35);
     --shadow-logo: 0 4px 12px rgba(156, 211, 247, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5);
     --shadow-primary: 0 6px 16px rgba(156, 211, 247, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    --shadow-morph: 0 6px 16px rgba(156, 211, 247, 0.22);
+    --tilt-glare: rgba(255, 255, 255, 0.08);
+    --shadow-tilt: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.45), 0 24px 48px -28px rgba(0, 0, 0, 0.5);
+    /* Dashboards: crisp cards on the page, hairlines, and the column chart's blues. */
+    --dash-card: #232c38;
+    --dash-hairline: #333e4c;
+    --dash-shadow: none;
+    --chart-base: rgba(156, 211, 247, 0.28);
+    --chart-mid: #5ab0f0;
     --shadow-primary-hover: 0 8px 20px rgba(156, 211, 247, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.45);
     --focus-ring: rgba(156, 211, 247, 0.75);
     --focus-field: #9cd3f7;
@@ -215,15 +247,24 @@
     --login-ink-3: rgba(255, 255, 255, 0.55);
     --login-panel: rgba(255, 255, 255, 0.06);
     --login-card: rgba(255, 255, 255, 0.1);
-    --login-tile: rgba(255, 255, 255, 0.1);
     --login-field: rgba(255, 255, 255, 0.08);
     --login-field-focus: rgba(255, 255, 255, 0.12);
     --login-line: rgba(255, 255, 255, 0.15);
     --login-hover: rgba(255, 255, 255, 0.1);
     --login-link: #5ab0f0;
-    --login-dot: rgba(255, 255, 255, 0.16);
     --login-shadow: rgba(0, 0, 0, 0.55);
-    --login-bar: rgba(255, 255, 255, 0.25);
+    --login-dot: rgba(255, 255, 255, 0.16);
+    /* Sign-in point cloud in MSMA's colours: --cloud-deep is the main colour, --cloud-light the ~30% lime accent.
+       Light: the logo tile's navy (white would vanish on the pale page); dark: the logo's white. */
+    --cloud-deep: #ffffff;
+    --cloud-light: #bfd813;
+    /* Sign-in page constellation lines and dots (at most 40% strong): the palest MSMA lime that keeps the
+       page's muted text at 4.5:1 with a line behind it. */
+    --constellation: #4d580a;
+    --logo-ink: #ffffff;
+    --drift: #2e4a6b;
+    --done-bg: #6fd3a0;
+    --done-ink: #1a212b;
     --login-mark-bg: transparent;
   }
 }
@@ -266,6 +307,15 @@
   --border-on-accent: rgba(255, 255, 255, 0.35);
   --shadow-logo: 0 4px 12px rgba(156, 211, 247, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5);
   --shadow-primary: 0 6px 16px rgba(156, 211, 247, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  --shadow-morph: 0 6px 16px rgba(156, 211, 247, 0.22);
+  --tilt-glare: rgba(255, 255, 255, 0.08);
+  --shadow-tilt: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.45), 0 24px 48px -28px rgba(0, 0, 0, 0.5);
+  /* Dashboards: crisp cards on the page, hairlines, and the column chart's blues. */
+  --dash-card: #232c38;
+  --dash-hairline: #333e4c;
+  --dash-shadow: none;
+  --chart-base: rgba(156, 211, 247, 0.28);
+  --chart-mid: #5ab0f0;
   --shadow-primary-hover: 0 8px 20px rgba(156, 211, 247, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.45);
   --focus-ring: rgba(156, 211, 247, 0.75);
   --focus-field: #9cd3f7;
@@ -304,15 +354,24 @@
   --login-ink-3: rgba(255, 255, 255, 0.55);
   --login-panel: rgba(255, 255, 255, 0.06);
   --login-card: rgba(255, 255, 255, 0.1);
-  --login-tile: rgba(255, 255, 255, 0.1);
   --login-field: rgba(255, 255, 255, 0.08);
   --login-field-focus: rgba(255, 255, 255, 0.12);
   --login-line: rgba(255, 255, 255, 0.15);
   --login-hover: rgba(255, 255, 255, 0.1);
   --login-link: #5ab0f0;
-  --login-dot: rgba(255, 255, 255, 0.16);
   --login-shadow: rgba(0, 0, 0, 0.55);
-  --login-bar: rgba(255, 255, 255, 0.25);
+  --login-dot: rgba(255, 255, 255, 0.16);
+  /* Sign-in point cloud in MSMA's colours: --cloud-deep is the main colour, --cloud-light the ~30% lime accent.
+     Light: the logo tile's navy (white would vanish on the pale page); dark: the logo's white. */
+  --cloud-deep: #ffffff;
+  --cloud-light: #bfd813;
+  /* Sign-in page constellation lines and dots (at most 40% strong): the palest MSMA lime that keeps the
+     page's muted text at 4.5:1 with a line behind it. */
+  --constellation: #4d580a;
+  --logo-ink: #ffffff;
+  --drift: #2e4a6b;
+  --done-bg: #6fd3a0;
+  --done-ink: #1a212b;
   --login-mark-bg: transparent;
 }
 
@@ -649,29 +708,6 @@ body {
   animation: panel-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Login page: the sign-in card needs more separation from its panel in dark
-   mode, since --color-surface and --color-bg are both very dark and read as
-   nearly the same tone side by side. */
-.login-card {
-  background: var(--color-surface);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .login-card {
-    background: var(--color-surface-2);
-    box-shadow:
-      0 24px 60px -20px rgba(0, 0, 0, 0.65),
-      0 0 0 1px rgba(255, 255, 255, 0.06);
-  }
-}
-
-:root[data-theme="dark"] .login-card {
-  background: var(--color-surface-2);
-  box-shadow:
-    0 24px 60px -20px rgba(0, 0, 0, 0.65),
-    0 0 0 1px rgba(255, 255, 255, 0.06);
-}
-
 /* Sign-in page panel art (decorative only): soft brand glows and a fading dot grid. */
 .login-hero {
   position: relative;
@@ -681,6 +717,14 @@ body {
 .login-hero > * {
   position: relative;
   z-index: 1;
+}
+/* The constellation is the page's background, not a column: behind the content (which is z-index 1). */
+.login-hero > .login-constellation {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 .login-hero::before {
   content: "";
@@ -706,25 +750,133 @@ body {
   border-radius: var(--radius-logo);
   padding: 4px 8px;
 }
-/* The preview cards on the sign-in panel drift gently, one after another. */
-.login-float {
-  box-shadow: 0 18px 40px -18px var(--login-shadow);
-  animation: login-float 6s ease-in-out infinite;
+/* Sign-in preloader (LogoPreloader): the mark traces itself, fills, then the wordmark rises in. */
+.logo-preloader {
+  transition: opacity 400ms ease-in-out;
 }
-.login-float:nth-child(2) {
-  animation-delay: -2s;
+.logo-preloader[data-leaving] {
+  opacity: 0;
 }
-.login-float:nth-child(3) {
-  animation-delay: -4s;
+.logo-preloader-tile {
+  /* No tile: the mark sits on the page, in --logo-ink (navy on the pale page, white on the dark one). */
+  padding: 24px 28px;
 }
-@keyframes login-float {
+.logo-outline,
+.logo-inner {
+  fill: none;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: logo-draw 1400ms ease-in-out forwards;
+}
+.logo-outline {
+  stroke: var(--logo-ink);
+}
+.logo-inner {
+  stroke: var(--brand-lime);
+  /* About 15% after the outline starts. */
+  animation-delay: 210ms;
+}
+.logo-fill,
+.logo-inner-fill {
+  stroke: none;
+  opacity: 0;
+  animation: logo-fade 400ms ease-in-out 1400ms forwards;
+}
+.logo-fill {
+  fill: var(--logo-ink);
+}
+.logo-inner-fill {
+  fill: var(--brand-lime);
+  animation-delay: 1610ms;
+}
+.logo-wordmark {
+  opacity: 0;
+  transform: translateY(6px);
+  animation: logo-rise 500ms ease-in-out 1800ms forwards;
+}
+@keyframes btn-dot {
   0%,
+  80%,
   100% {
     transform: translateY(0);
+    opacity: 0.4;
   }
-  50% {
-    transform: translateY(-6px);
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
   }
+}
+@keyframes logo-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes logo-fade {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes logo-rise {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* Reduced motion: the finished logo, no drawing or rising. */
+@media (prefers-reduced-motion: reduce) {
+  .logo-outline,
+  .logo-inner,
+  .logo-fill,
+  .logo-inner-fill,
+  .logo-wordmark {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Password strength meter (PasswordStrength): four tracks whose fills grow from the left up to the
+   level, tinted red, amber, accent, then green, with the word in the same colour. Only transform and
+   colour animate. */
+.pw-segments {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+.pw-segments span {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--line-strong);
+}
+.pw-segments span::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--pw-color, transparent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition:
+    transform 420ms cubic-bezier(0.32, 0.72, 0, 1),
+    background-color 420ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.pw-meter[data-level="1"] { --pw-color: var(--danger-text); }
+.pw-meter[data-level="2"] { --pw-color: var(--warning-text); }
+.pw-meter[data-level="3"] { --pw-color: var(--accent); }
+.pw-meter[data-level="4"] { --pw-color: var(--success-text); }
+.pw-meter[data-level="1"] .pw-segments span:nth-child(-n + 1)::after,
+.pw-meter[data-level="2"] .pw-segments span:nth-child(-n + 2)::after,
+.pw-meter[data-level="3"] .pw-segments span:nth-child(-n + 3)::after,
+.pw-meter[data-level="4"] .pw-segments span::after {
+  transform: scaleX(1);
+}
+.pw-label {
+  min-height: 16px;
+  color: var(--pw-color, var(--text-muted));
+  transition: color 420ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /* App background: a plain --bg layer fixed behind all content. */
@@ -1185,6 +1337,106 @@ body {
     box-shadow: none;
     filter: none;
     cursor: not-allowed;
+  }
+
+  /* Loading buttons (<Button loading>): the button shrinks into a circle with three bouncing dots,
+     then turns green with a check, then returns. At rest the clip sits 24px outside the button so
+     its glow and focus ring show; the wrapper carries the shadow so it follows the clipped shape. */
+  .btn-morph {
+    /* Contains the button's hidden announcement, so inside a scrolling table it can't widen the page. */
+    position: relative;
+    display: inline-flex;
+    transition: filter var(--ease-fast);
+  }
+  .btn-morph > .btn {
+    position: relative;
+    flex: 1 1 auto;
+    justify-content: center;
+    clip-path: inset(-24px round 33px);
+    transition:
+      clip-path 560ms cubic-bezier(0.32, 0.72, 0, 1),
+      background var(--ease-fast),
+      color var(--ease-fast),
+      border-color var(--ease-fast),
+      box-shadow var(--ease-fast),
+      transform var(--ease-fast);
+  }
+  .btn-morph:has(> .btn[data-phase="loading"], > .btn[data-phase="done"]) {
+    filter: drop-shadow(var(--shadow-morph));
+  }
+  .btn-morph > .btn[data-phase="loading"],
+  .btn-morph > .btn[data-phase="done"] {
+    clip-path: inset(0 var(--morph-x, 0px) round 999px);
+    box-shadow: none;
+    opacity: 1;
+    cursor: progress;
+  }
+  .btn-label {
+    display: inline-flex;
+    align-items: center;
+    gap: inherit;
+    transition: opacity 200ms ease-in-out;
+  }
+  .btn[data-phase="loading"] .btn-label,
+  .btn[data-phase="done"] .btn-label {
+    opacity: 0;
+  }
+  .btn-dots,
+  .btn-done {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 200ms ease-in-out;
+  }
+  .btn-dots {
+    gap: 4px;
+  }
+  .btn-dots i {
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+  .btn[data-phase="loading"] .btn-dots {
+    opacity: 1;
+    transition-delay: 200ms;
+  }
+  .btn[data-phase="loading"] .btn-dots i {
+    animation: btn-dot 900ms ease-in-out infinite;
+  }
+  .btn[data-phase="loading"] .btn-dots i:nth-child(2) {
+    animation-delay: 150ms;
+  }
+  .btn[data-phase="loading"] .btn-dots i:nth-child(3) {
+    animation-delay: 300ms;
+  }
+  .btn-done {
+    background: var(--done-bg);
+    color: var(--done-ink);
+  }
+  .btn-done svg {
+    width: 16px;
+    height: 16px;
+  }
+  .btn-done path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  .btn[data-phase="done"] .btn-done {
+    opacity: 1;
+  }
+  .btn[data-phase="done"] .btn-done path {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 380ms ease-out 160ms;
   }
 
   .btn-primary {
@@ -1802,13 +2054,14 @@ body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-la
 }
 
 /* ------------------------------------------------------------------------
-   Overview dashboards (Employee, Partner, HR). Everything is scoped to .dash
+   Overview dashboards (Employee, Partner, HR, Accounting). Everything is scoped to .dash
    so the shared components used here (Card, StatTile, Chip, tables...) pick
-   up the dashboard card style only on these three pages.
+   up the dashboard style only on these pages: crisp hairline cards, uppercase
+   labels, tabular numbers, delta pills, thin bars and growing columns.
    Unlayered on purpose: these must win over the utilities on those components.
    ------------------------------------------------------------------------ */
 .dash {
-  --dash-bar-idle: var(--chart-bar);
+  --dash-bar-idle: var(--chart-base);
   --dash-divider: var(--line);
   --dash-focus: var(--focus-ring);
 }
@@ -1826,46 +2079,67 @@ body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-la
   outline-offset: 2px;
 }
 
-/* Cards: glass, 12px radius, no shadow (the panel shadow is enough); 16px padding; no header rule. */
+/* Page head on a dashboard: the title, and the line under it as a small uppercase label. */
+/* The heading block gives way (its label wraps) so the page actions stay on the right. */
+.dash [data-page-head] > div:first-child {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+.dash [data-page-head] h1 {
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+.dash [data-page-head] p {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Cards: crisp white (solid in dark), 1px hairline, 12px radius, a whisper of shadow. */
 .dash [data-slot="card"],
 .dash [data-slot="stat"] {
-  border: 1px solid var(--card-border);
+  border: 1px solid var(--dash-hairline);
   border-radius: var(--radius-card);
-  background: var(--card);
-  box-shadow: none;
+  background: var(--dash-card);
+  box-shadow: var(--dash-shadow);
 }
 
 .dash [data-slot="card-header"] {
-  border-bottom: 0;
-  padding: 16px 16px 4px;
+  border-bottom: 1px solid var(--dash-hairline);
+  padding: 16px 20px 12px;
 }
 
 .dash [data-slot="card-header"] h2 {
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.dash [data-slot="card-header"] > span {
+  font-variant-numeric: tabular-nums;
 }
 
 .dash [data-slot="card-body"] {
-  padding: 16px;
+  padding: 16px 20px 20px;
 }
 
-.dash [data-slot="card-header"] + [data-slot="card-body"] {
-  padding-top: 10px;
-}
-
-/* Tables inside dashboard cards: aligned to the card padding, faint dividers. */
+/* Tables inside dashboard cards: aligned to the card padding, hairline dividers. */
 .dash [data-slot="card"] th,
 .dash [data-slot="card"] td {
-  border-color: var(--dash-divider);
+  border-color: var(--dash-hairline);
 }
 
 .dash [data-slot="card"] th:first-child,
 .dash [data-slot="card"] td:first-child {
-  padding-left: 16px;
+  padding-left: 20px;
 }
 
 .dash [data-slot="card"] th:last-child,
 .dash [data-slot="card"] td:last-child {
-  padding-right: 16px;
+  padding-right: 20px;
 }
 
 .dash [data-slot="card"] tbody tr:last-child td {
@@ -1880,29 +2154,55 @@ body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-la
   background: var(--nav-hover-bg);
 }
 
-/* KPI tiles: small muted label, 24px value, status line underneath. */
+/* KPI cards: small uppercase label, a big tabular number, and the status line as a delta pill. */
 .dash [data-slot="stat"] {
-  gap: 4px;
-  padding: 16px;
+  gap: 8px;
+  padding: 16px 20px;
 }
 
 .dash [data-slot="stat-label"] {
   color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .dash [data-slot="stat-value"] {
   color: var(--text);
-  font-size: 24px;
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
   font-weight: 600;
   letter-spacing: -0.02em;
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
 .dash [data-slot="stat-delta"] {
-  font-size: 12px;
-  font-weight: 500;
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  /* Rounded rather than a full pill: some status lines wrap onto two lines. */
+  border-radius: var(--radius-control);
+  background: var(--tint);
+  padding: 2px 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.dash [data-slot="stat-delta"][data-tone="good"] {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+.dash [data-slot="stat-delta"][data-tone="warn"] {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.dash [data-slot="stat-delta"][data-tone="crit"] {
+  background: var(--danger-bg);
+  color: var(--danger-text);
 }
 
 .dash-kpi-stack {
@@ -1912,18 +2212,28 @@ body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-la
   grid-auto-rows: 1fr;
 }
 
-.dash-hero-value {
-  font-size: 38px;
+/* The hero: small uppercase label over a 46px tabular number. */
+.dash-hero-label {
+  color: var(--text-muted);
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dash-hero-value {
+  font-size: 46px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
 }
 
 /* Quick-action tiles */
 /* Phones: one row that scrolls sideways. Wider screens: tiles wrap to fit the column. */
 .dash-tile-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
 }
 
@@ -1941,10 +2251,10 @@ body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-la
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  border: 1px solid var(--card-border);
+  border: 1px solid var(--dash-hairline);
   border-radius: var(--radius-card);
-  background: var(--card);
-  padding: 14px 8px 12px;
+  background: var(--dash-card);
+  padding: 16px 8px 12px;
   text-align: center;
   transition:
     background var(--ease-fast),
@@ -1952,7 +2262,8 @@ body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-la
 }
 
 .dash-tile:hover:not(:disabled) {
-  background: var(--card-hover);
+  border-color: var(--accent);
+  background: var(--nav-hover-bg);
 }
 
 .dash-tile:disabled {
@@ -1973,8 +2284,8 @@ body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-la
 }
 
 .dash-tile-icon svg {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
 }
 
 .dash-tile-label {
@@ -2013,32 +2324,76 @@ body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-la
 }
 
 .dash-row-leading svg {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
 }
 
-/* Thick progress meter with the primary gradient fill */
-.dash-meter {
-  height: 14px;
+/* Thin proportional bars: progress meters and per-group shares. The fill grows from the left. */
+.dash-meter,
+.dash-bar {
+  height: 8px;
   overflow: hidden;
   border-radius: var(--radius-pill);
   background: var(--tint);
 }
 
-.dash-meter > span {
+.dash-meter > span,
+.dash-bar > span {
   display: block;
   height: 100%;
   border-radius: var(--radius-pill);
-  background: var(--grad-sky);
-  transition: width 0.3s ease;
+  background: var(--accent);
+  transform-origin: left center;
+  animation: dash-grow-x 800ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation-delay: calc(var(--i, 0) * 35ms);
+}
+
+@keyframes dash-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* Column charts (recharts bars) grow from the baseline; the rest dim while one is hovered or focused. */
+.dash .recharts-bar-rectangle {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: dash-grow-y 800ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  transition: opacity 150ms ease;
+}
+.dash .recharts-bar-rectangle:nth-child(2) { animation-delay: 35ms; }
+.dash .recharts-bar-rectangle:nth-child(3) { animation-delay: 70ms; }
+.dash .recharts-bar-rectangle:nth-child(4) { animation-delay: 105ms; }
+.dash .recharts-bar-rectangle:nth-child(5) { animation-delay: 140ms; }
+.dash .recharts-bar-rectangle:nth-child(6) { animation-delay: 175ms; }
+.dash .recharts-bar-rectangle:nth-child(7) { animation-delay: 210ms; }
+.dash .recharts-bar-rectangle:nth-child(8) { animation-delay: 245ms; }
+.dash .recharts-bar-rectangle:nth-child(9) { animation-delay: 280ms; }
+.dash .recharts-bar-rectangle:nth-child(10) { animation-delay: 315ms; }
+.dash .recharts-bar-rectangle:nth-child(n + 11) { animation-delay: 350ms; }
+.dash .recharts-bar-rectangles:has(.recharts-bar-rectangle:hover) .recharts-bar-rectangle:not(:hover) {
+  opacity: 0.45;
+}
+.dash .recharts-tooltip-wrapper {
+  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1) !important;
+}
+
+@keyframes dash-grow-y {
+  from {
+    transform: scaleY(0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .dash-tile,
   .dash-row,
-  .dash-meter > span,
   .dash [data-slot="card"] tbody tr {
     transition: none;
+  }
+  .dash-meter > span,
+  .dash-bar > span,
+  .dash .recharts-bar-rectangle {
+    animation: none;
   }
 }
 
@@ -2227,8 +2582,30 @@ html::-webkit-scrollbar {
 .lift { transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.15s ease; }
 .lift:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -14px color-mix(in srgb, var(--color-ink) 35%, transparent); }
 
+/* 3D tilt cards (useTilt): the card leans toward the pointer; a soft glare follows it. */
+.tilt-card {
+  will-change: transform;
+  box-shadow: var(--shadow-tilt);
+}
+.tilt-card:has(:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.tilt-glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), var(--tilt-glare), transparent 55%);
+  opacity: 0;
+}
+.tilt-card:hover .tilt-glare {
+  opacity: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .step-forward, .step-back, .step-pop, .drawer-enter, .rise-in, .grow-x { animation: none; }
+  .tilt-glare { display: none; }
   .step-line, .lift { transition: none; }
   .lift:hover { transform: none; }
 }

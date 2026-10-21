@@ -38,7 +38,7 @@ function LocationDialog({ draft, onClose }: { draft: Draft; onClose: () => void 
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={save.isPending} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} succeeded={save.isSuccess} disabled={save.isPending} onClick={() => save.mutate()}>
             Save
           </Button>
         </div>
@@ -108,7 +108,7 @@ export function LocationsPage() {
     canEdit ? (
       <span className="flex flex-none justify-end gap-2">
         <Button size="sm" variant="ghost" icon={<EditIcon className="h-4 w-4" />} aria-label={`Edit ${r.name}`} title="Edit" onClick={() => setEditing({ id: r.id, name: r.name, code: r.code, address: r.address, contactName: r.contactName, contactPhone: r.contactPhone, managerId: r.managerId ?? "" })} />
-        <Button
+        <Button loading={toggle.isPending} succeeded={toggle.isSuccess}
           size="sm"
           variant="ghost"
           icon={<PowerIcon className="h-4 w-4" />}

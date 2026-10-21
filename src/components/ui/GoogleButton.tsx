@@ -1,6 +1,6 @@
-import type { ButtonHTMLAttributes } from "react";
+import { useRef, type ButtonHTMLAttributes } from "react";
 import clsx from "clsx";
-import { LoaderIcon } from "@/components/icons";
+import { MorphAnnouncement, MorphLayers, useMorph } from "./Button";
 
 function GoogleG({ className }: { className?: string }) {
   return (
@@ -32,18 +32,30 @@ export function GoogleButton({
   disabled,
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }) {
+  // While Google answers, the button morphs into the loading circle like every other button (no spinner).
+  const ref = useRef<HTMLButtonElement>(null);
+  const phase = useMorph(!!loading, false, ref);
   return (
-    <button
-      type="button"
-      disabled={disabled || loading}
-      className={clsx(
-        "inline-flex w-full items-center justify-center gap-2.5 rounded-full border border-border bg-white px-4 py-2 text-[0.82rem] font-semibold text-[#1f1f1f] shadow-sm transition-[background-color,transform] duration-150 hover:bg-[#f8f8f8] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60",
-        className,
-      )}
-      {...rest}
-    >
-      {loading ? <LoaderIcon className="h-4.5 w-4.5 animate-spin text-ink-2" /> : <GoogleG className="h-4.5 w-4.5" />}
-      {children ?? (loading ? "Connecting…" : "Continue with Google")}
-    </button>
+    <span className="btn-morph w-full">
+      <button
+        ref={ref}
+        type="button"
+        disabled={disabled || loading}
+        data-phase={phase}
+        aria-busy={phase === "loading" || undefined}
+        className={clsx(
+          "btn inline-flex w-full items-center justify-center gap-2.5 rounded-full border border-border bg-white px-4 py-2 text-[0.82rem] font-semibold text-[#1f1f1f] shadow-sm transition-[background-color,transform] duration-150 hover:bg-[#f8f8f8] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60",
+          className,
+        )}
+        {...rest}
+      >
+        <span className="btn-label">
+          <GoogleG className="h-4.5 w-4.5" />
+          {children ?? (loading ? "Connecting…" : "Continue with Google")}
+        </span>
+        <MorphLayers />
+      </button>
+      <MorphAnnouncement phase={phase} />
+    </span>
   );
 }

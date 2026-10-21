@@ -83,11 +83,6 @@ export interface ComplianceItem {
   note?: string;
 }
 
-export interface OnboardingStage {
-  stage: string;
-  count: number;
-}
-
 export interface AdminOverviewStats {
   totalHeadcount: number;
   newHiresThisMonth: number;

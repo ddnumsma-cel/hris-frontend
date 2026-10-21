@@ -40,7 +40,7 @@ function DeclineDialog({ r, name, onClose }: { r: FixRequest; name: string; onCl
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="danger" disabled={decline.isPending} onClick={() => decline.mutate()}>
+          <Button loading={decline.isPending} succeeded={decline.isSuccess} variant="danger" disabled={decline.isPending} onClick={() => decline.mutate()}>
             Decline
           </Button>
         </div>
@@ -106,7 +106,7 @@ export function CorrectionsPage() {
             <Button size="sm" variant="ghost" onClick={() => setDeclining({ r, name: person(r.employeeId)!.name })}>
               Decline
             </Button>
-            <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate(r)}>
+            <Button loading={approve.isPending} succeeded={approve.isSuccess} size="sm" disabled={approve.isPending} onClick={() => approve.mutate(r)}>
               Approve
             </Button>
           </span>

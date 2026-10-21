@@ -28,7 +28,9 @@ export type Topic =
   | "account"
   | "orgchart"
   | "subscription"
-  | "certificate";
+  | "certificate"
+  | "support"
+  | "newhire";
 
 const ADMIN = (path: string): Partial<Record<RoleKey, string>> => ({ super_admin: path, hr: path, accounting: path, system_admin: path });
 
@@ -46,8 +48,10 @@ const LINKS: Record<Topic, Partial<Record<RoleKey, string>>> = {
   schedule: { ...ADMIN("/admin/timekeeping/schedules"), approver: "/manager/attendance", employee: "/employee/attendance" },
   separation: { ...ADMIN("/admin/maintenance/people"), accounting: "/admin/payroll/final-pay" },
   account: ADMIN("/admin/administration/users"),
+  newhire: ADMIN("/admin/maintenance/people"),
   orgchart: { ...ADMIN("/admin/maintenance/org-chart"), approver: "/manager/workforce" },
   certificate: { ...ADMIN("/admin/requests/certificates"), employee: "/employee/certificates" },
+  support: { ...ADMIN("/admin/administration/support"), employee: "/employee/support" },
   subscription: { super_admin: "/admin/settings/subscription", hr: "/admin/settings/subscription", system_admin: "/admin/administration/subscription" },
 };
 

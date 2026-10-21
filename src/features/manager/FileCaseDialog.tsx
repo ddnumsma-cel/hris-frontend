@@ -97,7 +97,7 @@ export function FileCaseDialog({
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={mutation.isPending}>
+          <Button loading={mutation.isPending} succeeded={mutation.isSuccess} type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? "Filing…" : "File case"}
           </Button>
         </div>

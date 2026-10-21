@@ -506,7 +506,7 @@ export function NewEmployeePage() {
                 </Button>
               </>
             ) : (
-              <Button type="submit" className="ml-auto sm:ml-3" disabled={mutation.isPending} icon={isLast ? <CheckIcon className="h-4 w-4" /> : undefined}>
+              <Button loading={mutation.isPending} succeeded={mutation.isSuccess} type="submit" className="ml-auto sm:ml-3" disabled={mutation.isPending} icon={isLast ? <CheckIcon className="h-4 w-4" /> : undefined}>
                 {isLast ? (mutation.isPending ? "Creating…" : "Create employee") : "Continue"}
               </Button>
             )}

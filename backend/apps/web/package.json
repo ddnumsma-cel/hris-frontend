@@ -1,0 +1,36 @@
+{
+  "name": "@msma/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MSMA HRIS web HR dashboard (Next.js App Router) on http://localhost:3000",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@msma/api-client": "workspace:*",
+    "@msma/shared": "workspace:*",
+    "@tanstack/react-query": "^5.104.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.48.0",
+    "next": "16.3.6",
+    "radix-ui": "^1.6.7",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "recharts": "^3.10.1",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.18.0",
+    "@types/react": "~19.2.18",
+    "@types/react-dom": "~19.2.7",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.9.3"
+  }
+}

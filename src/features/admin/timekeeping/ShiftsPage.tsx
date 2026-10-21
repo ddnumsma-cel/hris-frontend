@@ -41,7 +41,7 @@ function ShiftDialog({ shift, onClose }: { shift?: ShiftTemplate; onClose: () =>
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+          <Button loading={save.isPending} succeeded={save.isSuccess} onClick={() => save.mutate()} disabled={save.isPending}>
             Save shift
           </Button>
         </div>

@@ -10,6 +10,9 @@ import { can, canFor, visible } from "../permissions";
 import { deny, forbidden, sessionWho } from "../session";
 import { managerOf, nameOf, notifyEmployee } from "../outbox";
 import { dates as when, EVERYONE, tellApprover, tellEmployees, tellRoles, who as nameFor } from "../requestNotices";
+import { backendOn } from "../backend/client";
+import { backendDecide, backendFixes, backendTimeRequests } from "../backend/requests";
+import { backendPeople } from "../backend/people";
 
 /** "1h 30m" for a notification. */
 const span = (minutes: number) => [Math.floor(minutes / 60) && `${Math.floor(minutes / 60)}h`, minutes % 60 && `${minutes % 60}m`].filter(Boolean).join(" ") || "0m";
@@ -54,6 +57,7 @@ function people(): TkPerson[] {
 const seen = () => visible(sessionWho(), "attendanceRecords", people(), (p) => p.id);
 
 export function listPeople() {
+  if (backendOn()) return backendPeople();
   // Attendance setup (HR) sees everyone; otherwise whoever's attendance they may see.
   const who = sessionWho();
   if (can(who, "view", "attendanceSettings")) return respond(people());
@@ -251,20 +255,6 @@ export async function setUsualShift(employeeIds: string[], shiftId: string | nul
   return respond(undefined);
 }
 
-/** One day only: a different shift, a rest day, or back to the usual schedule (null). */
-export async function setDayShift(employeeId: string, date: string, value: string | "rest" | null, actor: string): Promise<void> {
-  const denied = deny("attendanceSettings", "edit");
-  if (denied) return denied;
-  const overrides = { ...tk.overrides };
-  const k = `${employeeId}|${date}`;
-  if (value === null) delete overrides[k];
-  else overrides[k] = value;
-  const label = value === null ? "back to usual schedule" : value === "rest" ? "rest day" : (tk.shifts.find((s) => s.id === value)?.name ?? value);
-  save({ ...tk, overrides, audit: [audit(employeeId, date, actor, "Changed schedule", label), ...tk.audit] });
-  tellEmployees(employeeId, "schedule", "update", `Your schedule for ${when(date)} changed`, `It's now ${label}.`);
-  return respond(undefined);
-}
-
 export interface RosterCell {
   date: string;
   kind: "work" | "rest" | "leave" | "holiday" | "unscheduled";
@@ -344,6 +334,7 @@ function ensureRequests() {
 export function listRequests() {
   const who = sessionWho();
   if (!can(who, "view", "attendanceRecords")) return forbidden();
+  if (backendOn()) return backendTimeRequests();
   ensureRequests();
   // Overtime and undertime go straight to the approver: whoever can't decide one (HR, Accounting)
   // only sees it once it's approved.
@@ -352,6 +343,10 @@ export function listRequests() {
 }
 
 export async function decideRequest(id: string, approve: boolean, note: string, actor: string): Promise<TimeRequest> {
+  if (backendOn()) {
+    await backendDecide(id, approve, note);
+    return (await backendTimeRequests()).find((r) => r.id === id)!;
+  }
   const target = tk.requests.find((x) => x.id === id);
   const denied = deny("attendanceRecords", "approve", target?.employeeId);
   if (denied) return denied;
@@ -616,6 +611,7 @@ export async function acknowledgeNotice(id: string, employeeId: string): Promise
 export function listFixes() {
   const who = sessionWho();
   if (!can(who, "view", "attendanceRecords")) return forbidden();
+  if (backendOn()) return backendFixes();
   return respond(visible(who, "attendanceRecords", [...tk.fixRequests], (r) => r.employeeId).sort((a, b) => b.filedAt.localeCompare(a.filedAt)));
 }
 
@@ -652,6 +648,10 @@ export async function fileFix(input: { employeeId: string; workDate: string; kin
  * device recorded the wrong time, its punch is set aside first so the new one counts.
  */
 export async function decideFix(id: string, approve: boolean, note: string, actor: string): Promise<FixRequest> {
+  if (backendOn()) {
+    await backendDecide(id, approve, note);
+    return (await backendFixes()).find((r) => r.id === id)!;
+  }
   const target = tk.fixRequests.find((x) => x.id === id);
   const denied = deny("attendanceRecords", "approve", target?.employeeId);
   if (denied) return denied;

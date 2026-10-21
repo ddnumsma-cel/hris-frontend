@@ -258,11 +258,6 @@ export function overtimePay(minutes: number, dayType: DayType, date: string, mon
   return { hours, rate: dayType === "ordinary" ? rate.overtime : rate.firstEightHours, amount, nightAmount, formula };
 }
 
-/** Late deduction: minutes past grace at the hourly rate. */
-export function tardinessDeduction(lateMinutes: number, monthlySalary: number) {
-  return (lateMinutes / 60) * hourlyRate(monthlySalary);
-}
-
 /** Runs of working days with no rest in between, longer than `limit`. */
 export function longRuns(days: { date: string; working: boolean }[], limit = 6) {
   const runs: { from: string; to: string; length: number }[] = [];
@@ -276,22 +271,4 @@ export function longRuns(days: { date: string; working: boolean }[], limit = 6) 
     }
   });
   return runs;
-}
-
-/** Plain-language summary of a day, used as the day strip's text alternative. */
-export function describeDay(d: DayResult) {
-  const t = (ms?: number) => (ms === undefined ? "" : new Date(ms).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" }));
-  const dur = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}` : `${m} min`);
-  if (d.status === "rest" && !d.timeIn) return "Rest day";
-  if (d.status === "leave") return "On leave";
-  if (d.status === "holiday" && !d.timeIn) return `Holiday: ${d.holiday?.name}`;
-  if (d.status === "unscheduled") return "No shift assigned";
-  const parts: string[] = [];
-  if (d.shiftStart !== undefined) parts.push(`Scheduled ${t(d.shiftStart)} to ${t(d.shiftEnd)}`);
-  if (d.timeIn) parts.push(`in ${t(new Date(d.timeIn.at).getTime())}${d.lateMinutes ? ` (${dur(d.lateMinutes)} late)` : ""}`);
-  else parts.push(d.status === "upcoming" ? "not started yet" : "no time-in");
-  if (d.lunchOut !== undefined) parts.push(`lunch ${t(d.lunchOut)}${d.lunchIn !== undefined ? ` to ${t(d.lunchIn)}` : ""}`);
-  if (d.timeOut) parts.push(`out ${t(new Date(d.timeOut.at).getTime())}${d.undertimeMinutes ? ` (${dur(d.undertimeMinutes)} early)` : d.extraMinutes ? ` (${dur(d.extraMinutes)} extra)` : ""}`);
-  else if (d.timeIn) parts.push(d.status === "working" ? "still working" : "no time-out");
-  return parts.join(", ");
 }

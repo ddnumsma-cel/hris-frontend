@@ -3,6 +3,8 @@ import { currentAdmin, currentEmployee, currentManager } from "@/lib/mockData";
 import { accountById, IDLE_FLAG, idleMinutes, markSignedIn, recordSignOut, sessionValid } from "@/lib/admin/auth";
 import { roleOf, type UserAccount } from "@/lib/admin/store";
 import { markSignInTime } from "@/lib/session";
+import { backendOn, whenSignedOut } from "@/lib/backend/client";
+import { backendSignOut } from "@/lib/backend/auth";
 import type { Role } from "@/lib/types";
 
 export interface AuthUser {
@@ -78,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function logout() {
     recordSignOut(user?.accountId, "manual");
+    if (backendOn()) backendSignOut();
     try {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(ACCOUNT_KEY);
@@ -91,6 +94,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser((current) => (current ? userFor(current.role, accountById(current.accountId)) : null));
   }
 
+  // Connected to the HR server: when it says the sign-in expired, go back to the sign-in page.
+  useEffect(() => {
+    whenSignedOut(() => {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(ACCOUNT_KEY);
+      } catch {
+        // Nothing to clear.
+      }
+      setUser(null);
+    });
+  }, []);
+
   // Sign out after the idle time in System settings.
   const signedIn = !!user;
   const accountId = user?.accountId;
@@ -99,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let timer = 0;
     const expire = () => {
       recordSignOut(accountId, "idle");
+      if (backendOn()) backendSignOut();
       try {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(ACCOUNT_KEY);

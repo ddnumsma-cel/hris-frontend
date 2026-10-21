@@ -57,7 +57,7 @@ export function FileMyLeaveDialog({ onClose }: { onClose: () => void }) {
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button
+          <Button loading={file.isPending} succeeded={file.isSuccess}
             disabled={file.isPending}
             onClick={() => {
               setTried(true);
@@ -283,7 +283,7 @@ export function EmployeeLeave() {
               <Button variant="ghost" onClick={() => setWithdrawing(null)}>
                 Keep it
               </Button>
-              <Button variant="danger" disabled={withdraw.isPending} onClick={() => withdraw.mutate(withdrawing)}>
+              <Button loading={withdraw.isPending} succeeded={withdraw.isSuccess} variant="danger" disabled={withdraw.isPending} onClick={() => withdraw.mutate(withdrawing)}>
                 Withdraw
               </Button>
             </div>

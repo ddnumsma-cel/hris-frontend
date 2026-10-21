@@ -16,7 +16,7 @@ import {
 } from "@/lib/api";
 import { getCpdStatus } from "@/lib/automation";
 import { saveFile } from "@/lib/fileStore";
-import type { CpdStatus, PersonnelDocumentChecklistItem } from "@/lib/types";
+import type { PersonnelDocumentChecklistItem } from "@/lib/types";
 import { EditProfileDialog } from "../EditProfileDialog";
 import { FaceScanDialog } from "../FaceScanDialog";
 import { print201File } from "../printTemplates";
@@ -35,8 +35,6 @@ export interface DocRow {
   canRemove: boolean;
   accept?: string;
 }
-
-export const cpdTone: Record<CpdStatus, ChipVariant> = { Compliant: "good", "In progress": "neutral", "Due soon": "warn", Overdue: "crit" };
 
 export const linkClass = "inline-flex items-center gap-1 text-xs font-semibold text-brand-ink hover:underline";
 

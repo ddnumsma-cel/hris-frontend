@@ -1,0 +1,46 @@
+{
+  "name": "msma-hris",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MSMA HRIS: working sample with synthetic data (API, web HR dashboard, mobile app)",
+  "packageManager": "pnpm@12.6.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "db:up": "docker compose up -d --wait db",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @msma/db migrate:deploy",
+    "db:migrate:dev": "pnpm --filter @msma/db migrate:dev",
+    "db:seed": "turbo run build --filter=@msma/api... && pnpm --filter @msma/db seed && pnpm --filter @msma/api recompute",
+    "db:reset": "pnpm db:migrate && pnpm db:seed",
+    "build": "turbo run build",
+    "dev": "turbo run dev --filter=@msma/api --filter=@msma/web",
+    "mobile": "turbo run build --filter=@msma/mobile^... && node scripts/mobile.mjs",
+    "mobile:clear": "turbo run build --filter=@msma/mobile^... && node scripts/mobile.mjs --clear",
+    "mobile:tunnel": "turbo run build --filter=@msma/mobile^... && node scripts/mobile.mjs --tunnel",
+    "mobile:go": "turbo run build --filter=@msma/mobile^... && node scripts/mobile.mjs --go",
+    "build:dev:android": "pnpm --filter @msma/mobile build:dev:android",
+    "build:dev:ios": "pnpm --filter @msma/mobile build:dev:ios",
+    "share": "node scripts/share.mjs",
+    "simulate:punch": "pnpm --filter @msma/api simulate:punch",
+    "openapi": "pnpm --filter @msma/api openapi && pnpm --filter @msma/api-client generate",
+    "test": "turbo run test",
+    "test:e2e": "turbo run build --filter=@msma/api && pnpm --filter @msma/web test:e2e",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "prettier": "^3.6.2",
+    "turbo": "^2.11.4",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.70.1"
+  }
+}

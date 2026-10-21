@@ -1,0 +1,594 @@
+// MSMA HRIS database schema. Synthetic data only.
+// Money: Decimal @db.Decimal(14, 2). Instants: UTC timestamptz. Calendar dates: @db.Date holding the Manila date.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum EmploymentStatus {
+  PROBATIONARY
+  REGULAR
+  CONTRACTUAL
+  PROJECT
+}
+
+enum Role {
+  EMPLOYEE
+  MANAGER
+  HR_ADMIN
+  PAYROLL_ADMIN
+  SYSTEM_ADMIN
+}
+
+enum VerifyMode {
+  FACE
+  FINGER
+  PIN
+  SELFIE
+  /// Phone clock-in confirmed with the phone's fingerprint or face unlock (the biometric never leaves the phone)
+  PHONE_BIOMETRIC
+  /// Phone clock-in confirmed with the phone's PIN, pattern or password
+  PHONE_PASSCODE
+}
+
+enum HolidayType {
+  REGULAR
+  SPECIAL
+}
+
+enum DtrStatus {
+  PRESENT
+  ABSENT
+  LEAVE
+  RESTDAY
+  HOLIDAY
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ApprovalType {
+  LEAVE
+  OT
+  /// Permission to leave before the shift ends (the minutes are still unpaid; approval excuses them)
+  UNDERTIME
+  DTR_FIX
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  COMPUTED
+  REVIEWED
+  APPROVED
+  LOCKED
+  RELEASED
+}
+
+enum CivilStatus {
+  SINGLE
+  MARRIED
+  WIDOWED
+  SEPARATED
+  ANNULLED
+}
+
+enum DependentRelationship {
+  CHILD
+  SPOUSE
+  PARENT
+  SIBLING
+  OTHER
+}
+
+/// 201 file document types (catalog and rules: packages/shared/src/records201.ts)
+enum DocumentType {
+  RESUME
+  BIRTH_CERTIFICATE
+  MARRIAGE_CERTIFICATE
+  CHILD_BIRTH_CERTIFICATE
+  GOVERNMENT_ID
+  DIPLOMA_TOR
+  PROFESSIONAL_LICENSE
+  PREVIOUS_COE
+  NBI_CLEARANCE
+  POLICE_CLEARANCE
+  MEDICAL_RESULTS
+  TIN_BIR_1902
+  SSS_E1
+  PHILHEALTH_PMRF
+  PAGIBIG_MDF
+  PREVIOUS_BIR_2316
+  EMPLOYMENT_CONTRACT
+  JOB_DESCRIPTION
+  PERSONAL_DATA_SHEET
+  PROBATION_REGULARIZATION
+  PERSONNEL_ACTION
+  HANDBOOK_ACKNOWLEDGMENT
+  DATA_PRIVACY_CONSENT
+  BIOMETRIC_CONSENT
+  NDA
+  PERFORMANCE_APPRAISAL
+  TRAINING_CERTIFICATE
+  LEAVE_RECORDS
+  COMMENDATION
+  DISCIPLINARY_RECORD
+  LOAN_DOCUMENT
+  RECORD_UPDATE
+  RESIGNATION_LETTER
+  TERMINATION_NOTICE
+  CLEARANCE_FORM
+  FINAL_PAY_QUITCLAIM
+  COE_ISSUED
+  SEPARATION_BIR_2316
+}
+
+enum EmploymentEventType {
+  HIRED
+  REGULARIZED
+  PROMOTED
+  TRANSFERRED
+  SALARY_ADJUSTED
+  SEPARATED
+}
+
+enum ThemePreference {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+enum TextSize {
+  STANDARD
+  LARGE
+}
+
+enum TableDensity {
+  COMFORTABLE
+  COMPACT
+}
+
+// ---------- Organisation ----------
+
+model Site {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  name      String
+  address   String?
+  employees Employee[]
+  devices   Device[]
+}
+
+model Department {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  name      String
+  positions Position[]
+  employees Employee[]
+}
+
+model Position {
+  id           String     @id @default(cuid())
+  title        String
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  employees    Employee[]
+
+  @@unique([departmentId, title])
+}
+
+model Shift {
+  id           String     @id @default(cuid())
+  code         String     @unique
+  name         String
+  /// Manila wall-clock "HH:mm"
+  startTime    String
+  /// Manila wall-clock "HH:mm"; earlier than startTime means an overnight shift
+  endTime      String
+  breakMinutes Int        @default(60)
+  graceMinutes Int        @default(5)
+  /// 0 = Sunday … 6 = Saturday
+  workDays     Int[]
+  employees    Employee[]
+}
+
+model Holiday {
+  id   String      @id @default(cuid())
+  date DateTime    @unique @db.Date
+  name String
+  type HolidayType
+}
+
+// ---------- People ----------
+
+model Employee {
+  id           String           @id @default(cuid())
+  employeeNo   String           @unique
+  /// PIN enrolled on the biometric terminals (ZKTeco "PIN" field)
+  biometricPin String           @unique
+  firstName    String
+  middleName   String?
+  lastName     String
+  email        String?
+  mobileNo     String?
+  birthDate    DateTime?        @db.Date
+  status       EmploymentStatus
+  hireDate     DateTime         @db.Date
+  active       Boolean          @default(true)
+  dailyRate    Decimal          @db.Decimal(14, 2)
+  siteId       String
+  site         Site             @relation(fields: [siteId], references: [id])
+  departmentId String
+  department   Department       @relation(fields: [departmentId], references: [id])
+  positionId   String?
+  position     Position?        @relation(fields: [positionId], references: [id])
+  shiftId      String
+  shift        Shift            @relation(fields: [shiftId], references: [id])
+  managerId    String?
+  manager      Employee?        @relation("ManagerReports", fields: [managerId], references: [id])
+  reports      Employee[]       @relation("ManagerReports")
+
+  // Personal data sheet (201 file)
+  civilStatus           CivilStatus?
+  address               String?
+  personalEmail         String?
+  emergencyName         String?
+  emergencyRelationship String?
+  emergencyPhone        String?
+  /// e.g. "PRC (CPA)"; set when the role needs a professional license
+  licenseType           String?
+  regularizationDate    DateTime?    @db.Date
+  separationDate        DateTime?    @db.Date
+  separationReason      String?
+  /// Set only after the biometric consent form is on file (consent first)
+  biometricEnrolledAt   DateTime?    @db.Timestamptz(3)
+  createdAt             DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime     @updatedAt @db.Timestamptz(3)
+
+  govId             GovId?
+  user              User?
+  punches           RawPunch[]
+  dtrs              DailyTimeRecord[]
+  leaveBalances     LeaveBalance[]
+  leaveRequests     LeaveRequest[]
+  otRequests        OtRequest[]
+  dtrCorrections    DtrCorrection[]
+  undertimeRequests UndertimeRequest[]
+  approvals         ApprovalRequest[]
+  payslips          Payslip[]
+  dependents        Dependent[]
+  documents         EmployeeDocument[]
+  events            EmploymentEvent[]
+
+  @@index([siteId])
+  @@index([departmentId])
+  @@index([managerId])
+  @@index([lastName, firstName])
+}
+
+/// Government IDs (synthetic, correctly formatted)
+model GovId {
+  id         String   @id @default(cuid())
+  employeeId String   @unique
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  /// 000-000-000-000
+  tin        String
+  /// 00-0000000-0
+  sss        String
+  /// 00-000000000-0
+  philhealth String
+  /// 0000-0000-0000
+  pagibig    String
+}
+
+model Dependent {
+  id           String                @id @default(cuid())
+  employeeId   String
+  employee     Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name         String
+  relationship DependentRelationship
+  birthDate    DateTime?             @db.Date
+
+  @@index([employeeId])
+}
+
+/// A file in the 201 file. The file itself lives in the document store (local disk now, S3 on AWS), not in the DB.
+/// The app never hard-deletes documents: HR archives them with a reason; retention rules decide disposal.
+model EmployeeDocument {
+  id             String       @id @default(cuid())
+  employeeId     String
+  employee       Employee     @relation(fields: [employeeId], references: [id])
+  type           DocumentType
+  /// Original file name, for display and download only
+  fileName       String
+  mimeType       String
+  sizeBytes      Int
+  sha256         String
+  /// Key in the document store, generated by the server (never from user input)
+  storageKey     String
+  issuedOn       DateTime?    @db.Date
+  expiresOn      DateTime?    @db.Date
+  /// ID or license number, consent form version, training title (see referenceLabel in the catalog)
+  referenceNo    String?
+  notes          String?
+  uploadedById   String?
+  uploadedBy     User?        @relation("DocumentUploads", fields: [uploadedById], references: [id])
+  uploadedAt     DateTime     @default(now()) @db.Timestamptz(3)
+  archivedAt     DateTime?    @db.Timestamptz(3)
+  archivedReason String?
+
+  @@index([employeeId, type])
+  @@index([expiresOn])
+}
+
+/// Effective-dated employment history: position, site and pay changes.
+model EmploymentEvent {
+  id            String              @id @default(cuid())
+  employeeId    String
+  employee      Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type          EmploymentEventType
+  effectiveDate DateTime            @db.Date
+  positionTitle String?
+  siteName      String?
+  dailyRate     Decimal?            @db.Decimal(14, 2)
+  remarks       String?
+  createdAt     DateTime            @default(now()) @db.Timestamptz(3)
+
+  @@index([employeeId, effectiveDate])
+}
+
+model User {
+  id              String             @id @default(cuid())
+  email           String             @unique
+  passwordHash    String
+  role            Role
+  displayName     String
+  employeeId      String?            @unique
+  employee        Employee?          @relation(fields: [employeeId], references: [id])
+  /// null = app default (web: LIGHT, mobile: match device)
+  theme           ThemePreference?
+  textSize        TextSize           @default(STANDARD)
+  tableDensity    TableDensity       @default(COMFORTABLE)
+  lastLoginAt     DateTime?          @db.Timestamptz(3)
+  createdAt       DateTime           @default(now()) @db.Timestamptz(3)
+  decidedRequests ApprovalRequest[]
+  auditLogs       AuditLog[]
+  uploads         EmployeeDocument[] @relation("DocumentUploads")
+}
+
+// ---------- Attendance ----------
+
+model Device {
+  id         String    @id @default(cuid())
+  serial     String    @unique
+  name       String
+  model      String?
+  siteId     String
+  site       Site      @relation(fields: [siteId], references: [id])
+  lastSeenAt DateTime? @db.Timestamptz(3)
+  lastIp     String?
+}
+
+/// Append-only raw clock events (a DB trigger blocks UPDATE and DELETE).
+/// deviceSerial is a Device.serial, or "MOBILE-APP" for punches from the phone app.
+model RawPunch {
+  id           String     @id @default(cuid())
+  deviceSerial String
+  employeeId   String
+  employee     Employee   @relation(fields: [employeeId], references: [id])
+  punchedAt    DateTime   @db.Timestamptz(3)
+  verifyMode   VerifyMode
+  receivedAt   DateTime   @default(now()) @db.Timestamptz(3)
+
+  @@unique([deviceSerial, employeeId, punchedAt])
+  @@index([employeeId, punchedAt])
+  @@index([punchedAt])
+}
+
+model DailyTimeRecord {
+  id               String    @id @default(cuid())
+  employeeId       String
+  employee         Employee  @relation(fields: [employeeId], references: [id])
+  date             DateTime  @db.Date
+  timeIn           DateTime? @db.Timestamptz(3)
+  timeOut          DateTime? @db.Timestamptz(3)
+  workedMinutes    Int       @default(0)
+  lateMinutes      Int       @default(0)
+  undertimeMinutes Int       @default(0)
+  otMinutes        Int       @default(0)
+  nightDiffMinutes Int       @default(0)
+  status           DtrStatus
+  /// e.g. MISSING_TIME_OUT, CORRECTED
+  remarks          String?
+  computedAt       DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@unique([employeeId, date])
+  @@index([date, status])
+}
+
+// ---------- Leave, OT, corrections, approvals ----------
+
+model LeaveType {
+  id            String         @id @default(cuid())
+  /// VL, SL, SIL
+  code          String         @unique
+  name          String
+  paid          Boolean        @default(true)
+  defaultDays   Decimal        @db.Decimal(5, 1)
+  balances      LeaveBalance[]
+  leaveRequests LeaveRequest[]
+}
+
+model LeaveBalance {
+  id          String    @id @default(cuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  leaveTypeId String
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id])
+  year        Int
+  entitled    Decimal   @db.Decimal(5, 1)
+  used        Decimal   @default(0) @db.Decimal(5, 1)
+
+  @@unique([employeeId, leaveTypeId, year])
+}
+
+model LeaveRequest {
+  id          String           @id @default(cuid())
+  employeeId  String
+  employee    Employee         @relation(fields: [employeeId], references: [id])
+  leaveTypeId String
+  leaveType   LeaveType        @relation(fields: [leaveTypeId], references: [id])
+  startDate   DateTime         @db.Date
+  endDate     DateTime         @db.Date
+  days        Decimal          @db.Decimal(5, 1)
+  reason      String
+  status      RequestStatus    @default(PENDING)
+  createdAt   DateTime         @default(now()) @db.Timestamptz(3)
+  approval    ApprovalRequest?
+
+  @@index([employeeId, startDate])
+}
+
+model OtRequest {
+  id         String           @id @default(cuid())
+  employeeId String
+  employee   Employee         @relation(fields: [employeeId], references: [id])
+  date       DateTime         @db.Date
+  minutes    Int
+  reason     String
+  status     RequestStatus    @default(PENDING)
+  createdAt  DateTime         @default(now()) @db.Timestamptz(3)
+  approval   ApprovalRequest?
+}
+
+/// Permission to leave early. minutes = shift end minus leaveAt, computed when filed.
+model UndertimeRequest {
+  id         String           @id @default(cuid())
+  employeeId String
+  employee   Employee         @relation(fields: [employeeId], references: [id])
+  date       DateTime         @db.Date
+  leaveAt    DateTime         @db.Timestamptz(3)
+  minutes    Int
+  reason     String
+  status     RequestStatus    @default(PENDING)
+  createdAt  DateTime         @default(now()) @db.Timestamptz(3)
+  approval   ApprovalRequest?
+
+  @@index([employeeId, date])
+}
+
+model DtrCorrection {
+  id               String           @id @default(cuid())
+  employeeId       String
+  employee         Employee         @relation(fields: [employeeId], references: [id])
+  date             DateTime         @db.Date
+  requestedTimeIn  DateTime?        @db.Timestamptz(3)
+  requestedTimeOut DateTime?        @db.Timestamptz(3)
+  reason           String
+  status           RequestStatus    @default(PENDING)
+  createdAt        DateTime         @default(now()) @db.Timestamptz(3)
+  approval         ApprovalRequest?
+}
+
+model ApprovalRequest {
+  id                 String            @id @default(cuid())
+  type               ApprovalType
+  employeeId         String
+  employee           Employee          @relation(fields: [employeeId], references: [id])
+  /// Human-readable summary, e.g. "Vacation · 29–30 Sep · 2 days"
+  detail             String
+  status             RequestStatus     @default(PENDING)
+  decidedById        String?
+  decidedBy          User?             @relation(fields: [decidedById], references: [id])
+  decidedAt          DateTime?         @db.Timestamptz(3)
+  reason             String?
+  leaveRequestId     String?           @unique
+  leaveRequest       LeaveRequest?     @relation(fields: [leaveRequestId], references: [id])
+  otRequestId        String?           @unique
+  otRequest          OtRequest?        @relation(fields: [otRequestId], references: [id])
+  dtrCorrectionId    String?           @unique
+  dtrCorrection      DtrCorrection?    @relation(fields: [dtrCorrectionId], references: [id])
+  undertimeRequestId String?           @unique
+  undertimeRequest   UndertimeRequest? @relation(fields: [undertimeRequestId], references: [id])
+  createdAt          DateTime          @default(now()) @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+}
+
+// ---------- Payroll ----------
+
+/// Statutory contribution / tax tables. config is JSON; sample rows carry "verified": false.
+model StatutoryRate {
+  id            String   @id @default(cuid())
+  /// SSS, PHILHEALTH, PAGIBIG, WITHHOLDING_TAX
+  name          String
+  effectiveFrom DateTime @db.Date
+  config        Json
+
+  @@unique([name, effectiveFrom])
+}
+
+model PayrollRun {
+  id              String           @id @default(cuid())
+  cutoffFrom      DateTime         @db.Date
+  cutoffTo        DateTime         @db.Date
+  payDate         DateTime         @db.Date
+  status          PayrollRunStatus @default(DRAFT)
+  totalGross      Decimal          @default(0) @db.Decimal(14, 2)
+  totalDeductions Decimal          @default(0) @db.Decimal(14, 2)
+  totalNet        Decimal          @default(0) @db.Decimal(14, 2)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+  payslips        Payslip[]
+
+  @@unique([cutoffFrom, cutoffTo])
+}
+
+model Payslip {
+  id                     String     @id @default(cuid())
+  payrollRunId           String
+  payrollRun             PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employeeId             String
+  employee               Employee   @relation(fields: [employeeId], references: [id])
+  daysPaid               Decimal    @db.Decimal(5, 1)
+  basicPay               Decimal    @db.Decimal(14, 2)
+  overtimePay            Decimal    @db.Decimal(14, 2)
+  nightDiffPay           Decimal    @db.Decimal(14, 2)
+  holidayPay             Decimal    @db.Decimal(14, 2)
+  lateUndertimeDeduction Decimal    @db.Decimal(14, 2)
+  grossPay               Decimal    @db.Decimal(14, 2)
+  sss                    Decimal    @db.Decimal(14, 2)
+  philhealth             Decimal    @db.Decimal(14, 2)
+  pagibig                Decimal    @db.Decimal(14, 2)
+  withholdingTax         Decimal    @db.Decimal(14, 2)
+  totalDeductions        Decimal    @db.Decimal(14, 2)
+  netPay                 Decimal    @db.Decimal(14, 2)
+
+  @@unique([payrollRunId, employeeId])
+}
+
+// ---------- Audit ----------
+
+model AuditLog {
+  id       String   @id @default(cuid())
+  actorId  String?
+  actor    User?    @relation(fields: [actorId], references: [id])
+  action   String
+  entity   String
+  entityId String
+  before   Json?
+  after    Json?
+  at       DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([entity, entityId])
+  @@index([at])
+}

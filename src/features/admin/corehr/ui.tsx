@@ -184,9 +184,6 @@ export function Detail({ label, children, wide }: { label: string; children?: Re
   );
 }
 
-/** Grid for Detail items: 2 across on phones, up to 4 on wide screens. */
-export const detailGrid = "grid grid-cols-2 gap-x-6 sm:grid-cols-3 xl:grid-cols-4";
-
 /** Shown when a page's data fails to load. In development the error itself is shown too, so a report says what broke. */
 export function LoadError({ onRetry, error }: { onRetry: () => void; error?: unknown }) {
   return (

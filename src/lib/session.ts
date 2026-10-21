@@ -6,6 +6,7 @@ import { admin, roleOf, type UserAccount } from "./admin/store";
 import { fullName, state as core } from "./corehr/store";
 import { currentAdmin, currentEmployee, currentManager } from "./mockData";
 import { can, canFor, ForbiddenError, type Action, type Feature, type Who } from "./permissions";
+import { backendUser } from "./backend/auth";
 
 /** Where AuthContext keeps the signed-in account (see features/auth/AuthContext.tsx). */
 const ACCOUNT_KEY = "msma-hris-account";
@@ -30,7 +31,8 @@ export function whoFor(accountId: string | undefined | null): Who {
   const account = admin.accounts.find((a) => a.id === accountId && a.status === "active");
   const role = roleOf(account)?.key ?? null;
   const employeeId = employeeOfAccount(account);
-  return { role, employeeId, team: teamOf(employeeId) };
+  // A backend sign-in brings its team from the backend (lib/backend/auth.ts).
+  return { role, employeeId, team: account?.id.startsWith("be-") ? (backendUser()?.team ?? []) : teamOf(employeeId) };
 }
 
 /** The signed-in account's ID, as a session cookie would carry it. */
@@ -82,13 +84,6 @@ export function deny(feature: Feature, action: Action, employeeId?: string): Pro
   const who = sessionWho();
   const ok = employeeId === undefined ? can(who, action, feature) : canFor(who, action, feature, employeeId);
   return ok ? null : refuse();
-}
-
-/** The same check for synchronous helpers: throws a 403 instead of returning one. */
-export function assertCan(feature: Feature, action: Action, employeeId?: string) {
-  const who = sessionWho();
-  const ok = employeeId === undefined ? can(who, action, feature) : canFor(who, action, feature, employeeId);
-  if (!ok) throw new ForbiddenError();
 }
 
 export { refuse as forbidden };

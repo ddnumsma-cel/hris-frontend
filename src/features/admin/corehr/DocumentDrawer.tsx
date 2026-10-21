@@ -83,7 +83,7 @@ export function DocumentDrawer({ document: d, employeeName, onClose, inline }: {
         <Button variant="ghost" onClick={() => (d.status === "Missing" ? onClose() : setMode("view"))}>
           Cancel
         </Button>
-        <Button icon={<UploadIcon className="h-4 w-4" />} onClick={upload} disabled={mutation.isPending}>
+        <Button loading={mutation.isPending} succeeded={mutation.isSuccess} icon={<UploadIcon className="h-4 w-4" />} onClick={upload} disabled={mutation.isPending}>
           {mutation.isPending ? "Uploading…" : d.fileName ? "Replace file" : "Upload"}
         </Button>
       </>
@@ -92,7 +92,7 @@ export function DocumentDrawer({ document: d, employeeName, onClose, inline }: {
         <Button variant="ghost" onClick={() => setMode("view")}>
           Back
         </Button>
-        <Button variant="danger" onClick={() => mutation.mutate({ kind: "return", note })} disabled={mutation.isPending}>
+        <Button loading={mutation.isPending} succeeded={mutation.isSuccess} variant="danger" onClick={() => mutation.mutate({ kind: "return", note })} disabled={mutation.isPending}>
           Return to employee
         </Button>
       </>
@@ -101,12 +101,12 @@ export function DocumentDrawer({ document: d, employeeName, onClose, inline }: {
         <Button variant="ghost" onClick={() => setMode("return")}>
           Return
         </Button>
-        <Button icon={<CheckIcon className="h-4 w-4" />} onClick={() => mutation.mutate({ kind: "verify" })} disabled={mutation.isPending}>
+        <Button loading={mutation.isPending} succeeded={mutation.isSuccess} icon={<CheckIcon className="h-4 w-4" />} onClick={() => mutation.mutate({ kind: "verify" })} disabled={mutation.isPending}>
           Verify
         </Button>
       </>
     ) : d.status === "Not applicable" ? (
-      <Button onClick={() => mutation.mutate({ kind: "required" })} disabled={mutation.isPending}>
+      <Button loading={mutation.isPending} succeeded={mutation.isSuccess} onClick={() => mutation.mutate({ kind: "required" })} disabled={mutation.isPending}>
         Mark as required
       </Button>
     ) : (

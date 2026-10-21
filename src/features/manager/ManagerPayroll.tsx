@@ -175,10 +175,10 @@ export function ManagerPayroll() {
             <Button variant="ghost" icon={<DownloadIcon className="h-3.75 w-3.75" />} onClick={exportRegister} disabled={rows.length === 0}>
               Export CSV
             </Button>
-            <Button
+            <Button loading={approveMutation.isPending} succeeded={approveMutation.isSuccess}
               variant="ghost"
               icon={<CheckIcon className="h-3.75 w-3.75" />}
-              disabled={drafts.length === 0 || busy}
+              disabled={drafts.length === 0 || busy || approveMutation.isPending}
               onClick={() => approveMutation.mutate(drafts.map((r) => r.employee.id))}
             >
               Approve all drafts ({drafts.length})

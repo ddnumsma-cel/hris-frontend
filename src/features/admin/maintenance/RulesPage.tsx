@@ -4,7 +4,7 @@
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { ContentHead } from "@/components/layout/RolePage";
+import { ContentHead, InnerPage } from "@/components/layout/RolePage";
 import { getLeavePolicy, getSchedulingRules } from "@/lib/settings/workspace";
 import { WorkflowsPage } from "../administration/WorkflowsPage";
 import { CompanyPolicies } from "./CompanyPolicies";
@@ -69,9 +69,9 @@ export function RulesPage() {
           }
         />
       </div>
-      <div className="settings-embed flex min-w-0 flex-col gap-5">
+      <InnerPage>
         <WorkflowsPage />
-      </div>
+      </InnerPage>
     </>
   );
 }

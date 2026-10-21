@@ -9,6 +9,7 @@ import { FaceIdPrompt } from "./FaceIdPrompt";
 import { SideNav, type CreateGroup, type SideNavGroup } from "@/components/layout/SideNav";
 import {
   CalendarIcon,
+  FlagIcon,
   ClockIcon,
   LogOutIcon,
   CheckSquareIcon,
@@ -33,6 +34,7 @@ const GROUPS: SideNavGroup[] = [
       { label: "201 File", to: "/employee/201-file", icon: <FolderIcon /> },
       { label: "Trainings", to: "/employee/trainings", icon: <GraduationCapIcon /> },
       { label: "Company policies", short: "Policies", to: "/employee/policies", icon: <CheckSquareIcon /> },
+      { label: "IT support", short: "Support", to: "/employee/support", icon: <FlagIcon /> },
     ],
   },
   {
@@ -82,6 +84,10 @@ const CREATE: CreateGroup[] = [
       { label: "View payslips", to: "/employee/payslips", hint: "Your pay for each period" },
       { label: "View trainings", to: "/employee/trainings", hint: "Courses assigned to you" },
     ],
+  },
+  {
+    title: "Help",
+    items: [{ label: "Report a problem", to: "/employee/support?create=ticket", action: "create", hint: "Send a ticket straight to IT support" }],
   },
 ];
 

@@ -72,7 +72,7 @@ function PersonPanel({ p, chart, tree, canEdit, onClose, onOpen }: { p: Person; 
                   ))}
                 </select>
               </Field>
-              <Button disabled={save.isPending || supervisorId === (p.supervisorId ?? chart.headId ?? "")} onClick={() => save.mutate()} className="mb-5">
+              <Button loading={save.isPending} succeeded={save.isSuccess} disabled={save.isPending || supervisorId === (p.supervisorId ?? chart.headId ?? "")} onClick={() => save.mutate()} className="mb-5">
                 Save
               </Button>
             </div>
@@ -133,7 +133,7 @@ function ChooseHead({ chart }: { chart: OrgChart }) {
             </option>
           ))}
         </select>
-        <Button disabled={!id || save.isPending} onClick={() => save.mutate()}>
+        <Button loading={save.isPending} succeeded={save.isSuccess} disabled={!id || save.isPending} onClick={() => save.mutate()}>
           Set
         </Button>
       </div>

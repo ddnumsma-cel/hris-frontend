@@ -43,7 +43,9 @@ const resetOldServiceWorker = (): Plugin => ({
 
 // https://vite.dev/config/
 export default defineConfig({
-  server: { https },
+  // With VITE_API_URL=/api the app reaches the MSMA HRIS backend through this server (no CORS, and it
+  // works from other PCs too); HEYHR_API_TARGET says where the backend runs.
+  server: { https, proxy: { '/api': { target: process.env.HEYHR_API_TARGET ?? 'http://127.0.0.1:4000', changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, '') } } },
   preview: { https },
   plugins: [
     resetOldServiceWorker(),

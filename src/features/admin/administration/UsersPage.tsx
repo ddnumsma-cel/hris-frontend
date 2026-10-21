@@ -77,7 +77,7 @@ function AddUserDialog({ onClose }: { onClose: () => void }) {
               <Button variant="ghost" onClick={onClose}>
                 Cancel
               </Button>
-              <Button disabled={save.isPending} onClick={() => save.mutate()}>
+              <Button loading={save.isPending} succeeded={save.isSuccess} disabled={save.isPending} onClick={() => save.mutate()}>
                 Add user
               </Button>
             </>
@@ -164,23 +164,23 @@ function ManageDialog({ a, onClose }: { a: AccountRow; onClose: () => void }) {
               ))}
             </select>
           </Field>
-          <Button disabled={self || roleId === a.roleId || role.isPending} onClick={() => role.mutate()} className="mb-5">
+          <Button loading={role.isPending} succeeded={role.isSuccess} disabled={self || roleId === a.roleId || role.isPending} onClick={() => role.mutate()} className="mb-5">
             Save role
           </Button>
         </div>
         {newPassword && <PasswordNote {...newPassword} />}
         <div className="flex flex-wrap gap-2 border-t border-border pt-3">
           {a.locked && !self && (
-            <Button variant="ghost" size="sm" disabled={unlock.isPending} onClick={() => unlock.mutate()}>
+            <Button loading={unlock.isPending} succeeded={unlock.isSuccess} variant="ghost" size="sm" disabled={unlock.isPending} onClick={() => unlock.mutate()}>
               Unlock
             </Button>
           )}
           {!a.demo && !self && (
-            <Button variant="ghost" size="sm" disabled={reset.isPending} onClick={() => reset.mutate()}>
+            <Button loading={reset.isPending} succeeded={reset.isSuccess} variant="ghost" size="sm" disabled={reset.isPending} onClick={() => reset.mutate()}>
               Reset password
             </Button>
           )}
-          <Button variant={a.status === "active" ? "danger" : "ghost"} size="sm" disabled={self || status.isPending} onClick={() => status.mutate()}>
+          <Button loading={status.isPending} succeeded={status.isSuccess} variant={a.status === "active" ? "danger" : "ghost"} size="sm" disabled={self || status.isPending} onClick={() => status.mutate()}>
             {a.status === "active" ? "Turn off account" : "Turn on account"}
           </Button>
         </div>

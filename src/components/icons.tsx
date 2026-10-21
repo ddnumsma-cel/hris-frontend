@@ -13,9 +13,7 @@ import {
   Database,
   AlertTriangle,
   ArrowRight,
-  BarChart3,
   Bell,
-  Briefcase,
   Building2,
   Calendar,
   Camera,
@@ -28,12 +26,12 @@ import {
   Clock,
   Download,
   Fingerprint,
+  ScanFace,
   Flag,
   FileQuestion,
   FileText,
   Folder,
   GraduationCap,
-  HeartPulse,
   History,
   Home,
   IdCard,
@@ -67,7 +65,6 @@ import {
   Trash2,
   Upload,
   User,
-  UserMinus,
   UserPlus,
   Users,
   Wallet,
@@ -214,8 +211,9 @@ export function FingerprintIcon(props: IconProps) {
   return <Fingerprint strokeWidth={strokeWidth} {...props} />;
 }
 
-export function BriefcaseIcon(props: IconProps) {
-  return <Briefcase strokeWidth={strokeWidth} {...props} />;
+/** Face recognition (the time clock's face scan). */
+export function FaceScanIcon(props: IconProps) {
+  return <ScanFace strokeWidth={strokeWidth} {...props} />;
 }
 
 export function GraduationCapIcon(props: IconProps) {
@@ -253,10 +251,6 @@ export function ReportsIcon(props: IconProps) {
   return <ChartPie strokeWidth={strokeWidth} {...props} />;
 }
 
-export function BarChartIcon(props: IconProps) {
-  return <BarChart3 strokeWidth={strokeWidth} {...props} />;
-}
-
 /** The Start menu's button: a pen over a page. */
 export function ComposeIcon(props: IconProps) {
   return <SquarePen strokeWidth={strokeWidth} {...props} />;
@@ -272,10 +266,6 @@ export function TrashIcon(props: IconProps) {
 
 export function PowerIcon(props: IconProps) {
   return <Power strokeWidth={strokeWidth} {...props} />;
-}
-
-export function UserMinusIcon(props: IconProps) {
-  return <UserMinus strokeWidth={strokeWidth} {...props} />;
 }
 
 export function OrgChartIcon(props: IconProps) {
@@ -304,10 +294,6 @@ export function UploadIcon(props: IconProps) {
 
 export function IdCardIcon(props: IconProps) {
   return <IdCard strokeWidth={strokeWidth} {...props} />;
-}
-
-export function HeartPulseIcon(props: IconProps) {
-  return <HeartPulse strokeWidth={strokeWidth} {...props} />;
 }
 
 export function PlusIcon(props: IconProps) {

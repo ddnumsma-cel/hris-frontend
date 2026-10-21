@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BuildingIcon, CameraIcon, ClockIcon, FingerprintIcon, HomeIcon, LoaderIcon } from "@/components/icons";
+import { BuildingIcon, CameraIcon, ClockIcon, FingerprintIcon, HomeIcon } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/ToastContext";
@@ -127,7 +127,7 @@ export function AttendanceClock({ employeeId, personName, actor, needsEnrollment
         )}
         {!employeeId && <span className="text-xs text-ink-2">Ask the Super Admin to link your sign-in to your employee record (Users) to clock in from home.</span>}
         {!outAt && employeeId && (
-          <Button icon={record.isPending ? <LoaderIcon className="h-3.75 w-3.75 animate-spin" /> : <CameraIcon className="h-3.75 w-3.75" />} onClick={() => setScan(inAt ? "out" : needsEnrollment ? "enroll" : "in")} disabled={record.isPending || state.isLoading}>
+          <Button loading={record.isPending} succeeded={record.isSuccess} icon={<CameraIcon className="h-3.75 w-3.75" />} onClick={() => setScan(inAt ? "out" : needsEnrollment ? "enroll" : "in")} disabled={record.isPending || state.isLoading}>
             {record.isPending ? "Saving…" : inAt ? "Clock out (face scan)" : "Clock in (face scan)"}
           </Button>
         )}
@@ -141,7 +141,7 @@ export function AttendanceClock({ employeeId, personName, actor, needsEnrollment
               <Button variant="ghost" onClick={() => setAskOffice(false)}>
                 Keep working from home
               </Button>
-              <Button
+              <Button loading={wfh.isPending} succeeded={wfh.isSuccess}
                 icon={<BuildingIcon className="h-4 w-4" />}
                 disabled={wfh.isPending}
                 onClick={() => {
@@ -171,7 +171,7 @@ export function AttendanceClock({ employeeId, personName, actor, needsEnrollment
         {state.isLoading ? "Checking the office scanners…" : scanned ? `Scanned in ${time(scanned.at)}${office?.out ? ` · out ${time(office.out.at)}` : ""} · ${scanned.source === "face" ? "face scanner" : scanned.source === "manual" ? "added by HR" : "fingerprint"}` : "No office scan yet today"}
       </span>
       {employeeId && (
-        <Button variant="ghost" icon={<HomeIcon className="h-3.75 w-3.75" />} onClick={() => setAskWfh(true)} disabled={wfh.isPending}>
+        <Button loading={wfh.isPending} succeeded={wfh.isSuccess} variant="ghost" icon={<HomeIcon className="h-3.75 w-3.75" />} onClick={() => setAskWfh(true)} disabled={wfh.isPending}>
           Work from home
         </Button>
       )}
@@ -184,7 +184,7 @@ export function AttendanceClock({ employeeId, personName, actor, needsEnrollment
             <Button variant="ghost" onClick={() => setAskWfh(false)}>
               Cancel
             </Button>
-            <Button
+            <Button loading={wfh.isPending} succeeded={wfh.isSuccess}
               icon={<CameraIcon className="h-4 w-4" />}
               disabled={wfh.isPending}
               onClick={() => {

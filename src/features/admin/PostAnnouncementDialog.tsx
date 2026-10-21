@@ -69,7 +69,7 @@ export function PostAnnouncementDialog({
             <Button type="button" variant="ghost" onClick={requestClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={mutation.isPending}>
+            <Button loading={mutation.isPending} succeeded={mutation.isSuccess} type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? "Posting…" : "Post announcement"}
             </Button>
           </div>

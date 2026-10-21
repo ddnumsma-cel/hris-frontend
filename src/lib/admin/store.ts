@@ -8,18 +8,6 @@ import type { Role } from "../types";
 export type ModuleKey = "people" | "company" | "documents" | "timekeeping" | "leave" | "reimbursements" | "reports" | "payroll" | "administration";
 export type Access = "none" | "view" | "edit" | "approve";
 
-export const MODULES: { key: ModuleKey; label: string; approvable?: boolean }[] = [
-  { key: "people", label: "People" },
-  { key: "company", label: "Org chart" },
-  { key: "documents", label: "Documents" },
-  { key: "timekeeping", label: "Timekeeping & Attendance", approvable: true },
-  { key: "leave", label: "Leave Management", approvable: true },
-  { key: "reimbursements", label: "Reimbursements", approvable: true },
-  { key: "reports", label: "Reports & Analytics" },
-  { key: "payroll", label: "Payroll & contributions" },
-  { key: "administration", label: "Administration & Security" },
-];
-
 export interface SystemRole {
   id: string;
   /** Which of the six roles this is (lib/permissions.ts). */
@@ -316,8 +304,3 @@ export function logAdmin(entry: Omit<AdminLog, "id" | "at">) {
 }
 
 export const roleOf = (account: UserAccount | undefined) => admin.roles.find((r) => r.id === account?.roleId);
-
-export const isSuperAdmin = (accountId: string | undefined) => roleOf(admin.accounts.find((a) => a.id === accountId))?.key === "super_admin";
-
-/** Modules that don't open the HR workspace by themselves: system setup and payroll (the CEO runs both). */
-export const NON_HR_MODULES: ModuleKey[] = ["administration", "payroll"];

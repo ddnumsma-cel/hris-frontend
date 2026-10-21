@@ -24,6 +24,8 @@ import { notifyEmployee } from "../outbox";
 import { notifyEmployees } from "../notifications";
 import { dates, tellApprover, tellAssigned, tellEmployees } from "../requestNotices";
 import { assertSeatsAvailable, checkSeatThresholds, isSeatLimitError } from "../subscription/api";
+import { backendOn } from "../backend/client";
+import { backendGetEmployee, backendListDocuments, backendListEmployees, backendListEvents, backendListUnits, backendUpdateSection } from "../backend/people";
 
 const DELAY_MS = 300;
 function respond<T>(value: T): Promise<T> {
@@ -138,6 +140,8 @@ export function listEmployees(): Promise<EmployeeSummary[]> {
   // People list: everyone, their team, or only themselves (lib/permissions.ts).
   const who = sessionWho();
   if (!can(who, "view", "people")) return forbidden();
+  // Connected to the HR server: it decides who sees whom.
+  if (backendOn()) return backendListEmployees();
   reconcile();
   return respond(visible(who, "people", state.employees, (e) => e.id).map(summarize).sort((a, b) => a.name.localeCompare(b.name)));
 }
@@ -151,6 +155,7 @@ export interface EmployeeRecord {
 }
 
 export function getEmployee(id: string): Promise<EmployeeRecord | null> {
+  if (backendOn()) return backendGetEmployee(id);
   const denied = deny("people", "view", id);
   if (denied) return denied;
   reconcile();
@@ -329,6 +334,72 @@ function addEmployee(v: NewEmployeeValues, actor: string, scannedId?: ScannedGov
   return employee;
 }
 
+export interface SelfRegistration {
+  name: string;
+  /** Their sign-in from now on (lower-cased). */
+  email: string;
+  /** Leave out when they registered with Google: they sign in with Google instead. */
+  password?: string;
+  /** A position title from the form; matched to the org chart, HR can change it later. */
+  position: string;
+  cluster: string;
+  /** "9171234567", or empty. */
+  phone: string;
+}
+
+/**
+ * A new hire registers themselves from the sign-in page: their 201 record (job details to be
+ * completed by HR) and an Employee login, usable right away. No sign-in needed to call it.
+ */
+export async function registerSelf(input: SelfRegistration): Promise<{ username: string; employeeId: string }> {
+  const name = input.name.trim().replace(/\s+/g, " ");
+  const email = input.email.trim().toLowerCase();
+  if (!name) return fail("Enter your full name");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Enter your email address. It's how you'll sign in.");
+  if (input.password !== undefined && input.password.length < admin.settings.minPasswordLength) return fail(`Use at least ${admin.settings.minPasswordLength} characters for your password`);
+  if (admin.accounts.some((a) => a.username.toLowerCase() === email) || contactTaken({ workEmail: email, personalEmail: "", mobile: "" }).length) return fail("That email already has an account. Sign in instead, or ask HR to reset your password.");
+  const mobile = input.phone ? `+63${input.phone}` : "";
+  if (mobile && contactTaken({ workEmail: "", personalEmail: "", mobile }).length) return fail("Another employee already uses this mobile number");
+  const role = admin.roles.find((r) => r.key === "employee");
+  if (!role) return fail("Registration isn't available right now. Please contact HR.");
+  try {
+    assertSeatsAvailable(1);
+  } catch (err) {
+    return Promise.reject(err);
+  }
+  // Their position by title (any active one if it isn't on the org chart yet); HR completes the job details.
+  const position = state.positions.find((p) => p.active && p.title.toLowerCase() === input.position.trim().toLowerCase()) ?? state.positions.find((p) => p.active);
+  if (!position) return fail("Registration isn't available right now. Please contact HR.");
+  const parts = name.split(" ");
+  const lastName = parts.length > 1 ? parts.pop()! : "";
+  const id = nextEmployeeId(state);
+  const today = isoDate();
+  const employee: CoreEmployee = {
+    id,
+    personal: { firstName: parts.join(" "), middleName: "", lastName, suffix: "", birthDate: "", sex: "", civilStatus: "", nationality: "Filipino" },
+    contact: { workEmail: email, personalEmail: "", mobile, address: "", city: "", province: "", emergencyName: "", emergencyRelationship: "", emergencyPhone: "" },
+    government: { sss: "", philhealth: "", pagibig: "", tin: "" },
+    bank: undefined,
+    job: { positionId: position.id, unitId: position.departmentId, supervisorId: holdersOf(position.reportsToPositionId ?? "")[0]?.id, employmentType: position.employmentType, status: "Active", dateHired: today, monthlySalary: 0, workSchedule: "" },
+    createdAt: new Date().toISOString(),
+  } as CoreEmployee;
+  const documents: EmployeeDocument[] = DOCUMENT_TYPES.map((type, i) => ({ id: `doc-${id}-${i + 1}`, employeeId: id, type, status: SITUATIONAL.includes(type) ? "Not applicable" : "Missing" }));
+  commit({
+    ...state,
+    employees: [...state.employees, employee],
+    documents: [...state.documents, ...documents],
+    events: [{ id: newId("ev"), employeeId: id, kind: "Hired", effectiveDate: today, changes: [{ label: "Position", to: position.title }, { label: "Cluster", to: input.cluster }], recordedBy: `${name} (self-registration)`, recordedAt: new Date().toISOString() }, ...state.events],
+    audit: [audit(id, `${name} (self-registration)`, "Created", "201 file", "Registered from the sign-in page"), ...state.audit],
+  });
+  saveAdmin({
+    ...admin,
+    accounts: [...admin.accounts, { id: `ua-${Date.now().toString(36)}`, name, username: email, password: input.password, employeeId: id, roleId: role.id, status: "active", failedAttempts: 0, createdAt: new Date().toISOString(), createdBy: "Self-registration" }],
+  });
+  checkSeatThresholds();
+  tellAssigned("edit", "people", "newhire", "update", `${name} registered`, `New Employee account (${email}). Complete their job details and pay on their record.`);
+  return respond({ username: email, employeeId: id });
+}
+
 const SECTION_LABELS = {
   personal: { title: "Personal information", fields: { firstName: "First name", middleName: "Middle name", lastName: "Last name", suffix: "Suffix", birthDate: "Birth date", sex: "Sex", civilStatus: "Civil status", nationality: "Nationality" } },
   contact: { title: "Contact details", fields: { workEmail: "Work email", personalEmail: "Personal email", mobile: "Mobile", address: "Address", city: "City", province: "Province", emergencyName: "Emergency contact person", emergencyRelationship: "Relationship", emergencyPhone: "Emergency phone" } },
@@ -349,6 +420,7 @@ export async function updateEmployeeSection<S extends EditableSection>(id: strin
   const schema = section === "personal" ? personalSchema : section === "contact" ? contactSchema : section === "bank" ? bankSchema : governmentSchema;
   const parsed = schema.safeParse(values);
   if (!parsed.success) return fail(firstIssue(parsed));
+  if (backendOn()) return backendUpdateSection(id, section, parsed.data);
   const e = employeeById(id);
   if (!e) return fail("That employee no longer exists");
   const data = parsed.data as CoreEmployee[S];
@@ -399,6 +471,7 @@ export function listUnits(): Promise<UnitSummary[]> {
   // Departments and offices: anyone who sees them, or who adds people (to pick a department).
   const who = sessionWho();
   if (!(["departments", "locations", "orgChart"] as const).some((f) => can(who, "view", f)) && !can(who, "create", "people")) return forbidden();
+  if (backendOn()) return backendListUnits();
   reconcile();
   return respond(
     state.units.map((u) => {
@@ -531,6 +604,7 @@ export function documentAlert(d: Pick<EmployeeDocument, "status" | "expiresOn">)
 export function listDocuments(employeeId?: string): Promise<EmployeeDocument[]> {
   const who = sessionWho();
   if (!can(who, "view", "documents")) return forbidden();
+  if (backendOn()) return backendListDocuments(employeeId);
   reconcile();
   return respond(visible(who, "documents", state.documents, (d) => d.employeeId).filter((d) => !employeeId || d.employeeId === employeeId));
 }
@@ -596,6 +670,7 @@ export async function updateDocument(id: string, action: DocumentAction, actor: 
 // ---- Employment history ----
 
 export function listEvents(employeeId: string): Promise<JobEvent[]> {
+  if (backendOn()) return backendListEvents(employeeId);
   const denied = deny("people", "view", employeeId);
   if (denied) return denied;
   return respond(

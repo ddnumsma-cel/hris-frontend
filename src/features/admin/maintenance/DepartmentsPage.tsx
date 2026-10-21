@@ -38,7 +38,7 @@ function DepartmentDialog({ draft, onClose }: { draft: Draft; onClose: () => voi
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={save.isPending} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} succeeded={save.isSuccess} disabled={save.isPending} onClick={() => save.mutate()}>
             Save
           </Button>
         </div>
@@ -131,7 +131,7 @@ export function DepartmentsPage() {
               canEdit ? (
                 <span className="flex justify-end gap-2">
                   <Button size="sm" variant="ghost" icon={<EditIcon className="h-4 w-4" />} aria-label={`Edit ${r.name}`} title="Edit" onClick={() => setEditing({ id: r.id, name: r.name, code: r.code, officeId: r.officeId, headEmployeeId: r.headEmployeeId ?? "" })} />
-                  <Button size="sm" variant="ghost" icon={<PowerIcon className="h-4 w-4" />} className={r.active ? "text-critical" : "text-good"} aria-label={`${r.active ? "Deactivate" : "Reactivate"} ${r.name}`} title={r.active ? "Deactivate" : "Reactivate"} disabled={toggle.isPending} onClick={() => toggle.mutate(r)} />
+                  <Button loading={toggle.isPending} succeeded={toggle.isSuccess} size="sm" variant="ghost" icon={<PowerIcon className="h-4 w-4" />} className={r.active ? "text-critical" : "text-good"} aria-label={`${r.active ? "Deactivate" : "Reactivate"} ${r.name}`} title={r.active ? "Deactivate" : "Reactivate"} disabled={toggle.isPending} onClick={() => toggle.mutate(r)} />
                 </span>
               ) : null,
           },

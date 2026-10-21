@@ -54,7 +54,7 @@ export function FileLeaveDialog({ onClose, employeeId = "" }: { onClose: () => v
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button
+            <Button loading={file.isPending} succeeded={file.isSuccess}
               disabled={file.isPending}
               onClick={() => {
                 setTried(true);
@@ -176,7 +176,7 @@ export function RequestDialog({ r, onClose, startWith }: { r: RequestRow; onClos
             <Button variant="ghost" onClick={() => setMode("reject")}>
               Reject
             </Button>
-            <Button disabled={busy} onClick={() => decide.mutate(true)}>
+            <Button loading={decide.isPending} succeeded={decide.isSuccess} disabled={busy || decide.isPending} onClick={() => decide.mutate(true)}>
               Approve
             </Button>
           </>
@@ -191,7 +191,13 @@ export function RequestDialog({ r, onClose, startWith }: { r: RequestRow; onClos
         <Button variant="ghost" onClick={() => (startWith ? onClose() : setMode("view"))}>
           Back
         </Button>
-        <Button variant="danger" disabled={busy} onClick={() => (mode === "reject" ? decide.mutate(false) : cancel.mutate())}>
+        <Button
+          variant="danger"
+          loading={mode === "reject" ? decide.isPending : cancel.isPending}
+          succeeded={mode === "reject" ? decide.isSuccess : cancel.isSuccess}
+          disabled={busy}
+          onClick={() => (mode === "reject" ? decide.mutate(false) : cancel.mutate())}
+        >
           {mode === "reject" ? "Reject" : "Cancel leave"}
         </Button>
       </div>

@@ -132,13 +132,13 @@ function ReviewDialog({ employeeId, date, onClose }: { employeeId: string; date:
                       {p.reason && <span className="text-xs text-ink-3">Reason: {p.reason}</span>}
                       <span className="ml-auto flex gap-1.5">
                         {!canEdit ? null : p.voided ? (
-                          <Button size="sm" variant="ghost" onClick={() => restore.mutate(p)}>
+                          <Button disabled={restore.isPending} loading={restore.isPending} succeeded={restore.isSuccess} size="sm" variant="ghost" onClick={() => restore.mutate(p)}>
                             Count again
                           </Button>
                         ) : (
                           <>
                             {problem && (
-                              <Button size="sm" onClick={() => keep.mutate(p)}>
+                              <Button disabled={keep.isPending} loading={keep.isPending} succeeded={keep.isSuccess} size="sm" onClick={() => keep.mutate(p)}>
                                 Keep
                               </Button>
                             )}
@@ -151,7 +151,7 @@ function ReviewDialog({ employeeId, date, onClose }: { employeeId: string; date:
                       {asideId === p.id && (
                         <span className="flex w-full gap-2">
                           <input autoFocus aria-label="Reason" className={inputClass} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why? e.g. scanned twice by mistake" />
-                          <Button size="sm" onClick={() => aside.mutate(p)}>
+                          <Button disabled={aside.isPending} loading={aside.isPending} succeeded={aside.isSuccess} size="sm" onClick={() => aside.mutate(p)}>
                             Confirm
                           </Button>
                         </span>
@@ -186,7 +186,7 @@ function ReviewDialog({ employeeId, date, onClose }: { employeeId: string; date:
               <Field id="a-why" label="Reason">
                 <input id="a-why" className={inputClass} value={why} onChange={(e) => setWhy(e.target.value)} placeholder="Forgot to scan; supervisor confirmed" />
               </Field>
-              <Button type="submit" disabled={add.isPending}>
+              <Button loading={add.isPending} succeeded={add.isSuccess} type="submit" disabled={add.isPending}>
                 Add
               </Button>
             </form>

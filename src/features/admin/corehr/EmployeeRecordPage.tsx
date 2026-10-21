@@ -117,7 +117,7 @@ function ReportsToDialog({ record, onClose }: { record: Rec; onClose: () => void
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={save.isPending || isHead} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} succeeded={save.isSuccess} disabled={save.isPending || isHead} onClick={() => save.mutate()}>
             Save
           </Button>
         </div>

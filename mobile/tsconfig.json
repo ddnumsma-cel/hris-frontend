@@ -1,0 +1,32 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "~/*": [
+        "./src/*"
+      ],
+      "@/*": [
+        "../src/*"
+      ],
+      "@web/*": [
+        "../src/*"
+      ],
+      "@msma/shared": [
+        "./packages/shared/src"
+      ],
+      "@msma/api-client": [
+        "./packages/api-client/src"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "src/legacy",
+    "scripts"
+  ]
+}

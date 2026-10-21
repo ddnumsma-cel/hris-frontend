@@ -47,7 +47,7 @@ function AddDialog({ year, onClose }: { year: number; onClose: () => void }) {
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={save.isPending} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} succeeded={save.isSuccess} disabled={save.isPending} onClick={() => save.mutate()}>
             Add holiday
           </Button>
         </div>
@@ -125,7 +125,7 @@ function ChangeDialog({ h, year, onClose }: { h: Holiday; year: number; onClose:
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant={kind === "cancel" ? "danger" : "primary"} disabled={save.isPending} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} succeeded={save.isSuccess} variant={kind === "cancel" ? "danger" : "primary"} disabled={save.isPending} onClick={() => save.mutate()}>
             {kind === "move" ? "Move it" : "Cancel it this year"}
           </Button>
         </div>
@@ -245,7 +245,7 @@ export function HolidayCalendarPage() {
               return (
                 <span className="flex justify-end gap-2">
                   {changed ? (
-                    <Button size="sm" variant="ghost" disabled={undo.isPending} onClick={() => undo.mutate(h.ruleId!)}>
+                    <Button loading={undo.isPending} succeeded={undo.isSuccess} size="sm" variant="ghost" disabled={undo.isPending} onClick={() => undo.mutate(h.ruleId!)}>
                       Undo change
                     </Button>
                   ) : rule && rule.repeat.kind !== "once" ? (
@@ -254,7 +254,7 @@ export function HolidayCalendarPage() {
                     </Button>
                   ) : null}
                   {rule && !rule.builtIn && (
-                    <Button size="sm" variant="remove" disabled={remove.isPending} onClick={() => window.confirm(`Remove ${rule.name}${rule.repeat.kind === "fixed" ? " from every year" : ""}?`) && remove.mutate(rule.id)}>
+                    <Button loading={remove.isPending} succeeded={remove.isSuccess} size="sm" variant="remove" disabled={remove.isPending} onClick={() => window.confirm(`Remove ${rule.name}${rule.repeat.kind === "fixed" ? " from every year" : ""}?`) && remove.mutate(rule.id)}>
                       Remove
                     </Button>
                   )}

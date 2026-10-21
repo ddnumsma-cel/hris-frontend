@@ -3,12 +3,18 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LockIcon, PersonIcon } from "@/components/icons";
-import { endedForInactivity, idleMinutes, signIn } from "@/lib/admin/auth";
+import { endedForInactivity, idleMinutes, signIn, signInWithGoogleEmail, type SignInResult } from "@/lib/admin/auth";
+import { GoogleButton } from "@/components/ui/GoogleButton";
+import { isGoogleConfigured, signInWithGoogle } from "@/lib/googleAuth";
+import type { Registered } from "./RegisterDialog";
 import { getCredentials } from "@/lib/credentials";
+import { backendOn } from "@/lib/backend/client";
+import { BACKEND_DEMO_ACCOUNTS, backendSignIn } from "@/lib/backend/auth";
 import { landingPath } from "@/features/settings/landing";
 import { settingsFor } from "@/lib/settings/store";
 import { useAuth } from "./AuthContext";
 import { LoginHero } from "./LoginHero";
+import { Constellation } from "./Constellation";
 
 const RegisterDialog = lazy(() => import("./RegisterDialog").then((m) => ({ default: m.RegisterDialog })));
 
@@ -23,12 +29,18 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(() => (endedForInactivity() ? `You were signed out after ${idleMinutes()} minutes without activity. Please sign in again.` : null));
   const [registerOpen, setRegisterOpen] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
 
   // Already signed in (e.g. a remembered session) — skip the form entirely.
   if (user) return <Navigate to={`/${user.role}`} replace />;
 
   function attemptLogin(u: string, p: string) {
-    const result = signIn(u, p);
+    // Connected to the HR server: it checks the email and password; otherwise the in-browser accounts do.
+    if (backendOn()) void backendSignIn(u, p).then(finish);
+    else finish(signIn(u, p));
+  }
+
+  function finish(result: SignInResult) {
     if (!result.ok) {
       setError(result.error);
       return;
@@ -36,6 +48,24 @@ export function LoginPage() {
     login(result.workspace, result.account);
     // Their chosen landing page (Settings > Appearance), or the workspace Home.
     navigate(landingPath(result.workspace, settingsFor(result.account.id).appearance.landing), { replace: true });
+  }
+
+  // People who registered with Google sign in with it (their Google email is their username).
+  async function googleLogin() {
+    setGoogleBusy(true);
+    try {
+      finish(signInWithGoogleEmail((await signInWithGoogle()).email));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Google sign-in didn't finish");
+    } finally {
+      setGoogleBusy(false);
+    }
+  }
+
+  // Straight in after registering: with their new password, or with Google.
+  function signInRegistered(r: Registered) {
+    if (r.password) attemptLogin(r.username, r.password);
+    else void googleLogin();
   }
 
   function handleSubmit(e: FormEvent) {
@@ -54,7 +84,9 @@ export function LoginPage() {
     <>
     {/* Outside the panel: the panel's children are layered for the glow, which would undo position: fixed. */}
     <ThemeToggle className="fixed right-4 top-4 z-50 border border-[var(--login-line)] bg-[var(--login-card)] text-[var(--login-ink)] hover:bg-[var(--login-field-focus)]" />
-    <div className="login-hero grid min-h-screen grid-cols-1 bg-[var(--login-bg)] text-[var(--login-ink)] lg:grid-cols-2">
+    <div className="login-hero relative grid min-h-screen grid-cols-1 bg-[var(--login-bg)] text-[var(--login-ink)] lg:grid-cols-2">
+      {/* Drifting constellation behind everything on the page; the columns (z-index 1, .login-hero > *) sit above it. */}
+      <Constellation className="login-constellation" />
 
       <LoginHero />
 
@@ -69,7 +101,7 @@ export function LoginPage() {
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div>
                 <label htmlFor="login-username" className="mb-1.5 ml-4 block text-xs font-medium text-[var(--login-ink-2)]">
-                  Username
+                  Username or email
                 </label>
                 <div className={fieldClass}>
                   <PersonIcon className="h-4 w-4 flex-none text-[var(--login-ink-3)]" />
@@ -82,7 +114,7 @@ export function LoginPage() {
                       setUsername(e.target.value);
                       setError(null);
                     }}
-                    placeholder="Enter your username"
+                    placeholder="Enter your username or email"
                     className={inputClass}
                   />
                 </div>
@@ -115,18 +147,32 @@ export function LoginPage() {
               </Button>
             </form>
 
-            <p className="mt-4 text-center text-xs text-[var(--login-ink-2)]">
-              New hire?{" "}
-              <button type="button" onClick={() => setRegisterOpen(true)} className="font-semibold text-[var(--login-link)] underline-offset-2 hover:underline">
-                Register your account
-              </button>
-            </p>
+            {/* The HR server has no Google sign-in or self-registration yet. */}
+            {isGoogleConfigured() && !backendOn() && (
+              <div className="mt-4 flex flex-col gap-3">
+                <div className="flex items-center gap-3 text-xs text-[var(--login-ink-3)]">
+                  <span className="h-px flex-1 bg-[var(--login-line)]" />
+                  or
+                  <span className="h-px flex-1 bg-[var(--login-line)]" />
+                </div>
+                <GoogleButton onClick={googleLogin} loading={googleBusy} />
+              </div>
+            )}
+
+            {!backendOn() && (
+              <p className="mt-4 text-center text-xs text-[var(--login-ink-2)]">
+                New hire?{" "}
+                <button type="button" onClick={() => setRegisterOpen(true)} className="font-semibold text-[var(--login-link)] underline-offset-2 hover:underline">
+                  Register your account
+                </button>
+              </p>
+            )}
 
             {/* Demo logins stay out of sight unless someone opens them. */}
             <details className="mt-5 rounded-[var(--radius-dropdown)] bg-[var(--login-hover)] px-3.5 py-3 text-xs">
               <summary className="cursor-pointer font-semibold text-[var(--login-ink-2)] select-none">Demo accounts — tap to fill</summary>
               <div className="mt-1.5 flex flex-col gap-1">
-                {getCredentials().filter((c) => c.listed !== false).map((c) => (
+                {(backendOn() ? BACKEND_DEMO_ACCOUNTS : getCredentials().filter((c) => c.listed !== false)).map((c) => (
                   <button key={c.username} type="button" onClick={() => quickFill(c.username, c.password)} className="flex items-center justify-between rounded-md px-1.5 py-1 text-left transition-colors hover:bg-[var(--login-hover)]">
                     <span className="text-[var(--login-ink-2)]">{c.label}</span>
                     <span className="font-num text-[var(--login-ink-3)]">
@@ -143,7 +189,7 @@ export function LoginPage() {
     </div>
     {registerOpen && (
       <Suspense fallback={null}>
-        <RegisterDialog open={registerOpen} onClose={() => setRegisterOpen(false)} />
+        <RegisterDialog open={registerOpen} onClose={() => setRegisterOpen(false)} onSignIn={signInRegistered} />
       </Suspense>
     )}
     </>

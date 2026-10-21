@@ -86,6 +86,7 @@ export function ManagerTrainings() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search employee, course, status…"
+              aria-label="Search trainings"
               className="w-full bg-transparent text-sm outline-none placeholder:text-ink-3"
             />
           </div>

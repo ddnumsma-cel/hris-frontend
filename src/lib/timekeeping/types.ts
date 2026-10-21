@@ -109,6 +109,8 @@ export interface TimeRequest {
   employeeId: string;
   date: string;
   type: "overtime" | "undertime";
+  /** Who filed it, when it comes from the HR server (which has no team attendance to look them up in). */
+  person?: { id: string; name: string; departmentName: string; branch: string };
   minutes: number;
   reason: string;
   status: "pending" | "approved" | "declined";

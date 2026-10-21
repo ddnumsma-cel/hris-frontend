@@ -103,7 +103,7 @@ export function EmployeeTrainings() {
                   </div>
                   {t.status === "In progress" && <Chip variant="warn">In progress</Chip>}
                   {t.status === "Not started" && (
-                    <Button size="sm" variant="ghost" disabled={busy} onClick={() => mutation.mutate({ id: t.id, status: "In progress" })}>
+                    <Button loading={mutation.isPending} succeeded={mutation.isSuccess} size="sm" variant="ghost" disabled={busy || mutation.isPending} onClick={() => mutation.mutate({ id: t.id, status: "In progress" })}>
                       Start
                     </Button>
                   )}

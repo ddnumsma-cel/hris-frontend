@@ -72,7 +72,7 @@ export const PERMISSIONS = {
   subscription: { label: "Subscription plan & seat count (own company)", system_admin: "full", super_admin: "view", hr: "view", approver: "none", accounting: "none", employee: "none" },
   subscriptionUpgrade: { label: "Request a subscription upgrade", system_admin: "view", super_admin: "manage", hr: "none", approver: "none", accounting: "none", employee: "none" },
   clients: { label: "Clients & Subscriptions (plans, seat overrides, extensions)", system_admin: "full", super_admin: "none", hr: "none", approver: "none", accounting: "none", employee: "none" },
-  support: { label: "Support tickets (report a problem to us)", system_admin: "full", super_admin: "own", hr: "own", approver: "none", accounting: "own", employee: "none" },
+  support: { label: "Support tickets (report a problem to us)", system_admin: "full", super_admin: "own", hr: "own", approver: "none", accounting: "own", employee: "own" },
 } satisfies Record<string, Row & { label: string }>;
 
 export type Feature = keyof typeof PERMISSIONS;

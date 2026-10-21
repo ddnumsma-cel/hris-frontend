@@ -1,5 +1,4 @@
 import type {
-  AdminOverviewStats,
   Announcement,
   AttendancePoint,
   CertificateRequest,
@@ -14,7 +13,6 @@ import type {
   LeaveRequest,
   OffboardingCase,
   OfficeHeadcount,
-  OnboardingStage,
   Payslip,
   PayrollCostSegment,
   PayrollRunStep,
@@ -155,17 +153,6 @@ export const attendanceTrend: AttendancePoint[] = [
   { date: "Sep 25", rate: 94 },
 ];
 
-export const adminOverviewStats: AdminOverviewStats = {
-  totalHeadcount: 312,
-  newHiresThisMonth: 6,
-  attritionRateYtd: 4.2,
-  separationsYtd: 24,
-  openPositions: { total: 9, byDepartment: [{ name: "Tax", count: 4 }, { name: "Audit", count: 3 }, { name: "Legal", count: 2 }] },
-  onLeaveToday: 0,
-  payrollRunTotal: 13_400_000,
-  payrollCutoffLabel: "Oct 25",
-};
-
 export const payrollRunSteps: PayrollRunStep[] = [
   { label: "Timekeeping locked — Sept 25", status: "done" },
   { label: "Payroll computation completed", status: "done" },
@@ -210,12 +197,6 @@ export let employeeDirectory: Employee[] = [
 export function setEmployeeDirectory(next: Employee[]) {
   employeeDirectory = next;
 }
-
-export const onboardingPipeline: OnboardingStage[] = [
-  { stage: "Offer accepted", count: 2 },
-  { stage: "Documents submitted", count: 3 },
-  { stage: "Day 1 setup", count: 1 },
-];
 
 export const workforceAlerts: WorkforceAlert[] = [
   {

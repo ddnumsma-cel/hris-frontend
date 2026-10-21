@@ -32,7 +32,7 @@ export function SeparationDialog({ employeeId, name, onClose }: { employeeId: st
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="danger" disabled={save.isPending} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} succeeded={save.isSuccess} variant="danger" disabled={save.isPending} onClick={() => save.mutate()}>
             Record separation
           </Button>
         </div>

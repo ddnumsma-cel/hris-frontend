@@ -45,7 +45,7 @@ function LoanDialog({ row, onClose }: { row?: LoanRow; onClose: () => void }) {
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={save.isPending} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} succeeded={save.isSuccess} disabled={save.isPending} onClick={() => save.mutate()}>
             Save
           </Button>
         </div>
@@ -116,7 +116,7 @@ function StopDialog({ row, onClose }: { row: LoanRow; onClose: () => void }) {
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="danger" disabled={stop.isPending} onClick={() => stop.mutate()}>
+          <Button loading={stop.isPending} succeeded={stop.isSuccess} variant="danger" disabled={stop.isPending} onClick={() => stop.mutate()}>
             Stop deductions
           </Button>
         </div>

@@ -122,7 +122,7 @@ function CreditsDrawer({ row, onClose, onFile }: { row: CreditRow; onClose: () =
             </Field>
           </div>
           <div className="mt-2 flex justify-end">
-            <Button size="sm" variant="ghost" disabled={adjust.isPending} onClick={() => adjust.mutate()}>
+            <Button loading={adjust.isPending} succeeded={adjust.isSuccess} size="sm" variant="ghost" disabled={adjust.isPending} onClick={() => adjust.mutate()}>
               Save change
             </Button>
           </div>
