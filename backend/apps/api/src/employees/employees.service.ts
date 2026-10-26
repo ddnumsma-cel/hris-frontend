@@ -36,7 +36,10 @@ export interface EmployeeForCompute {
   siteId: string;
   siteName: string;
   dailyRate: string;
+  /** Monthly salary (payroll pays half each cut-off); from the daily rate when not set. */
+  monthlySalary: string;
   hireDate: string;
+  separationDate: string | null;
   shift: ShiftDefinition & { id: string; code: string; name: string };
 }
 
@@ -477,6 +480,7 @@ export class EmployeesService {
           status: input.status,
           hireDate: dateKeyToUtcDate(input.hireDate),
           dailyRate: dailyRate.toFixed(2),
+          monthlySalary: money(input.monthlySalary).toFixed(2),
           siteId: site.id,
           departmentId: department.id,
           positionId: position?.id ?? null,
@@ -586,7 +590,9 @@ export class EmployeesService {
       siteId: e.siteId,
       siteName: e.site.name,
       dailyRate: e.dailyRate.toString(),
+      monthlySalary: (e.monthlySalary ?? roundMoney(money(e.dailyRate.toString()).times(261).dividedBy(12))).toString(),
       hireDate: utcDateToDateKey(e.hireDate),
+      separationDate: e.separationDate ? utcDateToDateKey(e.separationDate) : null,
       shift: {
         id: e.shift.id,
         code: e.shift.code,

@@ -316,6 +316,9 @@ function rateFor(spec: EmployeeSpec): string {
 }
 
 // ---------- Main ----------
+/** Monthly salary from a daily rate (daily = monthly × 12 ÷ 261). */
+const monthlyOf = (daily: string) => roundMoney(Number(daily) * 261 / 12).toFixed(2);
+
 async function main() {
   console.log(`Seeding synthetic data (today in Manila: ${formatDate(TODAY)})…`);
 
@@ -393,6 +396,8 @@ async function main() {
         status: hireInfo.get(s.id)!.status,
         hireDate: dateKeyToUtcDate(hireInfo.get(s.id)!.hireDate),
         dailyRate: new Prisma.Decimal(rates.get(s.id)!),
+        // daily = monthly × 12 ÷ 261 (MSMA's payroll workbook), so monthly = daily × 261 ÷ 12
+        monthlySalary: new Prisma.Decimal(monthlyOf(rates.get(s.id)!)),
         siteId: siteIds[s.site],
         departmentId: deptIds[s.dept],
         positionId: positionIds[`${s.dept}:${s.position}`],
@@ -896,9 +901,16 @@ async function main() {
         holiday: holiday ?? null,
         onLeave: leaveDays.get(s.id)?.has(d) ?? false,
       });
-      return { ...dtr, holidayType: holiday?.type ?? null, paidLeave: true };
+      return { ...dtr, date: d, restDay: !SHIFT.workDays.includes(weekdayOf(d)), holidayType: holiday?.type ?? null, paidLeave: true };
     });
-    const p = computePayslip({ dailyRate: rates.get(s.id)!, days, rates: SAMPLE_STATUTORY_RATES });
+    const p = computePayslip({
+      monthlySalary: monthlyOf(rates.get(s.id)!),
+      days,
+      rates: SAMPLE_STATUTORY_RATES,
+      cutoff: { from: prevCutoff.from, to: prevCutoff.to },
+      hireDate: hireInfo.get(s.id)!.hireDate,
+      workDays: SHIFT.workDays,
+    });
     payslips.push({
       payrollRunId: '',
       employeeId: s.id,

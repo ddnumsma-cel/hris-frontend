@@ -266,6 +266,8 @@ model Employee {
   hireDate     DateTime         @db.Date
   active       Boolean          @default(true)
   dailyRate    Decimal          @db.Decimal(14, 2)
+  /// Monthly salary (payroll pays half each cut-off; daily = monthly × 12 ÷ 261, as MSMA's payroll workbook)
+  monthlySalary Decimal?        @db.Decimal(14, 2)
   siteId       String
   site         Site             @relation(fields: [siteId], references: [id])
   departmentId String

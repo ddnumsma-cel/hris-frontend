@@ -21,6 +21,7 @@ import {
   StatutoryRates,
   sumMoney,
   utcDateToDateKey,
+  weekdayOf,
 } from '@msma/shared';
 import { AttendanceService } from '../attendance/attendance.service';
 import { EmployeesService } from '../employees/employees.service';
@@ -91,7 +92,10 @@ export class PayrollService {
 
     const lines: PayrollPreviewLine[] = employees.map((e) => {
       const days: PayrollDay[] = (dtrs.get(e.id) ?? []).map((d) => ({
+        date: d.date,
         status: d.status,
+        restDay: !e.shift.workDays.includes(weekdayOf(d.date)),
+        workedMinutes: d.workedMinutes,
         holidayType: holidays.get(d.date)?.type ?? null,
         paidLeave: true,
         lateMinutes: d.lateMinutes,
@@ -100,7 +104,15 @@ export class PayrollService {
         otMinutes: Math.min(d.otMinutes, approvedOt.get(`${e.id}|${d.date}`) ?? 0),
         nightDiffMinutes: d.nightDiffMinutes,
       }));
-      const p = computePayslip({ dailyRate: e.dailyRate, days, rates });
+      const p = computePayslip({
+        monthlySalary: e.monthlySalary,
+        days,
+        rates,
+        cutoff: { from: cutoff.from, to: cutoff.to },
+        hireDate: e.hireDate,
+        separationDate: e.separationDate,
+        workDays: e.shift.workDays,
+      });
       return {
         employeeId: e.id,
         employeeNo: e.employeeNo,
