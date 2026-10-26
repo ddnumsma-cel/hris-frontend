@@ -25,7 +25,7 @@ export const bankSchema = z
     accountNumber: z
       .string()
       .trim()
-      .refine((s) => !s || /^[d -]{6,20}$/.test(s), "Account number should be 6 to 20 digits"),
+      .refine((s) => !s || /^[\d -]{6,20}$/.test(s), "Account number should be 6 to 20 digits"),
   })
   .superRefine((b, ctx) => {
     const filled = [b.bank, b.accountName, b.accountNumber].filter(Boolean).length;

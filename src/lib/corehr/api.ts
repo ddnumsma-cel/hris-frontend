@@ -27,7 +27,7 @@ import { notifyEmployees } from "../notifications";
 import { dates, tellApprover, tellAssigned, tellEmployees } from "../requestNotices";
 import { assertSeatsAvailable, checkSeatThresholds, isSeatLimitError } from "../subscription/api";
 import { backendOn } from "../backend/client";
-import { backendGetEmployee, backendListDocuments, backendListEmployees, backendListEvents, backendListUnits, backendUpdateSection } from "../backend/people";
+import { backendCreateEmployee, backendGetEmployee, backendListDocuments, backendListEmployees, backendListEvents, backendListPositions, backendListUnits, backendUpdateSection } from "../backend/people";
 
 const DELAY_MS = 300;
 function respond<T>(value: T): Promise<T> {
@@ -220,6 +220,7 @@ export async function createEmployee(values: NewEmployeeValues, actor: string, s
   if (serverMode) return remote(api<CoreEmployee>("POST", "/corehr/employees", { values }));
   const parsed = newEmployeeSchema.safeParse(values);
   if (!parsed.success) return fail(firstIssue(parsed));
+  if (backendOn()) return backendCreateEmployee(parsed.data);
   try {
     const employee = addEmployee(parsed.data, actor, scannedId);
     checkSeatThresholds();
@@ -522,6 +523,7 @@ export interface PositionSummary extends Position {
 export async function listPositions(): Promise<PositionSummary[]> {
   const who = sessionWho();
   if (!(["departments", "orgChart"] as const).some((f) => can(who, "view", f)) && !can(who, "create", "people")) return forbidden();
+  if (backendOn()) return backendListPositions();
   if (serverMode) await fresh();
   reconcile();
   return respond(

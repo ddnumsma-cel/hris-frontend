@@ -75,11 +75,144 @@ export const LoginResponseSchema = z.object({
 export type LoginResponse = z.infer<typeof LoginResponseSchema>;
 
 // ---------- Org ----------
+export const ShiftBriefSchema = z.object({
+  id: z.string(),
+  code: z.string(),
+  name: z.string(),
+  startTime: z.string().describe('Manila wall-clock "HH:mm"'),
+  endTime: z.string(),
+  breakMinutes: z.number().int(),
+  graceMinutes: z.number().int(),
+  workDays: z.array(z.number().int()).describe('0 = Sunday … 6 = Saturday'),
+});
+export type ShiftBrief = z.infer<typeof ShiftBriefSchema>;
+
 export const OrgFiltersSchema = z.object({
   sites: z.array(Ref),
   departments: z.array(Ref),
   statuses: z.array(EmploymentStatusSchema),
+  positions: z.array(Ref.extend({ departmentId: z.string() })),
+  shifts: z.array(ShiftBriefSchema),
 });
+
+// ---------- Maintenance: offices (locations) and departments ----------
+const blankToNull = (v: unknown) => (typeof v === 'string' && !v.trim() ? null : v);
+/** PH mobile or landline, e.g. 0917 123 4567 or (032) 234 5678. */
+const PhPhoneSchema = z
+  .string()
+  .trim()
+  .refine((v) => /^(\+?63|0)\d{7,10}$/.test(v.replace(/[\s()-]/g, '')), 'Enter a phone like 0917 123 4567 or (032) 234 5678');
+
+export const OrgLocationSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  code: z.string(),
+  address: z.string().nullable(),
+  contactName: z.string().nullable(),
+  contactPhone: z.string().nullable(),
+  manager: Ref.nullable(),
+  active: z.boolean(),
+  headcount: z.number().int(),
+  departments: z.number().int(),
+});
+export type OrgLocation = z.infer<typeof OrgLocationSchema>;
+
+export const SaveLocationSchema = z.object({
+  name: z.string().trim().min(1, 'Name the office').max(80),
+  code: z
+    .string()
+    .trim()
+    .transform((v) => v.toUpperCase())
+    .pipe(z.string().regex(/^[A-Z0-9]{2,5}$/, 'Use a short code of 2 to 5 letters or numbers')),
+  address: z.string().trim().min(1, 'Enter the office address').max(300),
+  contactName: z.string().trim().min(1, 'Enter the contact person at this office').max(120),
+  contactPhone: PhPhoneSchema,
+  managerId: z.preprocess(blankToNull, z.string().nullable()).optional(),
+});
+export type SaveLocation = z.infer<typeof SaveLocationSchema>;
+
+export const OrgDepartmentSchema = z.object({
+  id: z.string().describe('"<office id>:<department id>": a department as it exists at one office'),
+  departmentId: z.string(),
+  name: z.string(),
+  code: z.string(),
+  officeId: z.string(),
+  office: z.string(),
+  head: Ref.nullable(),
+  active: z.boolean(),
+  headcount: z.number().int(),
+});
+export type OrgDepartment = z.infer<typeof OrgDepartmentSchema>;
+
+export const SaveDepartmentSchema = z.object({
+  name: z.string().trim().min(1, 'Name the department').max(80),
+  code: z
+    .string()
+    .trim()
+    .transform((v) => v.toUpperCase())
+    .pipe(z.string().regex(/^[A-Z0-9]{2,6}$/, 'Use a short code of 2 to 6 letters or numbers')),
+  officeId: z.string().min(1, 'Choose the office'),
+  headEmployeeId: z.preprocess(blankToNull, z.string().nullable()).optional(),
+});
+export type SaveDepartment = z.infer<typeof SaveDepartmentSchema>;
+
+export const SetActiveSchema = z.object({ active: z.boolean() });
+export type SetActive = z.infer<typeof SetActiveSchema>;
+
+// ---------- Add employee ----------
+const blankToUndefined = (v: unknown) => (typeof v === 'string' && !v.trim() ? undefined : v);
+const optionalField = (max: number) =>
+  z.preprocess(blankToUndefined, z.string().trim().max(max).optional());
+
+/** A new hire, as HR fills in the Add employee form (personal, contact, government numbers, job). */
+export const CreateEmployeeSchema = z.object({
+  firstName: z.string().trim().min(1, 'Enter the first name').max(60),
+  middleName: optionalField(60),
+  lastName: z.string().trim().min(1, 'Enter the last name').max(60),
+  suffix: optionalField(10),
+  birthDate: DateKeySchema,
+  sex: z.enum(['MALE', 'FEMALE']),
+  civilStatus: z.enum(['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED', 'ANNULLED']),
+  nationality: optionalField(60),
+  workEmail: z.email('Enter a valid work email').transform((v) => v.trim().toLowerCase()),
+  personalEmail: z.preprocess(blankToUndefined, z.email('Enter a valid personal email').optional()),
+  mobileNo: z.string().trim().regex(/^(\+63|0)9\d{9}$/, 'Enter a mobile number like 09171234567'),
+  address: optionalField(300),
+  city: optionalField(80),
+  province: optionalField(80),
+  emergencyContact: z
+    .object({
+      name: z.string().trim().min(2).max(120),
+      relationship: z.string().trim().min(2).max(60),
+      phone: z.string().trim().min(7).max(30),
+    })
+    .optional(),
+  govIds: z
+    .object({
+      tin: z.string().trim().max(20),
+      sss: z.string().trim().max(20),
+      philhealth: z.string().trim().max(20),
+      pagibig: z.string().trim().max(20),
+    })
+    .partial()
+    .optional(),
+  siteId: z.string().min(1, 'Pick an office'),
+  departmentId: z.string().min(1, 'Pick a department'),
+  positionId: optionalField(40),
+  cluster: optionalField(10),
+  managerId: optionalField(40),
+  shiftId: optionalField(40),
+  status: EmploymentStatusSchema,
+  hireDate: DateKeySchema,
+  monthlySalary: z.coerce.number().positive('Enter the monthly salary').max(10_000_000),
+});
+export type CreateEmployee = z.infer<typeof CreateEmployeeSchema>;
+export const CreatedEmployeeSchema = z.object({
+  id: z.string(),
+  employeeNo: z.string(),
+  fullName: z.string(),
+});
+export type CreatedEmployee = z.infer<typeof CreatedEmployeeSchema>;
 export type OrgFilters = z.infer<typeof OrgFiltersSchema>;
 
 // ---------- Attendance ----------
@@ -96,6 +229,39 @@ export const DtrRowSchema = z.object({
   remarks: z.string().nullable(),
 });
 export type DtrRow = z.infer<typeof DtrRowSchema>;
+
+/** HR's attendance log: daily time records and the raw punches behind them, for up to 62 days. */
+export const AttendanceDaysQuerySchema = z
+  .object({
+    from: DateKeySchema,
+    to: DateKeySchema,
+    employeeId: z.string().optional().describe('One person only'),
+  })
+  .refine((q) => q.from <= q.to, { message: '"from" must be on or before "to"', path: ['from'] })
+  .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= 62 * 86_400_000, {
+    message: 'Pick at most 62 days',
+    path: ['to'],
+  });
+export type AttendanceDaysQuery = z.infer<typeof AttendanceDaysQuerySchema>;
+
+export const AttendancePunchSchema = z.object({
+  id: z.string(),
+  punchedAt: InstantSchema,
+  verifyMode: VerifyModeSchema,
+  deviceSerial: z.string(),
+});
+
+export const AttendanceDaySchema = DtrRowSchema.extend({
+  employeeId: z.string(),
+  punches: z.array(AttendancePunchSchema).describe('Every punch that day, earliest first'),
+});
+export type AttendanceDay = z.infer<typeof AttendanceDaySchema>;
+
+export const AttendanceDaysResponseSchema = z.object({
+  employees: z.array(z.object({ id: z.string(), shift: ShiftBriefSchema })),
+  days: z.array(AttendanceDaySchema),
+});
+export type AttendanceDaysResponse = z.infer<typeof AttendanceDaysResponseSchema>;
 
 export const RecomputeQuerySchema = z.object({ from: DateKeySchema, to: DateKeySchema });
 export type RecomputeQuery = z.infer<typeof RecomputeQuerySchema>;

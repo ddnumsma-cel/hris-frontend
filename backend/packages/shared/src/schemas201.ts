@@ -211,9 +211,27 @@ export const EmergencyContactSchema = z.object({
   phone: z.string().trim().min(7).max(30),
 });
 
+export const SexSchema = z.enum(['MALE', 'FEMALE']);
+
+/** Where take-home pay is sent: all three or none. */
+export const BankDetailsSchema = z.object({
+  bankName: z.string().trim().min(1).max(60),
+  accountName: z.string().trim().min(1).max(120),
+  accountNo: z
+    .string()
+    .trim()
+    .regex(/^[\d -]{6,20}$/, 'Account number: 6 to 20 digits'),
+});
+
 export const PersonalInfoSchema = z.object({
+  suffix: z.string().nullable(),
+  sex: SexSchema.nullable(),
+  nationality: z.string().nullable(),
   civilStatus: CivilStatusSchema.nullable(),
   address: z.string().nullable(),
+  city: z.string().nullable(),
+  province: z.string().nullable(),
+  bank: BankDetailsSchema.nullable(),
   mobileNo: z.string().nullable(),
   personalEmail: z.string().nullable(),
   emergencyContact: EmergencyContactSchema.nullable(),
@@ -228,10 +246,28 @@ export const PersonalInfoSchema = z.object({
 });
 export type PersonalInfo = z.infer<typeof PersonalInfoSchema>;
 
+/** A government number, or "" when it isn't on file yet. */
+const govNumberOrBlank = (key: keyof typeof GOV_NUMBER_FORMATS) =>
+  govNumber(key).or(z.literal(''));
+
 export const UpdatePersonalInfoSchema = z
   .object({
+    firstName: z.string().trim().min(1, 'First name is required').max(60),
+    middleName: optionalText(60),
+    lastName: z.string().trim().min(1, 'Last name is required').max(60),
+    suffix: optionalText(10),
+    birthDate: optionalDate,
+    sex: SexSchema.nullable(),
+    nationality: optionalText(60),
+    workEmail: z
+      .email('Enter a valid work email')
+      .nullable()
+      .or(z.literal('').transform(() => null)),
     civilStatus: CivilStatusSchema.nullable(),
     address: optionalText(300),
+    city: optionalText(80),
+    province: optionalText(80),
+    bank: BankDetailsSchema.nullable(),
     mobileNo: optionalText(30),
     personalEmail: z
       .email()
@@ -242,10 +278,10 @@ export const UpdatePersonalInfoSchema = z
     regularizationDate: optionalDate,
     dependents: z.array(DependentSchema).max(20),
     govIds: z.object({
-      tin: govNumber('tin'),
-      sss: govNumber('sss'),
-      philhealth: govNumber('philhealth'),
-      pagibig: govNumber('pagibig'),
+      tin: govNumberOrBlank('tin'),
+      sss: govNumberOrBlank('sss'),
+      philhealth: govNumberOrBlank('philhealth'),
+      pagibig: govNumberOrBlank('pagibig'),
     }),
     /** When the change takes effect (for civil status / dependents / address changes). */
     effectiveDate: DateKeySchema.optional(),

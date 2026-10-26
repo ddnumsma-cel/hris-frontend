@@ -2,7 +2,8 @@
 // pages work unchanged. Employees are keyed by their employee number (MSMA-0095), like the local
 // records; the backend's own id is looked up when a detail call needs it.
 
-import type { EmployeeRecord, EmployeeSummary, UnitSummary } from "../corehr/api";
+import type { EmployeeRecord, EmployeeSummary, PositionSummary, UnitSummary } from "../corehr/api";
+import type { NewEmployeeValues } from "../corehr/schemas";
 import type { CivilStatus, CoreEmployee, DocumentType, EmployeeDocument, EmploymentType, JobEvent } from "../corehr/types";
 import type { TkPerson } from "../timekeeping/api";
 import { api } from "./client";
@@ -32,8 +33,14 @@ interface BackendEmployeeDetail extends BackendEmployee {
   shift: { name: string } | null;
   govIds: { tin: string | null; sss: string | null; philhealth: string | null; pagibig: string | null } | null;
   personal: {
+    suffix: string | null;
+    sex: "MALE" | "FEMALE" | null;
+    nationality: string | null;
     civilStatus: string | null;
     address: string | null;
+    city: string | null;
+    province: string | null;
+    bank: { bankName: string; accountName: string; accountNo: string } | null;
     personalEmail: string | null;
     emergencyContact: { name: string; relationship: string; phone: string } | null;
     regularizationDate: string | null;
@@ -52,6 +59,9 @@ const EMPLOYMENT_TYPE: Record<BackendEmployee["status"], EmploymentType> = {
 
 /** employee number → backend id, filled by every list and detail call. */
 const backendIds = new Map<string, string>();
+
+/** backend id → employee number, for data the backend keys by its own id (attendance). */
+export const employeeNoOf = (backendId: string) => [...backendIds].find(([, id]) => id === backendId)?.[0];
 
 /** The backend's departments are company-wide; the app keeps one department per office, so each site + department pair is a unit. */
 const unitIdOf = (e: Pick<BackendEmployee, "site" | "department">) => (e.department ? `${e.site?.id ?? "all"}:${e.department.id}` : (e.site?.id ?? ""));
@@ -105,24 +115,23 @@ export async function backendPeople(): Promise<TkPerson[]> {
   return (await backendListEmployees()).map((e) => ({ id: e.id, name: e.name, initials: e.initials, positionTitle: e.positionTitle, departmentId: e.departmentId ?? "", departmentName: e.departmentName, branch: e.branchName, monthlySalary: 0, usualShiftId: null }));
 }
 
-/** Offices (the backend's sites) and their departments, with head counts. */
+/** Offices (the backend's sites) and the departments at each (Maintenance › Locations and Departments), with head counts. */
 export async function backendListUnits(): Promise<UnitSummary[]> {
-  const people = await fetchAll();
-  const base = { code: "", active: true, openSlots: 0, positionCount: 0 };
-  const units = new Map<string, UnitSummary>([["company", { ...base, id: "company", type: "company", name: "MSMA", parentId: null, headcount: people.length }]]);
-  for (const e of people) {
-    if (e.site && !units.has(e.site.id)) units.set(e.site.id, { ...base, id: e.site.id, type: "branch", name: e.site.name, parentId: "company", headcount: 0 });
-    if (e.site) units.get(e.site.id)!.headcount++;
-    if (!e.department) continue;
-    const id = unitIdOf(e);
-    if (!units.has(id)) units.set(id, { ...base, id, type: "department", name: e.department.name, parentId: e.site?.id ?? "company", headcount: 0 });
-    units.get(id)!.headcount++;
-  }
-  return [...units.values()];
+  const [offices, departments] = await Promise.all([
+    api<{ id: string; name: string; code: string; address: string | null; contactName: string | null; contactPhone: string | null; active: boolean; headcount: number }[]>("/org/locations"),
+    api<{ id: string; name: string; code: string; officeId: string; active: boolean; headcount: number }[]>("/org/departments"),
+  ]);
+  const base = { openSlots: 0, positionCount: 0 };
+  const total = offices.reduce((n, o) => n + o.headcount, 0);
+  return [
+    { ...base, id: "company", type: "company", code: "MSMA", name: "MSMA", parentId: null, active: true, headcount: total },
+    ...offices.map((o): UnitSummary => ({ ...base, id: o.id, type: "branch", code: o.code, name: o.name, parentId: "company", address: o.address ?? undefined, contactName: o.contactName ?? undefined, contactPhone: o.contactPhone ?? undefined, active: o.active, headcount: o.headcount })),
+    ...departments.map((d): UnitSummary => ({ ...base, id: d.id, type: "department", code: d.code, name: d.name, parentId: d.officeId, active: d.active, headcount: d.headcount })),
+  ];
 }
 
 /** The backend id for an employee number (or a backend id passed straight through). */
-async function backendIdOf(employeeNo: string): Promise<string | null> {
+export async function backendIdOf(employeeNo: string): Promise<string | null> {
   if (backendIds.has(employeeNo)) return backendIds.get(employeeNo)!;
   if (!/^MSMA-/i.test(employeeNo)) return employeeNo;
   const res = await api<{ items: BackendEmployee[] }>("/employees", { query: { q: employeeNo, pageSize: 5 } });
@@ -154,19 +163,29 @@ export async function backendGetEmployee(employeeNo: string): Promise<EmployeeRe
   const p = d.personal;
   const employee: CoreEmployee = {
     id: d.employeeNo,
-    personal: { firstName: d.firstName, middleName: d.middleName ?? "", lastName: d.lastName, suffix: "", birthDate: d.birthDate ?? "", sex: "", civilStatus: civil(p?.civilStatus ?? null), nationality: "Filipino" },
+    personal: {
+      firstName: d.firstName,
+      middleName: d.middleName ?? "",
+      lastName: d.lastName,
+      suffix: p?.suffix ?? "",
+      birthDate: d.birthDate ?? "",
+      sex: p?.sex === "MALE" ? "Male" : p?.sex === "FEMALE" ? "Female" : "",
+      civilStatus: civil(p?.civilStatus ?? null),
+      nationality: p?.nationality ?? "Filipino",
+    },
     contact: {
       workEmail: d.email ?? "",
       personalEmail: p?.personalEmail ?? "",
       mobile: d.mobileNo ?? "",
       address: p?.address ?? "",
-      city: "",
-      province: "",
+      city: p?.city ?? "",
+      province: p?.province ?? "",
       emergencyName: p?.emergencyContact?.name ?? "",
       emergencyRelationship: p?.emergencyContact?.relationship ?? "",
       emergencyPhone: p?.emergencyContact?.phone ?? "",
     },
     government: { sss: d.govIds?.sss ?? "", philhealth: d.govIds?.philhealth ?? "", pagibig: d.govIds?.pagibig ?? "", tin: d.govIds?.tin ?? "" },
+    bank: p?.bank ? { bank: p.bank.bankName, accountName: p.bank.accountName, accountNumber: p.bank.accountNo } : undefined,
     job: {
       positionId: "",
       unitId: summary.unitId,
@@ -190,22 +209,60 @@ export async function backendGetEmployee(employeeNo: string): Promise<EmployeeRe
   };
 }
 
-/** Save a record section the backend keeps (civil status, contact details, government numbers). */
+/** Plain digits in the groups the backend writes a government number in ("3417654321" → "34-1765432-1"). */
+function dashed(value: string, groups: number[]): string {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  const parts: string[] = [];
+  let at = 0;
+  for (const n of groups) {
+    if (at >= digits.length) break;
+    parts.push(digits.slice(at, at + n));
+    at += n;
+  }
+  if (at < digits.length) parts[parts.length - 1] += digits.slice(at);
+  return parts.join("-");
+}
+const govIdsOf = (g: CoreEmployee["government"]) => ({
+  tin: dashed(g.tin, [3, 3, 3, 3]),
+  sss: dashed(g.sss, [2, 7, 1]),
+  philhealth: dashed(g.philhealth, [2, 9, 1]),
+  pagibig: dashed(g.pagibig, [4, 4, 4]),
+});
+
+/** Save a record section on the backend: personal details, contact details, government numbers or bank details. */
 export async function backendUpdateSection(employeeNo: string, section: "personal" | "contact" | "government" | "bank", values: unknown): Promise<CoreEmployee> {
   const id = await backendIdOf(employeeNo);
   if (!id) throw new Error("That employee no longer exists");
   let body: Record<string, unknown>;
-  if (section === "personal") body = { civilStatus: (values as CoreEmployee["personal"]).civilStatus.toUpperCase() || null };
-  else if (section === "contact") {
+  if (section === "personal") {
+    const p = values as CoreEmployee["personal"];
+    body = {
+      firstName: p.firstName,
+      middleName: p.middleName,
+      lastName: p.lastName,
+      suffix: p.suffix,
+      birthDate: p.birthDate,
+      sex: p.sex ? p.sex.toUpperCase() : null,
+      civilStatus: p.civilStatus.toUpperCase() || null,
+      nationality: p.nationality,
+    };
+  } else if (section === "contact") {
     const c = values as CoreEmployee["contact"];
     body = {
-      address: [c.address, c.city, c.province].filter(Boolean).join(", ") || null,
+      workEmail: c.workEmail,
+      address: c.address || null,
+      city: c.city || null,
+      province: c.province || null,
       mobileNo: c.mobile || null,
       personalEmail: c.personalEmail,
       emergencyContact: c.emergencyName ? { name: c.emergencyName, relationship: c.emergencyRelationship, phone: c.emergencyPhone } : null,
     };
-  } else if (section === "government") body = { govIds: values };
-  else throw new Error("Bank details aren't kept on the HR server yet.");
+  } else if (section === "government") body = { govIds: govIdsOf(values as CoreEmployee["government"]) };
+  else {
+    const b = values as NonNullable<CoreEmployee["bank"]>;
+    body = { bank: b.bank ? { bankName: b.bank, accountName: b.accountName, accountNo: b.accountNumber } : null };
+  }
   await api(`/employees/${id}/personal`, { method: "PATCH", body });
   const record = await backendGetEmployee(employeeNo);
   if (!record) throw new Error("That employee no longer exists");
@@ -296,4 +353,98 @@ export async function backendListDocuments(employeeNo?: string): Promise<Employe
   const id = await backendIdOf(employeeNo);
   if (!id) return [];
   return mapDocuments(employeeNo, await api<Backend201>(`/employees/${id}/201-file`));
+}
+
+interface BackendFilters {
+  sites: { id: string; name: string }[];
+  departments: { id: string; name: string }[];
+  positions: { id: string; name: string; departmentId: string }[];
+}
+
+/**
+ * The backend's positions, one per office they're used in (its positions are company-wide; the app keeps them per
+ * department and office). Id = "<site id>:<position id>". The backend has no headcount budget yet, so each shows one
+ * open slot beyond the people who hold it.
+ */
+export async function backendListPositions(): Promise<PositionSummary[]> {
+  const [f, people, atOffices] = await Promise.all([
+    api<BackendFilters>("/employees/filters"),
+    fetchAll(),
+    api<{ id: string; officeId: string; active: boolean }[]>("/org/departments"),
+  ]);
+  const deptName = new Map(f.departments.map((d) => [d.id, d.name]));
+  // Only active departments at each office (Maintenance › Departments).
+  const open = new Set(atOffices.filter((d) => d.active).map((d) => d.id));
+  const out: PositionSummary[] = [];
+  for (const site of f.sites) {
+    const here = people.filter((e) => e.site?.id === site.id);
+    for (const pos of f.positions) {
+      if (!open.has(`${site.id}:${pos.departmentId}`)) continue;
+      const holders = here.filter((e) => e.department?.id === pos.departmentId && e.position === pos.name);
+      out.push({
+        id: `${site.id}:${pos.id}`,
+        title: pos.name,
+        code: "",
+        departmentId: `${site.id}:${pos.departmentId}`,
+        level: "Rank and file",
+        employmentType: "Regular",
+        slots: holders.length + 1,
+        active: true,
+        filled: holders.length,
+        open: 1,
+        holders: holders.map((h) => ({ id: h.employeeNo, name: h.fullName, initials: initials(h.firstName, h.lastName), unitName: deptName.get(pos.departmentId) ?? "", status: "Active" })),
+        departmentName: deptName.get(pos.departmentId) ?? "—",
+        branchId: site.id,
+        branchName: site.name,
+      });
+    }
+  }
+  return out.sort((a, b) => a.title.localeCompare(b.title));
+}
+
+const STATUS_OF: Record<EmploymentType, BackendEmployee["status"]> = { Probationary: "PROBATIONARY", Regular: "REGULAR", "Fixed-term": "CONTRACTUAL" };
+
+/** Add a new hire on the backend from the Add employee form, then return their record the way the People pages show it. */
+export async function backendCreateEmployee(v: NewEmployeeValues): Promise<CoreEmployee> {
+  const [siteId, positionId] = v.job.positionId.split(":");
+  const f = await api<BackendFilters>("/employees/filters");
+  const position = f.positions.find((p) => p.id === positionId);
+  if (!siteId || !position) throw new Error("Pick the position again: the list changed");
+  const managerId = v.job.supervisorId ? await backendIdOf(v.job.supervisorId) : null;
+  const p = v.personal;
+  const c = v.contact;
+  const created = await api<{ id: string; employeeNo: string }>("/employees", {
+    method: "POST",
+    body: {
+      firstName: p.firstName,
+      middleName: p.middleName,
+      lastName: p.lastName,
+      suffix: p.suffix,
+      birthDate: p.birthDate,
+      sex: p.sex.toUpperCase(),
+      civilStatus: p.civilStatus.toUpperCase(),
+      nationality: p.nationality,
+      workEmail: c.workEmail,
+      personalEmail: c.personalEmail,
+      mobileNo: c.mobile.replace(/[\s-]/g, ""),
+      address: c.address,
+      city: c.city,
+      province: c.province,
+      emergencyContact: c.emergencyName ? { name: c.emergencyName, relationship: c.emergencyRelationship, phone: c.emergencyPhone } : undefined,
+      govIds: govIdsOf(v.government),
+      siteId,
+      departmentId: position.departmentId,
+      positionId: position.id,
+      cluster: v.job.cluster,
+      managerId: managerId ?? undefined,
+      shiftId: v.job.shiftId || undefined,
+      status: STATUS_OF[v.job.employmentType],
+      hireDate: v.job.dateHired,
+      monthlySalary: v.job.monthlySalary,
+    },
+  });
+  backendIds.set(created.employeeNo, created.id);
+  const record = await backendGetEmployee(created.employeeNo);
+  if (!record) throw new Error("The new employee was added but couldn't be loaded. Refresh the People page.");
+  return record.employee;
 }

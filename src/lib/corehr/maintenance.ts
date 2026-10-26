@@ -7,6 +7,8 @@ import { can } from "../permissions";
 import { deny, forbidden, sessionWho } from "../session";
 import { commit, fullName, newId, refreshCoreHr, state } from "./store";
 import type { OrgUnit } from "./types";
+import { backendOn } from "../backend/client";
+import { backendDepartments, backendHeadChoices, backendLocations, backendSaveDepartment, backendSaveLocation, backendSetDepartmentActive, backendSetLocationActive } from "../backend/org";
 
 const DELAY_MS = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY_MS));
@@ -69,6 +71,7 @@ export async function listLocations(): Promise<LocationRow[]> {
   // Departments' office picker needs the list too.
   const who = sessionWho();
   if (!can(who, "view", "locations") && !can(who, "view", "departments")) return forbidden();
+  if (backendOn()) return backendLocations();
   if (serverMode) await refreshCoreHr(2000);
   return respond(
     state.units
@@ -91,6 +94,7 @@ export async function saveLocation(input: { id?: string; name: string; code: str
   const managerId = input.managerId || undefined;
   if (!contactName) return fail("Enter the contact person at this office");
   if (!phoneOk(contactPhone)) return fail("Enter the contact person's phone, e.g. 0917 123 4567 or (032) 234 5678");
+  if (backendOn()) return backendSaveLocation({ id: input.id, name, code, address: clean(input.address), contactName, contactPhone, managerId });
   if (managerId && !state.employees.some((e) => e.id === managerId && e.job.status !== "Separated")) return fail("Choose a current employee as manager");
   const existing = state.units.find((u) => u.id === input.id);
   if (existing && existing.name !== name) return fail("An office's name can't be changed here: it is used across attendance, holidays and payroll. Change the code or address, or add a new office.");
@@ -113,6 +117,7 @@ export async function saveLocation(input: { id?: string; name: string; code: str
 export async function setLocationActive(id: string, active: boolean): Promise<void> {
   const denied = deny("locations", "edit");
   if (denied) return denied;
+  if (backendOn()) return backendSetLocationActive(id, active);
   const u = state.units.find((x) => x.id === id && x.type === "branch");
   if (!u) return fail("That office no longer exists");
   if (!active && headcountOf(id) > 0) return fail(`${headcountOf(id)} people still work in ${u.name}. Move them to another office first.`);
@@ -142,6 +147,7 @@ export interface DepartmentRow {
 export async function listDepartments(): Promise<DepartmentRow[]> {
   const denied = deny("departments", "view");
   if (denied) return denied;
+  if (backendOn()) return backendDepartments();
   if (serverMode) await refreshCoreHr(2000);
   return respond(
     state.units
@@ -169,6 +175,7 @@ export async function saveDepartment(input: { id?: string; name: string; code: s
   const code = clean(input.code).toUpperCase();
   if (!name) return fail("Name the department");
   if (!/^[A-Z0-9]{2,6}$/.test(code)) return fail("Use a short code of 2 to 6 letters or numbers, for example \"TAX\"");
+  if (backendOn()) return backendSaveDepartment({ id: input.id, name, code, officeId: input.officeId, headEmployeeId: input.headEmployeeId || undefined });
   const office = state.units.find((u) => u.id === input.officeId && u.type === "branch" && u.active);
   if (!office) return fail("Choose the office");
   if (state.units.some((u) => u.type === "department" && u.id !== input.id && u.parentId === office.id && u.name.toLowerCase() === name.toLowerCase())) return fail(`${office.name} already has a department with that name`);
@@ -189,6 +196,7 @@ export async function saveDepartment(input: { id?: string; name: string; code: s
 export async function setDepartmentActive(id: string, active: boolean): Promise<void> {
   const denied = deny("departments", "edit");
   if (denied) return denied;
+  if (backendOn()) return backendSetDepartmentActive(id, active);
   const u = state.units.find((x) => x.id === id && x.type === "department");
   if (!u) return fail("That department no longer exists");
   if (!active && headcountOf(id) > 0) return fail(`${headcountOf(id)} people are still in ${u.name}. Move them to another department first.`);
@@ -202,6 +210,7 @@ export async function setDepartmentActive(id: string, active: boolean): Promise<
 
 /** Current employees, for choosing a department head. */
 export function headChoices() {
+  if (backendOn()) return backendHeadChoices();
   return state.employees
     .filter((e) => e.job.status !== "Separated")
     .map((e) => ({ id: e.id, name: fullName(e.personal) }))

@@ -14,6 +14,9 @@ import {
   BiometricEnrollment,
   BiometricEnrollmentSchema,
   canReview201Files,
+  CreatedEmployeeSchema,
+  CreateEmployee,
+  CreateEmployeeSchema,
   EmployeeDetail,
   EmployeeDetailSchema,
   EmployeeListQuery,
@@ -91,6 +94,24 @@ export class EmployeesController {
   @ApiZodResponse(OrgFiltersSchema)
   filters() {
     return this.employees.filters();
+  }
+
+  @Post()
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({
+    operationId: 'createEmployee',
+    summary: 'Add a new hire',
+    description:
+      'Creates the record with the next MSMA employee number and device PIN, their government numbers, a HIRED history entry and an audit row. Daily rate = monthly × 12 ÷ 261.',
+  })
+  @ApiZodBody(CreateEmployeeSchema)
+  @ApiZodResponse(CreatedEmployeeSchema, 201)
+  @ApiResponse({ status: 409, description: 'The work email or mobile number is already on another record' })
+  create(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodPipe(CreateEmployeeSchema)) body: CreateEmployee,
+  ) {
+    return this.employees.create(body, user.userId);
   }
 
   @Get(':id')

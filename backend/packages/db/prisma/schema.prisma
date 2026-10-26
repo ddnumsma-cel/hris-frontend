@@ -83,6 +83,11 @@ enum CivilStatus {
   ANNULLED
 }
 
+enum Sex {
+  MALE
+  FEMALE
+}
+
 enum DependentRelationship {
   CHILD
   SPOUSE
@@ -161,20 +166,44 @@ enum TableDensity {
 // ---------- Organisation ----------
 
 model Site {
-  id        String     @id @default(cuid())
-  code      String     @unique
-  name      String
-  address   String?
-  employees Employee[]
-  devices   Device[]
+  id           String           @id @default(cuid())
+  code         String           @unique
+  name         String
+  address      String?
+  /// Who to call at this office
+  contactName  String?
+  contactPhone String?
+  /// The office manager
+  managerId    String?
+  manager      Employee?        @relation("SiteManager", fields: [managerId], references: [id])
+  /// Inactive offices stay on old records but can't take new people
+  active       Boolean          @default(true)
+  employees    Employee[]
+  devices      Device[]
+  departments  SiteDepartment[]
 }
 
 model Department {
-  id        String     @id @default(cuid())
-  code      String     @unique
+  id        String           @id @default(cuid())
+  code      String           @unique
   name      String
   positions Position[]
   employees Employee[]
+  sites     SiteDepartment[]
+}
+
+/// A department as it exists at one office (the website lists departments per office), with its own head.
+model SiteDepartment {
+  siteId         String
+  site           Site       @relation(fields: [siteId], references: [id])
+  departmentId   String
+  department     Department @relation(fields: [departmentId], references: [id])
+  headEmployeeId String?
+  head           Employee?  @relation("DepartmentHead", fields: [headEmployeeId], references: [id])
+  active         Boolean    @default(true)
+  createdAt      DateTime   @default(now()) @db.Timestamptz(3)
+
+  @@id([siteId, departmentId])
 }
 
 model Position {
@@ -237,10 +266,25 @@ model Employee {
   managerId    String?
   manager      Employee?        @relation("ManagerReports", fields: [managerId], references: [id])
   reports      Employee[]       @relation("ManagerReports")
+  managedSites Site[]           @relation("SiteManager")
+  headOf       SiteDepartment[] @relation("DepartmentHead")
 
   // Personal data sheet (201 file)
+  /// e.g. "Jr.", "III"
+  suffix                String?
+  sex                   Sex?
+  nationality           String?
   civilStatus           CivilStatus?
+  /// Street / barangay; city and province are kept apart
   address               String?
+  city                  String?
+  province              String?
+  /// MSMA department code (RPM, VCM or ADS), picked when hiring
+  cluster               String?
+  /// Where take-home pay is sent: all three or none
+  bankName              String?
+  bankAccountName       String?
+  bankAccountNo         String?
   personalEmail         String?
   emergencyName         String?
   emergencyRelationship String?
