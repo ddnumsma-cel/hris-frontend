@@ -15,6 +15,10 @@ import { dates as when, EVERYONE, tellApprover, tellEmployees, tellRoles, who as
 import { backendOn } from "../backend/client";
 import { backendDecide, backendFixes, backendTimeRequests } from "../backend/requests";
 import { backendPeople } from "../backend/people";
+import { backendDay, backendDays, backendShifts } from "../backend/attendance";
+
+/** Device punches live on the HR server, which has no correction endpoints yet. */
+const NO_SERVER_CORRECTIONS = "Punch corrections aren't kept on the HR server yet. Ask the employee to file a time fix from their Requests page.";
 
 /** "1h 30m" for a notification. */
 const span = (minutes: number) => [Math.floor(minutes / 60) && `${Math.floor(minutes / 60)}h`, minutes % 60 && `${minutes % 60}m`].filter(Boolean).join(" ") || "0m";
@@ -117,6 +121,7 @@ function dates(from: string, to: string) {
 /** Every person's day for each date in [from, to], newest first. */
 export async function listDays(from: string, to: string): Promise<DayRow[]> {
   if (!can(sessionWho(), "view", "attendanceRecords")) return forbidden();
+  if (backendOn()) return backendDays(from, to);
   if (serverMode) await fresh();
   ensureRequests();
   const ps = seen();
@@ -126,6 +131,7 @@ export async function listDays(from: string, to: string): Promise<DayRow[]> {
 export async function getDay(employeeId: string, date: string): Promise<DayRow | null> {
   const denied = deny("attendanceRecords", "view", employeeId);
   if (denied) return denied;
+  if (backendOn()) return backendDay(employeeId, date);
   if (serverMode) await fresh();
   const p = people().find((x) => x.id === employeeId);
   return respond(p ? day(p, date) : null);
@@ -165,6 +171,7 @@ export async function listAudit(employeeId: string, workDate?: string) {
 export async function addCorrection(input: Parameters<typeof addCorrectionUnchecked>[0], actor: string): Promise<Punch> {
   const denied = deny("attendanceRecords", "edit", input.employeeId);
   if (denied) return denied;
+  if (backendOn()) return fail(NO_SERVER_CORRECTIONS);
   if (serverMode) return remote(api<Punch>("POST", "/timekeeping/punches", input));
   return addCorrectionUnchecked(input, actor);
 }
@@ -196,6 +203,7 @@ async function addCorrectionUnchecked(input: { employeeId: string; workDate: str
 export async function setPunchAside(punch: Punch, reason: string, actor: string): Promise<void> {
   const denied = deny("attendanceRecords", "edit", punch.employeeId);
   if (denied) return denied;
+  if (backendOn()) return fail(NO_SERVER_CORRECTIONS);
   if (serverMode) return remote(api<void>("POST", `/timekeeping/punches/${encodeURIComponent(punch.id)}/set-aside`, { reason }));
   return setPunchAsideUnchecked(punch, reason, actor);
 }
@@ -214,6 +222,7 @@ async function setPunchAsideUnchecked(punch: Punch, reason: string, actor: strin
 export async function confirmPunch(punch: Punch, actor: string): Promise<void> {
   const denied = deny("attendanceRecords", "edit", punch.employeeId);
   if (denied) return denied;
+  if (backendOn()) return fail(NO_SERVER_CORRECTIONS);
   if (serverMode) return remote(api<void>("POST", `/timekeeping/punches/${encodeURIComponent(punch.id)}/keep`));
   save({
     ...tk,
@@ -226,6 +235,7 @@ export async function confirmPunch(punch: Punch, actor: string): Promise<void> {
 export async function restorePunch(punch: Punch, actor: string): Promise<void> {
   const denied = deny("attendanceRecords", "edit", punch.employeeId);
   if (denied) return denied;
+  if (backendOn()) return fail(NO_SERVER_CORRECTIONS);
   if (serverMode) return remote(api<void>("POST", `/timekeeping/punches/${encodeURIComponent(punch.id)}/restore`));
   const rest = { ...tk.voided };
   delete rest[punch.id];
@@ -239,6 +249,7 @@ export async function listShifts() {
   // Shift names are shown with attendance records and picked when adding people.
   const who = sessionWho();
   if (!can(who, "view", "attendanceSettings") && !can(who, "view", "attendanceRecords") && !can(who, "create", "people")) return forbidden();
+  if (backendOn()) return backendShifts();
   if (serverMode) await fresh();
   return respond(tk.shifts);
 }

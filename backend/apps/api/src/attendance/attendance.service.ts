@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, VerifyMode } from '@msma/db';
 import {
   addDays,
+  AttendanceDaysResponse,
   computeDailyTimeRecord,
   DateKey,
   dateKeyToUtcDate,
@@ -336,6 +337,62 @@ export class AttendanceService {
     const map = new Map<string, DtrRow[]>();
     for (const r of rows) map.set(r.employeeId, [...(map.get(r.employeeId) ?? []), toRow(r)]);
     return map;
+  }
+
+  /**
+   * HR's attendance log: each person's daily time records from `from` to `to` with the raw punches behind each day
+   * (grouped by the Manila date they were made on), plus everyone's shift. `scope` limits it to a manager's team.
+   */
+  async days(from: DateKey, to: DateKey, scope?: string[], employeeId?: string): Promise<AttendanceDaysResponse> {
+    const ids = employeeId ? (scope && !scope.includes(employeeId) ? [] : [employeeId]) : scope;
+    const employees = await this.employees.forCompute(ids ? { ids } : {});
+    const inScope = employees.map((e) => e.id);
+    const [dtrs, punches] = await Promise.all([
+      this.prisma.dailyTimeRecord.findMany({
+        where: {
+          employeeId: { in: inScope },
+          date: { gte: dateKeyToUtcDate(from), lte: dateKeyToUtcDate(to) },
+        },
+        orderBy: [{ date: 'desc' }, { employeeId: 'asc' }],
+      }),
+      this.prisma.rawPunch.findMany({
+        where: {
+          employeeId: { in: inScope },
+          punchedAt: { gte: fromManila(from), lt: fromManila(addDays(to, 1)) },
+        },
+        orderBy: { punchedAt: 'asc' },
+      }),
+    ]);
+    const byDay = new Map<string, typeof punches>();
+    for (const p of punches) {
+      const key = `${p.employeeId}|${manilaDateKey(p.punchedAt)}`;
+      byDay.set(key, [...(byDay.get(key) ?? []), p]);
+    }
+    return {
+      employees: employees.map((e) => ({
+        id: e.id,
+        shift: {
+          id: e.shift.id,
+          code: e.shift.code,
+          name: e.shift.name,
+          startTime: e.shift.startTime,
+          endTime: e.shift.endTime,
+          breakMinutes: e.shift.breakMinutes,
+          graceMinutes: e.shift.graceMinutes ?? 0,
+          workDays: e.shift.workDays,
+        },
+      })),
+      days: dtrs.map((r) => ({
+        ...toRow(r),
+        employeeId: r.employeeId,
+        punches: (byDay.get(`${r.employeeId}|${utcDateToDateKey(r.date)}`) ?? []).map((p) => ({
+          id: p.id,
+          punchedAt: p.punchedAt.toISOString(),
+          verifyMode: p.verifyMode,
+          deviceSerial: p.deviceSerial,
+        })),
+      })),
+    };
   }
 
   async statusForDate(ids: string[], date: DateKey): Promise<Map<string, DtrStatus>> {
