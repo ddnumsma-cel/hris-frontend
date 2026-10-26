@@ -64,6 +64,8 @@ const SCREENS: Record<string, ComponentType> = {
 
 export function screenFor(path: string): ComponentType | undefined {
   // One person's record: /admin/maintenance/people/<id> (HR) or /manager/people/<id> (approvers).
+  // "new" is the website's Add employee form, not an ID; the phone doesn't have that form yet.
+  if (path.endsWith('/new')) return SCREENS[path];
   if ((path.startsWith('/admin/maintenance/people/') && path.split('/').length === 5) || (path.startsWith('/manager/people/') && path.split('/').length === 4)) return Person;
   return SCREENS[path];
 }

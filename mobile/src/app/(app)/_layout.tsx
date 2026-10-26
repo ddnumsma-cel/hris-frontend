@@ -40,7 +40,7 @@ export default function AppLayout() {
   const tabs = tabsFor(user.role, groups);
   // Main pages: Home, the tabs and every page in the profile panel. Anything deeper gets a back arrow.
   const main = path === home || path === '/' || groups.some((g) => g.items.some((i) => i.to === path || i.children?.some((ch) => ch.to === path)));
-  const title = TITLES[path] ? TITLES[path] : path.startsWith('/admin/maintenance/people/') || path.startsWith('/manager/people/') ? 'Employee' : path === home || path === '/' ? 'Home' : (itemFor(groups, path)?.label ?? 'MSMA HRIS');
+  const title = TITLES[path] ? TITLES[path] : path === '/admin/maintenance/people/new' ? 'Add employee' : path.startsWith('/admin/maintenance/people/') || path.startsWith('/manager/people/') ? 'Employee' : path === home || path === '/' ? 'Home' : (itemFor(groups, path)?.label ?? 'MSMA HRIS');
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       {/* The Glass wash behind every screen. */}
