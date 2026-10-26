@@ -67,7 +67,7 @@ export function PayProfileDialog({ employee, onClose }: { employee: { id: string
   const actor = useActor();
   const queryClient = useQueryClient();
   const [v, setV] = useState({ ...employee.profile });
-  const money = (key: "transportAllowance" | "otMealRate" | "deMinimis" | "otherNonTaxable") => ({
+  const money = (key: "transportAllowance" | "otMealRate" | "deMinimis" | "otherNonTaxable" | "clientShare") => ({
     value: String(v[key]),
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => setV({ ...v, [key]: e.target.value === "" ? 0 : e.target.valueAsNumber }),
   });
@@ -101,7 +101,21 @@ export function PayProfileDialog({ employee, onClose }: { employee: { id: string
           <Field id="pp-nt" label="Other non-taxable" hint="Other tax-free part of the basic pay each cut-off.">
             <input id="pp-nt" type="number" min={0} step="0.01" className={inputClass} {...money("otherNonTaxable")} />
           </Field>
+          <Field id="pp-share" label="Charged to a client (%)" hint="Share of the salary booked to 14002 Advances - Sphinx.">
+            <input id="pp-share" type="number" min={0} max={100} step="0.01" className={inputClass} {...money("clientShare")} />
+          </Field>
+          <Field id="pp-client" label="Client" hint="Who the share is charged to, e.g. Sphinx.">
+            <input id="pp-client" className={inputClass} value={v.client} disabled={!v.clientShare} onChange={(e) => setV({ ...v, client: e.target.value })} />
+          </Field>
         </div>
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className="mb-1 text-xs font-medium text-ink">Leave out of their deductions</legend>
+          {([["skipSss", "SSS"], ["skipPhilhealth", "PhilHealth"], ["skipPagibig", "Pag-IBIG"]] as const).map(([key, name]) => (
+            <label key={key} className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={v[key]} onChange={(e) => setV({ ...v, [key]: e.target.checked })} /> {name}
+            </label>
+          ))}
+        </fieldset>
         <ErrorNote error={save.error} />
       </div>
     </Dialog>

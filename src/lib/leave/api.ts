@@ -1,9 +1,10 @@
 // Leave mock API. Each call stands in for an HTTP request.
 
 import { fullName, initialsOf, newId, state as core } from "../corehr/store";
-import { HOLIDAYS } from "../holidays";
-import { addDays, balanceFor, countDays, CREDITS_ADJUSTMENT, creditsFor, isoToday, leave, LEAVE_CREDITS_PER_YEAR, leavePolicy, saveLeave, type Credits } from "./store";
-import type { Balance, LeaveRequest, LeaveType } from "./types";
+import { api, serverMode } from "../http";
+import { previewOf, type FileInput, type Preview } from "./rules";
+import { addDays, CREDITS_ADJUSTMENT, creditsFor, isoToday, leave, leaveData, LEAVE_CREDITS_PER_YEAR, leavePolicy, refreshLeave, saveLeave, type Credits } from "./store";
+import type { Adjustment, LeaveRequest, LeaveType } from "./types";
 import { can, canFor, visible } from "../permissions";
 import { deny, forbidden, sessionWho } from "../session";
 import { managerOf, nameOf, notifyEmployee } from "../outbox";
@@ -14,6 +15,17 @@ import { BACKEND_LEAVE_TYPES, backendDecide, backendLeaveRows } from "../backend
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
 const fail = (m: string): Promise<never> => new Promise((_, rej) => setTimeout(() => rej(new Error(m)), DELAY));
+
+export type { FileInput, Preview };
+
+// With the API server, reads first pull the latest leave data (reused for a couple of seconds)
+// and writes go to the server, which applies the same rules (./rules) and access table and saves.
+const fresh = () => refreshLeave(2000);
+async function remote<T>(call: Promise<T>): Promise<T> {
+  const out = await call;
+  await refreshLeave();
+  return out;
+}
 
 export interface LeavePerson {
   id: string;
@@ -38,14 +50,16 @@ export function people(): LeavePerson[] {
 
 // ---- Leave types ----
 
-export function listTypes() {
+export async function listTypes() {
   if (backendOn()) return respond(BACKEND_LEAVE_TYPES);
+  if (serverMode) await fresh();
   return respond(leave.types);
 }
 
 export async function saveType(input: Omit<LeaveType, "id" | "active"> & { id?: string }): Promise<LeaveType> {
   const denied = deny("leaveTypes", input.id ? "edit" : "create");
   if (denied) return denied;
+  if (serverMode) return remote(api<LeaveType>("POST", "/leave/types", input));
   const name = input.name.trim();
   if (!name) return fail("Name the leave type");
   if (!input.code.trim()) return fail("Give it a short code, e.g. VL");
@@ -59,6 +73,7 @@ export async function saveType(input: Omit<LeaveType, "id" | "active"> & { id?: 
 export async function setTypeActive(id: string, active: boolean): Promise<void> {
   const denied = deny("leaveTypes", "edit");
   if (denied) return denied;
+  if (serverMode) return remote(api<void>("PUT", `/leave/types/${encodeURIComponent(id)}/active`, { active }));
   saveLeave({ ...leave, types: leave.types.map((t) => (t.id === id ? { ...t, active } : t)) });
   return respond(undefined);
 }
@@ -70,7 +85,8 @@ export interface RequestRow extends LeaveRequest {
   type: LeaveType;
 }
 
-export function listRequests(): Promise<RequestRow[]> {
+export async function listRequests(): Promise<RequestRow[]> {
+  if (serverMode) await fresh();
   const who = sessionWho();
   if (!can(who, "view", "leave")) return forbidden();
   if (backendOn()) return backendLeaveRows();
@@ -86,53 +102,9 @@ export function listRequests(): Promise<RequestRow[]> {
   );
 }
 
-export interface FileInput {
-  employeeId: string;
-  typeId: string;
-  start: string;
-  end: string;
-  halfDay?: "am" | "pm";
-  reason: string;
-  attachment?: string;
-}
-
-export interface Preview {
-  days: number;
-  balance?: Balance;
-  /** The employee's yearly credit pool; absent for leave without pay, which uses none. */
-  credits?: Credits;
-  /** Problems that stop the request from being filed. */
-  errors: string[];
-  /** Things HR should know but that don't block filing. */
-  notes: string[];
-}
-
-/** Live check for the File leave form: days, balance after, and anything wrong. */
+/** Live check for the File leave form: days, balance after, and anything wrong. Same rules as the server. */
 export function previewRequest(input: FileInput, ignoreId?: string): Preview {
-  const type = leave.types.find((t) => t.id === input.typeId);
-  const errors: string[] = [];
-  const notes: string[] = [];
-  if (!input.employeeId) errors.push("Choose the employee");
-  if (!type) return { days: 0, errors: [...errors, "Choose the leave type"], notes };
-  if (!input.start || !input.end) return { days: 0, errors: [...errors, "Pick the start and end dates"], notes };
-  if (input.end < input.start) return { days: 0, errors: [...errors, "The end date is before the start date"], notes };
-  // Half days only when Settings > Time off & leave allows them.
-  const halfDay = input.start === input.end && leavePolicy().allowHalfDays ? input.halfDay : undefined;
-  const days = countDays(input.start, input.end, type.countBy, halfDay);
-  if (days === 0) errors.push("Those dates are all weekends or holidays, so no leave is needed");
-  const holidays = HOLIDAYS.filter((h) => h.date >= input.start && h.date <= input.end && !h.offices?.length);
-  if (holidays.length && type.countBy === "workdays") notes.push(`${holidays.map((h) => h.name).join(", ")} ${holidays.length === 1 ? "is a holiday" : "are holidays"}, not counted.`);
-  if (!input.employeeId) return { days, errors, notes };
-  const balance = balanceFor(input.employeeId, type);
-  if (!balance.eligible) errors.push(balance.eligibilityNote ?? "This employee can't use this leave type");
-  else if (balance.eligibilityNote) notes.push(balance.eligibilityNote);
-  const credits = balance.unlimited ? undefined : creditsFor(input.employeeId);
-  if (credits && credits.available < 1 && !leavePolicy().allowNegative) errors.push(`All ${credits.total} leaves for this year are used up. File it as Leave without pay.`);
-  if (type.attachmentOver !== null && days > type.attachmentOver && !input.attachment) errors.push(type.attachmentOver === 0 ? `${type.name} needs a supporting document` : `${type.name} over ${type.attachmentOver} days needs a supporting document (e.g. medical certificate)`);
-  const overlap = leave.requests.find((r) => r.id !== ignoreId && r.employeeId === input.employeeId && (r.status === "pending" || r.status === "approved") && r.start <= input.end && r.end >= input.start);
-  if (overlap) errors.push(`Overlaps another ${overlap.status} request (${overlap.start === overlap.end ? overlap.start : `${overlap.start} to ${overlap.end}`})`);
-  if (type.countBy === "calendar") notes.push("Counted in calendar days, weekends included.");
-  return { days, balance, credits, errors, notes };
+  return previewOf(leaveData(), core.employees.find((e) => e.id === input.employeeId), input, ignoreId);
 }
 
 export const fmtCredits = (n: number) => `${n} ${n === 1 ? "leave" : "leaves"}`;
@@ -143,6 +115,7 @@ export async function fileLeave(input: FileInput, actor: string, approveNow = fa
   // Employees file their own leave; filing already-approved leave counts as approving it.
   const denied = deny("leave", "create", input.employeeId) ?? (approveNow ? deny("leave", "approve", input.employeeId) : null);
   if (denied) return denied;
+  if (serverMode) return remote(api<LeaveRequest>("POST", "/leave/requests", { ...input, approveNow }));
   if (!input.reason.trim()) return fail("Give a short reason");
   const p = previewRequest(input);
   if (p.errors.length) return fail(p.errors[0]!);
@@ -185,6 +158,7 @@ export async function decideRequest(id: string, approve: boolean, note: string, 
   const target = leave.requests.find((x) => x.id === id);
   const denied = deny("leave", "approve", target?.employeeId);
   if (denied) return denied;
+  if (serverMode) return remote(api<LeaveRequest>("POST", `/leave/requests/${encodeURIComponent(id)}/decision`, { approve, note }));
   const r = leave.requests.find((x) => x.id === id);
   if (!r) return fail("That request no longer exists");
   if (r.status !== "pending") return fail("This request was already decided");
@@ -210,6 +184,7 @@ export async function cancelRequest(id: string, note: string, actor: string): Pr
   const target = leave.requests.find((x) => x.id === id);
   const who = sessionWho();
   if (!canFor(who, "approve", "leave", target?.employeeId) && !(target && target.employeeId === who.employeeId && canFor(who, "create", "leave", target.employeeId))) return forbidden();
+  if (serverMode) return remote(api<LeaveRequest>("POST", `/leave/requests/${encodeURIComponent(id)}/cancel`, { note }));
   const r = leave.requests.find((x) => x.id === id);
   if (!r) return fail("That request no longer exists");
   if (r.status === "approved" && r.start <= isoToday()) return fail("This leave has already started and can't be cancelled");
@@ -231,7 +206,8 @@ export interface CreditRow {
   leaves: (LeaveRequest & { type: LeaveType })[];
 }
 
-export function listCredits(): Promise<CreditRow[]> {
+export async function listCredits(): Promise<CreditRow[]> {
+  if (serverMode) await fresh();
   const who = sessionWho();
   if (!can(who, "view", "leaveBalances")) return forbidden();
   const year = isoToday().slice(0, 4);
@@ -250,27 +226,55 @@ export function listCredits(): Promise<CreditRow[]> {
   );
 }
 
-/** HR adds or takes away whole leaves from someone's yearly 6. */
-export async function adjustCredits(input: { employeeId: string; leaves: number; reason: string }, actor: string) {
+/** HR adds or takes away VL/SL days (half days allowed), e.g. last year's over/under commutation. */
+export async function adjustCredits(input: { employeeId: string; leaves: number; reason: string }, actor: string): Promise<Adjustment> {
   const denied = deny("leaveBalances", "edit", input.employeeId);
   if (denied) return denied;
-  if (!Number.isInteger(input.leaves) || input.leaves === 0) return fail("Enter the leaves to add (e.g. 1) or remove (e.g. -1)");
-  if (Math.abs(input.leaves) > LEAVE_CREDITS_PER_YEAR) return fail(`Change at most ${LEAVE_CREDITS_PER_YEAR} leaves at a time`);
-  if (!input.reason.trim()) return fail("Say why the leaves are changing");
+  if (serverMode) return remote(api<Adjustment>("POST", "/leave/credits", input));
+  if (!Number.isInteger(input.leaves * 2) || input.leaves === 0) return fail("Enter the days to add (e.g. 1 or 0.5) or remove (e.g. -1)");
+  if (Math.abs(input.leaves) > LEAVE_CREDITS_PER_YEAR) return fail(`Change at most ${LEAVE_CREDITS_PER_YEAR} days at a time`);
+  if (!input.reason.trim()) return fail("Say why the days are changing");
   const c = creditsFor(input.employeeId);
   if (c.available + input.leaves < 0) return fail(`They only have ${fmtCredits(c.available)} left`);
   const adj = { id: newId("la"), employeeId: input.employeeId, typeId: CREDITS_ADJUSTMENT, days: input.leaves, reason: input.reason.trim(), by: actor, at: new Date().toISOString() };
   saveLeave({ ...leave, adjustments: [adj, ...leave.adjustments] });
-  tellEmployees(input.employeeId, "leave", "update", input.leaves > 0 ? `${fmtCredits(input.leaves)} added to your balance` : `${fmtCredits(-input.leaves)} taken from your balance`, `${actor}: “${adj.reason}” You now have ${fmtCredits(c.available + input.leaves)} left this year.`);
+  tellEmployees(input.employeeId, "leave", "update", input.leaves > 0 ? `${fmtCredits(input.leaves)} added to your balance` : `${fmtCredits(-input.leaves)} taken from your balance`, `${actor}: “${adj.reason}” You now have ${fmtCredits(c.available + input.leaves)} left this leave year.`);
   return respond(adj);
 }
 
 // ---- Adjustments ----
 
-export function listAdjustments(employeeId: string) {
+export async function listAdjustments(employeeId: string) {
   const denied = deny("leaveBalances", "view", employeeId);
   if (denied) return denied;
+  if (serverMode) await fresh();
   return respond(leave.adjustments.filter((a) => a.employeeId === employeeId).sort((a, b) => b.at.localeCompare(a.at)));
+}
+
+// ---- Calendar ----
+
+export interface AwayEntry {
+  person: LeavePerson;
+  type: LeaveType;
+  request: LeaveRequest;
+}
+
+/** Everyone away (approved or pending) between two dates. */
+export async function listAway(from: string, to: string): Promise<AwayEntry[]> {
+  if (serverMode) await fresh();
+  const who = sessionWho();
+  if (!can(who, "view", "leave")) return forbidden();
+  const ps = people();
+  return respond(
+    visible(who, "leave", leave.requests, (r) => r.employeeId)
+      .filter((r) => (r.status === "approved" || r.status === "pending") && r.start <= to && r.end >= from)
+      .flatMap((r) => {
+        const person = ps.find((p) => p.id === r.employeeId);
+        const type = leave.types.find((t) => t.id === r.typeId);
+        return person && type ? [{ person, type, request: r }] : [];
+      })
+      .sort((a, b) => a.request.start.localeCompare(b.request.start)),
+  );
 }
 
 export { addDays, isoToday };

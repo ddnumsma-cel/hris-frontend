@@ -2,13 +2,17 @@
 // threshold alerts, the Subscription card (Super Admin, HR) and Clients & Subscriptions (System
 // Admin). Every endpoint asks deny() first, so Approver, Accounting and Employee get a 403.
 //
-// TODO(backend): run assertSeatsAvailable and the insert in one transaction that locks the
-// client row (SELECT … FOR UPDATE), so two adds at once can't both take the last seat. Here the
-// check and the save run in one synchronous step, which gives the same guarantee in one browser.
+// With the API server (serverMode) the plan, the counts, the checks and the event log live on the
+// server (server/src/subscription.ts): it checks seats inside the add's own transaction, under a
+// lock, so two adds can't both take the last seat, and it remembers which seat alerts were sent.
+// Without it, the check and the save run in one synchronous step, which gives the same guarantee
+// in one browser.
 
+import { api, serverMode } from "../http";
 import { notifyRoles } from "../notifications";
 import { deny } from "../session";
 import { tellRoles } from "../requestNotices";
+import { adminLimitMessage, blockedAlert, blockedEventText, companySeatAlert, extensionNotice, overrideNotice, planNotice, platformSeatAlert, seatLimitMessage, seatsText, upgradeAlert } from "./rules";
 import { currentClient, logEvent, saveSub, seatLevelOf, sub, usageOf, type Client, type Plan, type SeatLevel, type SubscriptionEvent, type Usage } from "./store";
 
 const DELAY = 250;
@@ -41,11 +45,19 @@ export class AdminLimitError extends Error {
   }
 }
 
+/** Also true for the server's 409 (an ApiError carrying the same code). */
 export const isSeatLimitError = (e: unknown): e is SeatLimitError => e instanceof Error && (e as SeatLimitError).code === "SEAT_LIMIT_REACHED";
 
 const SYSADMIN_LINK = { system_admin: "/admin/administration/subscription" };
 const COMPANY_LINK = { super_admin: "/admin/settings/subscription", hr: "/admin/settings/subscription" };
-const seatsText = (u: Usage) => `${u.seatsUsed} of ${u.seatLimit} employee seats`;
+
+/** The server's usage plus the seat alerts it just recorded (each crossing comes back once). */
+type ServerUsage = Usage & { alerts?: { company?: SeatLevel; platform?: SeatLevel } };
+
+/** The plain usage; the server already sent its seat alerts to the bell. */
+function alertsFrom({ alerts: _alerts, ...u }: ServerUsage): Usage {
+  return u;
+}
 
 // ---- Checks used inside other endpoints (synchronous, so check + save can't interleave) ----
 
@@ -54,31 +66,27 @@ const seatsText = (u: Usage) => `${u.seatsUsed} of ${u.seatLimit} employee seats
  * refused add is logged and System Admins are told. `count` > 1 is a bulk import.
  */
 export function assertSeatsAvailable(count = 1) {
+  // With the API server, the server checks inside the add itself (409 SEAT_LIMIT_REACHED).
+  if (serverMode) return;
   const client = currentClient();
   const u = usageOf(client);
   if (u.seatsUsed + count <= u.seatCap) return;
-  const free = Math.max(0, u.seatCap - u.seatsUsed);
-  const message =
-    count > 1
-      ? `This import has ${count} employees but only ${free} ${free === 1 ? "seat is" : "seats are"} available.`
-      : `Seat limit reached. ${client.name} is using ${seatsText(u)}${u.seatCap > u.seatLimit ? `, and the ${u.gracePercent}% grace is used up` : ""}.`;
-  logEvent(client, "blocked", count > 1 ? `Import of ${count} employees refused (${free} seats free)` : "Add employee refused: no seats left");
-  notifyRoles(
-    ["system_admin"],
-    `${client.name}: add employee blocked`,
-    `${client.name} (${u.planName}) tried to add ${count === 1 ? "an employee" : `${count} employees`} at ${seatsText(u)} (${u.seatCap} with grace).`,
-    SYSADMIN_LINK,
-  );
+  const message = seatLimitMessage(u, count);
+  logEvent(client, "blocked", blockedEventText(u, count));
+  const n = blockedAlert(u, count);
+  notifyRoles(["system_admin"], n.title, n.body, SYSADMIN_LINK);
   throw new SeatLimitError(message, u);
 }
 
 /** Throws AdminLimitError when one more HR / Approver / Accounting login would pass the plan's limit plus grace. */
 export function assertAdminAccountAvailable() {
+  // With the API server, the server checks inside the account change (409 ADMIN_LIMIT_REACHED).
+  if (serverMode) return;
   const client = currentClient();
   const u = usageOf(client);
   if (u.adminsUsed + 1 <= u.adminCap) return;
   logEvent(client, "blocked", "Admin account refused: plan's admin accounts are used up");
-  throw new AdminLimitError(`Admin account limit reached. ${client.name} is using ${u.adminsUsed} of ${u.adminLimit} admin accounts (HR, Approver and Accounting logins). Ask your System Admin to upgrade the plan.`, u);
+  throw new AdminLimitError(adminLimitMessage(u), u);
 }
 
 /**
@@ -87,6 +95,8 @@ export function assertAdminAccountAvailable() {
  * usage. Falling back under a threshold re-arms it. Call after anything that changes the count.
  */
 export function checkSeatThresholds() {
+  // With the API server, the server keeps the levels and reports new crossings with the usage.
+  if (serverMode) return;
   const client = currentClient();
   const u = usageOf(client);
   const level = seatLevelOf(u);
@@ -97,11 +107,14 @@ export function checkSeatThresholds() {
   if (level < last) return;
   const updated = currentClient();
   logEvent(updated, "threshold", `Reached ${level}% of employee seats (${seatsText(u)})`);
-  if (level === 100) {
-    notifyRoles(["system_admin"], `${updated.name} is at its seat limit`, `${updated.name} (${u.planName}) is using ${seatsText(u)} and ${u.adminsUsed} of ${u.adminLimit} admin accounts.`, SYSADMIN_LINK);
-  } else if (level >= 90 && last < 90) {
-    notifyRoles(["system_admin"], `${updated.name} is at 90% of its seats`, `${updated.name} (${u.planName}) is using ${seatsText(u)} and ${u.adminsUsed} of ${u.adminLimit} admin accounts.`, SYSADMIN_LINK);
-  }
+  if (level === 100) tellPlatform(u, 100);
+  else if (level >= 90 && last < 90) tellPlatform(u, 90);
+}
+
+/** Tells System Admins that a client reached 90% or 100% of its seats. */
+function tellPlatform(u: Usage, level: SeatLevel) {
+  const n = platformSeatAlert(u, level);
+  notifyRoles(["system_admin"], n.title, n.body, SYSADMIN_LINK);
 }
 
 /**
@@ -113,21 +126,13 @@ function alertCompany(clientId: string, u: Usage, level: SeatLevel) {
   if (level === alerted) return;
   saveSub({ ...sub, clients: sub.clients.map((c) => (c.id === clientId ? { ...c, lastSeatAlert: level } : c)) });
   if (level < alerted || level === 0) return;
-  const planLeft = Math.max(0, u.seatLimit - u.seatsUsed);
-  const left = Math.max(0, u.seatCap - u.seatsUsed);
-  const seats = (n: number) => `${n} ${n === 1 ? "seat" : "seats"}`;
-  const after = "Payroll, attendance and leave keep working. A Super Admin can request more seats from the seat counter at the top of the page.";
-  if (level === 100) {
-    const now = left ? `You can add ${left === 1 ? "1 more employee" : `${left} more employees`} for now, then adding stops.` : "New employees can't be added until the plan is upgraded.";
-    notifyRoles(["super_admin", "hr"], "All employee seats are used", `You've used all ${u.seatLimit} seats on your ${u.planName} plan. ${now} ${after}`, COMPANY_LINK);
-    return;
-  }
-  notifyRoles(
-    ["super_admin", "hr"],
-    level === 90 ? `Only ${seats(planLeft)} left` : "Employee seats are almost full",
-    `You've used ${u.seatsUsed} of your ${u.seatLimit} seats, so ${seats(planLeft)} ${planLeft === 1 ? "is" : "are"} left. When they run out, you can't add new employees. ${after}`,
-    COMPANY_LINK,
-  );
+  tellCompany(u, level);
+}
+
+/** The Super Admin and HR bell message for reaching 80%, 90% or 100% of the seats. */
+function tellCompany(u: Usage, level: SeatLevel) {
+  const n = companySeatAlert(u, level);
+  notifyRoles(["super_admin", "hr"], n.title, n.body, COMPANY_LINK);
 }
 
 /**
@@ -138,6 +143,7 @@ function alertCompany(clientId: string, u: Usage, level: SeatLevel) {
 export async function checkSeatAvailable(): Promise<void> {
   const denied = deny("people", "create");
   if (denied) return denied;
+  if (serverMode) return void (await api("POST", "/subscription/seat-check", {}));
   try {
     assertSeatsAvailable(1);
   } catch (err) {
@@ -148,9 +154,10 @@ export async function checkSeatAvailable(): Promise<void> {
 
 // ---- The company's own subscription (Super Admin, HR) ----
 
-export function getSubscription(): Promise<Usage> {
+export async function getSubscription(): Promise<Usage> {
   const denied = deny("subscription", "view");
   if (denied) return denied;
+  if (serverMode) return alertsFrom(await api<ServerUsage>("GET", "/subscription"));
   checkSeatThresholds();
   return respond(usageOf(currentClient()));
 }
@@ -158,37 +165,37 @@ export function getSubscription(): Promise<Usage> {
 export async function requestUpgrade(note: string, actor: string): Promise<void> {
   const denied = deny("subscriptionUpgrade", "create");
   if (denied) return denied;
-  const client = currentClient();
-  const u = usageOf(client);
   const text = note.trim();
-  logEvent(client, "upgrade-request", `Upgrade requested${text ? `: "${text}"` : ""}`, actor);
-  notifyRoles(
-    ["system_admin"],
-    `${client.name} requested an upgrade`,
-    `${actor} asked to upgrade from ${u.planName}. Using ${seatsText(u)} and ${u.adminsUsed} of ${u.adminLimit} admin accounts.${text ? ` Note: ${text}` : ""}`,
-    SYSADMIN_LINK,
-  );
+  // With the API server, the server logs it and tells System Admins.
+  if (serverMode) return void (await api<Usage>("POST", "/subscription/upgrade-requests", { note: text }));
+  const u = usageOf(currentClient());
+  logEvent(currentClient(), "upgrade-request", `Upgrade requested${text ? `: "${text}"` : ""}`, actor);
+  const n = upgradeAlert(u, actor, text);
+  notifyRoles(["system_admin"], n.title, n.body, SYSADMIN_LINK);
   return respond(undefined);
 }
 
 // ---- Clients & Subscriptions (System Admin) ----
 
-export function listClients(): Promise<Usage[]> {
+export async function listClients(): Promise<Usage[]> {
   const denied = deny("clients", "view");
   if (denied) return denied;
+  if (serverMode) return (await api<ServerUsage[]>("GET", "/subscription/clients")).map(alertsFrom);
   checkSeatThresholds();
   return respond(sub.clients.map(usageOf));
 }
 
-export function listPlans(): Promise<Plan[]> {
+export async function listPlans(): Promise<Plan[]> {
   const denied = deny("clients", "view");
   if (denied) return denied;
+  if (serverMode) return api<Plan[]>("GET", "/subscription/plans");
   return respond(sub.plans);
 }
 
-export function listSubscriptionEvents(): Promise<(SubscriptionEvent & { clientName: string })[]> {
+export async function listSubscriptionEvents(): Promise<(SubscriptionEvent & { clientName: string })[]> {
   const denied = deny("clients", "view");
   if (denied) return denied;
+  if (serverMode) return api<(SubscriptionEvent & { clientName: string })[]>("GET", "/subscription/events");
   return respond(sub.events.map((e) => ({ ...e, clientName: sub.clients.find((c) => c.id === e.clientId)?.name ?? e.clientId })));
 }
 
@@ -197,9 +204,19 @@ function updateClient(id: string, change: (c: Client) => Client) {
   return sub.clients.find((c) => c.id === id)!;
 }
 
+const tellNotice = (kind: "approved" | "update", n: { title: string; body: string }) => tellRoles(["super_admin", "hr"], "subscription", kind, n.title, n.body);
+const tellPlan = (plan: Plan, from: string) => tellNotice("approved", planNotice(plan, from));
+const tellOverride = (seats: number | null) => tellNotice("update", overrideNotice(seats));
+const tellExtension = (input: { seats: number; until: string } | null) => tellNotice(input ? "approved" : "update", extensionNotice(input));
+
 export async function changePlan(clientId: string, planId: string, actor: string): Promise<void> {
   const denied = deny("clients", "edit");
   if (denied) return denied;
+  if (serverMode) {
+    // The server tells Super Admins and HR, and sends any seat alerts.
+    await api<{ plan: Plan; from: string; usage: ServerUsage }>("PUT", `/subscription/clients/${encodeURIComponent(clientId)}/plan`, { planId });
+    return;
+  }
   const client = sub.clients.find((c) => c.id === clientId);
   const plan = sub.plans.find((p) => p.id === planId);
   if (!client) return fail("That client no longer exists");
@@ -207,7 +224,7 @@ export async function changePlan(clientId: string, planId: string, actor: string
   const from = sub.plans.find((p) => p.id === client.planId)?.name ?? "No plan";
   const updated = updateClient(clientId, (c) => ({ ...c, planId }));
   logEvent(updated, "plan-changed", `Plan changed: ${from} → ${plan.name}`, actor);
-  tellRoles(["super_admin", "hr"], "subscription", "approved", `Your plan is now ${plan.name}`, `Changed from ${from}: ${plan.employeeSeatLimit} employee seats and ${plan.adminAccountLimit} admin accounts.`);
+  tellPlan(plan, from);
   checkSeatThresholds();
   return respond(undefined);
 }
@@ -215,10 +232,14 @@ export async function changePlan(clientId: string, planId: string, actor: string
 export async function setSeatOverride(clientId: string, seats: number | null, actor: string): Promise<void> {
   const denied = deny("clients", "edit");
   if (denied) return denied;
+  if (serverMode) {
+    await api<ServerUsage>("PUT", `/subscription/clients/${encodeURIComponent(clientId)}/seat-override`, { seats });
+    return;
+  }
   if (!sub.clients.some((c) => c.id === clientId)) return fail("That client no longer exists");
   if (seats !== null && (!Number.isInteger(seats) || seats < 1 || seats > 100000)) return fail("Enter a whole number of seats, 1 or more");
   const updated = updateClient(clientId, (c) => ({ ...c, seatLimitOverride: seats ?? undefined }));
-  tellRoles(["super_admin", "hr"], "subscription", "update", seats === null ? "Your seat limit is back to the plan's" : `Your seat limit is now ${seats}`, "Set by our team. See Settings › Subscription.");
+  tellOverride(seats);
   logEvent(updated, "seat-override", seats === null ? "Seat limit override removed (plan limit applies)" : `Seat limit overridden to ${seats}`, actor);
   checkSeatThresholds();
   return respond(undefined);
@@ -227,6 +248,10 @@ export async function setSeatOverride(clientId: string, seats: number | null, ac
 export async function grantExtension(clientId: string, input: { seats: number; until: string } | null, actor: string): Promise<void> {
   const denied = deny("clients", "edit");
   if (denied) return denied;
+  if (serverMode) {
+    await api<ServerUsage>("PUT", `/subscription/clients/${encodeURIComponent(clientId)}/extension`, { extension: input });
+    return;
+  }
   if (!sub.clients.some((c) => c.id === clientId)) return fail("That client no longer exists");
   if (input) {
     if (!Number.isInteger(input.seats) || input.seats < 1 || input.seats > 10000) return fail("Enter how many extra seats, 1 or more");
@@ -234,7 +259,7 @@ export async function grantExtension(clientId: string, input: { seats: number; u
     if (input.until < new Date().toISOString().slice(0, 10)) return fail("The end date can't be in the past");
   }
   const updated = updateClient(clientId, (c) => ({ ...c, extension: input ?? undefined }));
-  tellRoles(["super_admin", "hr"], "subscription", input ? "approved" : "update", input ? `${input.seats} extra seats until ${input.until}` : "Your extra seats ended", input ? "A temporary extension from our team while your upgrade is arranged." : "The temporary extension is over; your plan's limit applies.");
+  tellExtension(input);
   logEvent(updated, "extension", input ? `Temporary extension: +${input.seats} seats until ${input.until}` : "Temporary extension ended", actor);
   checkSeatThresholds();
   return respond(undefined);

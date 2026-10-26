@@ -1,9 +1,12 @@
 // Email and text messages the system sends. A browser can't send them itself, so until the server
 // is connected they wait here, in the order they'd go out; the Super Admin sees them on
 // Administration › Outbox. Each person's Settings › Notifications choices are respected.
+// With the API server the messages are queued on the database instead: the server looks up each
+// person's address and notification settings itself, and nothing sends them yet.
 
 import { admin } from "./admin/store";
 import { fullName, state as core } from "./corehr/store";
+import { api, serverMode } from "./http";
 import { can } from "./permissions";
 import { sessionWho } from "./session";
 import { settingsFor, type NotificationEvent } from "./settings/store";
@@ -47,6 +50,10 @@ function wantsEmail(employeeId: string, event: MessageEvent) {
 
 /** Queue an email (and optionally a text) to an employee. Missing addresses are skipped. */
 export function notifyEmployee(employeeId: string | undefined, event: MessageEvent, subject: string, body: string, sms?: string) {
+  if (serverMode) {
+    if (employeeId) queueRemote({ employeeId, event, subject, body, ...(sms ? { sms } : {}) });
+    return;
+  }
   const e = core.employees.find((x) => x.id === employeeId);
   if (!e) return;
   const name = fullName(e.personal);
@@ -63,6 +70,21 @@ export function notifyEmployee(employeeId: string | undefined, event: MessageEve
   }
 }
 
+// With the API server, messages queued in one go (e.g. every payslip in a run) go up in one request.
+// Like a mail server that's down, a failure only loses the message; it never stops what queued it.
+let pending: { employeeId: string; event: MessageEvent; subject: string; body: string; sms?: string }[] = [];
+let sending: Promise<void> = Promise.resolve();
+function queueRemote(m: (typeof pending)[number]) {
+  pending.push(m);
+  if (pending.length > 1) return;
+  sending = Promise.resolve().then(async () => {
+    const messages = pending;
+    pending = [];
+    for (let i = 0; i < messages.length; i += 1000) await api("POST", "/outbox", { messages: messages.slice(i, i + 1000) }).catch((e) => console.warn(e));
+  });
+}
+let clearing: Promise<unknown> = Promise.resolve();
+
 /** The employee's manager (who they report to), for request alerts. */
 export const managerOf = (employeeId: string) => core.employees.find((e) => e.id === employeeId)?.job.supervisorId;
 
@@ -73,9 +95,12 @@ export const nameOf = (employeeId: string) => {
 
 export function listOutbox(): Promise<OutboxMessage[]> {
   if (!can(sessionWho(), "view", "systemSettings")) return Promise.reject(Object.assign(new Error("You don't have access to this."), { status: 403 }));
+  if (serverMode) return Promise.all([sending, clearing]).then(() => api<OutboxMessage[]>("GET", "/outbox"));
   return new Promise((r) => setTimeout(() => r(load()), 150));
 }
 
 export function clearOutbox() {
+  // The list waits for this before it reloads.
+  if (serverMode) return void (clearing = api("DELETE", "/outbox").catch((e) => console.warn(e)));
   localStorage.removeItem(KEY);
 }

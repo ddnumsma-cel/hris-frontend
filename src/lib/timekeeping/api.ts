@@ -2,8 +2,10 @@
 
 import { fullName, initialsOf, newId, state as core } from "../corehr/store";
 import { addDays, computeDay, longRuns, weekday } from "./compute";
-import { HISTORY_DAYS, branchOf, departmentOf, isOnLeave, leaveSpans, punchesFor, remoteDayFor, save, schedulingRules, shiftFor, tardinessRule, tk, todayIso, type LeaveSpan } from "./store";
-import { holidayOn } from "../holidays";
+import { HISTORY_DAYS, branchOf, departmentOf, isOnLeave, leaveSpans, punchesFor, refreshTimekeeping, remoteDayFor, save, schedulingRules, shiftFor, tardinessRule, tk, todayIso, type LeaveSpan } from "./store";
+import { holidayOn, isDoubleHoliday } from "../holidays";
+import { api, serverMode } from "../http";
+import { DEFAULT_SHIFT_ID, shiftProblem, tardinessRuleProblem } from "./rules";
 import type { AttendanceNotice, DayResult, RemoteDay, FixCause, FixRequest, Punch, ShiftTemplate, TardinessRule, TimeRequest } from "./types";
 import { awolDates } from "../pay/engine";
 import { can, canFor, visible } from "../permissions";
@@ -20,6 +22,16 @@ const span = (minutes: number) => [Math.floor(minutes / 60) && `${Math.floor(min
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
 const fail = (m: string): Promise<never> => new Promise((_, rej) => setTimeout(() => rej(new Error(m)), DELAY));
+
+// With the API server, reads first pull the latest records (reused for a couple of seconds)
+// and writes go to the server, which checks and saves them. Day results are still worked
+// out here from those records (./compute).
+const fresh = () => refreshTimekeeping(2000);
+async function remote<T>(call: Promise<T>): Promise<T> {
+  const out = await call;
+  await refreshTimekeeping();
+  return out;
+}
 
 export interface TkPerson {
   id: string;
@@ -47,7 +59,7 @@ function people(): TkPerson[] {
         departmentName: dept?.name ?? "",
         branch: branchOf(e.job.unitId),
         monthlySalary: e.job.monthlySalary,
-        usualShiftId: tk.usualShift[e.id] ?? "sh-day",
+        usualShiftId: tk.usualShift[e.id] ?? DEFAULT_SHIFT_ID,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -56,10 +68,11 @@ function people(): TkPerson[] {
 /** People whose attendance the signed-in person may see. */
 const seen = () => visible(sessionWho(), "attendanceRecords", people(), (p) => p.id);
 
-export function listPeople() {
+export async function listPeople() {
   if (backendOn()) return backendPeople();
   // Attendance setup (HR) sees everyone; otherwise whoever's attendance they may see.
   const who = sessionWho();
+  if (serverMode) await fresh();
   if (can(who, "view", "attendanceSettings")) return respond(people());
   if (!can(who, "view", "attendanceRecords") && !can(who, "view", "remoteDays")) return forbidden();
   return respond(visible(who, can(who, "view", "attendanceRecords") ? "attendanceRecords" : "remoteDays", people(), (p) => p.id));
@@ -67,6 +80,8 @@ export function listPeople() {
 
 export interface DayRow extends DayResult {
   person: TkPerson;
+  /** Two regular holidays fall on this date: paid at the double-holiday rates. */
+  doubleHoliday?: boolean;
 }
 
 function day(p: TkPerson, date: string): DayRow {
@@ -89,6 +104,7 @@ function day(p: TkPerson, date: string): DayRow {
       overtimeThresholdMinutes: schedulingRules().overtimeThresholdMinutes,
     }),
     person: p,
+    doubleHoliday: isDoubleHoliday(date, p.branch),
   };
 }
 
@@ -99,16 +115,18 @@ function dates(from: string, to: string) {
 }
 
 /** Every person's day for each date in [from, to], newest first. */
-export function listDays(from: string, to: string): Promise<DayRow[]> {
+export async function listDays(from: string, to: string): Promise<DayRow[]> {
   if (!can(sessionWho(), "view", "attendanceRecords")) return forbidden();
+  if (serverMode) await fresh();
   ensureRequests();
   const ps = seen();
   return respond(dates(from, to).reverse().flatMap((d) => ps.map((p) => day(p, d))));
 }
 
-export function getDay(employeeId: string, date: string): Promise<DayRow | null> {
+export async function getDay(employeeId: string, date: string): Promise<DayRow | null> {
   const denied = deny("attendanceRecords", "view", employeeId);
   if (denied) return denied;
+  if (serverMode) await fresh();
   const p = people().find((x) => x.id === employeeId);
   return respond(p ? day(p, date) : null);
 }
@@ -116,8 +134,9 @@ export function getDay(employeeId: string, date: string): Promise<DayRow | null>
 export const earliestDate = () => addDays(todayIso(), -HISTORY_DAYS);
 
 /** Who is on leave on a date, and until when. */
-export function listLeave(date: string): Promise<(LeaveSpan & { person: TkPerson })[]> {
+export async function listLeave(date: string): Promise<(LeaveSpan & { person: TkPerson })[]> {
   if (!can(sessionWho(), "view", "attendanceRecords")) return forbidden();
+  if (serverMode) await fresh();
   const ps = seen();
   return respond(
     leaveSpans()
@@ -135,9 +154,10 @@ function audit(employeeId: string, workDate: string, actor: string, action: stri
   return { id: newId("ta"), employeeId, workDate, actor, action, detail, at: new Date().toISOString() };
 }
 
-export function listAudit(employeeId: string, workDate?: string) {
+export async function listAudit(employeeId: string, workDate?: string) {
   const denied = deny("attendanceRecords", "view", employeeId);
   if (denied) return denied;
+  if (serverMode) await fresh();
   return respond(tk.audit.filter((a) => a.employeeId === employeeId && (!workDate || a.workDate === workDate)));
 }
 
@@ -145,6 +165,7 @@ export function listAudit(employeeId: string, workDate?: string) {
 export async function addCorrection(input: Parameters<typeof addCorrectionUnchecked>[0], actor: string): Promise<Punch> {
   const denied = deny("attendanceRecords", "edit", input.employeeId);
   if (denied) return denied;
+  if (serverMode) return remote(api<Punch>("POST", "/timekeeping/punches", input));
   return addCorrectionUnchecked(input, actor);
 }
 
@@ -175,6 +196,7 @@ async function addCorrectionUnchecked(input: { employeeId: string; workDate: str
 export async function setPunchAside(punch: Punch, reason: string, actor: string): Promise<void> {
   const denied = deny("attendanceRecords", "edit", punch.employeeId);
   if (denied) return denied;
+  if (serverMode) return remote(api<void>("POST", `/timekeeping/punches/${encodeURIComponent(punch.id)}/set-aside`, { reason }));
   return setPunchAsideUnchecked(punch, reason, actor);
 }
 
@@ -192,6 +214,7 @@ async function setPunchAsideUnchecked(punch: Punch, reason: string, actor: strin
 export async function confirmPunch(punch: Punch, actor: string): Promise<void> {
   const denied = deny("attendanceRecords", "edit", punch.employeeId);
   if (denied) return denied;
+  if (serverMode) return remote(api<void>("POST", `/timekeeping/punches/${encodeURIComponent(punch.id)}/keep`));
   save({
     ...tk,
     confirmed: { ...tk.confirmed, [punch.id]: { by: actor, at: new Date().toISOString() } },
@@ -203,6 +226,7 @@ export async function confirmPunch(punch: Punch, actor: string): Promise<void> {
 export async function restorePunch(punch: Punch, actor: string): Promise<void> {
   const denied = deny("attendanceRecords", "edit", punch.employeeId);
   if (denied) return denied;
+  if (serverMode) return remote(api<void>("POST", `/timekeeping/punches/${encodeURIComponent(punch.id)}/restore`));
   const rest = { ...tk.voided };
   delete rest[punch.id];
   save({ ...tk, voided: rest, audit: [audit(punch.employeeId, punch.workDate, actor, "Restored punch", `Time-${punch.kind} ${punch.at.slice(11)}`), ...tk.audit] });
@@ -211,33 +235,21 @@ export async function restorePunch(punch: Punch, actor: string): Promise<void> {
 
 // ---- Shifts and schedules ----
 
-export function listShifts() {
+export async function listShifts() {
   // Shift names are shown with attendance records and picked when adding people.
   const who = sessionWho();
   if (!can(who, "view", "attendanceSettings") && !can(who, "view", "attendanceRecords") && !can(who, "create", "people")) return forbidden();
+  if (serverMode) await fresh();
   return respond(tk.shifts);
 }
 
 export async function saveShift(input: Omit<ShiftTemplate, "id" | "active"> & { id?: string }): Promise<ShiftTemplate> {
   const denied = deny("attendanceSettings", input.id ? "edit" : "create");
   if (denied) return denied;
+  if (serverMode) return remote(api<ShiftTemplate>("POST", "/timekeeping/shifts", input));
+  const problem = shiftProblem(input, tk.shifts);
+  if (problem) return fail(problem);
   const name = input.name.trim();
-  if (!name) return fail("Name the shift");
-  if (!/^\d{2}:\d{2}$/.test(input.start) || !/^\d{2}:\d{2}$/.test(input.end)) return fail("Enter start and end times");
-  if (input.start === input.end) return fail("Start and end can't be the same time");
-  if (input.breakMinutes < 0 || input.breakMinutes > 120) return fail("Break should be between 0 and 120 minutes");
-  if (input.breakMinutes > 0) {
-    if (!/^\d{2}:\d{2}$/.test(input.breakStart)) return fail("Enter when lunch starts");
-    const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
-    const len = (mins(input.end) - mins(input.start) + 1440) % 1440 || 1440;
-    const into = (mins(input.breakStart) - mins(input.start) + 1440) % 1440;
-    if (into === 0 || into + input.breakMinutes >= len) return fail("Lunch has to start and end within the shift");
-  }
-  if (input.graceMinutes < 0 || input.graceMinutes > 30) return fail("Grace period should be between 0 and 30 minutes");
-  if (input.restDays.length === 0) return fail("Pick at least one rest day. Everyone is entitled to a rest day each week.");
-  if (input.saturdayEnd && (!/^\d{2}:\d{2}$/.test(input.saturdayEnd) || input.saturdayEnd <= input.start)) return fail("Saturday has to end after the shift starts");
-  if (input.saturdayEnd && input.restDays.includes(6)) return fail("Saturday is a rest day on this shift. Clear the Saturday end time or make Saturday a workday.");
-  if (tk.shifts.some((s) => s.id !== input.id && s.name.toLowerCase() === name.toLowerCase())) return fail("There's already a shift with that name");
   const existing = tk.shifts.find((s) => s.id === input.id);
   const shift: ShiftTemplate = { active: true, ...existing, ...input, name, id: existing?.id ?? newId("sh") };
   save({ ...tk, shifts: existing ? tk.shifts.map((s) => (s.id === shift.id ? shift : s)) : [...tk.shifts, shift] });
@@ -247,11 +259,27 @@ export async function saveShift(input: Omit<ShiftTemplate, "id" | "active"> & { 
 export async function setUsualShift(employeeIds: string[], shiftId: string | null, actor: string): Promise<void> {
   const denied = deny("attendanceSettings", "edit");
   if (denied) return denied;
+  if (serverMode) return remote(api<void>("PUT", "/timekeeping/usual-shift", { employeeIds, shiftId }));
   const usualShift = { ...tk.usualShift };
   for (const id of employeeIds) usualShift[id] = shiftId;
   const name = tk.shifts.find((s) => s.id === shiftId)?.name ?? "no shift";
   save({ ...tk, usualShift, audit: [...employeeIds.map((id) => audit(id, todayIso(), actor, "Changed usual shift", `Now on ${name}`)), ...tk.audit] });
   tellEmployees(employeeIds, "schedule", "update", "Your usual shift changed", shiftId ? `You're now on ${name}. Check your schedule before your next workday.` : `${actor} removed your usual shift. Ask HR for your schedule.`);
+  return respond(undefined);
+}
+
+/** One day only: a different shift, a rest day, or back to the usual schedule (null). */
+export async function setDayShift(employeeId: string, date: string, value: string | "rest" | null, actor: string): Promise<void> {
+  const denied = deny("attendanceSettings", "edit");
+  if (denied) return denied;
+  if (serverMode) return remote(api<void>("PUT", "/timekeeping/day-shift", { employeeId, date, value }));
+  const overrides = { ...tk.overrides };
+  const k = `${employeeId}|${date}`;
+  if (value === null) delete overrides[k];
+  else overrides[k] = value;
+  const label = value === null ? "back to usual schedule" : value === "rest" ? "rest day" : (tk.shifts.find((s) => s.id === value)?.name ?? value);
+  save({ ...tk, overrides, audit: [audit(employeeId, date, actor, "Changed schedule", label), ...tk.audit] });
+  tellEmployees(employeeId, "schedule", "update", `Your schedule for ${when(date)} changed`, `It's now ${label}.`);
   return respond(undefined);
 }
 
@@ -270,9 +298,10 @@ export interface RosterRow {
   longRun?: { from: string; to: string; length: number };
 }
 
-export function getRoster(weekStart: string): Promise<RosterRow[]> {
+export async function getRoster(weekStart: string): Promise<RosterRow[]> {
   const denied = deny("attendanceSettings", "view");
   if (denied) return denied;
+  if (serverMode) await fresh();
   const week = dates(weekStart, addDays(weekStart, 6));
   const context = dates(addDays(weekStart, -6), addDays(weekStart, 13));
   return respond(
@@ -331,10 +360,11 @@ function ensureRequests() {
   save({ ...tk, requests: reqs, seededRequests: true });
 }
 
-export function listRequests() {
+export async function listRequests() {
   const who = sessionWho();
   if (!can(who, "view", "attendanceRecords")) return forbidden();
   if (backendOn()) return backendTimeRequests();
+  if (serverMode) await fresh();
   ensureRequests();
   // Overtime and undertime go straight to the approver: whoever can't decide one (HR, Accounting)
   // only sees it once it's approved.
@@ -350,6 +380,7 @@ export async function decideRequest(id: string, approve: boolean, note: string, 
   const target = tk.requests.find((x) => x.id === id);
   const denied = deny("attendanceRecords", "approve", target?.employeeId);
   if (denied) return denied;
+  if (serverMode) return remote(api<TimeRequest>("POST", `/timekeeping/requests/${encodeURIComponent(id)}/decision`, { approve, note }));
   const r = tk.requests.find((x) => x.id === id);
   if (!r) return fail("That request no longer exists");
   if (r.status !== "pending") return fail("This request was already decided");
@@ -364,13 +395,21 @@ export async function decideRequest(id: string, approve: boolean, note: string, 
   return respond(next);
 }
 
-export async function fileRequest(input: { employeeId: string; date: string; type: TimeRequest["type"]; minutes: number; reason: string }, actor: string): Promise<TimeRequest> {
+/** `start` / `end` are local date-times ("2026-10-09T17:30"); when given, minutes = end − start. */
+export async function fileRequest(input: { employeeId: string; date: string; type: TimeRequest["type"]; minutes: number; reason: string; start?: string; end?: string }, actor: string): Promise<TimeRequest> {
   const denied = deny("attendanceRecords", "create", input.employeeId);
   if (denied) return denied;
+  if (serverMode) return remote(api<TimeRequest>("POST", "/timekeeping/requests", input));
+  if (input.start && input.end) {
+    const mins = Math.round((new Date(input.end).getTime() - new Date(input.start).getTime()) / 60_000);
+    if (!(mins > 0)) return fail("The end must be after the start");
+    input = { ...input, minutes: mins, date: input.start.slice(0, 10) };
+  }
   if (!Number.isFinite(input.minutes) || input.minutes <= 0) return fail("Enter how many minutes");
   if (!input.reason.trim()) return fail("Give the reason");
   if (tk.requests.some((r) => r.employeeId === input.employeeId && r.date === input.date && r.type === input.type && r.status !== "declined")) return fail("There's already a request for that day");
-  const req: TimeRequest = { id: newId("rq"), ...input, reason: input.reason.trim(), status: "pending", filedBy: actor, filedAt: new Date().toISOString() };
+  const { start, end, ...rest } = input;
+  const req: TimeRequest = { id: newId("rq"), ...rest, ...(start && end ? { startAt: new Date(start).toISOString(), endAt: new Date(end).toISOString() } : {}), reason: input.reason.trim(), status: "pending", filedBy: actor, filedAt: new Date().toISOString() };
   save({ ...tk, requests: [req, ...tk.requests], audit: [audit(input.employeeId, input.date, actor, `Filed ${input.type}`, `${input.minutes} min: ${input.reason.trim()}`), ...tk.audit] });
   tellApprover(input.employeeId, input.type, "request", `${nameFor(input.employeeId)} filed ${input.type}`, `${span(input.minutes)} on ${when(input.date)}. “${req.reason}” Review it under Approvals.`);
   return respond(req);
@@ -378,17 +417,19 @@ export async function fileRequest(input: { employeeId: string; date: string; typ
 
 // ---- Habitual tardiness ----
 
-export function getTardinessRule() {
+export async function getTardinessRule() {
   const denied = deny("attendanceRecords", "view");
   if (denied) return denied;
+  if (serverMode) await fresh();
   return respond(tardinessRule());
 }
 
 export async function saveTardinessRule(rule: TardinessRule): Promise<TardinessRule> {
   const denied = deny("rules", "edit");
   if (denied) return denied;
-  if (!Number.isInteger(rule.consecutive) || rule.consecutive < 0 || rule.consecutive === 1 || rule.consecutive > 10) return fail("Days in a row should be 2 to 10, or 0 to turn it off");
-  if (!Number.isInteger(rule.perMonth) || rule.perMonth < 0 || rule.perMonth === 1 || rule.perMonth > 31) return fail("Times a month should be 2 to 31, or 0 to turn it off");
+  if (serverMode) return remote(api<TardinessRule>("PUT", "/timekeeping/tardiness-rule", rule));
+  const problem = tardinessRuleProblem(rule);
+  if (problem) return fail(problem);
   save({ ...tk, tardinessRule: { consecutive: rule.consecutive, perMonth: rule.perMonth } });
   return respond(tardinessRule());
 }
@@ -408,8 +449,9 @@ export interface TardinessFlag {
  * count for the current month. Only scheduled work days count; a day off, leave
  * or holiday in between doesn't break a streak, an on-time or absent day does.
  */
-export function listTardinessFlags(): Promise<TardinessFlag[]> {
+export async function listTardinessFlags(): Promise<TardinessFlag[]> {
   if (!can(sessionWho(), "view", "attendanceRecords")) return forbidden();
+  if (serverMode) await fresh();
   ensureRequests();
   const rule = tardinessRule();
   const today = todayIso();
@@ -445,8 +487,9 @@ export interface AwolFlag {
 }
 
 /** People absent 3 or more workdays in a row in the last 30 days. */
-export function listAwolFlags(): Promise<AwolFlag[]> {
+export async function listAwolFlags(): Promise<AwolFlag[]> {
   if (!can(sessionWho(), "view", "attendanceRecords")) return forbidden();
+  if (serverMode) await fresh();
   ensureRequests();
   const today = todayIso();
   const span = dates(addDays(today, -29), today);
@@ -460,15 +503,17 @@ export function listAwolFlags(): Promise<AwolFlag[]> {
 
 // ---- Remote work days (typhoons, emergencies) ----
 
-export function listRemoteDays() {
+export async function listRemoteDays() {
   const denied = deny("remoteDays", "view");
   if (denied) return denied;
+  if (serverMode) await fresh();
   return respond([...(tk.remoteDays ?? [])].sort((a, b) => b.from.localeCompare(a.from)));
 }
 
 export async function declareRemoteDay(input: Pick<RemoteDay, "from" | "to" | "offices" | "reason">, actor: string): Promise<RemoteDay> {
   const denied = deny("remoteDays", "create");
   if (denied) return denied;
+  if (serverMode) return remote(api<RemoteDay>("POST", "/timekeeping/remote-days", input));
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.from) || !/^\d{4}-\d{2}-\d{2}$/.test(input.to)) return fail("Choose the dates");
   if (input.to < input.from) return fail("The last day can't be before the first");
   if (input.to < todayIso()) return fail("Those days have passed. Fix past attendance with time adjustments instead.");
@@ -484,6 +529,7 @@ export async function declareRemoteDay(input: Pick<RemoteDay, "from" | "to" | "o
 export async function cancelRemoteDay(id: string): Promise<void> {
   const denied = deny("remoteDays", "delete");
   if (denied) return denied;
+  if (serverMode) return remote(api<void>("DELETE", `/timekeeping/remote-days/${encodeURIComponent(id)}`));
   const d = (tk.remoteDays ?? []).find((x) => x.id === id);
   if (!d) return fail("That remote work day no longer exists");
   if (d.from <= todayIso() && (tk.remotePunches ?? []).some((p) => p.workDate >= d.from && p.workDate <= d.to)) {
@@ -503,10 +549,11 @@ export interface ClockState {
   outAt?: string;
 }
 
-export function clockState(employeeId: string): Promise<ClockState> {
+export async function clockState(employeeId: string): Promise<ClockState> {
   // Anyone may see and record their own clock-ins; anyone else's needs attendance access.
   const who = sessionWho();
   if (employeeId !== who.employeeId && !canFor(who, "view", "attendanceRecords", employeeId)) return forbidden();
+  if (serverMode) await fresh();
   const date = todayIso();
   const mine = (tk.remotePunches ?? []).filter((p) => p.employeeId === employeeId && p.workDate === date && !tk.voided[p.id]);
   const remoteDay = remoteDayFor(employeeId, date);
@@ -526,6 +573,12 @@ export function clockState(employeeId: string): Promise<ClockState> {
 export async function setWorkFromHome(employeeId: string, on: boolean, actor = "Employee"): Promise<void> {
   const who = sessionWho();
   if (employeeId !== who.employeeId) return forbidden();
+  // With the API server the switch is saved in the database (so the face-scan clock-in is accepted).
+  if (serverMode) {
+    await remote(api<void>("POST", "/timekeeping/wfh", { on }));
+    if (on) notifyEmployee(managerOf(employeeId), "wfh", `${nameOf(employeeId)} is working from home today`, `${nameOf(employeeId)} switched ${todayIso()} to a work-from-home day and clocks in with a face scan. You can see their times in Team Attendance.`);
+    return;
+  }
   const date = todayIso();
   const declared = remoteDayFor(employeeId, date);
   if (declared && declared.declaredBy !== "self") return fail("Today is already a remote work day for your office");
@@ -542,6 +595,7 @@ export async function setWorkFromHome(employeeId: string, on: boolean, actor = "
 export async function clockRemote(employeeId: string, kind: "in" | "out", match: number, actor: string, method: "face" | "biometric" = "face", location?: Punch["location"]): Promise<Punch> {
   const who = sessionWho();
   if (employeeId !== who.employeeId && !canFor(who, "edit", "attendanceRecords", employeeId)) return forbidden();
+  if (serverMode) return remote(api<Punch>("POST", "/timekeeping/clock", { kind, match, location }));
   const date = todayIso();
   const day = remoteDayFor(employeeId, date);
   if (!day) return fail("Remote clock-in is only open on remote work days that HR declares");
@@ -568,9 +622,10 @@ export async function clockRemote(employeeId: string, kind: "in" | "out", match:
 }
 
 /** Who covered by a remote day has clocked in from home today. */
-export function remoteAttendanceToday(): Promise<{ covered: TkPerson[]; clockedIn: string[] }> {
+export async function remoteAttendanceToday(): Promise<{ covered: TkPerson[]; clockedIn: string[] }> {
   const denied = deny("remoteDays", "view");
   if (denied) return denied;
+  if (serverMode) await fresh();
   const date = todayIso();
   const covered = people().filter((p) => remoteDayFor(p.id, date) && shiftFor(p.id, date).kind === "work" && !isOnLeave(p.id, date));
   const clockedIn = [...new Set((tk.remotePunches ?? []).filter((p) => p.workDate === date && p.kind === "in" && !tk.voided[p.id]).map((p) => p.employeeId))];
@@ -579,15 +634,17 @@ export function remoteAttendanceToday(): Promise<{ covered: TkPerson[]; clockedI
 
 // ---- Notices to employees about lateness or AWOL ----
 
-export function listNotices(employeeId?: string) {
+export async function listNotices(employeeId?: string) {
   const who = sessionWho();
   if (!can(who, "view", "attendanceRecords")) return forbidden();
+  if (serverMode) await fresh();
   return respond(visible(who, "attendanceRecords", tk.notices ?? [], (n) => n.employeeId).filter((n) => !employeeId || n.employeeId === employeeId).sort((a, b) => b.sentAt.localeCompare(a.sentAt)));
 }
 
 export async function sendNotice(input: Pick<AttendanceNotice, "employeeId" | "kind" | "subject" | "message" | "dates">, actor: string): Promise<AttendanceNotice> {
   const denied = deny("attendanceRecords", "edit", input.employeeId);
   if (denied) return denied;
+  if (serverMode) return remote(api<AttendanceNotice>("POST", "/timekeeping/notices", input));
   if (!input.subject.trim()) return fail("Give the notice a subject");
   if (!input.message.trim()) return fail("Write the message the employee will read");
   const notice: AttendanceNotice = { id: newId("nt"), ...input, subject: input.subject.trim(), message: input.message.trim(), sentBy: actor, sentAt: new Date().toISOString() };
@@ -600,6 +657,7 @@ export async function sendNotice(input: Pick<AttendanceNotice, "employeeId" | "k
 export async function acknowledgeNotice(id: string, employeeId: string): Promise<void> {
   const who = sessionWho();
   if (employeeId !== who.employeeId) return forbidden();
+  if (serverMode) return remote(api<void>("POST", `/timekeeping/notices/${encodeURIComponent(id)}/acknowledge`));
   const n = (tk.notices ?? []).find((x) => x.id === id && x.employeeId === employeeId);
   if (!n) return fail("That notice no longer exists");
   if (!n.acknowledgedAt) save({ ...tk, notices: (tk.notices ?? []).map((x) => (x.id === id ? { ...x, acknowledgedAt: new Date().toISOString() } : x)) });
@@ -608,10 +666,11 @@ export async function acknowledgeNotice(id: string, employeeId: string): Promise
 
 // ---- Missed time-in / time-out requests ----
 
-export function listFixes() {
+export async function listFixes() {
   const who = sessionWho();
   if (!can(who, "view", "attendanceRecords")) return forbidden();
   if (backendOn()) return backendFixes();
+  if (serverMode) await fresh();
   return respond(visible(who, "attendanceRecords", [...tk.fixRequests], (r) => r.employeeId).sort((a, b) => b.filedAt.localeCompare(a.filedAt)));
 }
 
@@ -628,6 +687,7 @@ function recordedTime(employeeId: string, workDate: string, kind: "in" | "out") 
 export async function fileFix(input: { employeeId: string; workDate: string; kind: "in" | "out"; time: string; nextDay?: boolean; cause: FixCause; reason: string }, actor: string): Promise<FixRequest> {
   const denied = deny("attendanceRecords", "create", input.employeeId);
   if (denied) return denied;
+  if (serverMode) return remote(api<FixRequest>("POST", "/timekeeping/fixes", input));
   if (!/^\d{2}:\d{2}$/.test(input.time)) return fail("Enter the correct time");
   if (!input.reason.trim()) return fail("Say what happened, for example \"the scanner didn't read my finger\"");
   const at = `${input.nextDay ? addDays(input.workDate, 1) : input.workDate}T${input.time}`;
@@ -655,6 +715,7 @@ export async function decideFix(id: string, approve: boolean, note: string, acto
   const target = tk.fixRequests.find((x) => x.id === id);
   const denied = deny("attendanceRecords", "approve", target?.employeeId);
   if (denied) return denied;
+  if (serverMode) return remote(api<FixRequest>("POST", `/timekeeping/fixes/${encodeURIComponent(id)}/decision`, { approve, note }));
   const r = tk.fixRequests.find((x) => x.id === id);
   if (!r) return fail("That request no longer exists");
   if (r.status !== "pending") return fail("This request was already decided");

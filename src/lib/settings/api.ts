@@ -14,12 +14,14 @@ import {
   updateEmployeeProfile,
   updateManagerProfile,
   updateMyPhoto,
-} from "../api";
-import { admin, logAdmin, saveAdmin } from "../admin/store";
-import { getCredential, setCredential } from "../credentials";
-import type { AuthUser } from "../../features/auth/AuthContext";
-import type { Employee } from "../types";
-import { saveSettingsFor, settingsFor, settingsKeyFor, type UserSettings } from "./store";
+} from "@/lib/api";
+import { admin, logAdmin, saveAdmin } from "@/lib/admin/store";
+import { getCredential, setCredential } from "@/lib/credentials";
+import { changePasswordRemote } from "@/lib/admin/auth";
+import { serverMode } from "@/lib/http";
+import type { AuthUser } from "@/features/auth/AuthContext";
+import type { Employee } from "@/lib/types";
+import { refreshMySettings, saveMySettingsRemote, saveSettingsFor, settingsFor, settingsKeyFor, type UserSettings } from "./store";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -27,7 +29,9 @@ const fail = (m: string): Promise<never> => new Promise((_, rej) => setTimeout((
 
 // ---- Preferences ----
 
-export function fetchMySettings(user: AuthUser) {
+export async function fetchMySettings(user: AuthUser) {
+  // With the API server they come from the account in the database.
+  if (serverMode && user.accountId) return (await refreshMySettings(user.accountId))!;
   return respond(settingsFor(settingsKeyFor(user)));
 }
 
@@ -39,7 +43,9 @@ const SECTION_LABEL: Record<keyof Omit<UserSettings, "updatedAt">, string> = {
 };
 
 /** Saves one section of a person's settings and notes the change in the audit trail. */
-export function saveMySettings<K extends keyof Omit<UserSettings, "updatedAt">>(user: AuthUser, section: K, value: UserSettings[K]) {
+export async function saveMySettings<K extends keyof Omit<UserSettings, "updatedAt">>(user: AuthUser, section: K, value: UserSettings[K]) {
+  // With the API server the change is saved with the account and the server writes the audit entry.
+  if (serverMode && user.accountId) return saveMySettingsRemote(user.accountId, section, value);
   const key = settingsKeyFor(user);
   const next = { ...settingsFor(key), [section]: value };
   saveSettingsFor(key, next);
@@ -175,6 +181,11 @@ export function passwordStrength(pw: string): { score: 0 | 1 | 2 | 3 | 4; label:
 }
 
 export async function changeMyPassword(user: AuthUser, current: string, next: string) {
+  // With the API server the password is checked and changed in the database.
+  if (serverMode) {
+    await changePasswordRemote(current, next);
+    return true;
+  }
   const account = admin.accounts.find((a) => a.id === user.accountId);
   if (!account) return fail("Sign out and back in with your username to change your password.");
   if (next.length < minPasswordLength()) return fail(`Use at least ${minPasswordLength()} characters.`);

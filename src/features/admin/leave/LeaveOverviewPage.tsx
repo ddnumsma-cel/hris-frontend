@@ -12,7 +12,6 @@ import { useToast } from "@/components/ui/ToastContext";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { holidayOn } from "@/lib/holidays";
 import { addDays, decideRequest, isoToday, listCredits, listRequests, type RequestRow } from "@/lib/leave/api";
-import { LEAVE_CREDITS_PER_YEAR } from "@/lib/leave/store";
 import { useOfficeFilter } from "../OfficeFilterContext";
 import { useActor } from "../corehr/format";
 import { Initials, LoadError, Pill } from "../corehr/ui";
@@ -87,7 +86,7 @@ export function LeaveOverviewPage() {
   const weekEnd = addDays(today, 6);
   const away = live.filter((r) => r.status === "approved" && r.start <= weekEnd && r.end >= today).sort((a, b) => a.start.localeCompare(b.start));
 
-  // Company-wide use of the yearly leaves for the cards.
+  // Company-wide use of the VL/SL days for the cards.
   const rows = (balancesQuery.data ?? []).filter((r) => inOffice(r.person.branch));
   const total = rows.reduce((n, r) => n + r.credits.total, 0);
   const used = rows.reduce((n, r) => n + r.credits.used, 0);
@@ -96,10 +95,10 @@ export function LeaveOverviewPage() {
   const noneLeft = rows.filter((r) => r.credits.available === 0).length;
   const pct = (n: number) => `${total ? Math.min(100, (n / total) * 100) : 0}%`;
   const cards = [
-    { id: "left", name: "Leaves left", value: num(left), sub: `of ${num(total)} given this year`, bar: pct(left), note: `${LEAVE_CREDITS_PER_YEAR} per employee, given on January 1`, tone: "bg-brand" },
-    { id: "used", name: "Leaves used", value: num(used), sub: `of ${num(total)}`, bar: pct(used), note: "Each paid leave uses 1, however many days", tone: "bg-brand" },
+    { id: "left", name: "VL/SL days left", value: num(left), sub: `of ${num(total)} this leave year`, bar: pct(left), note: "By length of service, June to May", tone: "bg-brand" },
+    { id: "used", name: "VL/SL days used", value: num(used), sub: `of ${num(total)}`, bar: pct(used), note: "Every paid leave uses its days", tone: "bg-brand" },
     { id: "waiting", name: "Waiting for approval", value: num(pending), sub: pending === 1 ? "leave" : "leaves", bar: pct(pending), note: pending ? (requests.some((r) => r.status === "pending" && canApprove(r)) ? "Approve or reject below" : "With their managers") : "Nothing waiting", tone: "bg-warning" },
-    { id: "none", name: "No leaves left", value: num(noneLeft), sub: noneLeft === 1 ? "employee" : "employees", bar: `${rows.length ? (noneLeft / rows.length) * 100 : 0}%`, note: noneLeft ? "Further leave goes as Leave without pay" : "Everyone still has leaves", tone: "bg-critical" },
+    { id: "none", name: "No VL/SL days left", value: num(noneLeft), sub: noneLeft === 1 ? "employee" : "employees", bar: `${rows.length ? (noneLeft / rows.length) * 100 : 0}%`, note: noneLeft ? "Further leave goes as Leave without pay" : "Everyone still has VL/SL days", tone: "bg-critical" },
   ];
 
   // Month grid

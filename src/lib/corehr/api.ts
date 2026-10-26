@@ -2,7 +2,8 @@
 // after a short delay with a copy of the data, the way a real response would.
 
 import { firstIssue, bankSchema, contactSchema, governmentSchema, newEmployeeSchema, personalSchema, type NewEmployeeValues } from "./schemas";
-import { commit, fullName, initialsOf, isoDate, newId, reconcile, state, type CoreHrState } from "./store";
+import { api, serverMode } from "../http";
+import { commit, fullName, initialsOf, isoDate, newId, reconcile, refreshCoreHr, state, type CoreHrState } from "./store";
 import type {
   AuditEntry,
   CoreEmployee,
@@ -16,6 +17,7 @@ import type {
   EmploymentType,
   UnitType,
 } from "./types";
+import { SEPARATION_REASONS } from "./types";
 import { can, visible } from "../permissions";
 import { deny, employeeOfAccount, forbidden, sessionWho } from "../session";
 import { admin, saveAdmin } from "../admin/store";
@@ -33,6 +35,15 @@ function respond<T>(value: T): Promise<T> {
 }
 function fail(message: string): Promise<never> {
   return new Promise((_, reject) => setTimeout(() => reject(new Error(message)), DELAY_MS));
+}
+
+// With the API server, reads first pull the latest records into the store (reused for a
+// couple of seconds) and writes go to the server, which validates, saves and audits them.
+const fresh = () => refreshCoreHr(2000);
+async function remote<T>(call: Promise<T>): Promise<T> {
+  const out = await call;
+  await refreshCoreHr();
+  return out;
 }
 
 export const peso = (n?: number) => (n ? `₱${n.toLocaleString("en-PH")}` : "—");
@@ -136,12 +147,13 @@ function summarize(e: CoreEmployee): EmployeeSummary {
   };
 }
 
-export function listEmployees(): Promise<EmployeeSummary[]> {
+export async function listEmployees(): Promise<EmployeeSummary[]> {
   // People list: everyone, their team, or only themselves (lib/permissions.ts).
   const who = sessionWho();
   if (!can(who, "view", "people")) return forbidden();
   // Connected to the HR server: it decides who sees whom.
   if (backendOn()) return backendListEmployees();
+  if (serverMode) await fresh();
   reconcile();
   return respond(visible(who, "people", state.employees, (e) => e.id).map(summarize).sort((a, b) => a.name.localeCompare(b.name)));
 }
@@ -154,10 +166,11 @@ export interface EmployeeRecord {
   supervisor?: { id: string; name: string; positionTitle: string };
 }
 
-export function getEmployee(id: string): Promise<EmployeeRecord | null> {
+export async function getEmployee(id: string): Promise<EmployeeRecord | null> {
   if (backendOn()) return backendGetEmployee(id);
   const denied = deny("people", "view", id);
   if (denied) return denied;
+  if (serverMode) await fresh();
   reconcile();
   const e = employeeById(id);
   if (!e) return respond(null);
@@ -193,7 +206,7 @@ export const DOCUMENT_TYPES: DocumentType[] = [
 /** Documents that carry an ID/license number and an expiry date. */
 export const EXPIRING_TYPES: DocumentType[] = ["Valid Government ID", "Professional License", "NBI Clearance", "Police/Barangay Clearance"];
 
-/** The ID HR scanned while adding someone; it becomes their submitted government ID. */
+/** The ID HR scanned while adding someone. Per our rule the scan only fills in the form: nothing from it is saved. */
 export interface ScannedGovernmentId {
   idType: string;
   idNumber?: string;
@@ -204,6 +217,7 @@ export interface ScannedGovernmentId {
 export async function createEmployee(values: NewEmployeeValues, actor: string, scannedId?: ScannedGovernmentId): Promise<CoreEmployee> {
   const denied = deny("people", "create");
   if (denied) return denied;
+  if (serverMode) return remote(api<CoreEmployee>("POST", "/corehr/employees", { values }));
   const parsed = newEmployeeSchema.safeParse(values);
   if (!parsed.success) return fail(firstIssue(parsed));
   try {
@@ -417,6 +431,7 @@ export async function updateEmployeeSection<S extends EditableSection>(id: strin
     const denied = deny("people", "edit", id);
     if (denied) return denied;
   }
+  if (serverMode) return remote(api<CoreEmployee>("PATCH", `/corehr/employees/${encodeURIComponent(id)}/${section}`, values));
   const schema = section === "personal" ? personalSchema : section === "contact" ? contactSchema : section === "bank" ? bankSchema : governmentSchema;
   const parsed = schema.safeParse(values);
   if (!parsed.success) return fail(firstIssue(parsed));
@@ -448,13 +463,15 @@ export async function updateEmployeeSection<S extends EditableSection>(id: strin
 export async function logGovernmentReveal(id: string, actor: string): Promise<void> {
   const denied = deny("people", "view", id);
   if (denied) return denied;
+  if (serverMode) return remote(api<void>("POST", `/corehr/employees/${encodeURIComponent(id)}/reveal-government`));
   commit({ ...state, audit: [audit(id, actor, "Viewed", "Government numbers", "Revealed full numbers"), ...state.audit] });
   return respond(undefined);
 }
 
-export function listAudit(employeeId: string): Promise<AuditEntry[]> {
+export async function listAudit(employeeId: string): Promise<AuditEntry[]> {
   const denied = deny("people", "view", employeeId);
   if (denied) return denied;
+  if (serverMode) await fresh();
   return respond(state.audit.filter((a) => a.employeeId === employeeId));
 }
 
@@ -467,11 +484,12 @@ export interface UnitSummary extends OrgUnit {
   headName?: string;
 }
 
-export function listUnits(): Promise<UnitSummary[]> {
+export async function listUnits(): Promise<UnitSummary[]> {
   // Departments and offices: anyone who sees them, or who adds people (to pick a department).
   const who = sessionWho();
   if (!(["departments", "locations", "orgChart"] as const).some((f) => can(who, "view", f)) && !can(who, "create", "people")) return forbidden();
   if (backendOn()) return backendListUnits();
+  if (serverMode) await fresh();
   reconcile();
   return respond(
     state.units.map((u) => {
@@ -501,9 +519,10 @@ export interface PositionSummary extends Position {
   reportsToTitle?: string;
 }
 
-export function listPositions(): Promise<PositionSummary[]> {
+export async function listPositions(): Promise<PositionSummary[]> {
   const who = sessionWho();
   if (!(["departments", "orgChart"] as const).some((f) => can(who, "view", f)) && !can(who, "create", "people")) return forbidden();
+  if (serverMode) await fresh();
   reconcile();
   return respond(
     state.positions.map((p) => {
@@ -533,9 +552,10 @@ export interface OrgChart {
 }
 
 /** Everyone currently employed with who they report to. */
-export function getOrgChart(): Promise<OrgChart> {
+export async function getOrgChart(): Promise<OrgChart> {
   const denied = deny("orgChart", "view");
   if (denied) return denied;
+  if (serverMode) await fresh();
   reconcile();
   const company = state.units.find((u) => u.type === "company");
   const people = state.employees.filter(isCurrent).map((e) => ({ ...summarize(e), supervisorId: e.job.supervisorId }));
@@ -547,6 +567,7 @@ export function getOrgChart(): Promise<OrgChart> {
 export async function setCompanyHead(employeeId: string, actor: string): Promise<void> {
   const denied = deny("orgChart", "edit");
   if (denied) return denied;
+  if (serverMode) return remote(api<void>("PUT", "/corehr/company-head", { employeeId }));
   const company = state.units.find((u) => u.type === "company");
   const e = employeeById(employeeId);
   if (!company) return fail("The company record is missing");
@@ -566,6 +587,7 @@ export async function setCompanyHead(employeeId: string, actor: string): Promise
 export async function setReportsTo(employeeId: string, supervisorId: string | null, actor: string): Promise<void> {
   const denied = deny("orgChart", "edit");
   if (denied) return denied;
+  if (serverMode) return remote(api<void>("PUT", `/corehr/employees/${encodeURIComponent(employeeId)}/supervisor`, { supervisorId }));
   const e = employeeById(employeeId);
   if (!e || !isCurrent(e)) return fail("That employee no longer works here");
   if (supervisorId === employeeId) return fail("Someone can't report to themselves");
@@ -601,10 +623,11 @@ export function documentAlert(d: Pick<EmployeeDocument, "status" | "expiresOn">)
   return days < 0 ? "expired" : days <= 30 ? "expiring" : null;
 }
 
-export function listDocuments(employeeId?: string): Promise<EmployeeDocument[]> {
+export async function listDocuments(employeeId?: string): Promise<EmployeeDocument[]> {
   const who = sessionWho();
   if (!can(who, "view", "documents")) return forbidden();
   if (backendOn()) return backendListDocuments(employeeId);
+  if (serverMode) await fresh();
   reconcile();
   return respond(visible(who, "documents", state.documents, (d) => d.employeeId).filter((d) => !employeeId || d.employeeId === employeeId));
 }
@@ -616,10 +639,18 @@ export type DocumentAction =
   | { kind: "not-applicable" }
   | { kind: "required" };
 
-export async function updateDocument(id: string, action: DocumentAction, actor: string): Promise<EmployeeDocument> {
+/** Server-only document actions (the older 201 panels): an employee withdrawing their own upload, HR editing ID details, HR resetting to Missing. */
+export type ServerDocumentAction = { kind: "withdraw" } | { kind: "details"; idType?: string; referenceNo?: string; expiresOn?: string } | { kind: "reset" };
+
+export async function updateDocument(id: string, action: DocumentAction | ServerDocumentAction, actor: string): Promise<EmployeeDocument> {
   const target = state.documents.find((x) => x.id === id);
   const denied = deny("documents", "edit", target?.employeeId);
   if (denied) return denied;
+  if (serverMode) {
+    await remote(api<void>("PATCH", `/corehr/documents/${encodeURIComponent(id)}`, action));
+    return structuredClone(state.documents.find((d) => d.id === id)!);
+  }
+  if (action.kind === "withdraw" || action.kind === "details" || action.kind === "reset") return fail("That needs the API server");
   const d = state.documents.find((x) => x.id === id);
   if (!d) return fail("That document no longer exists");
   const now = new Date().toISOString();
@@ -669,10 +700,11 @@ export async function updateDocument(id: string, action: DocumentAction, actor: 
 
 // ---- Employment history ----
 
-export function listEvents(employeeId: string): Promise<JobEvent[]> {
+export async function listEvents(employeeId: string): Promise<JobEvent[]> {
   if (backendOn()) return backendListEvents(employeeId);
   const denied = deny("people", "view", employeeId);
   if (denied) return denied;
+  if (serverMode) await fresh();
   return respond(
     state.events
       .filter((e) => e.employeeId === employeeId)
@@ -761,7 +793,7 @@ export async function sendDocumentReminders(employeeIds: string[], note: string,
 
 // ---- Separation ----
 
-export const SEPARATION_REASONS = ["Resigned", "End of contract", "Retired", "Terminated", "Redundancy", "Death", "Other"] as const;
+export { SEPARATION_REASONS };
 
 /**
  * HR records that someone is leaving: their last day and why. On or after the last day they're
@@ -771,12 +803,19 @@ export const SEPARATION_REASONS = ["Resigned", "End of contract", "Retired", "Te
 export async function recordSeparation(id: string, input: { lastDay: string; reason: string; note: string }, actor: string): Promise<CoreEmployee> {
   const denied = deny("people", "edit", id);
   if (denied) return denied;
+  if (serverMode) await fresh();
   const e = employeeById(id);
   if (!e) return fail("That employee no longer exists");
   if (e.job.status === "Separated") return fail("This employee is already separated");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.lastDay)) return fail("Enter their last day");
   if (input.lastDay < e.job.dateHired) return fail("The last day can't be before they were hired");
   if (!SEPARATION_REASONS.includes(input.reason as (typeof SEPARATION_REASONS)[number])) return fail("Choose why they're leaving");
+  if (serverMode) {
+    // The server records it, turns off their sign-in once the last day has passed, and opens the final pay case.
+    const saved = await remote(api<CoreEmployee>("POST", `/corehr/employees/${encodeURIComponent(id)}/separation`, input));
+    notifyEmployee(saved.job.supervisorId, "separation", `${fullName(e.personal)} is leaving`, `HR recorded that ${fullName(e.personal)} is leaving (${input.reason}). Their last day is ${input.lastDay}.`);
+    return saved;
+  }
   const today = isoDate();
   const done = input.lastDay < today;
   const updated: CoreEmployee = { ...e, job: { ...e.job, separationDate: input.lastDay, ...(done ? { status: "Separated" as const } : {}) } };
@@ -808,10 +847,43 @@ export async function recordSeparation(id: string, input: { lastDay: string; rea
   return respond(updated);
 }
 
+/** HR regularizes someone on probation or a fixed term: Regular from that date, with a job history entry. */
+export async function regularize(id: string, input: { date: string; note: string }, actor: string): Promise<CoreEmployee> {
+  const denied = deny("people", "edit", id);
+  if (denied) return denied;
+  if (serverMode) return remote(api<CoreEmployee>("POST", `/corehr/employees/${encodeURIComponent(id)}/regularize`, input));
+  const e = employeeById(id);
+  if (!e) return fail("That employee no longer exists");
+  if (e.job.status === "Separated") return fail("This employee is separated");
+  if (e.job.employmentType === "Regular") return fail("This employee is already regular");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return fail("Enter the date they became regular");
+  if (e.job.dateHired && input.date < e.job.dateHired) return fail("That's before they were hired");
+  const updated: CoreEmployee = { ...e, job: { ...e.job, employmentType: "Regular", regularizationDate: input.date } };
+  const event: JobEvent = {
+    id: newId("ev"),
+    employeeId: id,
+    kind: "Regularization",
+    effectiveDate: input.date,
+    changes: [{ label: "Employment type", from: e.job.employmentType, to: "Regular" }],
+    remarks: input.note.trim() || undefined,
+    recordedBy: actor,
+    recordedAt: new Date().toISOString(),
+  };
+  commit({
+    ...state,
+    employees: state.employees.map((x) => (x.id === id ? updated : x)),
+    events: [event, ...state.events],
+    audit: [audit(id, actor, "Edited", "Employment", `Regularized: ${e.job.employmentType} → Regular from ${input.date}`), ...state.audit],
+  });
+  tellEmployees(id, "documents", "approved", "You're now a regular employee", `From ${dates(input.date)}. Your VL/SL leave credits apply from here on.`);
+  return respond(updated);
+}
+
 /** Undo a separation recorded by mistake, or a resignation that was withdrawn. */
 export async function cancelSeparation(id: string, actor: string): Promise<CoreEmployee> {
   const denied = deny("people", "edit", id);
   if (denied) return denied;
+  if (serverMode) await fresh();
   const e = employeeById(id);
   if (!e?.job.separationDate) return fail("There's no separation to cancel");
   // Bringing back someone already separated takes a seat again.
@@ -822,6 +894,7 @@ export async function cancelSeparation(id: string, actor: string): Promise<CoreE
       return Promise.reject(err);
     }
   }
+  if (serverMode) return remote(api<CoreEmployee>("DELETE", `/corehr/employees/${encodeURIComponent(id)}/separation`));
   const { separationDate, ...job } = e.job;
   const updated: CoreEmployee = { ...e, job: { ...job, status: e.job.status === "Separated" ? "Active" : e.job.status } };
   commit({

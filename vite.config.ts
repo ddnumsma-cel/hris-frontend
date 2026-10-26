@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -42,11 +42,21 @@ const resetOldServiceWorker = (): Plugin => ({
 })
 
 // https://vite.dev/config/
+// The API server (server/) runs on 3001; the browser reaches it through this same origin.
+// API_PROXY_TARGET points it elsewhere (the end-to-end tests run their own server).
+const proxy = { '/api': { target: process.env.API_PROXY_TARGET ?? 'http://127.0.0.1:3001', changeOrigin: false } }
+// Without VITE_API_MODE=server, /api goes to the MSMA HRIS backend on 4000 instead (VITE_API_URL=/api).
+const heyhrMode = loadEnv('development', process.cwd(), '').VITE_API_MODE === 'server'
+const msmaProxy = { '/api': { target: process.env.HEYHR_API_TARGET ?? 'http://127.0.0.1:4000', changeOrigin: true, rewrite: (p: string) => p.replace(/^\/api/, '') } }
+
+// Basic protective headers while developing and previewing; the production web server sets its own.
+const headers = { 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin' }
+
 export default defineConfig({
-  // With VITE_API_URL=/api the app reaches the MSMA HRIS backend through this server (no CORS, and it
-  // works from other PCs too); HEYHR_API_TARGET says where the backend runs.
-  server: { https, proxy: { '/api': { target: process.env.HEYHR_API_TARGET ?? 'http://127.0.0.1:4000', changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, '') } } },
-  preview: { https },
+  // /api: the HeyHR server (VITE_API_MODE=server, see .env.development) or, otherwise, the MSMA HRIS backend
+  // (VITE_API_URL=/api; no CORS, and it works from other PCs too; HEYHR_API_TARGET says where it runs).
+  server: { https, proxy: heyhrMode ? proxy : msmaProxy, headers },
+  preview: { https, proxy: heyhrMode ? proxy : msmaProxy, headers },
   plugins: [
     resetOldServiceWorker(),
     react(),
@@ -71,6 +81,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // API calls always go to the server, never the offline cache.
+        navigateFallbackDenylist: [/^\/api\//],
       },
     }),
   ],

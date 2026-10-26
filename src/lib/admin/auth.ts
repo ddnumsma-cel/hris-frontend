@@ -3,7 +3,15 @@
 
 import { findCredential, getCredentials } from "../credentials";
 import type { Role } from "../types";
-import { fullName, state as core } from "../corehr/store";
+import { clearCoreHr, fullName, refreshCoreHr, setSignedInEmployee, state as core } from "../corehr/store";
+import { api, ApiError, serverMode } from "../http";
+import { syncAdminCache } from "./api";
+import { clearLeave, refreshLeave } from "../leave/store";
+import { clearTimekeeping, refreshTimekeeping } from "../timekeeping/store";
+import { refreshRates } from "../reports/statutory";
+import { refreshHolidays } from "../holidays";
+import { refreshMySettings } from "../settings/store";
+import { clearPaySettings, refreshPaySettings } from "../pay/settings";
 import { can } from "../permissions";
 import { employeeOfAccount, whoFor } from "../session";
 import { admin, logAdmin, roleOf, saveAdmin, type UserAccount } from "./store";
@@ -19,7 +27,9 @@ function accountFor(username: string) {
   return demo ? admin.accounts.find((a) => a.demo === demo.key) : admin.accounts.find((a) => a.username === u && !a.demo);
 }
 
-export function signIn(username: string, password: string): SignInResult {
+/** With the API server this checks the database (and resolves after a moment); otherwise the browser's accounts. */
+export function signIn(username: string, password: string): SignInResult | Promise<SignInResult> {
+  if (serverMode) return signInRemote(username, password);
   const account = accountFor(username);
   const now = new Date();
   const fail = (error: string, detail: string): SignInResult => {
@@ -68,7 +78,82 @@ export function signInWithGoogleEmail(email: string): SignInResult {
   return admit(account, fail, "Google");
 }
 
+// ---- With the API server ----
+
+/** Keeps the browser's copy of an account in step with the server, so access checks here keep working. */
+function remember(account: UserAccount) {
+  setSignedInEmployee({ employeeId: account.employeeId, name: account.name });
+  saveAdmin({ ...admin, accounts: [...admin.accounts.filter((a) => a.id !== account.id && a.username !== account.username), account] });
+}
+
+/** After sign-in: what the account may open, the system settings, then the records it can see. */
+async function loadForAccount(account: UserAccount) {
+  remember(account);
+  await syncAdminCache();
+  await refreshCoreHr();
+  // The holiday calendar and personal settings never block sign-in: without them the built-in
+  // holidays and the default settings apply until the next load.
+  const optional = (p: Promise<unknown>) => p.catch((e) => console.warn(e));
+  await Promise.all([refreshLeave(), refreshTimekeeping(), refreshRates(), optional(refreshHolidays()), optional(refreshMySettings(account.id)), optional(refreshPaySettings())]);
+}
+
+/** Signs in against the server. With a temporary password, nothing else loads until it's changed. */
+export async function signInRemote(username: string, password: string): Promise<SignInResult> {
+  try {
+    const r = await api<{ workspace: Role; account: UserAccount } | { mfaRequired: true }>("POST", "/auth/login", { username, password });
+    // Two-factor sign-in: the password was right; the code from the authenticator app comes next (verifyMfaCode).
+    if ("mfaRequired" in r) return { ok: false, error: MFA_NEEDED };
+    await loadForAccount(r.account);
+    return { ok: true, workspace: r.workspace, account: r.account };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't sign in. Try again." };
+  }
+}
+
+/** What signInRemote says when the account needs its two-factor code next. */
+export const MFA_NEEDED = "Enter the 6-digit code from your authenticator app to finish signing in.";
+
+/** The second sign-in step: the 6-digit code from the authenticator app, or a backup code. */
+export async function verifyMfaCode(code: string): Promise<SignInResult> {
+  try {
+    const r = await api<{ workspace: Role; account: UserAccount }>("POST", "/auth/mfa", { code });
+    await loadForAccount(r.account);
+    return { ok: true, workspace: r.workspace, account: r.account };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't check the code. Try again." };
+  }
+}
+
+/** On app start: is the server session still good? Loads its records if so. */
+export async function restoreSession(): Promise<{ workspace: Role; account: UserAccount } | null> {
+  if (!serverMode) return null;
+  try {
+    const r = await api<{ workspace: Role; account: UserAccount }>("GET", "/auth/me");
+    await loadForAccount(r.account);
+    return r;
+  } catch (e) {
+    if (!(e instanceof ApiError) || e.status !== 401) console.error(e);
+    return null;
+  }
+}
+
+/** Sets a new password (required after a temporary one), then loads what the account can see. */
+export async function changePasswordRemote(currentPassword: string, newPassword: string): Promise<UserAccount> {
+  const r = await api<{ workspace: Role; account: UserAccount }>("POST", "/auth/change-password", { currentPassword, newPassword });
+  await loadForAccount(r.account);
+  return r.account;
+}
+
+export function signOutRemote(reason: "manual" | "idle") {
+  clearCoreHr();
+  clearLeave();
+  clearTimekeeping();
+  clearPaySettings();
+  return api("POST", "/auth/logout", { reason }).catch(() => undefined);
+}
+
 export function recordSignOut(accountId: string | undefined, reason: "manual" | "idle") {
+  if (serverMode) return void signOutRemote(reason);
   const a = admin.accounts.find((x) => x.id === accountId);
   if (a) logAdmin({ actor: a.name, module: "Sign-in", action: reason === "idle" ? "Signed out (inactive)" : "Signed out", target: a.username, detail: reason === "idle" ? `No activity for ${admin.settings.idleMinutes} minutes` : "" });
 }

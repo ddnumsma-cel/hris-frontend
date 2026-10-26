@@ -3,9 +3,10 @@
 
 import { logAdmin } from "../admin/store";
 import { fullName, newId, state as core } from "../corehr/store";
+import { api, serverMode } from "../http";
 import { deny } from "../session";
 import { tellEmployees } from "../requestNotices";
-import { allLoans, LOAN_KINDS, saveLoans, type Loan, type LoanKind } from "./loanStore";
+import { allLoans, LOAN_KINDS, refreshLoans, saveLoans, type Loan, type LoanKind } from "./loanStore";
 import { loanPaid } from "./runs";
 
 const DELAY = 200;
@@ -31,12 +32,12 @@ function toRow(l: Loan): LoanRow {
 export function listLoans(): Promise<LoanRow[]> {
   const denied = deny("payrollRuns", "view");
   if (denied) return denied;
-  return respond(
+  return (serverMode ? refreshLoans() : Promise.resolve()).then(() => respond(
     allLoans()
       .map(toRow)
       // Running ones first, then by name.
       .sort((a, b) => Number(b.balance > 0) - Number(a.balance > 0) || a.employeeName.localeCompare(b.employeeName)),
-  );
+  ));
 }
 
 /** What someone still owes on loans that are running, for final pay. */
@@ -73,6 +74,14 @@ export async function saveLoan(input: LoanInput, actor: string): Promise<Loan> {
   const old = list.find((l) => l.id === input.id);
   if (old && old.status !== "active") return fail("This loan is closed");
   if (old && input.principal < loanPaid(old.id)) return fail(`₱${loanPaid(old.id).toLocaleString("en-PH")} is already paid, so the total can't be less than that`);
+  if (serverMode) {
+    const body = { employeeId: input.employeeId, kind: input.kind, reference: input.reference, principal: input.principal, installment: input.installment, startDate: input.startDate, note: input.note };
+    const saved = await api<Loan & { paid?: number }>(old ? "PUT" : "POST", old ? `/payroll/loans/${encodeURIComponent(old.id)}` : "/payroll/loans", body);
+    await refreshLoans();
+    const { paid: _paid, ...loan } = saved;
+    void _paid;
+    return loan;
+  }
   const loan: Loan = {
     ...(old ?? { id: newId("ln"), status: "active" as const, createdBy: actor, createdAt: new Date().toISOString() }),
     employeeId: input.employeeId,
@@ -98,6 +107,11 @@ export async function stopLoan(id: string, reason: string, actor: string): Promi
   if (!l) return fail("That loan no longer exists");
   if (l.status !== "active") return fail("This loan is already closed");
   if (!reason.trim()) return fail("Say why the deductions stop");
+  if (serverMode) {
+    await api("POST", `/payroll/loans/${encodeURIComponent(id)}/stop`, { reason: reason.trim() });
+    await refreshLoans();
+    return;
+  }
   const now = new Date().toISOString();
   saveLoans(list.map((x) => (x.id === id ? { ...x, status: "stopped" as const, closedBy: actor, closedAt: now, note: reason.trim() } : x)));
   const e = core.employees.find((x) => x.id === l.employeeId);
@@ -108,6 +122,8 @@ export async function stopLoan(id: string, reason: string, actor: string): Promi
 
 /** Final pay closes what's left of someone's loans (the balance is deducted there). */
 export function settleLoans(employeeId: string, actor: string) {
+  // With the API server, releasing final pay settles them there.
+  if (serverMode) return;
   const now = new Date().toISOString();
   saveLoans(allLoans().map((l) => (l.employeeId === employeeId && l.status === "active" ? { ...l, status: "settled" as const, closedBy: actor, closedAt: now, note: "Balance deducted from final pay" } : l)));
 }

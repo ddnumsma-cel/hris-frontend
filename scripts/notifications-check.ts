@@ -99,8 +99,11 @@ check("Leave workflow set to HR: Dinah (HR) gets Bea's request", (await bell("ua
 check("…and Rafael (her supervisor) doesn't", !(await bell("ua-approver")).some((x) => x.includes("Errand")));
 as("ua-super");
 await adminApi.saveWorkflow({ kind: "leave", steps: [{ approver: "supervisor" }, { approver: "role", roleId: superRole, overDays: 3 }], remindAfterDays: 2, active: true } as never, "System Administrator");
+// Leave without pay is only for non-regular staff, so Chris files vacation leave on days HR adds.
+as("ua-hr");
+await leaveApi.adjustCredits({ employeeId: "MSMA-00846", leaves: 5, reason: "Credits for the long-leave check" }, "Dinah Marquez");
 as("ua-employee");
-const freeType = leaveStore.leave.types.find((t) => t.earning.kind === "unlimited")?.id ?? typeId;
+const freeType = typeId;
 const long1 = nextWeekday(40);
 let lastDay = long1;
 // 6 workdays, so the leave stays over the 3-day step even when one or two holidays fall inside it.

@@ -112,6 +112,9 @@ export interface TimeRequest {
   /** Who filed it, when it comes from the HR server (which has no team attendance to look them up in). */
   person?: { id: string; name: string; departmentName: string; branch: string };
   minutes: number;
+  /** When the overtime starts and ends (ISO); minutes = end − start. Missing on older requests. */
+  startAt?: string;
+  endAt?: string;
   reason: string;
   status: "pending" | "approved" | "declined";
   filedBy: string;

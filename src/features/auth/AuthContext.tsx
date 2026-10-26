@@ -1,6 +1,10 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { currentAdmin, currentEmployee, currentManager } from "@/lib/mockData";
-import { accountById, IDLE_FLAG, idleMinutes, markSignedIn, recordSignOut, sessionValid } from "@/lib/admin/auth";
+import { accountById, IDLE_FLAG, idleMinutes, markSignedIn, recordSignOut, restoreSession, sessionValid } from "@/lib/admin/auth";
+import { clearCoreHr } from "@/lib/corehr/store";
+import { clearLeave } from "@/lib/leave/store";
+import { clearTimekeeping } from "@/lib/timekeeping/store";
+import { serverMode, SIGNED_OUT_EVENT } from "@/lib/http";
 import { roleOf, type UserAccount } from "@/lib/admin/store";
 import { markSignInTime } from "@/lib/session";
 import { backendOn, whenSignedOut } from "@/lib/backend/client";
@@ -61,6 +65,23 @@ function readStoredUser(): AuthUser | null {
   }
 }
 
+/** With the API server, the server's session decides who is signed in. Runs once before the app renders. */
+export async function prepareSession() {
+  if (!serverMode) return;
+  const r = await restoreSession();
+  try {
+    if (r) {
+      localStorage.setItem(STORAGE_KEY, r.workspace);
+      localStorage.setItem(ACCOUNT_KEY, r.account.id);
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(ACCOUNT_KEY);
+    }
+  } catch {
+    // Storage blocked: the sign-in page shows.
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(readStoredUser);
 
@@ -89,6 +110,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null);
   }
+
+  // The server ended the session (expired, signed out elsewhere, account turned off).
+  useEffect(() => {
+    if (!serverMode) return;
+    const onSignedOut = () => {
+      clearCoreHr();
+      clearLeave();
+      clearTimekeeping();
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(ACCOUNT_KEY);
+      } catch {
+        // Nothing to clear.
+      }
+      setUser(null);
+    };
+    window.addEventListener(SIGNED_OUT_EVENT, onSignedOut);
+    return () => window.removeEventListener(SIGNED_OUT_EVENT, onSignedOut);
+  }, []);
 
   function refreshUser() {
     setUser((current) => (current ? userFor(current.role, accountById(current.accountId)) : null));

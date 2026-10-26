@@ -9,7 +9,8 @@ import { useToast } from "@/components/ui/ToastContext";
 import { AlertTriangleIcon, ChevronLeftIcon, DownloadIcon, LockIcon, PlusIcon, TrashIcon } from "@/components/icons";
 import { downloadTextFile, toCsv } from "@/lib/download";
 import type { PayLine } from "@/lib/reports/api";
-import { addAdjustment, approveRun, createRun, deleteRun, getRun, listRuns, openCutoffs, refreshRun, removeAdjustment, runWarnings, type PayrollRun } from "@/lib/pay/runs";
+import { addAdjustment, approveRun, createRun, deleteRun, getRun, listRuns, openCutoffs, refreshRun, removeAdjustment, reviewRun, runWarnings, type PayrollRun } from "@/lib/pay/runs";
+import { yearEstimate } from "@/lib/pay/engine";
 import { useCan } from "@/lib/useCan";
 import { inputClass, useActor } from "../corehr/format";
 import { Drawer, ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
@@ -17,7 +18,8 @@ import { SimpleTable } from "../timekeeping/common";
 import { useCreateParam } from "@/lib/useCreateParam";
 
 const KEY = ["payroll", "runs"] as const;
-const peso = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// `|| 0` turns −0 into 0, so a zero deduction doesn't print as "₱-0.00".
+const peso = (n: number) => `₱${(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const sum = (lines: PayLine[], f: (l: PayLine) => number) => Math.round(lines.reduce((n, l) => n + f(l), 0) * 100) / 100;
 const when = (iso: string) => new Date(iso).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 const mins = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60 ? `${m % 60}m` : ""}`.trim() : `${m}m`);
@@ -162,14 +164,14 @@ function Breakdown({ run, line, canEdit, onClose }: { run: PayrollRun; line: Pay
     ...(p.premiumMinutes ? [{ label: "Rest day & holiday pay", detail: mins(p.premiumMinutes), amount: p.premiumPay, kind: "plus" as const }] : []),
     ...(p.nightMinutes ? [{ label: "Night differential", detail: `${mins(p.nightMinutes)} × 10%`, amount: p.nightPay, kind: "plus" as const }] : []),
     ...(p.otMeal ? [{ label: "OT meal", detail: `${p.overtimeDays} overtime ${p.overtimeDays === 1 ? "day" : "days"}`, amount: p.otMeal, kind: "plus" as const }] : []),
-    ...(p.taxableAdjustments ? [{ label: "Taxable adjustments", amount: p.taxableAdjustments, kind: "plus" as const }] : []),
+    ...(p.taxableAdjustments ? [{ label: "Taxable adjustments", amount: p.taxableAdjustments, kind: p.taxableAdjustments < 0 ? ("minus" as const) : ("plus" as const) }] : []),
     { label: "Gross pay", amount: p.gross, kind: "total" },
     { label: "SSS", amount: p.sssEe ? -p.sssEe : 0, kind: "minus" },
     { label: "PhilHealth", amount: p.phEe ? -p.phEe : 0, kind: "minus" },
     { label: "Pag-IBIG", amount: p.piEe ? -p.piEe : 0, kind: "minus" },
     { label: "Withholding tax", detail: register ? `${register} · on ${peso(p.taxable)} taxable` : `On ${peso(p.taxable)} taxable${p.deMinimis || p.otherNonTaxable ? ` (less ${peso((p.deMinimis ?? 0) + (p.otherNonTaxable ?? 0))} tax-free pay)` : ""}`, amount: p.tax ? -p.tax : 0, kind: "minus" },
     ...(p.transportAllowance ? [{ label: "Transport allowance", detail: register ?? `${p.workdaysAttended} of ${p.workdaysScheduled} workdays attended`, amount: p.transportAllowance, kind: "plus" as const }] : []),
-    ...(p.nonTaxableAdjustments ? [{ label: "Non-taxable adjustments", amount: p.nonTaxableAdjustments, kind: "plus" as const }] : []),
+    ...(p.nonTaxableAdjustments ? [{ label: "Non-taxable adjustments", amount: p.nonTaxableAdjustments, kind: p.nonTaxableAdjustments < 0 ? ("minus" as const) : ("plus" as const) }] : []),
     { label: "Take-home pay", amount: p.net, kind: "total" },
   ];
 
@@ -198,6 +200,30 @@ function Breakdown({ run, line, canEdit, onClose }: { run: PayrollRun; line: Pay
             ))}
           </tbody>
         </table>
+
+        <section className="flex flex-col gap-1">
+          <h3 className="text-sm font-semibold">Year estimate</h3>
+          {(() => {
+            const y = yearEstimate(line.person.salary, p);
+            return [
+              ["Withholding tax a month", y.monthlyTax],
+              ["Withholding tax a year", y.annualTax],
+              ["13th month (expected)", y.thirteenth],
+              ["Bonus (expected)", y.bonus],
+              ["Total expected", y.expected],
+              ["Left of the ₱90,000 tax-free limit", y.otherNonTaxable],
+              ["…per cut-off", y.perCutoff],
+              ["Basic a month (taxable)", y.monthlyBasic],
+              ["De minimis a month", y.monthlyDeMinimis],
+              ["Other non-taxable a month", y.monthlyOtherNonTaxable],
+            ].map(([k, v]) => (
+              <div key={k as string} className="flex justify-between text-sm">
+                <span className="text-ink-2">{k}</span>
+                <span className="font-num">{peso(v as number)}</span>
+              </div>
+            ));
+          })()}
+        </section>
 
         {auto.length > 0 && (
           <section className="flex flex-col gap-2">
@@ -322,6 +348,13 @@ export function PayrollRunPage() {
   const canFinal = useCan("final", "payrollRuns");
   const canDelete = useCan("delete", "payrollRuns");
   const run = useQuery({ queryKey: [...KEY, id], queryFn: () => getRun(id), staleTime: 0 });
+  // The approved run just before this one, for the workbook's "Increase (Decrease)" against the last payroll.
+  const all = useQuery({ queryKey: KEY, queryFn: listRuns, staleTime: 0 });
+  const [compareId, setCompareId] = useState("");
+  const review = useMutation({
+    mutationFn: () => reviewRun(id, actor),
+    onSuccess: () => (queryClient.invalidateQueries({ queryKey: KEY }), toast.show("Marked as reviewed.")),
+  });
   const [openId, setOpenId] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
   const refresh = useMutation({
@@ -337,6 +370,9 @@ export function PayrollRunPage() {
   const r = run.data;
   if (!r) return <Skeleton className="h-96 w-full" />;
   const lines = [...r.lines].sort((a, b) => a.person.name.localeCompare(b.person.name));
+  const earlier = (all.data ?? []).filter((x) => x.status === "approved" && x.to < r.from).sort((a, b) => b.to.localeCompare(a.to));
+  const prev = earlier.find((x) => x.id === compareId) ?? earlier[0];
+  const last = new Map((prev?.lines ?? []).map((l) => [l.person.id, l.net]));
   const open = lines.find((l) => l.person.id === openId);
   const draft = r.status === "draft";
   const warnings = draft ? runWarnings(r) : [];
@@ -367,6 +403,14 @@ export function PayrollRunPage() {
           "Pag-IBIG": l.piEe,
           Tax: l.tax,
           "Take-home": l.net,
+          [`Payroll ${prev?.label ?? "before"}`]: last.get(l.person.id) ?? "",
+          "Increase (decrease)": last.has(l.person.id) ? Math.round((l.net - last.get(l.person.id)!) * 100) / 100 : "",
+          "Charged to client": l.pay.clientCharge ?? 0,
+          Client: l.pay.client ?? "",
+          ...(() => {
+            const y = yearEstimate(l.person.salary, l.pay);
+            return { "Tax a month": y.monthlyTax, "Tax a year": y.annualTax, "13th month (expected)": y.thirteenth, "Bonus (expected)": y.bonus, "Total expected": y.expected, "Left of ₱90,000": y.otherNonTaxable, "Per cut-off": y.perCutoff };
+          })(),
         })),
       ),
       "text/csv",
@@ -417,6 +461,27 @@ export function PayrollRunPage() {
       <div className="flex flex-wrap items-center gap-2">
         <StatusPill run={r} />
         {!canEdit && <span className="text-xs text-ink-2">View only.</span>}
+        <span className="text-xs text-ink-2">
+          Prepared by {r.createdBy} · {r.reviewedBy ? `Reviewed by ${r.reviewedBy}` : "Not reviewed yet"} · {r.approvedBy ? `Approved by ${r.approvedBy}` : "Not approved yet"}
+        </span>
+        {draft && !r.reviewedBy && (canEdit || canFinal) && (
+          <Button size="sm" variant="ghost" disabled={review.isPending} onClick={() => review.mutate()}>
+            Mark reviewed
+          </Button>
+        )}
+        {earlier.length > 1 && (
+          <label className="ml-auto flex items-center gap-2 text-xs text-ink-2">
+            Compare with
+            <select className="chip-filter" value={prev?.id ?? ""} onChange={(e) => setCompareId(e.target.value)}>
+              {earlier.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <ErrorNote error={review.error} />
       </div>
       {warnings.length > 0 && (
         <ul className="flex flex-col gap-1.5 rounded-2xl bg-warning-tint px-4 py-3 text-sm">
@@ -458,6 +523,16 @@ export function PayrollRunPage() {
           { header: "Gross", align: "right", cell: (l) => <span className="font-num">{peso(l.gross)}</span> },
           { header: "Deductions", align: "right", cell: (l) => <span className="font-num text-ink-2">{peso(l.pay.contributions + l.tax)}</span> },
           { header: "Take-home", align: "right", cell: (l) => <span className="font-num font-semibold">{peso(l.net)}</span> },
+          {
+            header: prev ? `vs ${prev.label}` : "vs last payroll",
+            align: "right",
+            cell: (l) => {
+              const before = last.get(l.person.id);
+              if (before === undefined) return <span className="text-ink-3">—</span>;
+              const d = Math.round((l.net - before) * 100) / 100;
+              return <span className={d < 0 ? "font-num text-critical" : "font-num text-ink-2"} title={`Last payroll: ${peso(before)}`}>{d === 0 ? "No change" : `${d > 0 ? "+" : "−"}${peso(Math.abs(d))}`}</span>;
+            },
+          },
           { header: "", align: "right", cell: (l) => <Button size="sm" variant="ghost" onClick={() => setOpenId(l.person.id)}>Details</Button> },
         ]}
       />

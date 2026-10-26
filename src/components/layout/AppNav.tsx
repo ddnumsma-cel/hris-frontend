@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { useAuth } from "@/features/auth/AuthContext";
 import { FullNav } from "./FullNav";
+import { publishNav } from "./navIndex";
 import { useNavPrefs } from "./navPrefs";
 import { RailNav } from "./RailNav";
 import { useSidebarCollapsed } from "./sidebarState";
@@ -11,6 +13,9 @@ export function AppNav({ groups, create }: { groups: SideNavGroup[]; create?: Cr
   const { user } = useAuth();
   const [prefs, setPrefs] = useNavPrefs(user?.accountId ?? user?.role ?? "guest");
   const [collapsed, setCollapsed] = useSidebarCollapsed();
+  // The top bar's page search offers exactly the pages this sidebar shows.
+  useEffect(() => publishNav(groups), [groups]);
+  useEffect(() => () => publishNav([]), []);
   return collapsed ? (
     <RailNav groups={groups} create={create} prefs={prefs} setPrefs={setPrefs} onExpand={() => setCollapsed(false)} />
   ) : (

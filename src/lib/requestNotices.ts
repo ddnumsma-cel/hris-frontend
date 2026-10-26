@@ -3,57 +3,18 @@
 // access matrix assigns), a decision tells the employee, and HR changes to someone's records tell that person. Each topic links every role to
 // the page where they deal with it. The account that acted is never told about its own action
 // (see `notify`). Called by the mock API only.
-// TODO(backend): send these from the server when the record changes, with push/email per settings.
+// With the API server these are sent by the server instead (server/src/notify.ts, same LINKS and
+// wording), inside the change that causes them; the mock API calls here only run without it.
 
 import { notify, type NotificationKind } from "./notifications";
 import { nameOf } from "./outbox";
-import { approversFor, rolesThatCan } from "./admin/approvers";
+import { approversFor } from "./admin/approvers";
+import { EVERYONE, LINKS, rolesThatCan, type Topic } from "./noticeLinks";
 import type { RequestKind } from "./admin/store";
 import type { Action, Feature, RoleKey } from "./permissions";
 import { fmtDay, fmtDayShort } from "./preferences";
 
-export type Topic =
-  | "leave"
-  | "overtime"
-  | "undertime"
-  | "adjustment"
-  | "claim"
-  | "payslip"
-  | "attendance"
-  | "documents"
-  | "loan"
-  | "policy"
-  | "schedule"
-  | "separation"
-  | "account"
-  | "orgchart"
-  | "subscription"
-  | "certificate"
-  | "support"
-  | "newhire";
-
-const ADMIN = (path: string): Partial<Record<RoleKey, string>> => ({ super_admin: path, hr: path, accounting: path, system_admin: path });
-
-const LINKS: Record<Topic, Partial<Record<RoleKey, string>>> = {
-  leave: { ...ADMIN("/admin/maintenance/leave/requests"), approver: "/manager/approvals?tab=leave", employee: "/employee/leave" },
-  overtime: { ...ADMIN("/admin/reports/overtime"), approver: "/manager/approvals?tab=overtime", employee: "/employee/attendance" },
-  undertime: { ...ADMIN("/admin/reports/undertime"), approver: "/manager/approvals?tab=undertime", employee: "/employee/attendance" },
-  adjustment: { ...ADMIN("/admin/reports/time-adjustments"), approver: "/manager/approvals?tab=adjustments", employee: "/employee/attendance" },
-  claim: { ...ADMIN("/admin/requests/reimbursement"), approver: "/manager/approvals?tab=claims", employee: "/employee/reimbursements" },
-  payslip: { ...ADMIN("/admin/payroll/runs"), employee: "/employee/payslips" },
-  attendance: { ...ADMIN("/admin/reports/attendance-logs"), approver: "/manager/attendance", employee: "/employee/attendance" },
-  documents: { ...ADMIN("/admin/maintenance/documents"), employee: "/employee/201-file" },
-  loan: { ...ADMIN("/admin/payroll/loans"), employee: "/employee/payslips" },
-  policy: { ...ADMIN("/admin/maintenance/rules"), employee: "/employee/policies" },
-  schedule: { ...ADMIN("/admin/timekeeping/schedules"), approver: "/manager/attendance", employee: "/employee/attendance" },
-  separation: { ...ADMIN("/admin/maintenance/people"), accounting: "/admin/payroll/final-pay" },
-  account: ADMIN("/admin/administration/users"),
-  newhire: ADMIN("/admin/maintenance/people"),
-  orgchart: { ...ADMIN("/admin/maintenance/org-chart"), approver: "/manager/workforce" },
-  certificate: { ...ADMIN("/admin/requests/certificates"), employee: "/employee/certificates" },
-  support: { ...ADMIN("/admin/administration/support"), employee: "/employee/support" },
-  subscription: { super_admin: "/admin/settings/subscription", hr: "/admin/settings/subscription", system_admin: "/admin/administration/subscription" },
-};
+export type { Topic } from "./noticeLinks";
 
 /** "Oct 14" or "Oct 14 – Oct 16" for a notification. */
 export const dates = (start: string, end?: string) => (end && end !== start ? `${fmtDayShort(start)} – ${fmtDayShort(end)}` : fmtDay(start));
@@ -88,5 +49,4 @@ export function tellRoles(roles: RoleKey[], topic: Topic, kind: NotificationKind
   notify({ kind, title, body, roles, links: LINKS[topic] });
 }
 
-/** Everyone in the company. */
-export const EVERYONE: RoleKey[] = ["super_admin", "hr", "approver", "accounting", "employee"];
+export { EVERYONE };

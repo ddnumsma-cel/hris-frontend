@@ -1,7 +1,10 @@
 // Personal settings (preferences) for each signed-in account, kept in this browser like the
-// other stores. A backend would serve these per user; see BACKEND_HANDOFF.md.
+// other stores. With the API server they're kept with the account in the database
+// (/api/me/preferences) and this is a cache loaded after sign-in; the theme stays on each device.
 
 import { admin } from "../admin/store";
+import { api, serverMode } from "../http";
+import { getThemePreference } from "../theme";
 
 export type ThemePreference = "light" | "dark" | "system";
 export type Density = "comfortable" | "compact";
@@ -73,6 +76,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
 const KEY = "heyhr-settings-v1";
 
 function load(): Record<string, UserSettings> {
+  if (serverMode) return {};
   try {
     const raw = localStorage.getItem(KEY);
     return raw ? (JSON.parse(raw) as Record<string, UserSettings>) : {};
@@ -95,7 +99,7 @@ export function settingsFor(key: string): UserSettings {
       matrix: { ...DEFAULT_SETTINGS.notifications.matrix, ...saved?.notifications?.matrix },
       quietHours: { ...DEFAULT_SETTINGS.notifications.quietHours, ...saved?.notifications?.quietHours },
     },
-    appearance: { ...DEFAULT_SETTINGS.appearance, ...saved?.appearance },
+    appearance: { ...DEFAULT_SETTINGS.appearance, ...saved?.appearance, ...(serverMode ? { theme: deviceTheme() } : {}) },
     security: { ...DEFAULT_SETTINGS.security, ...saved?.security },
     updatedAt: saved?.updatedAt,
   };
@@ -103,11 +107,38 @@ export function settingsFor(key: string): UserSettings {
 
 export function saveSettingsFor(key: string, next: UserSettings) {
   all = { ...all, [key]: { ...next, updatedAt: new Date().toISOString() } };
+  if (serverMode) return;
   try {
     localStorage.setItem(KEY, JSON.stringify(all));
   } catch {
     // Not remembered after reload; still applies now.
   }
+}
+
+/** With the API server the theme isn't stored with the account: it's this device's (moon toggle). */
+function deviceTheme(): ThemePreference {
+  try {
+    return getThemePreference();
+  } catch {
+    return DEFAULT_SETTINGS.appearance.theme;
+  }
+}
+
+/** With the API server: the signed-in account's settings, from the database, into this cache. */
+export async function refreshMySettings(accountId: string | undefined): Promise<UserSettings | undefined> {
+  if (!serverMode || !accountId) return undefined;
+  const saved = await api<Partial<UserSettings>>("GET", "/me/preferences");
+  all = { ...all, [accountId]: saved as UserSettings };
+  return settingsFor(accountId);
+}
+
+/** With the API server: saves one section for the signed-in account; returns everything as saved. */
+export async function saveMySettingsRemote<K extends keyof Omit<UserSettings, "updatedAt">>(accountId: string, section: K, value: UserSettings[K]): Promise<UserSettings> {
+  const saved = await api<Partial<UserSettings>>("PUT", `/me/preferences/${section}`, value);
+  all = { ...all, [accountId]: saved as UserSettings };
+  const next = settingsFor(accountId);
+  // The theme chosen in this section applies to this device (the caller applies it).
+  return section === "appearance" ? { ...next, appearance: { ...next.appearance, theme: (value as AppearancePrefs).theme } } : next;
 }
 
 /** The key settings are stored under: the account, or the workspace for older sessions. */

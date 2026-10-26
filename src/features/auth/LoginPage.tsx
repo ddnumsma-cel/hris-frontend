@@ -10,11 +10,23 @@ import type { Registered } from "./RegisterDialog";
 import { getCredentials } from "@/lib/credentials";
 import { backendOn } from "@/lib/backend/client";
 import { BACKEND_DEMO_ACCOUNTS, backendSignIn } from "@/lib/backend/auth";
+import { serverMode } from "@/lib/http";
 import { landingPath } from "@/features/settings/landing";
 import { settingsFor } from "@/lib/settings/store";
 import { useAuth } from "./AuthContext";
 import { LoginHero } from "./LoginHero";
 import { Constellation } from "./Constellation";
+
+/** [name, username, password] of the workbook sample employees; development only (see below). */
+const SAMPLE_LOGINS = import.meta.env.DEV
+  ? [
+      ["Liza Estrada", "liza.estrada", "Sample-Estrada-2026!"],
+      ["Katrina Enriquez", "katrina.enriquez", "Sample-Enriquez-2026!"],
+      ["Victor Mangubat", "victor.mangubat", "Sample-Mangubat-2026!"],
+      ["Albert John Panganiban", "albertjohn.panganiban", "Sample-Panganiban-2026!"],
+      ["Irene Lopez", "irene.lopez", "Sample-Lopez-2026!"],
+    ]
+  : [];
 
 const RegisterDialog = lazy(() => import("./RegisterDialog").then((m) => ({ default: m.RegisterDialog })));
 
@@ -34,10 +46,9 @@ export function LoginPage() {
   // Already signed in (e.g. a remembered session) — skip the form entirely.
   if (user) return <Navigate to={`/${user.role}`} replace />;
 
-  function attemptLogin(u: string, p: string) {
-    // Connected to the HR server: it checks the email and password; otherwise the in-browser accounts do.
-    if (backendOn()) void backendSignIn(u, p).then(finish);
-    else finish(signIn(u, p));
+  async function attemptLogin(u: string, p: string) {
+    // The MSMA backend checks the email and password when connected; otherwise the HeyHR server or the in-browser accounts do.
+    finish(backendOn() ? await backendSignIn(u, p) : await signIn(u, p));
   }
 
   function finish(result: SignInResult) {
@@ -169,7 +180,7 @@ export function LoginPage() {
             )}
 
             {/* Demo logins stay out of sight unless someone opens them. */}
-            <details className="mt-5 rounded-[var(--radius-dropdown)] bg-[var(--login-hover)] px-3.5 py-3 text-xs">
+            {!serverMode && (<details className="mt-5 rounded-[var(--radius-dropdown)] bg-[var(--login-hover)] px-3.5 py-3 text-xs">
               <summary className="cursor-pointer font-semibold text-[var(--login-ink-2)] select-none">Demo accounts — tap to fill</summary>
               <div className="mt-1.5 flex flex-col gap-1">
                 {(backendOn() ? BACKEND_DEMO_ACCOUNTS : getCredentials().filter((c) => c.listed !== false)).map((c) => (
@@ -181,7 +192,20 @@ export function LoginPage() {
                   </button>
                 ))}
               </div>
-            </details>
+            </details>)}
+            {/* The payroll workbook's sample employees (database/tools/sample_logins_and_attendance.ts).
+                Only in local development (npm run dev); a production build never shows passwords here. */}
+            {serverMode && import.meta.env.DEV && (<details className="mt-5 rounded-[var(--radius-dropdown)] bg-[var(--login-hover)] px-3.5 py-3 text-xs">
+              <summary className="cursor-pointer font-semibold text-[var(--login-ink-2)] select-none">Sample employees — tap to fill</summary>
+              <div className="mt-1.5 flex flex-col gap-1">
+                {SAMPLE_LOGINS.map(([name, u, p]) => (
+                  <button key={u} type="button" onClick={() => quickFill(u, p)} className="flex items-center justify-between gap-3 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-[var(--login-hover)]">
+                    <span className="text-[var(--login-ink-2)]">{name}</span>
+                    <span className="font-num text-[var(--login-ink-3)]">{u}</span>
+                  </button>
+                ))}
+              </div>
+            </details>)}
           </div>
         </div>
       </div>

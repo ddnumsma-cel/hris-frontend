@@ -1,3 +1,7 @@
+import { api, serverMode } from "./http";
+import { refreshCoreHr, state as coreState } from "./corehr/store";
+import type { PayrollRun } from "./pay/runs";
+import { updateDocument as updateCoreDocument } from "./corehr/api";
 import {
   announcements,
   attendanceRequests,
@@ -81,6 +85,10 @@ import type {
   PersonnelDocumentChecklistItem,
   PersonnelDocumentStatus,
   PersonnelProfile,
+  ProfessionalLicense,
+  AdminOverviewStats,
+  OfficeHeadcount,
+  PayrollCostSegment,
   TrainingRecord,
   TrainingStatus,
 } from "./types";
@@ -95,7 +103,9 @@ import { fileCertificate } from "./certificates";
 import { assertSeatsAvailable } from "./subscription/api";
 import { defaultComplianceCalendar, headcountByOffice, homeStats, newHirePipeline } from "./homeFigures";
 import { teamRosterFromCore } from "./teamFigures";
-import type { AdminOverviewStats } from "./types";
+import { formatPhMobile } from "./govIds";
+import { applicants, setApplicants, setJobRequisitions } from "./mockData";
+import { type Applicant, type ApplicantEducation, type ApplicantProfession, type ApplicantRole, type ApplicantStage, type EmploymentType, type JobRequisition } from "./types";
 
 /**
  * Every function here stands in for a real HTTP call. Swap the body for a
@@ -125,9 +135,10 @@ export function fetchPayslips() {
   return delay(payslips);
 }
 
-export function fetchAnnouncements() {
+export async function fetchAnnouncements() {
   const denied = deny("announcements", "view");
   if (denied) return denied;
+  if (serverMode) return api<Announcement[]>("GET", "/announcements");
   return delay(announcements);
 }
 
@@ -139,13 +150,15 @@ export function fetchEmployeeThirteenthMonth() {
   return delay(employeeThirteenthMonth);
 }
 
-export function fetchEmployeeBenefits() {
+export async function fetchEmployeeBenefits() {
+  if (serverMode) return api<EmployeeBenefit[]>("GET", "/me/benefits");
   return delay(employeeBenefits);
 }
 
 export async function confirmBenefitEnrollment(id: string) {
   const denied = deny("selfService", "create");
   if (denied) return denied;
+  if (serverMode) return api<EmployeeBenefit>("POST", `/me/benefits/${encodeURIComponent(id)}/confirm`);
   const next = employeeBenefits.map((b) => (b.id === id ? { ...b, status: "Active" as const } : b));
   setEmployeeBenefits(next);
   return delay(next.find((b) => b.id === id)!);
@@ -160,6 +173,7 @@ export interface AddBenefitInput {
 export async function addEmployeeBenefit(input: AddBenefitInput): Promise<EmployeeBenefit> {
   const denied = deny("selfService", "create");
   if (denied) return denied;
+  if (serverMode) return api<EmployeeBenefit>("POST", "/me/benefits", input);
   const benefit: EmployeeBenefit = { id: `b-${Date.now()}`, status: "Pending", ...input };
   setEmployeeBenefits([benefit, ...employeeBenefits]);
   return delay(benefit);
@@ -168,6 +182,7 @@ export async function addEmployeeBenefit(input: AddBenefitInput): Promise<Employ
 export async function removeEmployeeBenefit(id: string): Promise<void> {
   const denied = deny("selfService", "create");
   if (denied) return denied;
+  if (serverMode) return void (await api("DELETE", `/me/benefits/${encodeURIComponent(id)}`));
   setEmployeeBenefits(employeeBenefits.filter((b) => b.id !== id));
   return delay(undefined);
 }
@@ -183,12 +198,22 @@ export interface UpdateProfileInput {
 }
 
 export async function updateEmployeeProfile(input: UpdateProfileInput): Promise<Employee> {
+  // With the API server the contact details were already saved (updateMyContact); just reload.
+  if (serverMode) {
+    await refreshCoreHr();
+    return structuredClone(currentEmployee);
+  }
   const next = { ...currentEmployee, ...input };
   setCurrentEmployee(next);
   return delay(next);
 }
 
 export async function enrollFaceId(): Promise<Employee> {
+  if (serverMode) {
+    await api("POST", "/me/face-enrolled");
+    await refreshCoreHr();
+    return structuredClone(currentEmployee);
+  }
   markFaceEnrolled(myEmployeeId());
   return delay({ ...currentEmployee, faceEnrolled: true });
 }
@@ -197,19 +222,23 @@ export function fetchMyAssets() {
   return delay(companyAssets.filter((a) => a.assignedToName === currentEmployee.name));
 }
 
-export function fetchMyTrainingRecords() {
+export async function fetchMyTrainingRecords() {
+  if (serverMode) return api<TrainingRecord[]>("GET", "/me/trainings");
   return delay(trainingRecords.filter((t) => t.employeeName === currentEmployee.name));
 }
 
-export function fetchMyProfessionalLicense() {
+export async function fetchMyProfessionalLicense() {
+  if (serverMode) return api<ProfessionalLicense | null>("GET", "/me/license");
   return delay(professionalLicenses.find((l) => l.employeeId === currentEmployee.id) ?? null);
 }
 
-export function fetchProfessionalLicenses() {
+export async function fetchProfessionalLicenses() {
+  if (serverMode) return api<ProfessionalLicense[]>("GET", "/licenses");
   return delay(professionalLicenses);
 }
 
 export async function updateCpdUnits(id: string, cpdUnitsEarned: number) {
+  if (serverMode) return api<ProfessionalLicense>("PUT", `/licenses/${encodeURIComponent(id)}/cpd`, { cpdUnitsEarned });
   const next = professionalLicenses.map((l) => (l.id === id ? { ...l, cpdUnitsEarned } : l));
   setProfessionalLicenses(next);
   return delay(next.find((l) => l.id === id)!);
@@ -217,19 +246,22 @@ export async function updateCpdUnits(id: string, cpdUnitsEarned: number) {
 
 // --- 201 File: HR/manager-side (full detail) ---
 
-export function fetchPersonnelProfile(employeeId: string) {
+export async function fetchPersonnelProfile(employeeId: string) {
   const denied = deny("people", "view", employeeId);
   if (denied) return denied;
+  if (serverMode) return api<PersonnelProfile | null>("GET", `/corehr/employees/${encodeURIComponent(employeeId)}/profile`);
   return delay(personnelProfiles.find((p) => p.employeeId === employeeId) ?? null);
 }
 
-export function fetchAllPersonnelProfiles() {
+export async function fetchAllPersonnelProfiles() {
   const denied = deny("people", "view");
   if (denied) return denied;
+  if (serverMode) return api<PersonnelProfile[]>("GET", "/corehr/profiles").catch(() => [] as PersonnelProfile[]);
   return delay(personnelProfiles);
 }
 
-export function fetchMyPhoto() {
+export async function fetchMyPhoto() {
+  if (serverMode) return currentEmployee.id ? ((await fetchPersonnelProfile(currentEmployee.id))?.photoDataUrl ?? null) : null;
   return delay(personnelProfiles.find((p) => p.employeeId === currentEmployee.id)?.photoDataUrl ?? null);
 }
 
@@ -244,6 +276,11 @@ export async function updatePersonnelProfile(
 ) {
   const denied = deny("people", "edit", employeeId);
   if (denied) return denied;
+  if (serverMode) {
+    const next = await api<PersonnelProfile>("PUT", `/corehr/employees/${encodeURIComponent(employeeId)}/profile`, input);
+    await refreshCoreHr();
+    return next;
+  }
   const existing = personnelProfiles.find((p) => p.employeeId === employeeId);
   const next: PersonnelProfile = { employeeId, dependents: [], ...existing, ...input };
   setPersonnelProfiles([...personnelProfiles.filter((p) => p.employeeId !== employeeId), next]);
@@ -251,15 +288,17 @@ export async function updatePersonnelProfile(
   return delay(next);
 }
 
-export function fetchPersonnelDocuments(employeeId: string) {
+export async function fetchPersonnelDocuments(employeeId: string) {
   const denied = deny("documents", "view", employeeId);
   if (denied) return denied;
+  if (serverMode) await refreshCoreHr(2000);
   return delay(personnelDocuments.filter((d) => d.employeeId === employeeId));
 }
 
-export function fetchAllPersonnelDocuments() {
+export async function fetchAllPersonnelDocuments() {
   const denied = deny("documents", "view");
   if (denied) return denied;
+  if (serverMode) await refreshCoreHr(2000);
   return delay(personnelDocuments);
 }
 
@@ -282,6 +321,14 @@ export interface UpdatePersonnelDocumentInput {
 export async function updatePersonnelDocument(id: string, input: UpdatePersonnelDocumentInput, actor?: AuditActor) {
   const denied = deny("documents", "edit");
   if (denied) return denied;
+  if (serverMode) {
+    const hasDetails = ["idType", "idNumber", "idExpiry", "licenseNumber", "licenseExpiry"].some((k) => k in input);
+    if (hasDetails) await updateCoreDocument(id, { kind: "details", idType: input.idType, referenceNo: input.idNumber ?? input.licenseNumber, expiresOn: input.idExpiry ?? input.licenseExpiry }, actor?.name ?? "");
+    if (input.status === "Verified") await updateCoreDocument(id, { kind: "verify" }, actor?.name ?? "");
+    else if (input.status === "Not applicable") await updateCoreDocument(id, { kind: "not-applicable" }, actor?.name ?? "");
+    else if (input.status === "Missing") await updateCoreDocument(id, { kind: "required" }, actor?.name ?? "");
+    return structuredClone(personnelDocuments.find((d) => d.id === id)!);
+  }
   const next = personnelDocuments.map((d) => (d.id === id ? { ...d, ...input } : d));
   const updated = next.find((d) => d.id === id)!;
   setPersonnelDocuments(next);
@@ -304,6 +351,10 @@ export async function updatePersonnelDocument(id: string, input: UpdatePersonnel
 export async function removePersonnelDocument(id: string, actor?: AuditActor) {
   const denied = deny("documents", "delete");
   if (denied) return denied;
+  if (serverMode) {
+    await updateCoreDocument(id, { kind: "reset" }, actor?.name ?? "");
+    return structuredClone(personnelDocuments.find((d) => d.id === id)!);
+  }
   const target = personnelDocuments.find((d) => d.id === id);
   const next = personnelDocuments.map((d) =>
     d.id === id
@@ -349,12 +400,25 @@ export function logPersonnelAccess(
 }
 
 export function logPersonnelView(employeeId: string, actor: AuditActor, target = "201 File") {
+  if (serverMode) {
+    void api("POST", `/corehr/employees/${encodeURIComponent(employeeId)}/viewed`, { target }).catch(() => undefined);
+    return;
+  }
   logPersonnelAccess(employeeId, actor, "Viewed", target);
 }
 
-export function fetchAuditLog(employeeId: string) {
+export async function fetchAuditLog(employeeId: string) {
   const denied = deny("people", "view", employeeId);
   if (denied) return denied;
+  if (serverMode) {
+    // Always fresh: the trail should include what just happened (e.g. this view).
+    await refreshCoreHr();
+    const asAction = (a: string): AuditLogEntry["action"] => (a === "Viewed" || a === "Verified" || a === "Removed" ? a : "Edited");
+    return coreState.audit
+      .filter((a) => a.employeeId === employeeId)
+      .map((a): AuditLogEntry => ({ id: a.id, employeeId, actorName: a.actor, actorRole: "admin", action: asAction(a.action), target: a.section, detail: a.summary || undefined, timestamp: a.at }))
+      .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  }
   return delay(
     auditLogEntries
       .filter((e) => e.employeeId === employeeId)
@@ -369,13 +433,18 @@ function toChecklistItem(doc: PersonnelDocument): PersonnelDocumentChecklistItem
   return { id: doc.id, type: doc.type, status: doc.status, uploadedOn: doc.uploadedOn, ...(expiry ? { expiry: { status: expiry.status, note: expiry.note } } : {}) };
 }
 
-export function fetchMyPersonnelChecklist() {
+export async function fetchMyPersonnelChecklist() {
+  if (serverMode) await refreshCoreHr(2000);
   return delay(
     personnelDocuments.filter((d) => d.employeeId === currentEmployee.id).map(toChecklistItem),
   );
 }
 
 export async function uploadMyPersonnelDocument(id: string, fileName: string) {
+  if (serverMode) {
+    await updateCoreDocument(id, { kind: "upload", fileName }, currentEmployee.name);
+    return toChecklistItem(personnelDocuments.find((d) => d.id === id)!);
+  }
   const next = personnelDocuments.map((d) =>
     d.id === id && d.employeeId === currentEmployee.id
       ? { ...d, status: "Submitted" as const, fileName, uploadedOn: new Date().toISOString().slice(0, 10) }
@@ -390,6 +459,10 @@ export async function uploadMyPersonnelDocument(id: string, fileName: string) {
 /** Employee undoing their own submission — only allowed before HR verifies
  * it (once Verified, only HR/manager can reset it, via removePersonnelDocument). */
 export async function removeMyPersonnelDocument(id: string) {
+  if (serverMode) {
+    await updateCoreDocument(id, { kind: "withdraw" }, currentEmployee.name);
+    return toChecklistItem(personnelDocuments.find((d) => d.id === id)!);
+  }
   const next = personnelDocuments.map((d) =>
     d.id === id && d.employeeId === currentEmployee.id && d.status === "Submitted"
       ? { id: d.id, employeeId: d.employeeId, type: d.type, status: "Missing" as const }
@@ -399,7 +472,8 @@ export async function removeMyPersonnelDocument(id: string) {
   return delay(toChecklistItem(next.find((d) => d.id === id)!));
 }
 
-export function fetchCertificateRequests() {
+export async function fetchCertificateRequests() {
+  if (serverMode) return api<CertificateRequest[]>("GET", "/me/certificates");
   return delay(certificateRequests);
 }
 
@@ -413,6 +487,7 @@ export interface CreateCertificateRequestInput {
 export async function createCertificateRequest(
   input: CreateCertificateRequestInput,
 ): Promise<CertificateRequest> {
+  if (serverMode) return api<CertificateRequest>("POST", "/me/certificates", input);
   const who = input.employee ?? currentEmployee;
   const request: CertificateRequest = {
     id: `cr-${Date.now()}`,
@@ -543,6 +618,7 @@ export function fetchTeamTrainingRecords() {
 
 /** An employee moving their own training forward (started, completed); never back, never someone else's. */
 export async function updateMyTrainingStatus(id: string, status: Exclude<TrainingStatus, "Not started">) {
+  if (serverMode) return api<TrainingRecord>("PUT", `/me/trainings/${encodeURIComponent(id)}/status`, { status });
   const t = trainingRecords.find((x) => x.id === id && x.employeeName === currentEmployee.name);
   if (!t) return Promise.reject(new Error("That training isn't assigned to you"));
   if (t.status === "Completed") return delay(t);
@@ -554,6 +630,7 @@ export async function updateMyTrainingStatus(id: string, status: Exclude<Trainin
 export async function updateTrainingStatus(id: string, status: TrainingStatus) {
   const denied = deny("trainings", "edit");
   if (denied) return denied;
+  if (serverMode) return api<TrainingRecord>("PUT", `/trainings/${encodeURIComponent(id)}/status`, { status });
   const next = trainingRecords.map((t) => (t.id === id ? { ...t, status } : t));
   setTrainingRecords(next);
   return delay(next.find((t) => t.id === id)!);
@@ -620,9 +697,17 @@ export async function deleteEmployeeCase(id: string): Promise<void> {
 
 // ---- HR Admin ----
 
-export function fetchAdminOverviewStats(): Promise<AdminOverviewStats> {
+/** The latest approved payroll run, for accounts that can see payroll; otherwise none. */
+async function latestApprovedRun() {
+  const runs = await api<PayrollRun[]>("GET", "/payroll/runs").catch(() => [] as PayrollRun[]);
+  return runs.filter((r) => r.status === "approved").sort((a, b) => b.to.localeCompare(a.to))[0];
+}
+
+export async function fetchAdminOverviewStats(): Promise<AdminOverviewStats> {
   const denied = deny("dashboard", "view");
   if (denied) return denied;
+  // API server: load the real records first, then work the figures out the same way.
+  if (serverMode) await refreshCoreHr(2000);
   // Worked out from the real records (lib/homeFigures.ts).
   const s = homeStats();
   const label = new Date().toLocaleDateString("en-PH", { month: "long", year: "numeric" });
@@ -635,15 +720,29 @@ export function fetchPayrollRunSteps() {
   return delay(payrollRunSteps);
 }
 
-export function fetchHeadcountByOffice() {
+export async function fetchHeadcountByOffice(): Promise<OfficeHeadcount[]> {
   const denied = deny("dashboard", "view");
   if (denied) return denied;
+  if (serverMode) await refreshCoreHr(2000);
   return delay(headcountByOffice());
 }
 
-export function fetchPayrollCostBreakdown() {
+export async function fetchPayrollCostBreakdown(): Promise<PayrollCostSegment[]> {
   const denied = deny("dashboard", "view");
   if (denied) return denied;
+  if (serverMode) {
+    const run = await latestApprovedRun();
+    if (!run) return [];
+    const sum = (f: (l: PayrollRun["lines"][number]) => number) => run.lines.reduce((n, l) => n + f(l), 0);
+    const parts: [PayrollCostSegment["label"], number][] = [
+      ["Basic pay", sum((l) => l.basic - l.deductions)],
+      ["Statutory", sum((l) => l.sssEr + l.ec + l.phEr + l.piEr)],
+      ["Allowances", sum((l) => l.pay.taxableAdjustments + l.pay.nonTaxableAdjustments)],
+      ["Overtime", sum((l) => l.overtime + l.premiums)],
+    ];
+    const total = parts.reduce((n, [, v]) => n + Math.max(0, v), 0);
+    return total ? parts.map(([label, v]) => ({ label, percent: Math.round((Math.max(0, v) / total) * 100) })) : [];
+  }
   return delay(payrollCostBreakdown);
 }
 
@@ -703,6 +802,8 @@ function initialsFor(name: string) {
 export async function createEmployee(input: CreateEmployeeInput): Promise<Employee> {
   const denied = deny("people", "create");
   if (denied) return denied;
+  // The database requires every New Employees Template field (sex, civil status, birth date…), which this quick form doesn't ask for.
+  if (serverMode) throw new Error("Add new hires from People › Add employee, which collects everything the 201 File requires.");
   try {
     assertSeatsAvailable(1);
   } catch (err) {
@@ -736,9 +837,19 @@ export interface RegisterEmployeeInput {
   position: string;
   office: Employee["office"];
   cluster: Employee["cluster"];
+  /** The form's email and mobile (10 digits, no leading 0). The server needs both to find their record. */
+  email?: string;
+  phone?: string;
 }
 
 export async function registerEmployee(input: RegisterEmployeeInput): Promise<Employee> {
+  // With the API server: HR added them already; the server checks name, mobile and email against
+  // that record and creates their sign-in (HR gives the temporary password). The form shows the
+  // returned id (their employee ID) as the reference.
+  if (serverMode) {
+    const r = await api<{ id: string; name: string }>("POST", "/auth/register", input);
+    return { id: r.id, name: r.name, initials: initialsFor(r.name), position: input.position, department: input.cluster, office: input.office, cluster: input.cluster, status: "Active", reportsToId: "" };
+  }
   // No sign-in here (self-registration), but it still takes a seat.
   try {
     assertSeatsAvailable(1);
@@ -901,9 +1012,17 @@ export async function deleteTrainingRecord(id: string): Promise<void> {
   return delay(undefined);
 }
 
-export function fetchCertificateRequestsForReview() {
+/** A request in HR's queue: who asked, and when it was released. */
+export interface CertificateReviewRow extends CertificateRequest {
+  employeeId?: string;
+  employeeName?: string;
+  releasedOn?: string;
+}
+
+export async function fetchCertificateRequestsForReview(): Promise<CertificateReviewRow[]> {
   const denied = deny("selfService", "edit");
   if (denied) return denied;
+  if (serverMode) return api<CertificateReviewRow[]>("GET", "/certificates");
   return delay(certificateRequests);
 }
 
@@ -922,6 +1041,7 @@ function handleCertificate(id: string, from: CertificateRequestStatus[], change:
 export async function issueCertificate(id: string, actor: string): Promise<CertificateRequest> {
   const denied = deny("selfService", "edit");
   if (denied) return denied;
+  if (serverMode) return api<CertificateRequest>("POST", `/certificates/${encodeURIComponent(id)}/issue`);
   const target = certificateRequests.find((x) => x.id === id);
   const person = employeeDirectory.find((e) => e.id === target?.employeeId);
   if (target && !person) return Promise.reject(new Error("This request isn't linked to an employee record, so a certificate can't be made. Prepare a signed copy for pickup instead."));
@@ -935,6 +1055,7 @@ export async function issueCertificate(id: string, actor: string): Promise<Certi
 export async function markCertificateReady(id: string, actor: string): Promise<CertificateRequest> {
   const denied = deny("selfService", "edit");
   if (denied) return denied;
+  if (serverMode) return api<CertificateRequest>("POST", `/certificates/${encodeURIComponent(id)}/ready`);
   const r = handleCertificate(id, ["Pending"], { status: "Ready for pickup", delivery: "pickup" }, actor);
   if ("error" in r) return Promise.reject(new Error(r.error));
   if (r.updated.employeeId) tellEmployees(r.updated.employeeId, "certificate", "approved", `Your ${r.updated.type} is ready for pickup`, `${actor} prepared a signed copy. Pick it up from HR.`);
@@ -945,6 +1066,7 @@ export async function markCertificateReady(id: string, actor: string): Promise<C
 export async function markCertificateReleased(id: string, actor: string): Promise<CertificateRequest> {
   const denied = deny("selfService", "edit");
   if (denied) return denied;
+  if (serverMode) return api<CertificateRequest>("POST", `/certificates/${encodeURIComponent(id)}/released`);
   const target = certificateRequests.find((x) => x.id === id);
   const person = employeeDirectory.find((e) => e.id === target?.employeeId);
   const r = handleCertificate(id, ["Ready for pickup"], { status: "Released", ...(target && person && !target.issued ? { issued: fileCertificate(person, target, certificateRequests, actor) } : {}) }, actor);
@@ -958,6 +1080,7 @@ export async function declineCertificate(id: string, reason: string, actor: stri
   const denied = deny("selfService", "edit");
   if (denied) return denied;
   if (!reason.trim()) return Promise.reject(new Error("Say why, so the employee knows"));
+  if (serverMode) return api<CertificateRequest>("POST", `/certificates/${encodeURIComponent(id)}/decline`, { reason: reason.trim() });
   const r = handleCertificate(id, ["Pending"], { status: "Declined", note: reason.trim() }, actor);
   if ("error" in r) return Promise.reject(new Error(r.error));
   if (r.updated.employeeId) tellEmployees(r.updated.employeeId, "certificate", "rejected", `Your ${r.updated.type} request was declined`, `${actor}: “${reason.trim()}”`);
@@ -973,6 +1096,12 @@ export function nextCertificateStatus(status: CertificateRequestStatus): Certifi
 export async function advanceCertificateRequest(id: string, actor = "HR") {
   const denied = deny("selfService", "edit");
   if (denied) return denied;
+  if (serverMode) {
+    const current = (await fetchCertificateRequestsForReview()).find((r) => r.id === id);
+    const nextStatus = current ? nextCertificateStatus(current.status) : null;
+    if (!current || !nextStatus) throw new Error("This request is already released");
+    return api<CertificateRequest>("PUT", `/certificates/${encodeURIComponent(id)}/status`, { status: nextStatus });
+  }
   const target = certificateRequests.find((r) => r.id === id);
   const nextStatus = target ? nextCertificateStatus(target.status) : null;
   if (!target || !nextStatus) return delay(target!);
@@ -1006,6 +1135,7 @@ export async function deleteCertificateRequest(id: string): Promise<void> {
 }
 
 export async function cancelCertificateRequest(id: string): Promise<void> {
+  if (serverMode) return void (await api("DELETE", `/me/certificates/${encodeURIComponent(id)}`));
   setCertificateRequests(
     certificateRequests.filter((r) => !(r.id === id && r.status === "Pending")),
   );
@@ -1056,6 +1186,7 @@ export interface CreateAnnouncementInput {
 export async function createAnnouncement(input: CreateAnnouncementInput): Promise<Announcement> {
   const denied = deny("announcements", "create");
   if (denied) return denied;
+  if (serverMode) return api<Announcement>("POST", "/announcements", input);
   const announcement: Announcement = {
     id: `an-${Date.now()}`,
     title: input.title,
@@ -1247,3 +1378,142 @@ export function fetchEmployeeHireDates() {
     >,
   );
 }
+
+// ---- From feature/onboarding-pipeline-careers: recruitment, careers and onboarding ----
+
+/** New requisitions start with the Partner (L1), then go to HR and the Project Sponsor (BRD §8.1). */
+export async function createJobRequisition(input: CreateJobRequisitionInput): Promise<JobRequisition> {
+  const requisition: JobRequisition = {
+    id: `jr-${Date.now()}`,
+    ...input,
+    applicants: 0,
+    applicantsThisWeek: 0,
+    stage: "Sourcing",
+    approval: "Pending L1",
+  };
+  setJobRequisitions([...jobRequisitions, requisition]);
+  return delay(requisition);
+}
+
+export function fetchApplicants() {
+  return delay(applicants);
+}
+
+/** Roles open to the public: approved and still hiring. */
+export function fetchOpenRequisitions() {
+  return delay(jobRequisitions.filter((r) => r.approval === "Approved" && r.openings > 0));
+}
+
+/**
+ * Existing employees who may be the same person: same first + last name and birth date,
+ * or a government number already on someone's 201 file. Catches rehires and double entry.
+ */
+export async function moveApplicant(id: string, stage: ApplicantStage): Promise<Applicant> {
+  const next = applicants.map((a) => (a.id === id ? { ...a, stage } : a));
+  setApplicants(next);
+  return delay(next.find((a) => a.id === id)!);
+}
+
+/** Someone applies through the shared link; they land in Recruitment's Applied column. */
+export async function submitApplication(input: ApplicationInput): Promise<Applicant> {
+  let role = input.requisitionId
+    ? jobRequisitions.find((r) => r.id === input.requisitionId)
+    : jobRequisitions.find((r) => r.approval === "Approved" && r.openings > 0 && r.title.toLowerCase() === input.appliedRole.toLowerCase());
+  if (input.requisitionId && (!role || role.approval !== "Approved" || role.openings <= 0)) throw new Error("This role is no longer open.");
+  // A role from the catalog with no opening yet still reaches HR: it gets its own pipeline in Recruitment.
+  if (!role) {
+    role = {
+      id: `jr-${Date.now().toString(36)}`,
+      title: input.appliedRole,
+      department: input.field,
+      office: "Cebu HQ",
+      openings: 1,
+      applicants: 0,
+      applicantsThisWeek: 0,
+      stage: "Sourcing",
+      approval: "Approved",
+    };
+    setJobRequisitions([...jobRequisitions, role]);
+  }
+  const roleId = role.id;
+  const email = input.email.trim().toLowerCase();
+  if (applicants.some((a) => a.requisitionId === role.id && a.email?.toLowerCase() === email)) {
+    throw new Error(`You've already applied for ${role.title} with this email. HR will contact you there.`);
+  }
+  const now = new Date();
+  const applicant: Applicant = {
+    id: `ap-${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    requisitionId: role.id,
+    background: input.background,
+    workExperience: input.workExperience.trim() || undefined,
+    firstName: input.firstName.trim(),
+    lastName: input.lastName.trim(),
+    email,
+    phone: formatPhMobile(input.phone),
+    stage: "Applied",
+    note: `Shared link · ${now.toLocaleDateString("en-PH", { month: "short", day: "numeric" })}`,
+    source: "Shared link",
+    appliedAt: now.toISOString(),
+    profession: input.profession,
+    province: input.province,
+    city: input.city,
+    yearsExperience: input.yearsExperience,
+    prcLicenseNumber: input.prcLicenseNumber?.trim() || undefined,
+    resumeFileName: input.resumeFileName,
+    message: input.message?.trim() || undefined,
+    experienceLevel: input.experienceLevel,
+    coverLetter: input.coverLetter,
+    languages: input.languages,
+    careerHistory: input.careerHistory,
+    education: input.education,
+    skills: input.skills,
+  };
+  setApplicants([applicant, ...applicants]);
+  setJobRequisitions(jobRequisitions.map((r) => (r.id === roleId ? { ...r, applicants: r.applicants + 1, applicantsThisWeek: r.applicantsThisWeek + 1 } : r)));
+  return delay(applicant);
+}
+
+
+
+export interface CreateJobRequisitionInput {
+  title: string;
+  department: string;
+  cluster: Employee["cluster"];
+  office: Employee["office"];
+  openings: number;
+  employmentType: EmploymentType;
+  targetStart: string;
+  salaryRange?: string;
+  justification: string;
+}
+
+export interface ApplicationInput {
+  /** An open requisition; empty when they picked a role from the catalog with no opening yet. */
+  requisitionId?: string;
+  /** The role they picked, e.g. "Web Developer". */
+  appliedRole: string;
+  /** Its field, e.g. "Information Technology". */
+  field: string;
+  /** What they chose for "Which describes your … background?". */
+  background: string;
+  /** In their own words. */
+  workExperience: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  province: string;
+  city: string;
+  profession: ApplicantProfession;
+  yearsExperience: number;
+  prcLicenseNumber?: string;
+  resumeFileName?: string;
+  message?: string;
+  experienceLevel: "Fresh graduate" | "Has work experience";
+  coverLetter?: { kind: "upload"; fileName: string } | { kind: "write"; text: string };
+  languages: string[];
+  careerHistory: ApplicantRole[];
+  education: ApplicantEducation[];
+  skills: string[];
+}
+

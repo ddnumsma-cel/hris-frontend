@@ -46,7 +46,8 @@ const EMPLOYMENT_TYPE: Record<BackendEmployee["status"], EmploymentType> = {
   PROBATIONARY: "Probationary",
   REGULAR: "Regular",
   CONTRACTUAL: "Fixed-term",
-  PROJECT: "Project-based",
+  // The website has no project-based type; it is a fixed-term contract.
+  PROJECT: "Fixed-term",
 };
 
 /** employee number → backend id, filled by every list and detail call. */

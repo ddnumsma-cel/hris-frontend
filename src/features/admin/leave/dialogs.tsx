@@ -35,7 +35,7 @@ export function FileLeaveDialog({ onClose, employeeId = "" }: { onClose: () => v
       onClose();
     },
   });
-  const after = preview.credits ? preview.credits.available - 1 : null;
+  const after = preview.credits ? preview.credits.available - preview.days : null;
   const types = (typesQuery.data ?? []).filter((t) => t.active);
 
   return (

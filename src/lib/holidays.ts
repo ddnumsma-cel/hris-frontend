@@ -8,6 +8,8 @@
 // A proclamation can also move a holiday or cancel it for one year.
 // HR maintains these on the Holiday calendar; verify against each year's proclamation.
 
+import { api, serverMode } from "./http";
+
 export type HolidayType = "regular" | "special";
 
 /** One holiday on one date: what Timekeeping, Leave and Payroll read. */
@@ -117,15 +119,19 @@ export function describeRepeat(r: Repeat): string {
 }
 
 // ---- Saved data: HR's own holidays and one-year changes ----
+// Without the API server they're kept in localStorage. With it, the database is the source and
+// this is a cache loaded after sign-in (refreshHolidays); the server counts the same holidays.
 
-interface Saved {
+export interface SavedHolidays {
   rules: HolidayRule[];
   changes: HolidayChange[];
 }
+type Saved = SavedHolidays;
 
 const KEY = "heyhr-holidays-v1";
 
 function load(): Saved {
+  if (serverMode) return { rules: BUILT_IN_RULES, changes: [] };
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -144,6 +150,11 @@ let saved: Saved = load();
 
 /** Every holiday in a year, with moves and cancellations applied, in date order. */
 export function holidaysFor(year: number): Holiday[] {
+  return holidaysFrom(saved, year);
+}
+
+/** The same, from any set of rules and changes (the API server passes the database's). */
+export function holidaysFrom(saved: Saved, year: number): Holiday[] {
   const out: Holiday[] = [];
   for (const rule of saved.rules.filter((r) => r.active)) {
     const original = dateOf(rule, year);
@@ -170,14 +181,18 @@ export function holidaysFor(year: number): Holiday[] {
  * in place so every module sees HR's changes right away.
  */
 export const HOLIDAYS: Holiday[] = [];
+/** The years the app keeps holidays for: last year to next year (the API server passes this year in the company's timezone). */
+export const holidayYears = (y = new Date().getFullYear()) => {
+  return [y - 1, y, y + 1];
+};
 function rebuild() {
-  const y = new Date().getFullYear();
-  HOLIDAYS.splice(0, HOLIDAYS.length, ...[y - 1, y, y + 1].flatMap(holidaysFor));
+  HOLIDAYS.splice(0, HOLIDAYS.length, ...holidayYears().flatMap(holidaysFor));
 }
 rebuild();
 
 function persist(next: Saved) {
   saved = next;
+  if (serverMode) return rebuild();
   try {
     localStorage.setItem(KEY, JSON.stringify(next));
   } catch {
@@ -191,6 +206,9 @@ const appliesTo = (h: Holiday, office?: string) => !h.offices?.length || (!!offi
 /** The holiday on a date. Pass the employee's office so local holidays count only there. */
 export const holidayOn = (date: string, office?: string) => HOLIDAYS.find((h) => h.date === date && appliesTo(h, office));
 
+/** Two regular holidays on one date (the workbook's DH / DRH day types). */
+export const isDoubleHoliday = (date: string, office?: string) => HOLIDAYS.filter((h) => h.date === date && h.type === "regular" && appliesTo(h, office)).length > 1;
+
 // ---- Maintenance (Holiday calendar page) ----
 
 const DELAY = 200;
@@ -198,9 +216,30 @@ const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(
 const fail = (m: string): Promise<never> => new Promise((_, rej) => setTimeout(() => rej(new Error(m)), DELAY));
 const newId = () => `hol-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
-export const listHolidayRules = () => respond(saved.rules);
-export const listHolidays = (year: number) => respond(holidaysFor(year));
-export const listHolidayChanges = (year: number) => respond(saved.changes.filter((c) => c.year === year));
+// ---- With the API server ----
+
+let loading: Promise<void> | null = null;
+let loadedAt = 0;
+
+/** Loads HR's holidays and changes from the API server; the built-ins always come from the code. */
+export function refreshHolidays(maxAgeMs = 0): Promise<void> {
+  if (!serverMode) return Promise.resolve();
+  if (loading) return loading;
+  if (maxAgeMs && Date.now() - loadedAt < maxAgeMs) return Promise.resolve();
+  loading = api<Saved>("GET", "/holidays")
+    .then((next) => {
+      persist({ rules: [...BUILT_IN_RULES, ...next.rules.filter((r) => !r.builtIn)], changes: next.changes });
+      loadedAt = Date.now();
+    })
+    .finally(() => (loading = null));
+  return loading;
+}
+
+const fresh = () => refreshHolidays(2000);
+
+export const listHolidayRules = async () => (await fresh(), respond(saved.rules));
+export const listHolidays = async (year: number) => (await fresh(), respond(holidaysFor(year)));
+export const listHolidayChanges = async (year: number) => (await fresh(), respond(saved.changes.filter((c) => c.year === year)));
 
 export async function addHoliday(input: { name: string; type: HolidayType; date: string; everyYear: boolean; offices: string[]; source: string }): Promise<HolidayRule> {
   if (!input.name.trim()) return fail("Name the holiday");
@@ -210,6 +249,11 @@ export async function addHoliday(input: { name: string; type: HolidayType; date:
   const repeat: Repeat = input.everyYear ? { kind: "fixed", month: m!, day: d! } : { kind: "once", date: input.date };
   const clash = holidaysFor(Number(input.date.slice(0, 4))).find((h) => h.date === input.date && h.name.toLowerCase() === input.name.trim().toLowerCase());
   if (clash) return fail("That holiday is already on the calendar for that date");
+  if (serverMode) {
+    const added = await api<HolidayRule>("POST", "/holidays", { ...input, name: input.name.trim(), source: input.source.trim() });
+    await refreshHolidays();
+    return added;
+  }
   const rule: HolidayRule = { id: newId(), name: input.name.trim(), type: input.type, repeat, offices: input.offices, source: input.source.trim(), builtIn: false, active: true };
   persist({ ...saved, rules: [...saved.rules, rule] });
   return respond(rule);
@@ -219,6 +263,10 @@ export async function removeHoliday(ruleId: string): Promise<void> {
   const r = saved.rules.find((x) => x.id === ruleId);
   if (!r) return fail("That holiday no longer exists");
   if (r.builtIn) return fail("National holidays can't be deleted. Cancel it for one year instead, if a proclamation says so.");
+  if (serverMode) {
+    await api("DELETE", `/holidays/${encodeURIComponent(ruleId)}`);
+    return refreshHolidays();
+  }
   persist({ rules: saved.rules.filter((x) => x.id !== ruleId), changes: saved.changes.filter((c) => c.ruleId !== ruleId) });
   return respond(undefined);
 }
@@ -232,6 +280,11 @@ export async function changeHolidayForYear(input: { ruleId: string; year: number
     if (!input.date || !input.date.startsWith(`${input.year}-`)) return fail(`Choose the new date in ${input.year}`);
     if (input.date === dateOf(rule, input.year)) return fail("That's already its date");
   }
+  if (serverMode) {
+    const change = await api<HolidayChange>("PUT", "/holidays/changes", { ...input, source: input.source.trim() });
+    await refreshHolidays();
+    return change;
+  }
   const change: HolidayChange = { id: newId(), ruleId: input.ruleId, year: input.year, kind: input.kind, date: input.kind === "move" ? input.date : undefined, source: input.source.trim(), by, at: new Date().toISOString() };
   persist({ ...saved, changes: [...saved.changes.filter((c) => !(c.ruleId === input.ruleId && c.year === input.year)), change] });
   return respond(change);
@@ -239,6 +292,10 @@ export async function changeHolidayForYear(input: { ruleId: string; year: number
 
 /** Put a holiday back on its usual date for that year. */
 export async function undoHolidayChange(ruleId: string, year: number): Promise<void> {
+  if (serverMode) {
+    await api("DELETE", `/holidays/changes/${encodeURIComponent(ruleId)}/${year}`);
+    return refreshHolidays();
+  }
   persist({ ...saved, changes: saved.changes.filter((c) => !(c.ruleId === ruleId && c.year === year)) });
   return respond(undefined);
 }
@@ -264,7 +321,9 @@ export function setCustomHolidays(next: Holiday[]) {
 }
 
 // Company holidays saved by the older Settings-only list move into the calendar once.
+// With the API server, Settings adds and removes them through the API (lib/settings/workspace.ts).
 (function adoptOldCompanyHolidays() {
+  if (serverMode) return;
   const OLD = "heyhr-custom-holidays-v1";
   try {
     const raw = localStorage.getItem(OLD);

@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/ToastContext";
 import { CalendarIcon } from "@/components/icons";
 import { fileMyLeave, myId, myLeave, withdrawMyLeave, type MyLeave } from "@/lib/ess/api";
 import { fmtCredits, fmtDays, isoToday, previewRequest, type FileInput } from "@/lib/leave/api";
+import { leaveYearOf } from "@/lib/leave/rules";
 import { dateRange, num, STATUS } from "../admin/leave/format";
 import { inputClass } from "../admin/corehr/format";
 import { ErrorNote, Field, LoadError, Pill } from "../admin/corehr/ui";
@@ -42,7 +43,7 @@ export function FileMyLeaveDialog({ onClose }: { onClose: () => void }) {
       onClose();
     },
   });
-  const after = preview.credits ? preview.credits.available - 1 : null;
+  const after = preview.credits ? preview.credits.available - preview.days : null;
   // Only leave types this employee can use.
   const types = (data.data?.balances ?? []).filter((b) => b.eligible).map((b) => b.type);
 
@@ -138,15 +139,12 @@ export function FileMyLeaveDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** The yearly allowance: 6 leaves, any paid type, each one uses 1 however many days it covers. */
+/** The VL/SL days for the leave year (sheet SIL): by length of service, June to May; every paid leave uses its days. */
 function CreditsCard({ data }: { data: MyLeave }) {
   const { total, used, pending, available } = data.credits;
-  const year = isoToday().slice(0, 4);
-  // One slot per leave: approved first (oldest first), then waiting, then the ones still free.
-  const taken = data.requests
-    .filter((r) => r.type.earning.kind !== "unlimited" && r.start.slice(0, 4) === year && (r.status === "approved" || r.status === "pending"))
-    .sort((x, y) => (x.status === y.status ? x.start.localeCompare(y.start) : x.status === "approved" ? -1 : 1));
-  const slots = Array.from({ length: total }, (_, i) => taken[i]);
+  const year = leaveYearOf(isoToday()).label;
+  // One slot per day: used first, then waiting, then the days still free.
+  const slots = Array.from({ length: Math.ceil(total) }, (_, i): { id: string; status: "approved" | "pending" } | undefined => (i < used ? { id: `u${i}`, status: "approved" } : i < used + pending ? { id: `p${i}`, status: "pending" } : undefined));
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-surface" aria-labelledby="credits-title">
@@ -179,14 +177,7 @@ function CreditsCard({ data }: { data: MyLeave }) {
             >
               <span className={clsx("font-num text-[0.7rem] font-semibold", r?.status === "approved" ? "text-[var(--on-accent)] opacity-80" : "text-ink-3")}>{i + 1}</span>
               {r ? (
-                <span className="min-w-0">
-                  <span className={clsx("block truncate text-xs font-semibold", r.status === "pending" && "text-warning")}>
-                    {r.type.name.replace(/ leave$/, "")}
-                  </span>
-                  <span className={clsx("block truncate text-[0.7rem]", r.status === "approved" ? "text-[var(--on-accent)] opacity-80" : "text-ink-2")}>
-                    {r.status === "pending" ? "Waiting" : dateRange(r.start, r.end)}
-                  </span>
-                </span>
+                <span className={clsx("block truncate text-xs font-semibold", r.status === "pending" && "text-warning")}>{r.status === "pending" ? "Waiting" : "Used"}</span>
               ) : (
                 <span className="text-xs font-medium text-ink-3">Available</span>
               )}
@@ -205,7 +196,7 @@ function CreditsCard({ data }: { data: MyLeave }) {
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full border border-dashed border-ink-3" /> Available <b className="font-semibold text-ink">{available}</b>
         </span>
-        <span className="text-ink-3 sm:ml-auto">Each leave uses 1, however many days. Resets every January 1.</span>
+        <span className="text-ink-3 sm:ml-auto">VL/SL days by length of service. The leave year runs June to May.</span>
       </div>
     </section>
   );

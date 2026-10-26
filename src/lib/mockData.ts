@@ -30,6 +30,7 @@ import type {
   WorkforceAlert,
 } from "./types";
 import { MSMA_ROSTER, type RosterEntry } from "./msmaRoster";
+import { type Applicant, type ApplicantProfession } from "./types";
 
 /** A register row as a directory entry (everyone works at Cebu HQ). */
 function rosterEmployee(r: RosterEntry): Employee {
@@ -256,13 +257,6 @@ export const teamRoster: TeamRosterMember[] = [
   { id: "MSMA-00614", name: "Olive Navarro", initials: "ON", position: "Junior Associate", tenureLabel: "11 mos", email: "olive.navarro@msma.ph", status: "Active" },
   { id: "MSMA-00625", name: "Harold Lagman", initials: "HL", position: "Junior Associate", tenureLabel: "9 mos", email: "harold.lagman@msma.ph", status: "On leave" },
   { id: "MSMA-00398", name: "Isabel Escobar", initials: "IE", position: "Junior Associate", tenureLabel: "1 yr 4 mos", email: "isabel.escobar@msma.ph", status: "On leave" },
-];
-
-export const jobRequisitions: JobRequisition[] = [
-  { id: "jr-1", title: "Junior Associate", department: "Audit & Assurance", openings: 3, applicants: 21, stage: "Interviewing" },
-  { id: "jr-2", title: "Junior Associate", department: "Tax Advisory", openings: 4, applicants: 14, stage: "Sourcing" },
-  { id: "jr-3", title: "Experienced Associate", department: "Corporate Legal", openings: 2, applicants: 6, stage: "Offer extended" },
-  { id: "jr-4", title: "Experienced Associate", department: "Bookkeeping", openings: 1, applicants: 9, stage: "Sourcing" },
 ];
 
 export const managerTeamStats = {
@@ -785,4 +779,109 @@ export let auditLogEntries: AuditLogEntry[] = [
 
 export function setAuditLogEntries(next: AuditLogEntry[]) {
   auditLogEntries = next;
+}
+
+// ---- Recruitment, careers and onboarding (from feature/onboarding-pipeline-careers) ----
+// Requisitions and applicants are kept in this browser under their own key.
+
+const seedProfessions: Record<string, ApplicantProfession> = {
+  "ap-1": "BS Accountancy graduate",
+  "ap-2": "Accounting student / undergrad",
+  "ap-3": "CPA",
+  "ap-4": "CPA",
+  "ap-5": "BS Accountancy graduate",
+  "ap-6": "CPA",
+  "ap-7": "BS Accountancy graduate",
+  "ap-8": "CPA",
+  "ap-9": "CPA",
+  "ap-10": "BS Accountancy graduate",
+  "ap-11": "Other",
+  "ap-12": "CPA",
+  "ap-13": "Other",
+  "ap-14": "Other",
+  "ap-15": "BS Accountancy graduate",
+};
+
+const seedApplicants: Applicant[] = ([
+  { id: "ap-1", requisitionId: "jr-1", firstName: "Kristine Mae", lastName: "Abellana", email: "kristine.abellana@gmail.com", stage: "Applied", note: "JobStreet · Sep 28" },
+  { id: "ap-2", requisitionId: "jr-1", firstName: "John Paul", lastName: "Ybañez", email: "jp.ybanez@gmail.com", stage: "Applied", note: "Referral · Sep 27" },
+  { id: "ap-3", requisitionId: "jr-1", firstName: "Cyril", lastName: "Go", email: "cyril.go@yahoo.com", stage: "Applied", note: "LinkedIn · Sep 26" },
+  { id: "ap-4", requisitionId: "jr-1", firstName: "Angelica", lastName: "Sy", email: "angelica.sy@gmail.com", stage: "Screening", note: "Exam 86% · Sep 24" },
+  { id: "ap-5", requisitionId: "jr-1", firstName: "Mark", lastName: "Lao", email: "mark.lao@gmail.com", stage: "Screening", note: "Exam 79% · Sep 23" },
+  { id: "ap-6", requisitionId: "jr-1", firstName: "Rachelle", lastName: "Tumulak", email: "rachelle.tumulak@gmail.com", stage: "Interview", note: "Partner interview · Oct 1, 2:00 PM" },
+  { id: "ap-7", requisitionId: "jr-1", firstName: "Mark Anthony", lastName: "Cabahug", email: "ma.cabahug@gmail.com", stage: "Interview", note: "HR interview · Oct 2, 10:00 AM" },
+  { id: "ap-8", requisitionId: "jr-1", firstName: "Cyrus", lastName: "Villamor", email: "cyrus.villamor@gmail.com", stage: "Offered", note: "Offer sent Sep 26 · expires Oct 3", offerExpires: "2026-10-03" },
+  { id: "ap-9", requisitionId: "jr-1", firstName: "Joanna", lastName: "Villacura", email: "joanna.villacura@gmail.com", phone: "+63 917 552 0184", stage: "Hired", note: "Accepted · starts Oct 16", startDate: "2026-10-16" },
+  { id: "ap-10", requisitionId: "jr-1", firstName: "Kenneth", lastName: "Go", email: "kenneth.go@gmail.com", stage: "Rejected", note: "Did not meet CPA requirement" },
+  { id: "ap-11", requisitionId: "jr-2", firstName: "Patricia", lastName: "Lim", email: "patricia.lim@gmail.com", stage: "Applied", note: "JobStreet · Sep 29" },
+  { id: "ap-12", requisitionId: "jr-2", firstName: "Ramon", lastName: "Dizon", email: "ramon.dizon@gmail.com", stage: "Screening", note: "Exam scheduled · Oct 1" },
+  { id: "ap-13", requisitionId: "jr-3", firstName: "Liza", lastName: "Moreno", email: "liza.moreno@gmail.com", stage: "Applied", note: "Referral · Sep 25" },
+  { id: "ap-14", requisitionId: "jr-3", firstName: "Paolo", lastName: "Santiago", email: "paolo.santiago@gmail.com", stage: "Screening", note: "Bar passer 2025 · Sep 22" },
+  { id: "ap-15", requisitionId: "jr-4", firstName: "Jenny", lastName: "Alcantara", email: "jenny.alcantara@gmail.com", stage: "Applied", note: "Walk-in · Sep 28" },
+] as Applicant[]).map((a) => ({ ...a, profession: seedProfessions[a.id] }));
+
+const SEED_REQUISITIONS: JobRequisition[] = [
+  { id: "jr-1", title: "Audit Associate", department: "Audit & Assurance", cluster: "VCM", office: "Cebu HQ", openings: 3, applicants: 21, applicantsThisWeek: 5, stage: "Interviewing", approval: "Approved" },
+  { id: "jr-2", title: "Tax Associate", department: "Tax Advisory", cluster: "RPM", office: "Cebu HQ", openings: 4, applicants: 14, applicantsThisWeek: 3, stage: "Sourcing", approval: "Approved" },
+  { id: "jr-3", title: "Corporate Lawyer", department: "Corporate Legal", cluster: "ADS", office: "Manila", openings: 2, applicants: 6, applicantsThisWeek: 1, stage: "Offer extended", approval: "Approved" },
+  { id: "jr-4", title: "Bookkeeper", department: "Bookkeeping", cluster: "RPM", office: "Davao", openings: 1, applicants: 9, applicantsThisWeek: 3, stage: "Sourcing", approval: "Pending L2" },
+];
+
+const RECRUITMENT_KEY = "msma-demo-recruitment-v1";
+
+interface RecruitmentStore {
+  applicants?: Applicant[];
+  jobRequisitions?: JobRequisition[];
+}
+
+function loadRecruitment(): RecruitmentStore {
+  try {
+    const raw = typeof localStorage === "undefined" ? null : localStorage.getItem(RECRUITMENT_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+    if (!parsed || typeof parsed !== "object") return {};
+    // Anything that isn't the shape we expect is ignored rather than trusted.
+    const list = <T,>(v: unknown) => (Array.isArray(v) ? (v.filter((x) => x && typeof x === "object") as T[]) : undefined);
+    return {
+      applicants: list<Applicant>(parsed.applicants)?.filter((a) => typeof a.id === "string" && typeof a.firstName === "string" && typeof a.lastName === "string" && typeof a.requisitionId === "string"),
+      jobRequisitions: list<JobRequisition>(parsed.jobRequisitions)?.filter((r) => typeof r.id === "string" && typeof r.title === "string"),
+    };
+  } catch {
+    return {};
+  }
+}
+
+function saveRecruitment() {
+  try {
+    localStorage.setItem(RECRUITMENT_KEY, JSON.stringify({ applicants, jobRequisitions }));
+  } catch {
+    // Storage full or blocked: the data still lives until the page reloads.
+  }
+}
+
+const stored = loadRecruitment();
+
+export let jobRequisitions: JobRequisition[] = stored.jobRequisitions ?? SEED_REQUISITIONS;
+
+export function setJobRequisitions(next: JobRequisition[]) {
+  jobRequisitions = next;
+  saveRecruitment();
+}
+
+// Saved applicants (including ones sent through the job link) come first; any sample missing from them is added back.
+export let applicants: Applicant[] = stored.applicants
+  ? [...stored.applicants, ...seedApplicants.filter((s) => !stored.applicants!.some((a) => a.id === s.id))]
+  : seedApplicants;
+
+export function setApplicants(next: Applicant[]) {
+  applicants = next;
+  saveRecruitment();
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key !== RECRUITMENT_KEY) return;
+    const next = loadRecruitment();
+    if (next.applicants) applicants = next.applicants;
+    if (next.jobRequisitions) jobRequisitions = next.jobRequisitions;
+  });
 }

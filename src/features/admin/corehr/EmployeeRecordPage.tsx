@@ -13,6 +13,7 @@ import { useCan } from "@/lib/useCan";
 import { DocumentChecklist } from "./DocumentChecklist";
 import { EditSectionDialog } from "./EditSectionDialog";
 import { SeparationDialog, useCancelSeparation } from "./SeparationDialog";
+import { RegularizeDialog } from "./RegularizeDialog";
 import { formatDate, inputClass, keys, mask, statusTone, tenure, useActor, type Tone } from "./format";
 import { StatusText } from "./SplitView";
 import { ErrorNote, Field, Initials, LoadError, Pill } from "./ui";
@@ -162,6 +163,7 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
   const [reportsTo, setReportsToOpen] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [separating, setSeparating] = useState(false);
+  const [regularizing, setRegularizing] = useState(false);
   const undoSeparation = useCancelSeparation(employeeId, recordQuery.data?.summary.name ?? "");
 
   const reveal = useMutation({
@@ -216,7 +218,14 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
         <dl className="flex flex-col gap-2.5 border-t border-border pt-4 text-sm">
           <div className="flex justify-between gap-3">
             <dt className="text-ink-3">Employment</dt>
-            <dd className="text-right">{e.job.employmentType}</dd>
+            <dd className="flex flex-col items-end text-right">
+              {e.job.employmentType}
+              {canEdit && !separated && e.job.employmentType !== "Regular" && (
+                <button type="button" onClick={() => setRegularizing(true)} className="text-xs font-medium text-brand hover:underline">
+                  Regularize
+                </button>
+              )}
+            </dd>
           </div>
           <div className="flex justify-between gap-3">
             <dt className="text-ink-3">Hired</dt>
@@ -505,6 +514,7 @@ export function EmployeeRecord({ employeeId }: { employeeId: string }) {
 
       {editing && <EditSectionDialog employee={e} section={editing} onClose={() => setEditing(null)} />}
       {separating && <SeparationDialog employeeId={e.id} name={s.name} onClose={() => setSeparating(false)} />}
+      {regularizing && <RegularizeDialog employeeId={e.id} name={s.name} from={e.job.employmentType} dateHired={e.job.dateHired} onClose={() => setRegularizing(false)} />}
       {reportsTo && <ReportsToDialog record={record} onClose={() => setReportsToOpen(false)} />}
     </div>
   );

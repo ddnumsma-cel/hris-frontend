@@ -50,7 +50,7 @@ check("Rest day, first 8h at 1.3 = ₱1,560", r.premiumPay, 1560);
 check("Rest day, 2h approved past 8 at 1.69 = ₱507", r.overtimePay, 507);
 
 r = computePay(cutoff({ "2026-10-07": { kind: "holiday", dayType: "regular" } }));
-check("Regular holiday worked 8h: +100% on top of the monthly pay = ₱1,200", r.premiumPay, 1200);
+check("Regular holiday worked 8h: full 200% on top of the monthly pay (A_1) = ₱2,400", r.premiumPay, 2400);
 
 r = computePay({ ...cutoff(), employedFrom: "2026-10-08" });
 check("Hired Oct 8: half month less 5 workdays × 8 h × ₱150 (workbook sheet B) = ₱7,050", r.basic, 7050);

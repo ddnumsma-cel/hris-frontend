@@ -7,6 +7,7 @@ export function Dialog({
   open,
   onClose,
   title,
+  description,
   size = "md",
   header,
   footer,
@@ -16,6 +17,8 @@ export function Dialog({
   open: boolean;
   onClose: () => void;
   title: string;
+  /** One line under the title. */
+  description?: string;
   size?: "md" | "lg";
   /** Pinned below the title bar; stays visible while the body scrolls. */
   header?: ReactNode;
@@ -59,8 +62,11 @@ export function Dialog({
           large ? "max-w-3xl" : "max-h-[calc(100dvh-min(7rem,10dvh)-1rem)] max-w-md",
         )}
       >
-        <div className="flex flex-none items-center justify-between border-b border-border px-4.5 py-3.5">
-          <h2 className="font-display text-base font-semibold tracking-[-0.01em]">{title}</h2>
+        <div className="flex flex-none items-center justify-between gap-3 border-b border-border px-4.5 py-3.5">
+          <div className="min-w-0">
+            <h2 className="font-display text-base font-semibold tracking-[-0.01em]">{title}</h2>
+            {description && <p className="mt-0.5 text-xs text-ink-2">{description}</p>}
+          </div>
           <button
             type="button"
             onClick={onClose}

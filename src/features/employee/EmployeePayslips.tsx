@@ -5,12 +5,11 @@ import { ContentHead } from "@/components/layout/RolePage";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { DownloadIcon } from "@/components/icons";
-import { admin } from "@/lib/admin/store";
-import { myName, myPayslips, type MyPayslip } from "@/lib/ess/api";
+import { myLeave, myName, myPayslips, type MyPayslip } from "@/lib/ess/api";
 import { my2316, myBank, myLoans } from "@/lib/ess/more";
 import { print2316 } from "../admin/payroll/YearEndPage";
+import { printWorkbookPayslip } from "./workbookPayslip";
 import { formatPHP } from "@/lib/format";
-import { escapeHtml, openPrintDocument } from "@/lib/printDocument";
 import { LoadError, Pill } from "../admin/corehr/ui";
 import { duration } from "../admin/timekeeping/format";
 
@@ -28,138 +27,39 @@ function timeLines(p: MyPayslip): [string, string][] {
   ];
 }
 
+/** Laid out like the workbook's payslip (PS_MSMA_v7): every addition under gross pay (transport and
+ * other allowances too), and absences, contributions, loans, tax and cash advance under deductions. */
 function lines(p: MyPayslip) {
   const l = p.line;
-  return {
-    earnings: [
-      ["Basic pay", l.basic],
-      ...(l.overtime ? [[l.pay?.otMeal ? "Overtime and OT meal" : "Overtime", l.overtime] as const] : []),
-      ...(l.premiums ? [["Holiday and night pay", l.premiums] as const] : []),
-      ...(l.deductions ? [["Less absences, lates and undertime", -l.deductions] as const] : []),
-      // Taxable allowances or corrections added on the run are part of gross pay.
-      ...p.items.filter((i) => i.taxable).map((i) => [i.label, i.amount] as const),
-    ] as [string, number][],
-    // Added or taken after tax: reimbursements, non-taxable allowances, loan installments.
-    afterTax: [...(l.pay?.transportAllowance ? [["Transport allowance", l.pay.transportAllowance] as [string, number]] : []), ...p.items.filter((i) => !i.taxable).map((i) => [i.label, i.amount] as [string, number])],
-    deductions: [
-      ["SSS", l.sssEe],
-      ["PhilHealth", l.phEe],
-      ["Pag-IBIG", l.piEe],
-      ["Withholding tax", l.tax],
-    ] as [string, number][],
-  };
+  const dm = l.pay?.deMinimis ?? 0;
+  const nt = l.pay?.otherNonTaxable ?? 0;
+  const earnings: [string, number][] = [
+    ["Basic pay", Math.round((l.basic - dm - nt) * 100) / 100],
+    ["De-minimis benefits", dm],
+    ["Other non taxable / Exempt compensation", nt],
+    ["Holiday and premium pay", l.premiums],
+    ["Overtime pay and OT meal allowance", l.overtime],
+    ["Transportation allowance", l.pay?.transportAllowance ?? 0],
+    ...p.items.filter((i) => i.amount > 0).map((i) => [i.label, i.amount] as [string, number]),
+  ];
+  const deductions: [string, number][] = [
+    ["Absences, lates and undertime", l.deductions],
+    ["SSS contribution", l.sssEe],
+    ["Pag-IBIG contribution", l.piEe],
+    ["PhilHealth contribution", l.phEe],
+    ["Withholding tax on compensation", l.tax],
+    // Loan installments, cash advance and other deductions, under their own names.
+    ...p.items.filter((i) => i.amount < 0).map((i) => [i.label, -i.amount] as [string, number]),
+  ];
+  return { earnings, deductions, gross: Math.round(earnings.reduce((n, [, v]) => n + v, 0) * 100) / 100 };
 }
 
-/** The printed payslip, in the app's look: navy header, brand green, Lexend. One page. */
-const SLIP_STYLES = `
-  @page { size: A4; margin: 0; }
-  body { padding: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #fff; }
-  .slip { max-width: 760px; margin: 0 auto; padding: 36px 40px 28px; }
-  .hero { background: #0e1835; color: #fff; border-radius: 18px; padding: 24px 26px; display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; }
-  .co { display: flex; gap: 14px; align-items: center; }
-  .co { gap: 16px; }
-  .co img { height: 44px; width: auto; display: block; }
-  .co-text { border-left: 1px solid rgba(255,255,255,.18); padding-left: 16px; }
-  .co-name { font-size: 18px; font-weight: 700; }
-  .co-sub { font-size: 10.5px; color: #b9bfd2; margin-top: 2px; }
-  .tag { display: inline-block; background: #bfe36b; color: #0e1835; font-size: 10px; font-weight: 700; letter-spacing: .14em; padding: 4px 10px; border-radius: 999px; }
-  .period { text-align: right; }
-  .period-label { font-size: 16px; font-weight: 600; margin-top: 8px; }
-  .period-sub { font-size: 10.5px; color: #b9bfd2; margin-top: 2px; }
-  .who { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 18px 2px 0; }
-  .label { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: #7d8496; font-weight: 600; }
-  .value { font-size: 12.5px; font-weight: 600; margin-top: 3px; }
-  .net { margin-top: 18px; display: grid; grid-template-columns: 1.3fr 1fr 1fr; border: 1px solid #dde1d6; border-radius: 16px; overflow: hidden; }
-  .net > div { padding: 16px 18px; }
-  .net .main { background: #eef4dc; }
-  .net .main .amt { font-size: 28px; font-weight: 700; color: #3f6212; letter-spacing: -.01em; }
-  .net .amt { font-size: 17px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
-  .net > div + div { border-left: 1px solid #dde1d6; }
-  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
-  .card { border: 1px solid #dde1d6; border-radius: 16px; padding: 14px 16px 10px; }
-  .card h2 { margin: 0 0 6px; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-  .dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
-  .card table { margin: 0; }
-  .card td { font-size: 12px; padding: 7px 0; border-bottom: 1px solid #eceee7; }
-  .card tr:last-child td { border-bottom: 0; }
-  .card .tot td { font-weight: 700; border-top: 2px solid #12172a; border-bottom: 0; padding-top: 9px; }
-  .minus { color: #a82c2c; }
-  .time { margin-top: 18px; border: 1px solid #dde1d6; border-radius: 16px; padding: 14px 16px; }
-  .time h2 { margin: 0 0 10px; font-size: 12px; font-weight: 700; }
-  .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .chip { background: #f4f5f0; border-radius: 10px; padding: 9px 11px; }
-  .chip .value { font-size: 13px; }
-  .er { margin-top: 14px; font-size: 10.5px; color: #4c5568; }
-  .foot { margin-top: 22px; padding-top: 12px; border-top: 1px solid #dde1d6; display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #7d8496; gap: 16px; }
-  .foot img { height: 16px; }
-`;
-
-function printSlip(p: MyPayslip) {
-  const { earnings, deductions, afterTax } = lines(p);
-  const l = p.line;
-  const s = admin.settings;
-  const origin = window.location.origin;
-  const money = (v: number) => escapeHtml(v < 0 ? `−${formatPHP(-v)}` : formatPHP(v));
-  const row = ([k, v]: [string, number]) => `<tr><td>${escapeHtml(k)}</td><td class="num${v < 0 ? " minus" : ""}">${money(v)}</td></tr>`;
-  const totalDed = deductions.reduce((n, [, v]) => n + v, 0);
-  const employerShare = l.sssEr + l.ec + l.phEr + l.piEr;
-  const coSub = [s.address, s.tin && `TIN ${s.tin}`].filter(Boolean).join(" · ");
-  openPrintDocument(
-    `Payslip ${p.period.label} · ${myName()}`,
-    `<style>${SLIP_STYLES}</style>
-     <div class="slip">
-       <div class="hero">
-         <div class="co">
-           <img src="${origin}/brand/msma-mark.png" alt="">
-           <div class="co-text"><div class="co-name">${escapeHtml(s.companyName)}</div>${coSub ? `<div class="co-sub">${escapeHtml(coSub)}</div>` : ""}</div>
-         </div>
-         <div class="period">
-           <span class="tag">PAYSLIP</span>
-           <div class="period-label">${escapeHtml(p.period.label)}</div>
-           <div class="period-sub">${p.released ? "Released" : "Preview · may still change"}</div>
-         </div>
-       </div>
-
-       <div class="who">
-         <div><div class="label">Employee</div><div class="value">${escapeHtml(myName())}</div></div>
-         <div><div class="label">Employee ID</div><div class="value">${escapeHtml(l.person.id)}</div></div>
-         <div><div class="label">Position</div><div class="value">${escapeHtml(l.person.position || "—")}</div></div>
-         <div><div class="label">Department</div><div class="value">${escapeHtml(l.person.department)}</div></div>
-       </div>
-
-       <div class="net">
-         <div class="main"><div class="label">Take-home pay</div><div class="amt">${money(l.net)}</div></div>
-         <div><div class="label">Gross pay</div><div class="amt">${money(l.gross)}</div></div>
-         <div><div class="label">Total deductions</div><div class="amt">${money(totalDed)}</div></div>
-       </div>
-
-       <div class="cols">
-         <div class="card">
-           <h2><span class="dot" style="background:#4d7c0f"></span>Earnings</h2>
-           <table><tbody>${earnings.map(row).join("")}<tr class="tot"><td>Gross pay</td><td class="num">${money(l.gross)}</td></tr></tbody></table>
-         </div>
-         <div class="card">
-           <h2><span class="dot" style="background:#d03b3b"></span>Deductions</h2>
-           <table><tbody>${deductions.map(row).join("")}<tr class="tot"><td>Total deductions</td><td class="num">${money(totalDed)}</td></tr></tbody></table>
-         </div>
-       </div>
-
-       ${afterTax.length ? `<div class="card" style="margin-top:16px"><h2>After tax: loans and other items</h2><table><tbody>${afterTax.map(row).join("")}</tbody></table></div>` : ""}
-
-       <div class="time">
-         <h2>Time &amp; attendance</h2>
-         <div class="chips">${timeLines(p).map(([k, v]) => `<div class="chip"><div class="label">${escapeHtml(k)}</div><div class="value">${escapeHtml(v)}</div></div>`).join("")}</div>
-       </div>
-
-       ${employerShare > 0 ? `<p class="er">Your employer also paid ${money(employerShare)} for you this cut-off: SSS ${money(l.sssEr + l.ec)}, PhilHealth ${money(l.phEr)}, Pag-IBIG ${money(l.piEr)}.</p>` : ""}
-
-       <div class="foot">
-         <span>System-generated payslip, no signature needed. Questions about your pay? ${escapeHtml(s.contactEmail ? `Email ${s.contactEmail}.` : "Ask HR.")}<br>Printed ${escapeHtml(new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" }))}</span>
-         <img src="${origin}/brand/heyhr-wordmark.svg" alt="heyhr">
-       </div>
-     </div>`,
-  );
-}
+/** Prepared by / Approved by / Received by, as on the workbook's payslip. */
+const signers = (p: MyPayslip): [string, string, string][] => [
+  ["Prepared by", p.preparedBy || "", "Payroll Officer"],
+  ["Approved by", p.approvedBy || "", "Approving Officer"],
+  ["Received by", myName(), "Signature over printed name"],
+];
 
 function Row({ k, v, strong }: { k: string; v: number; strong?: boolean }) {
   return (
@@ -170,8 +70,8 @@ function Row({ k, v, strong }: { k: string; v: number; strong?: boolean }) {
   );
 }
 
-function Breakdown({ p }: { p: MyPayslip }) {
-  const { earnings, deductions, afterTax } = lines(p);
+function Breakdown({ p, vacationDays }: { p: MyPayslip; vacationDays?: number }) {
+  const { earnings, deductions, gross } = lines(p);
   const totalDed = deductions.reduce((n, [, v]) => n + v, 0);
   return (
     <section className="flex min-w-0 flex-col rounded-xl border border-border bg-surface p-5">
@@ -180,7 +80,7 @@ function Breakdown({ p }: { p: MyPayslip }) {
           <div className="text-xs font-semibold text-ink-2">Take-home pay · {p.period.label}</div>
           <div className="mt-1 font-display text-3xl font-semibold">{formatPHP(p.line.net)}</div>
         </div>
-        <Button size="sm" variant="ghost" onClick={() => printSlip(p)}>
+        <Button size="sm" variant="ghost" onClick={() => printWorkbookPayslip(p, vacationDays)}>
           <DownloadIcon className="h-3.5 w-3.5" /> Print or save as PDF
         </Button>
       </div>
@@ -192,7 +92,7 @@ function Breakdown({ p }: { p: MyPayslip }) {
             <Row key={k} k={k} v={v} />
           ))}
           <div className="mt-1 border-t border-border pt-1">
-            <Row k="Gross pay" v={p.line.gross} strong />
+            <Row k="Gross pay" v={gross} strong />
           </div>
         </div>
         <div>
@@ -205,15 +105,16 @@ function Breakdown({ p }: { p: MyPayslip }) {
           </div>
         </div>
       </div>
-      {afterTax.length > 0 && (
-        <div className="mt-6">
-          <h3 className="mb-1 text-xs font-semibold tracking-wide text-ink-3 uppercase">After tax: loans and other items</h3>
-          {afterTax.map(([k, v], i) => (
-            <Row key={k + i} k={k} v={v} />
-          ))}
-          <p className="mt-1 text-xs text-ink-3">Take-home pay = gross pay − deductions {afterTax.some(([, v]) => v > 0) ? "+ reimbursements " : ""}{afterTax.some(([, v]) => v < 0) ? "− loan installments" : ""}.</p>
-        </div>
-      )}
+      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+        {signers(p).map(([k, name, role]) => (
+          <div key={k} className="text-sm">
+            <div className="text-xs text-ink-2">{k}:</div>
+            <div className="mt-6 border-t border-border pt-1 font-medium">{name || "\u00a0"}</div>
+            <div className="text-xs text-ink-3">{role}</div>
+          </div>
+        ))}
+      </div>
+      {vacationDays !== undefined && <p className="mt-4 text-sm text-ink-2">No. of vacation days = <span className="font-num font-semibold text-ink">{vacationDays}</span></p>}
       <div className="mt-6">
         <h3 className="mb-1 text-xs font-semibold tracking-wide text-ink-3 uppercase">Time &amp; attendance</h3>
         <div className="grid gap-x-6 sm:grid-cols-2">
@@ -337,11 +238,14 @@ function PayExtras() {
 
 export function EmployeePayslips() {
   const slips = useQuery({ queryKey: ["ess", "payslips"], queryFn: myPayslips, staleTime: 0 });
+  const leave = useQuery({ queryKey: ["ess", "leave"], queryFn: myLeave });
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   if (slips.isError) return <LoadError onRetry={() => slips.refetch()} />;
   const list = slips.data ?? [];
   const selected = list.find((s) => s.period.id === selectedId) ?? list.find((s) => s.released) ?? list[0];
+  // "No. of vacation days" on the payslip: their VL/SL days left this leave year (sheet SIL).
+  const vacationDays = leave.data?.credits.available;
 
   return (
     <>
@@ -370,7 +274,7 @@ export function EmployeePayslips() {
               </li>
             ))}
           </ul>
-          {selected && <Breakdown p={selected} />}
+          {selected && <Breakdown p={selected} vacationDays={vacationDays} />}
         </div>
       )}
       <PayExtras />

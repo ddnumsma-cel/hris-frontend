@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { LeaveBar } from "@/components/ui/LeaveBar";
+import { Dialog } from "@/components/ui/Dialog";
 import {
   BentoArea,
   BentoHero,
@@ -38,8 +39,8 @@ import { myAttendance, myLeave, myPayslips } from "@/lib/ess/api";
 import { whosOutToday } from "@/lib/ess/more";
 import { fmtDay } from "@/lib/preferences";
 import { RequestCertificateDialog } from "./RequestCertificateDialog";
-import { printPayslip } from "./printTemplates";
-import type { Payslip } from "@/lib/types";
+import { printWorkbookPayslip } from "./workbookPayslip";
+import type { Announcement, Payslip } from "@/lib/types";
 
 
 /** Good morning, afternoon or evening, in Filipino, by the clock. */
@@ -81,6 +82,8 @@ export function EmployeeOverview() {
       })),
   });
   const announcementsQuery = useQuery({ queryKey: ["employee", "announcements"], queryFn: fetchAnnouncements });
+  // The announcement opened to read in full (the card cuts long ones off).
+  const [reading, setReading] = useState<Announcement | null>(null);
   // From the time clock, last 2 weeks.
   const dtrQuery = useQuery({
     queryKey: ["ess", "attendance", "overview"],
@@ -107,9 +110,11 @@ export function EmployeeOverview() {
   // The hero shows the last released cut-off; the running one is still a preview.
   const latestPayslip = payslipsQuery.data?.find((p) => p.status === "Paid") ?? payslipsQuery.data?.[0];
 
-  function handleDownloadPayslip() {
+  async function handleDownloadPayslip() {
     if (!latestPayslip) return;
-    printPayslip(employee, latestPayslip);
+    // The same workbook-style payslip as the Payslips page prints.
+    const slip = (await myPayslips()).find((s) => s.period.id === latestPayslip.id);
+    if (slip) printWorkbookPayslip(slip, creditsQuery.data?.available);
   }
 
   return (
@@ -233,8 +238,22 @@ export function EmployeeOverview() {
               {announcementsQuery.isLoading && <ListRowSkeletons />}
               {announcementsQuery.data?.length === 0 && <EmptyNote>No announcements right now.</EmptyNote>}
               {announcementsQuery.data?.map((a) => (
-                <ListRow key={a.id} leading={<BellIcon />} title={a.title} subtitle={a.postedOn} />
+                <button key={a.id} type="button" onClick={() => setReading(a)} aria-label={`Read announcement: ${a.title}`} className="block w-full rounded-[var(--radius-card)] text-left">
+                  <ListRow leading={<BellIcon />} title={a.title} subtitle={a.postedOn} />
+                </button>
               ))}
+              {reading && (
+                <Dialog open onClose={() => setReading(null)} title="Announcement" footer={<div className="flex justify-end"><Button onClick={() => setReading(null)}>Close</Button></div>}>
+                  <article className="flex flex-col gap-3">
+                    <h3 className="text-lg font-semibold break-words">{reading.title}</h3>
+                    <p className="text-xs text-ink-2">
+                      {reading.postedOn}
+                      {reading.postedBy ? ` by ${reading.postedBy}` : ""}
+                    </p>
+                    {reading.body && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{reading.body}</p>}
+                  </article>
+                </Dialog>
+              )}
             </CardBody>
           </Card>
         </BentoArea>
@@ -247,14 +266,14 @@ export function EmployeeOverview() {
               {creditsQuery.isLoading && <Skeleton className="h-16 w-full" />}
               {creditsQuery.data && (
                 <>
-                  <LeaveBar label="Leaves left" used={creditsQuery.data.used + creditsQuery.data.pending} entitlement={creditsQuery.data.total} />
+                  <LeaveBar label="VL/SL days left" used={creditsQuery.data.used + creditsQuery.data.pending} entitlement={creditsQuery.data.total} />
                   <p className="text-xs text-ink-2">
                     {creditsQuery.data.used} used · {creditsQuery.data.pending} waiting for your manager. Each leave uses 1, however many days.
                   </p>
                   <details className="text-xs text-ink-2">
                     <summary className="cursor-pointer font-medium text-ink">How credits are earned</summary>
                     <ul className="mt-2 flex list-disc flex-col gap-1 pl-4">
-                      <li>Everyone gets 6 leave credits on January 1. Unused credits don't carry over.</li>
+                      <li>VL/SL days by length of service: 3 after 6 months, 6 per year of service after 1 year, 18 after 3 years. The leave year runs June to May.</li>
                       <li>One leave uses one credit, whether it's half a day or a full week.</li>
                       <li>Leave without pay doesn't use a credit.</li>
                       {creditsQuery.data.adjusted !== 0 && (

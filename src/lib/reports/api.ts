@@ -9,7 +9,7 @@ import { computePay, type Adjustment, type PayResult } from "../pay/engine";
 import { branchOf, departmentOf, todayIso } from "../timekeeping/store";
 import { pagibig, philhealth, round2, sss, THIRTEENTH_MONTH_EXEMPT } from "./statutory";
 import { deny } from "../session";
-import { cutoffsInMonth, payProfileOf, recentCutoffs } from "../pay/settings";
+import { cutoffsInMonth, payProfileOf, recentCutoffs, refreshPaySettings } from "../pay/settings";
 import { applyRegister, registerRow } from "../pay/register";
 
 // ---- Periods ----
@@ -99,6 +99,7 @@ function monthsBetween(from: string, to: string) {
 }
 
 function tenure(hired: string) {
+  if (!hired) return "";
   const months = monthsBetween(hired, todayIso()) - (Number(todayIso().slice(8)) < Number(hired.slice(8)) ? 1 : 0);
   const y = Math.floor(months / 12);
   const m = months % 12;
@@ -187,6 +188,7 @@ function unpaidLeaveDays(employeeId: string, from: string, to: string) {
 
 /** Pay for everyone in a cut-off, computed live from attendance. Payroll runs freeze this. */
 export async function payroll(period: Period, office: string, adjustmentsFor?: (employeeId: string) => Adjustment[]): Promise<PayLine[]> {
+  await refreshPaySettings(2000);
   const att = await attendance(period.from, period.to);
   // Two weeks before the cut-off too, so an AWOL run that started in the last cut-off carries over.
   const end = period.to > todayIso() ? todayIso() : period.to;
