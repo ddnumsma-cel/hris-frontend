@@ -9,7 +9,7 @@ export interface ShiftDefinition {
   breakMinutes: number;
   /** Grace period before lateness counts (default 5) */
   graceMinutes?: number;
-  /** Excess work shorter than this is not overtime (default 30), so leaving at 17:10 is not 10 minutes of OT */
+  /** Excess work shorter than this is not overtime (default 0, the website's Rules › overtime threshold); OT is paid only once approved */
   otMinimumMinutes?: number;
   /** 0 = Sunday … 6 = Saturday */
   workDays: number[];
@@ -166,7 +166,7 @@ export function computeDailyTimeRecord(input: ComputeDtrInput): DailyTimeRecordR
         ? minutesBetween(timeOut, end)
         : 0;
   const excess = Math.max(0, workedMinutes - (shift.flexible ? required : REGULAR_WORK_MINUTES));
-  const otMinutes = excess >= (shift.otMinimumMinutes ?? 30) ? excess : 0;
+  const otMinutes = excess >= (shift.otMinimumMinutes ?? 0) ? excess : 0;
 
   return {
     date,

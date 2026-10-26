@@ -61,7 +61,7 @@ describe('payroll preview golden cases (SAMPLE rates)', () => {
     });
   });
 
-  it('OT at +25%, late deduction, regular holiday worked (200%) and unworked (100%), paid leave, absence', () => {
+  it('OT at +25%, 30 minutes late = half day, regular holiday worked (200%) and unworked (100%), paid leave, absence', () => {
     const days: PayrollDay[] = [
       day({ otMinutes: 130, lateMinutes: 30 }),
       ...present(9),
@@ -78,15 +78,24 @@ describe('payroll preview golden cases (SAMPLE rates)', () => {
       ot: '₱389.32', // 1,150 / 480 × 1.25 × 130
       nd: '₱0.00',
       holiday: '₱2,300.00', // +100% worked + 100% unworked
-      lateUt: '₱71.88', // 1,150 / 480 × 30
-      gross: '₱16,417.44',
+      lateUt: '₱575.00', // 30 minutes late = half a day (workbook), not 1,150 / 480 × 30
+      gross: '₱15,914.32',
       sss: '₱750.00',
       philhealth: '₱374.95',
       pagibig: '₱100.00',
-      tax: '₱716.32', // 15% of (15,192.49 − 10,417)
-      deductions: '₱1,941.27',
-      net: '₱14,476.17',
+      tax: '₱640.86', // 15% of (14,689.37 − 10,417)
+      deductions: '₱1,865.81',
+      net: '₱14,048.51',
     });
+  });
+
+  it('every 3rd late under 30 minutes in the cut-off = a day absent; undertime = a flat 4 hours', () => {
+    const late = (m: number) => day({ lateMinutes: m });
+    const lateUt = (days: PayrollDay[]) => formatPHP(computePayslip({ dailyRate: '1000.00', days, rates: RATES }).lateUndertimeDeduction);
+    expect(lateUt([late(10), late(10), ...present(11)])).toBe('₱0.00'); // 2 lates: nothing
+    expect(lateUt([late(10), late(10), late(10), ...present(10)])).toBe('₱1,000.00'); // 3rd late: a day
+    expect(lateUt([late(10), late(45), late(10), ...present(10)])).toBe('₱500.00'); // 45 min = half day, not one of the 3
+    expect(lateUt([day({ undertimeMinutes: 15 }), ...present(12)])).toBe('₱500.00'); // any undertime = 4 h
   });
 
   it('highest-rate employee hits the SSS ceiling and the 20% tax bracket', () => {

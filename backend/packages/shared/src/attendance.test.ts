@@ -32,7 +32,7 @@ describe('computeDailyTimeRecord', () => {
       status: 'PRESENT',
       lateMinutes: 0,
       undertimeMinutes: 0,
-      otMinutes: 0,
+      otMinutes: 4, // recorded from the first minute; paid only once approved
       nightDiffMinutes: 0,
       workedMinutes: 484,
     });
@@ -86,7 +86,7 @@ describe('computeDailyTimeRecord', () => {
     expect(r.otMinutes).toBe(0);
   });
 
-  it('counts OT only beyond 8 worked hours, and only from the 30-minute minimum', () => {
+  it('counts OT beyond 8 worked hours from the first minute (paid only once approved)', () => {
     const ot = computeDailyTimeRecord({
       date: FRIDAY,
       punches: [at(FRIDAY, '07:50'), at(FRIDAY, '19:05')],
@@ -99,7 +99,7 @@ describe('computeDailyTimeRecord', () => {
       punches: [at(FRIDAY, '07:50'), at(FRIDAY, '17:20')],
       shift: DAY,
     });
-    expect(short.otMinutes).toBe(0);
+    expect(short.otMinutes).toBe(20);
   });
 
   it('counts night differential for work between 22:00 and 06:00', () => {

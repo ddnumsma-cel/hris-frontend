@@ -122,6 +122,13 @@ export const PAY_RULES = {
   workDaysPerYear: 313,
 } as const;
 
+/** Arriving this many minutes after the shift starts is a half day (9:00 on an 8:30 shift). */
+export const HALF_DAY_LATE_MINUTES = 30;
+/** Every this-many lates under 30 minutes in one cut-off is a day absent. */
+export const LATES_PER_ABSENT_DAY = 3;
+/** Hours deducted for a day with undertime, however early they left. */
+export const UNDERTIME_HOURS = 4;
+
 /** Sample pay date: 5 days after the cutoff ends. */
 export function payDateFor(cutoffTo: DateKey): DateKey {
   return addDays(cutoffTo, 5);
@@ -221,6 +228,10 @@ export function computePayslip(input: {
   let otMinutes = 0;
   let ndMinutes = 0;
   let lateUtMinutes = 0;
+  // MSMA's payroll workbook (sheet B): 30+ minutes late = half day; every 3rd shorter late in the cut-off = a day
+  // absent; undertime = a flat 4 hours (half a day). Not deducted by the minute.
+  let lateUtDays = new Decimal(0);
+  let lates = 0;
 
   for (const day of input.days) {
     otMinutes += day.otMinutes;
@@ -229,6 +240,9 @@ export function computePayslip(input: {
       daysPaid = daysPaid.plus(1);
       basic = basic.plus(daily);
       lateUtMinutes += day.lateMinutes + day.undertimeMinutes;
+      if (day.lateMinutes >= HALF_DAY_LATE_MINUTES) lateUtDays = lateUtDays.plus(0.5);
+      else if (day.lateMinutes > 0 && ++lates % LATES_PER_ABSENT_DAY === 0) lateUtDays = lateUtDays.plus(1);
+      if (day.undertimeMinutes > 0) lateUtDays = lateUtDays.plus(UNDERTIME_HOURS / PAY_RULES.hoursPerDay);
       if (day.holidayType === 'REGULAR')
         holiday = holiday.plus(daily.times(PAY_RULES.regularHolidayWorkedExtra));
       if (day.holidayType === 'SPECIAL')
@@ -246,7 +260,7 @@ export function computePayslip(input: {
   const holidayPay = roundMoney(holiday);
   const overtimePay = roundMoney(minutePay(otMinutes, PAY_RULES.overtimeMultiplier));
   const nightDiffPay = roundMoney(minutePay(ndMinutes, PAY_RULES.nightDiffRate));
-  const lateUndertimeDeduction = roundMoney(minutePay(lateUtMinutes));
+  const lateUndertimeDeduction = roundMoney(daily.times(lateUtDays));
   const grossPay = roundMoney(
     basicPay.plus(holidayPay).plus(overtimePay).plus(nightDiffPay).minus(lateUndertimeDeduction),
   );
