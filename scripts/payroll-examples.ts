@@ -38,12 +38,17 @@ check("3 absences = 3 × 8h × ₱150", r.absentDeduction, 3600);
 check("3rd straight absence is AWOL (weekend doesn't break the run)", r.awolDays, 1);
 
 r = computePay(cutoff({ "2026-10-12": { lateMinutes: 10 }, "2026-10-13": { lateMinutes: 10 }, "2026-10-14": { lateMinutes: 10 } }));
-check("3 lates in one week = a half day (4h) = ₱600", r.halfDayDeduction, 600);
-check("…and no absence charged", r.absentDeduction, 0);
+check("3 lates in the cut-off = 1 day absent (8h) = ₱1,200", r.absentDeduction, 1200);
+check("…counted as an absence from lates", r.lateAbsentDays, 1);
+check("…and no half day", r.halfDayDeduction, 0);
 r = computePay(cutoff({ "2026-10-09": { lateMinutes: 10 }, "2026-10-12": { lateMinutes: 10 }, "2026-10-13": { lateMinutes: 10 } }));
-check("3 lates across two weeks: no half day", r.halfDayDeduction, 0);
+check("3 lates across two weeks of the same cut-off = 1 day absent", r.lateAbsentDays, 1);
+r = computePay(cutoff({ "2026-10-12": { lateMinutes: 10 }, "2026-10-13": { lateMinutes: 10 } }));
+check("2 lates: nothing deducted", r.absentDeduction + r.halfDayDeduction, 0);
 r = computePay(cutoff({ "2026-10-06": { lateMinutes: 25, lateRawMinutes: 30 } }));
 check("30 minutes late (9:00 on an 8:30 shift) = a half day", r.halfDays, 1);
+r = computePay(cutoff({ "2026-10-06": { lateMinutes: 25, lateRawMinutes: 30 }, "2026-10-07": { lateMinutes: 10 }, "2026-10-08": { lateMinutes: 10 } }));
+check("A 9:00+ half day doesn't also count toward the 3 lates", r.lateAbsentDays, 0);
 
 r = computePay(cutoff({}, [day("2026-10-03", { kind: "rest", dayType: "rest", workedMinutes: 600, approvedOvertimeMinutes: 120 })]));
 check("Rest day, first 8h at 1.3 = ₱1,560", r.premiumPay, 1560);

@@ -30,8 +30,8 @@ import { DEFAULT_PROFILE, scheduledHours, type PayProfile } from "./settings";
 export const AWOL_AFTER = 3;
 /** Arriving this many minutes after the shift starts counts as a half day. */
 export const HALF_DAY_LATE = 30;
-/** Every this-many lates in one week count as a half day. */
-export const LATES_PER_HALF_DAY = 3;
+/** Every this-many lates (under 30 minutes) in one cut-off count as one day absent (DTR_FT "ABS"). */
+export const LATES_PER_ABSENT_DAY = 3;
 /** Hours deducted for a day with undertime. */
 export const UNDERTIME_HOURS = 4;
 
@@ -116,15 +116,18 @@ export interface PayResult {
   /** Half the monthly pay, less the workdays not employed when hired or separated mid-cutoff. */
   basic: number;
   present: number;
+  /** Includes the days from lates (lateAbsentDays). */
   absentDays: number;
   absentHours: number;
+  /** Days absent from lates: every 3rd late under 30 minutes in the cut-off. */
+  lateAbsentDays: number;
   awolDays: number;
   awolDates: string[];
   absentDeduction: number;
   unpaidLeaveDays: number;
   unpaidLeaveDeduction: number;
   lateMinutes: number;
-  /** Lates that became half days: 30+ minutes late, or every 3rd late in a week. */
+  /** Lates that became half days: 30+ minutes late (9:00 on an 8:30 shift). */
   halfDays: number;
   halfDayHours: number;
   halfDayDeduction: number;
@@ -178,12 +181,6 @@ const halfEven = (n: number) => {
 const nextDay = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 864e5).toISOString().slice(0, 10);
 const inRange = (date: string, from?: string, to?: string) => (!from || date >= from) && (!to || date <= to);
 const weekday = (date: string) => new Date(`${date}T12:00:00`).getDay();
-/** Monday of the date's week, so lates are counted Monday to Sunday. */
-const weekOf = (date: string) => {
-  const d = new Date(`${date}T12:00:00`);
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-  return d.toISOString().slice(0, 10);
-};
 
 /** Sheet D's year figures: the cut-off's tax a month and a year, the expected 13th month (one month)
  * and bonus (half a month) against the ₱90,000 tax-free limit, and what is left of it per cut-off. */
@@ -243,7 +240,8 @@ export function computePay(input: PayInput): PayResult {
   let nightPay = 0;
   let workdaysScheduled = 0;
   let workdaysAttended = 0;
-  const latesByWeek = new Map<string, number>();
+  let lates = 0;
+  let lateAbsentDays = 0;
 
   for (const d of [...days].sort((a, b) => a.date.localeCompare(b.date))) {
     const attended = d.status === "done" || d.status === "working";
@@ -261,20 +259,16 @@ export function computePay(input: PayInput): PayResult {
       }
     }
 
-    // Lates: 30+ minutes is a half day; shorter ones count toward 3-a-week.
+    // Lates: 30+ minutes is a half day; every 3rd shorter late in the cut-off is a day absent (the 30+ ones don't count toward it).
     lateMinutes += d.lateMinutes;
     if (d.kind === "work" && attended && d.lateMinutes > 0) {
       if ((d.lateRawMinutes ?? d.lateMinutes) >= HALF_DAY_LATE) {
         halfDays++;
         halfDayHours += hoursOf(d) / 2;
-      } else {
-        const week = weekOf(d.date);
-        const n = (latesByWeek.get(week) ?? 0) + 1;
-        latesByWeek.set(week, n);
-        if (n % LATES_PER_HALF_DAY === 0) {
-          halfDays++;
-          halfDayHours += hoursOf(d) / 2;
-        }
+      } else if (++lates % LATES_PER_ABSENT_DAY === 0) {
+        lateAbsentDays++;
+        absentDays++;
+        absentHours += hoursOf(d);
       }
     }
 
@@ -350,6 +344,7 @@ export function computePay(input: PayInput): PayResult {
     present,
     absentDays,
     absentHours,
+    lateAbsentDays,
     awolDays,
     awolDates: awolHere,
     absentDeduction: round2(absentDeduction),

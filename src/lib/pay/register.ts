@@ -113,6 +113,7 @@ export function applyRegister(pay: PayResult, row: RegisterRow): PayResult {
     premiumMinutes: 0,
     nightMinutes: 0,
     absentDays: 0,
+    lateAbsentDays: 0,
     absentHours: 0,
     awolDays: 0,
     awolDates: [],
