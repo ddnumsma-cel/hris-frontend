@@ -89,7 +89,7 @@ export default function My201Screen() {
                 style={{
                   width: `${f.summary.percent}%`,
                   height: '100%',
-                  backgroundColor: needed.length || renew.length ? c.warning : c.success,
+                  backgroundColor: needed.length || renew.length ? c.accent : c.success,
                 }}
               />
             </View>

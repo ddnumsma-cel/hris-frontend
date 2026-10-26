@@ -22,7 +22,7 @@ import { useTheme } from '~/lib/theme';
 const greeting = (h = new Date().getHours()) => (h < 12 ? 'Magandang umaga' : h < 18 ? 'Magandang hapon' : 'Magandang gabi');
 
 /** The website's dashboard card (.dash [data-slot=card]): crisp fill, hairline border. */
-function DashCard({ title, meta, action, children }: { title?: string; meta?: string; action?: ReactNode; children: ReactNode }) {
+export function DashCard({ title, meta, action, children }: { title?: string; meta?: string; action?: ReactNode; children: ReactNode }) {
   const { c, dark, look } = useTheme();
   return (
     <View style={[styles.card, look.card(c, dark), { borderRadius: look.cardRadius }]}>
@@ -45,11 +45,12 @@ function DashCard({ title, meta, action, children }: { title?: string; meta?: st
 }
 
 /** A KPI tile: small uppercase label, 28px figure, a tinted status pill under it. */
-function Kpi({ label, value, delta, tone }: { label: string; value: ReactNode; delta?: string; tone?: 'good' }) {
+export function Kpi({ label, value, delta, tone, bare }: { label: string; value: ReactNode; delta?: string; tone?: 'good'; bare?: boolean }) {
   const { c, dark, look } = useTheme();
   return (
-    <View style={[styles.card, look.card(c, dark), { borderRadius: look.cardRadius, gap: 4 }]}>
-      <T size={11} weight="500" muted style={styles.upper}>
+    <View style={bare ? { gap: 4, flex: 1 } : [styles.card, look.card(c, dark), { borderRadius: look.cardRadius, gap: 4 }]}>
+      {/* Side by side, both labels take two lines so the figures line up. */}
+      <T size={11} weight="500" muted numberOfLines={bare ? 2 : undefined} style={[styles.upper, bare ? { minHeight: 30 } : {}]}>
         {label}
       </T>
       <View>{typeof value === 'string' ? <T size={28} weight="600" style={mono}>{value}</T> : value}</View>
@@ -61,6 +62,18 @@ function Kpi({ label, value, delta, tone }: { label: string; value: ReactNode; d
           </T>
         </View>
       )}
+    </View>
+  );
+}
+
+/** Two KPI tiles in one card, side by side with a divider. */
+export function KpiPair({ children }: { children: [ReactNode, ReactNode] }) {
+  const { c, dark, look } = useTheme();
+  return (
+    <View style={[styles.card, look.card(c, dark), { borderRadius: look.cardRadius, flexDirection: 'row' }]}>
+      {children[0]}
+      <View style={{ width: 1, backgroundColor: c.border, marginHorizontal: 16 }} />
+      {children[1]}
     </View>
   );
 }
@@ -131,7 +144,7 @@ export default function HomeScreen() {
           {user ? `${greeting()}, ${user.displayName.split(' ')[0]}` : greeting()}
         </T>
         <T size={11} weight="500" muted style={[styles.upper, { marginTop: 4 }]}>
-          {formatToday()} · {user?.site?.name ?? ''} · ID {user?.employeeNo ?? ''}
+          {formatToday()}{'\n'}{user?.site?.name ?? ''} · ID {user?.employeeNo ?? ''}
         </T>
       </View>
 
@@ -169,26 +182,32 @@ export default function HomeScreen() {
             No payslips yet.
           </T>
         )}
-        {slip && <ListRow icon="wallet-outline" title={slip.label} subtitle={`Gross ${formatPHP(slip.grossPay)} · Deductions ${formatPHP(slip.totalDeductions)}`} value={formatPHP(slip.netPay)} status={slip.status === 'RELEASED' ? 'Paid' : 'Processing'} />}
+        {slip && <ListRow icon="wallet-outline" title={slip.label} subtitle={`Gross ${formatPHP(slip.grossPay)}\nDeductions ${formatPHP(slip.totalDeductions)}`} value={formatPHP(slip.netPay)} status={slip.status === 'RELEASED' ? 'Paid' : 'Processing'} />}
       </DashCard>
 
-      <Kpi label="On-time rate, last 2 weeks" value={attendance.data ? `${onTime}%` : '…'} delta={attendance.data ? `${late} late, ${absent} absences` : undefined} tone="good" />
+      <KpiPair>
+      <Kpi bare label="On-time rate, last 2 weeks" value={attendance.data ? `${onTime}%` : '…'} delta={attendance.data ? `${late} late, ${absent} absences` : undefined} tone="good" />
       <Kpi
+        bare
         label="Leave credits left"
         value={
           credits.data ? (
-            <T size={28} weight="600" style={mono}>
-              {credits.data.available}{' '}
+            // "/ 35 leaves" stays in one piece: beside the figure, or under it on narrow phones.
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 6 }}>
+              <T size={28} weight="600" style={mono}>
+                {credits.data.available}
+              </T>
               <T size={14} weight="600" muted>
                 / {credits.data.total} leaves
               </T>
-            </T>
+            </View>
           ) : (
             '…'
           )
         }
         delta={credits.data ? `${credits.data.used + credits.data.pending} used or waiting` : undefined}
       />
+      </KpiPair>
 
       <DashCard title="Announcements" meta="Cebu HQ">
         {announcements.isLoading && <Loading />}

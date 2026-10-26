@@ -1,7 +1,8 @@
 import { formatDate, formatTime, LABELS, manilaToday, weekdayOf, type DtrRow } from '@msma/shared';
+import { router } from 'expo-router';
 import { View } from 'react-native';
 import { PresentStreak } from '~/components/PresentStreak';
-import { Badge, Card, ErrorText, Loading, mono, Screen, T } from '~/components/ui';
+import { Badge, Button, Card, ErrorText, Loading, mono, Screen, T } from '~/components/ui';
 import { useMyAttendance } from '~/lib/queries';
 import { useTheme } from '~/lib/theme';
 
@@ -26,6 +27,7 @@ export default function AttendanceScreen() {
   const today = manilaToday();
   return (
     <Screen refreshing={q.isRefetching} onRefresh={() => q.refetch()}>
+      <Button label="Fix my time in / out" icon="create-outline" onPress={() => router.push('/employee/attendance/fix')} />
       <T muted size={14}>
         Your daily time record for the last 14 days (Asia/Manila time).
       </T>

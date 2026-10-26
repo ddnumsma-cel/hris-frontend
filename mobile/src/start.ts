@@ -27,24 +27,24 @@ const EMPLOYEE: StartGroup[] = [
   {
     title: 'Leave & time',
     items: [
-      { label: 'File leave', to: '/employee/leave?create=leave', hint: 'Ask for time off' },
+      // Forms with their own pages on the phone (the website opens them with ?create=).
+      { label: 'File leave', to: '/employee/leave/new', hint: 'Ask for time off' },
       { label: 'View leave balance', to: '/employee/leave', hint: 'See the days you have left' },
       { label: 'Request overtime', to: '/employee/overtime?create=overtime', hint: 'Get paid for time past your shift' },
       { label: 'Request undertime', to: '/employee/undertime?create=undertime', hint: 'Explain leaving before your shift ends' },
-      { label: 'Request attendance fix', to: '/employee/attendance?create=adjustment', hint: 'Fix a missed time in or out' },
+      { label: 'Request attendance fix', to: '/employee/attendance/fix', hint: 'Fix a missed time in or out' },
     ],
   },
   {
     title: 'Requests',
     items: [
-      { label: 'Request certificate', to: '/employee/certificates?create=certificate', hint: 'Employment, compensation and more' },
-      { label: 'Submit reimbursement', to: '/employee/reimbursements?create=claim', hint: 'Get paid back for work expenses' },
+      { label: 'Request certificate', to: '/employee/certificates/new', hint: 'Employment, compensation and more' },
+      { label: 'Submit reimbursement', to: '/employee/reimbursements/new', hint: 'Get paid back for work expenses' },
     ],
   },
   {
     title: 'Records',
     items: [
-      { label: 'Update my details', to: '/employee/201-file?create=details', hint: 'Address, contacts and IDs' },
       { label: 'Add benefit or dependent', to: '/employee/benefits?create=benefit', hint: 'HMO, insurance and family' },
     ],
   },

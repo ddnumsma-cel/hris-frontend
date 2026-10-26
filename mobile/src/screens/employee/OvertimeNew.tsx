@@ -25,7 +25,7 @@ export default function FileOvertimeScreen() {
     <Screen>
       <SectionTitle>Day</SectionTitle>
       <DayPicker
-        days={daysBetween(addDays(today, -14), addDays(today, 14))}
+        days={daysBetween(today, addDays(today, 14))}
         value={date}
         onChange={setDate}
         today={today}

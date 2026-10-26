@@ -47,7 +47,7 @@ export default function FileUndertimeScreen() {
     <Screen>
       <SectionTitle>Day</SectionTitle>
       <DayPicker
-        days={daysBetween(addDays(todayKey, -7), addDays(todayKey, 14))}
+        days={daysBetween(todayKey, addDays(todayKey, 14))}
         value={date}
         onChange={setDate}
         today={todayKey}

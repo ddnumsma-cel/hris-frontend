@@ -14,16 +14,8 @@ import { useTheme, type ThemePreference } from '~/lib/theme';
 import { useSession } from '~/session';
 import { Segmented } from './sheets';
 import { Button, font, T } from './ui';
+import { useReducedMotion } from '~/lib/useReducedMotion';
 
-function useReducedMotion() {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    void AccessibilityInfo.isReduceMotionEnabled().then(setReduced);
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
-    return () => sub.remove();
-  }, []);
-  return reduced;
-}
 
 export function ProfilePanel({ open, onClose, go, groups, path }: { open: boolean; onClose: () => void; go: (to: string) => void; groups: NavGroup[]; path: string }) {
   const { c, dark, look, preference, setPreference } = useTheme();
@@ -65,7 +57,14 @@ export function ProfilePanel({ open, onClose, go, groups, path }: { open: boolea
         <LinearGradient colors={look.wash(c, dark)} start={{ x: 0, y: 0 }} end={{ x: 0, y: 0.5 }} style={[StyleSheet.absoluteFill, styles.fill]} />
 
         <View style={styles.head}>
-          <View style={styles.who}>
+          {/* Employees open their details from here (other workspaces have no My details page yet). */}
+          <Pressable
+            onPress={() => go('/employee/my-details')}
+            disabled={user?.workspace !== 'employee'}
+            accessibilityRole="button"
+            accessibilityLabel={`${user?.name ?? ''}, my details`}
+            style={({ pressed }) => [styles.who, { borderRadius: 12, backgroundColor: pressed ? c.tint : 'transparent' }]}
+          >
             <View style={[styles.avatar, { backgroundColor: c.gradEnd }]}>
               <Text style={[{ color: c.onAccent, fontSize: 15 }, font('600')]}>{user?.initials}</Text>
             </View>
@@ -80,7 +79,8 @@ export function ProfilePanel({ open, onClose, go, groups, path }: { open: boolea
                 {user?.account.username}
               </T>
             </View>
-          </View>
+            {user?.workspace === 'employee' && <Ionicons name="chevron-forward" size={18} color={c.muted} />}
+          </Pressable>
         </View>
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 16 }}>

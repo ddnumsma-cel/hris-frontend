@@ -9,11 +9,14 @@ function Line({
   value,
   strong,
   negative,
+  first,
 }: {
   label: string;
   value: string;
   strong?: boolean;
   negative?: boolean;
+  /** The card's first line has no divider above it. */
+  first?: boolean;
 }) {
   const { c } = useTheme();
   return (
@@ -22,7 +25,7 @@ function Line({
         flexDirection: 'row',
         justifyContent: 'space-between',
         paddingVertical: 8,
-        borderTopWidth: 1,
+        borderTopWidth: first ? 0 : 1,
         borderTopColor: c.border,
       }}
     >
@@ -83,8 +86,8 @@ export default function PayslipsScreen() {
 
           <SectionTitle>Earnings</SectionTitle>
           <Card style={{ paddingVertical: 4 }}>
-            {earnings(p).map(([label, value]) => (
-              <Line key={label} label={label} value={value} />
+            {earnings(p).map(([label, value], i) => (
+              <Line key={label} label={label} value={value} first={i === 0} />
             ))}
             <Line label="Late / undertime" value={p.lateUndertimeDeduction} negative />
             <Line label="Gross pay" value={p.grossPay} strong />
@@ -92,8 +95,8 @@ export default function PayslipsScreen() {
 
           <SectionTitle>Deductions</SectionTitle>
           <Card style={{ paddingVertical: 4 }}>
-            {deductions(p).map(([label, value]) => (
-              <Line key={label} label={label} value={value} />
+            {deductions(p).map(([label, value], i) => (
+              <Line key={label} label={label} value={value} first={i === 0} />
             ))}
             <Line label="Total deductions" value={p.totalDeductions} strong />
           </Card>

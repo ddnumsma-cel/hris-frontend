@@ -235,6 +235,17 @@ export const EmployeeListItemSchema = z.object({
   position: z.string().nullable(),
   dailyRate: MoneySchema,
   todayStatus: DtrStatusSchema.nullable(),
+  managerId: z.string().nullable().optional().describe('Who this person reports to (for the org chart)'),
+  today: z
+    .object({
+      timeIn: z.string().nullable(),
+      lateMinutes: z.number().int(),
+      leaveType: z.string().nullable(),
+      leaveUntil: DateKeySchema.nullable(),
+    })
+    .nullable()
+    .optional()
+    .describe("Today's time-in and minutes late, and the approved leave covering today (list only)"),
   record201: Record201BriefSchema.nullable().describe(
     '201 file status; null for roles that do not review 201 files',
   ),

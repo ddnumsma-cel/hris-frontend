@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { addDays, DateKey, formatDate, formatMinutes, weekdayOf } from '@msma/shared';
 import { useEffect, useRef, useState } from 'react';
 import { parseTime } from '~/lib/timeText';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { useTheme } from '~/lib/theme';
 import { font, mono, T } from './ui';
 
@@ -65,22 +65,132 @@ export function DayPicker({
   onChange: (d: DateKey) => void;
   today: DateKey;
 }) {
+  const scroller = useRef<ScrollView>(null);
   return (
     <ScrollView
+      ref={scroller}
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.row}
     >
       {days.map((d) => (
-        <Chip
-          key={d}
-          label={formatDate(d).replace(/ \d{4}$/, '')}
-          sub={d === today ? 'Today' : DAY[weekdayOf(d)]}
-          selected={value === d}
-          onPress={() => onChange(d)}
-        />
+        // Open with the chosen day in view (it's often near the end of the row).
+        <View key={d} onLayout={(e) => d === value && scroller.current?.scrollTo({ x: Math.max(0, e.nativeEvent.layout.x - 16), animated: false })}>
+          <Chip
+            label={formatDate(d).replace(/ \d{4}$/, '')}
+            sub={d === today ? 'Today' : DAY[weekdayOf(d)]}
+            selected={value === d}
+            onPress={() => onChange(d)}
+          />
+        </View>
       ))}
     </ScrollView>
+  );
+}
+
+/** A dropdown: a field-styled button whose list floats over the page right under it (or above it near the bottom of
+ *  the screen), with a search box for long lists. */
+export function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+  placeholder = 'Select an option',
+  disabled,
+  invalid,
+}: {
+  label: string;
+  value: string;
+  options: readonly string[];
+  onChange: (v: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  invalid?: boolean;
+}) {
+  const { c } = useTheme();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const field = useRef<View>(null);
+  const { height: screenH } = useWindowDimensions();
+  // Where the field is on screen, so the floating list can sit right against it.
+  const [at, setAt] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const show = () => field.current?.measureInWindow((x, y, w, h) => {
+    setAt({ x, y, w, h });
+    setOpen(true);
+  });
+  const shown = q.trim() ? options.filter((o) => o.toLowerCase().includes(q.trim().toLowerCase())) : options;
+  const close = () => {
+    setOpen(false);
+    setQ('');
+  };
+  return (
+    <View ref={field} collapsable={false}>
+      <Pressable
+        onPress={() => (open ? close() : show())}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${value || placeholder}`}
+        accessibilityState={{ disabled, expanded: open }}
+        style={[styles.select, { borderColor: invalid ? c.danger : open ? c.accent : c.border, backgroundColor: c.fieldBg, opacity: disabled ? 0.5 : 1 }]}
+      >
+        <T size={16} muted={!value} style={{ flex: 1 }} numberOfLines={1}>
+          {value || placeholder}
+        </T>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={c.muted} />
+      </Pressable>
+      {/* The list floats over the page (a see-through layer); tapping outside closes it. Long lists scroll inside. */}
+      <Modal visible={open && !!at} transparent animationType="none" onRequestClose={close}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close list" />
+        {at && (
+        <View
+          accessibilityRole="list"
+          style={[
+            styles.menu,
+            { position: 'absolute', left: at.x, width: at.w, backgroundColor: c.surfaceRaised, borderColor: c.border, shadowColor: c.text },
+            // Opens upward when there isn't room for the list below the field.
+            screenH - (at.y + at.h) < 320 && at.y > 320 ? { bottom: screenH - at.y + 4 } : { top: at.y + at.h + 4 },
+          ]}
+        >
+          {options.length > 12 && (
+            <TextInput
+              value={q}
+              onChangeText={setQ}
+              placeholder="Search"
+              placeholderTextColor={c.muted}
+              autoCorrect={false}
+              autoFocus
+              accessibilityLabel={`Search ${label}`}
+              style={[styles.select, font(), { borderColor: c.border, backgroundColor: c.fieldBg, color: c.text, fontSize: 16, marginBottom: 4 }]}
+            />
+          )}
+          <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 240 }} contentContainerStyle={{ gap: 2 }}>
+            {shown.map((o) => (
+              <Pressable
+                key={o}
+                onPress={() => {
+                  onChange(o);
+                  close();
+                }}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: o === value }}
+                style={({ pressed }) => [styles.option, { backgroundColor: o === value ? c.accentSoft : pressed ? c.tint : 'transparent' }]}
+              >
+                <T size={15} weight={o === value ? '600' : '400'} style={[{ flex: 1 }, o === value ? { color: c.accent } : {}]}>
+                  {o}
+                </T>
+                {o === value && <Ionicons name="checkmark" size={18} color={c.accent} />}
+              </Pressable>
+            ))}
+            {shown.length === 0 && (
+              <T muted size={14} style={{ textAlign: 'center', paddingVertical: 16 }}>
+                {`Nothing matches "${q.trim()}"`}
+              </T>
+            )}
+          </ScrollView>
+        </View>
+        )}
+      </Modal>
+    </View>
   );
 }
 
@@ -285,6 +395,9 @@ export { toMinutes, toHhmm };
 
 const styles = StyleSheet.create({
   row: { gap: 8, paddingRight: 8 },
+  select: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, borderWidth: 1, borderRadius: 9, paddingHorizontal: 12 },
+  menu: { padding: 4, borderWidth: 1, borderRadius: 12, shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
+  option: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 12, borderRadius: 9 },
   chip: {
     borderWidth: 1,
     borderRadius: 9,

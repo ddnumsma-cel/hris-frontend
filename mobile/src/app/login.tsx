@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BACKEND_DEMO_ACCOUNTS } from '@/lib/backend/auth';
-import { Badge, Button, Card, font, T } from '~/components/ui';
-import { API_URL, checkConnection } from '~/lib/api';
+import { Button, Card, font, T } from '~/components/ui';
 import { useTheme } from '~/lib/theme';
 import { useSession } from '~/session';
 
@@ -14,8 +13,6 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [connection, setConnection] = useState<{ ok: boolean; message: string } | null>(null);
 
   // The HR server's seeded logins.
   const demos = BACKEND_DEMO_ACCOUNTS;
@@ -26,12 +23,6 @@ export default function LoginScreen() {
     const message = await signIn(u.trim(), p);
     if (message) setError(message);
     setBusy(false);
-  }
-
-  async function testConnection() {
-    setTesting(true);
-    setConnection(await checkConnection());
-    setTesting(false);
   }
 
   const input = [styles.input, font(), { borderColor: c.border, backgroundColor: c.fieldBg, color: c.text }];
@@ -53,7 +44,6 @@ export default function LoginScreen() {
                 Employee app · Sample data
               </T>
             </View>
-            <Badge label="Mobile UI" tone="accent" />
           </View>
 
           <Card>
@@ -105,22 +95,6 @@ export default function LoginScreen() {
               ))}
             </View>
           </Card>
-
-            <View style={{ alignItems: 'center', gap: 4 }}>
-              <T muted size={12}>
-                Server: {API_URL}
-              </T>
-              <Pressable onPress={testConnection} accessibilityRole="button" disabled={testing} style={{ padding: 8 }}>
-                <T size={14} weight="600" style={{ color: c.accent }}>
-                  {testing ? 'Testing…' : 'Test connection'}
-                </T>
-              </Pressable>
-              {connection && (
-                <T size={13} style={{ textAlign: 'center', color: connection.ok ? c.success : c.danger }}>
-                  {connection.message}
-                </T>
-              )}
-            </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -134,5 +108,5 @@ const styles = StyleSheet.create({
   mark: { width: 32, height: 32 },
   input: { minHeight: 48, borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, fontSize: 16 },
   demos: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  demo: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 8, minWidth: '47%', flexGrow: 1 },
+  demo: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 8, flexBasis: '40%', flexGrow: 1 },
 });

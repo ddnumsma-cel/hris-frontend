@@ -88,6 +88,7 @@ export function T({
   size = 15,
   weight,
   numberOfLines,
+  accessibilityLabel,
 }: {
   children: ReactNode;
   style?: TextStyle | TextStyle[];
@@ -95,11 +96,13 @@ export function T({
   size?: number;
   weight?: TextStyle['fontWeight'];
   numberOfLines?: number;
+  accessibilityLabel?: string;
 }) {
   const { c } = useTheme();
   return (
     <Text
       numberOfLines={numberOfLines}
+      accessibilityLabel={accessibilityLabel}
       style={[{ color: muted ? c.muted : c.text, fontSize: size }, font(weight), style]}
     >
       {children}
@@ -238,12 +241,39 @@ export function ErrorText({ error, onRetry }: { error: Error | null; onRetry?: (
   );
 }
 
+/** Previous · Page n of m · Next, for lists shown a page at a time. `page` counts from 0. */
+export function Pager({ page, pages, onChange }: { page: number; pages: number; onChange: (page: number) => void }) {
+  const { c } = useTheme();
+  const btn = (enabled: boolean) => [styles.pageBtn, { borderColor: c.border, backgroundColor: c.fieldBg, opacity: enabled ? 1 : 0.4 }];
+  return (
+    <View style={styles.pager}>
+      <Pressable onPress={() => onChange(page - 1)} disabled={page === 0} accessibilityRole="button" accessibilityLabel="Previous page" style={btn(page > 0)}>
+        <Ionicons name="chevron-back" size={16} color={c.text} />
+        <T size={13} weight="500">
+          Previous
+        </T>
+      </Pressable>
+      <T size={13} muted>
+        Page {page + 1} of {pages}
+      </T>
+      <Pressable onPress={() => onChange(page + 1)} disabled={page >= pages - 1} accessibilityRole="button" accessibilityLabel="Next page" style={btn(page < pages - 1)}>
+        <T size={13} weight="500">
+          Next
+        </T>
+        <Ionicons name="chevron-forward" size={16} color={c.text} />
+      </Pressable>
+    </View>
+  );
+}
+
 export function Loading() {
   const { c } = useTheme();
   return <ActivityIndicator style={{ marginVertical: 24 }} color={c.accent} />;
 }
 
 const styles = StyleSheet.create({
+  pager: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingVertical: 10 },
+  pageBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 40, paddingHorizontal: 12, borderWidth: 1, borderRadius: 9 },
   screen: { padding: 16, gap: 16, paddingBottom: 32 },
   card: { borderRadius: radius.card, borderWidth: 1, padding: 16 },
   sectionTitle: {

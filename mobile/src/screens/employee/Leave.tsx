@@ -21,10 +21,14 @@ export default function LeaveScreen() {
         {balances.data?.map((b) => (
           <Card key={b.leaveTypeCode} style={{ flex: 1, padding: 12 }}>
             <T size={24} weight="600" style={mono}>
-              {b.remaining}
+              {b.remaining}{' '}
+              <T size={12} weight="500" muted>
+                left
+              </T>
             </T>
-            <T size={12} muted>
-              {b.leaveTypeName} left
+            {/* Short names keep the three cards even: "Vacation", "Sick", and the code for long ones ("SIL"). */}
+            <T size={13} weight="500" numberOfLines={1} accessibilityLabel={b.leaveTypeName}>
+              {b.leaveTypeName.split(' ').length > 2 ? b.leaveTypeCode : b.leaveTypeName.replace(/ leave$/i, '')}
             </T>
             <T size={11} muted style={{ marginTop: 4 }}>
               {b.used} of {b.entitled} used

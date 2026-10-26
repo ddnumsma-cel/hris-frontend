@@ -75,7 +75,13 @@ const MANAGER: NavGroup[] = [
 ];
 
 const ADMIN: NavGroup[] = [
-  { title: 'Organization', items: [{ label: 'Home', to: '/admin', icon: 'home-outline' }] },
+  {
+    title: 'Organization',
+    items: [
+      { label: 'Home', to: '/admin', icon: 'home-outline' },
+      { label: 'Approvals', to: '/admin/approvals', icon: 'checkbox-outline' },
+    ],
+  },
   {
     title: 'Maintenance',
     icon: 'server-outline',
@@ -171,6 +177,8 @@ const ADMIN: NavGroup[] = [
 
 /** Allowed by the website's page rules (pages without a rule are open to the workspace). */
 export const pageAllowed = (who: Who, to: string) => {
+  // A phone-only page: HR's approvals inbox (leave and attendance fixes), for roles that see leave applications.
+  if (to.startsWith('/admin/approvals')) return can(who, 'view', 'leave');
   const need = pageNeed(to.split('?')[0]!);
   return !need || can(who, need.action, need.feature);
 };
@@ -193,7 +201,7 @@ export function navFor(workspace: Role, who: Who): NavGroup[] {
 const TABS: Record<RoleKey, string[]> = {
   employee: ['/employee', '/employee/attendance', '/employee/payslips', '/employee/requests'],
   approver: ['/manager', '/manager/approvals', '/manager/calendar', '/manager/attendance'],
-  hr: ['/admin', '/admin/maintenance/people', '/admin/timekeeping', '/admin/requests/reimbursement'],
+  hr: ['/admin', '/admin/maintenance/people', '/admin/timekeeping', '/admin/approvals'],
   accounting: ['/admin', '/admin/payroll', '/admin/requests/reimbursement', '/admin/reports/payroll'],
   super_admin: ['/admin', '/admin/maintenance/people', '/admin/payroll', '/admin/requests/reimbursement'],
   system_admin: ['/admin', '/admin/administration/subscription', '/admin/administration/support', '/admin/administration/users'],

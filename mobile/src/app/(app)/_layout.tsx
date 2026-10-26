@@ -14,11 +14,16 @@ import { useSession, useWho } from '~/session';
 
 /** Pages that aren't in the sidebar (forms and the clock-in screen), titled as in the app before. */
 const TITLES: Record<string, string> = {
+  '/search': 'Search',
   '/employee/clock': 'Clock in or out',
   '/employee/leave/new': 'File leave',
   '/employee/overtime/new': 'File overtime',
   '/employee/undertime/new': 'Leave early (undertime)',
   '/employee/attendance/fix': 'Fix my time in / out',
+  '/employee/certificates/new': 'Request certificate',
+  '/employee/reimbursements/new': 'Submit reimbursement',
+  '/employee/my-details': 'My details',
+  '/admin/approvals': 'Approvals',
 };
 
 export default function AppLayout() {
@@ -35,7 +40,7 @@ export default function AppLayout() {
   const tabs = tabsFor(user.role, groups);
   // Main pages: Home, the tabs and every page in the profile panel. Anything deeper gets a back arrow.
   const main = path === home || path === '/' || groups.some((g) => g.items.some((i) => i.to === path || i.children?.some((ch) => ch.to === path)));
-  const title = TITLES[path] ? TITLES[path] : path === home || path === '/' ? 'Home' : (itemFor(groups, path)?.label ?? 'MSMA HRIS');
+  const title = TITLES[path] ? TITLES[path] : path.startsWith('/admin/maintenance/people/') || path.startsWith('/manager/people/') ? 'Employee' : path === home || path === '/' ? 'Home' : (itemFor(groups, path)?.label ?? 'MSMA HRIS');
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       {/* The Glass wash behind every screen. */}

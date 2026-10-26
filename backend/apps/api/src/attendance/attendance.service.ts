@@ -346,6 +346,29 @@ export class AttendanceService {
     return new Map(rows.map((r) => [r.employeeId, r.status]));
   }
 
+  /** For the employee list: each person's time-in and minutes late on a date, and the approved leave covering it. */
+  async dayDetails(
+    ids: string[],
+    date: DateKey,
+  ): Promise<Map<string, { timeIn: string | null; lateMinutes: number; leaveType: string | null; leaveUntil: DateKey | null }>> {
+    const [rows, leaves] = await Promise.all([
+      this.prisma.dailyTimeRecord.findMany({
+        where: { employeeId: { in: ids }, date: dateKeyToUtcDate(date) },
+        select: { employeeId: true, timeIn: true, lateMinutes: true },
+      }),
+      this.leave.approvedOn(ids, date),
+    ]);
+    const byId = new Map(rows.map((r) => [r.employeeId, r]));
+    const out = new Map<string, { timeIn: string | null; lateMinutes: number; leaveType: string | null; leaveUntil: DateKey | null }>();
+    for (const id of ids) {
+      const r = byId.get(id);
+      const l = leaves.get(id);
+      if (!r && !l) continue;
+      out.set(id, { timeIn: r?.timeIn?.toISOString() ?? null, lateMinutes: r?.lateMinutes ?? 0, leaveType: l?.leaveType ?? null, leaveUntil: l?.until ?? null });
+    }
+    return out;
+  }
+
   private tally(rows: { status: DtrStatus; lateMinutes: number }[]): DayCounts {
     const c: DayCounts = { present: 0, late: 0, absent: 0, onLeave: 0, scheduled: 0 };
     for (const r of rows) {

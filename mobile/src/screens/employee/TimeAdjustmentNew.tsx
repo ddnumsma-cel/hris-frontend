@@ -1,7 +1,7 @@
 import { addDays, formatDate, formatTime, manilaToday } from '@msma/shared';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Switch, View } from 'react-native';
+import { Platform, Switch, View } from 'react-native';
 import { Button, Card, Screen, SectionTitle, T } from '~/components/ui';
 import { DayPicker, daysBetween, ReasonInput, TimeStepper } from '~/components/form';
 import { useFileTimeAdjustment, useMyAttendance, useToday } from '~/lib/queries';
@@ -41,6 +41,9 @@ export default function FileTimeAdjustmentScreen() {
         onValueChange={onChange}
         accessibilityLabel={label}
         trackColor={{ true: c.accent }}
+        thumbColor={value ? c.onAccent : undefined}
+        // The web's switch paints an "on" knob teal unless told otherwise.
+        {...(Platform.OS === 'web' ? { activeThumbColor: c.onAccent } : {})}
       />
     </View>
   );

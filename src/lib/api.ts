@@ -406,22 +406,25 @@ export function fetchCertificateRequests() {
 export interface CreateCertificateRequestInput {
   type: string;
   purpose: string;
+  /** Who is asking; the mobile app passes its signed-in person. Defaults to the demo employee. */
+  employee?: { id: string; name: string };
 }
 
 export async function createCertificateRequest(
   input: CreateCertificateRequestInput,
 ): Promise<CertificateRequest> {
+  const who = input.employee ?? currentEmployee;
   const request: CertificateRequest = {
     id: `cr-${Date.now()}`,
     type: input.type,
     purpose: input.purpose,
     status: "Pending",
     requestedOn: new Date().toISOString().slice(0, 10),
-    employeeId: currentEmployee.id,
-    employeeName: currentEmployee.name,
+    employeeId: who.id,
+    employeeName: who.name,
   };
   setCertificateRequests([request, ...certificateRequests]);
-  tellAssigned("edit", "selfService", "certificate", "request", `${currentEmployee.name} requested a ${input.type}`, `${input.purpose ? `For: ${input.purpose}. ` : ""}Prepare it and mark it ready for pickup under Requests › Certificates.`);
+  tellAssigned("edit", "selfService", "certificate", "request", `${who.name} requested a ${input.type}`, `${input.purpose ? `For: ${input.purpose}. ` : ""}Prepare it and mark it ready for pickup under Requests › Certificates.`);
   return delay(request);
 }
 

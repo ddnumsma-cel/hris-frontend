@@ -87,7 +87,7 @@ export default function FileLeaveScreen() {
       { onSuccess: () => router.replace('/employee/requests') },
     );
 
-  const label = (d: DateKey) => `${DAY[weekdayOf(d)]}`;
+  const label = (d: DateKey) => (d === today ? 'Today' : DAY[weekdayOf(d)]);
   const short = (d: DateKey) => formatDate(d).replace(/ \d{4}$/, '');
 
   return (

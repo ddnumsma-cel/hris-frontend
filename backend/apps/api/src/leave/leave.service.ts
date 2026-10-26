@@ -108,6 +108,16 @@ export class LeaveService {
     return map;
   }
 
+  /** The approved leave covering one date, per employee: its type and last day. */
+  async approvedOn(employeeIds: string[], date: DateKey): Promise<Map<string, { leaveType: string; until: DateKey }>> {
+    const day = dateKeyToUtcDate(date);
+    const rows = await this.prisma.leaveRequest.findMany({
+      where: { employeeId: { in: employeeIds }, status: 'APPROVED', startDate: { lte: day }, endDate: { gte: day } },
+      select: { employeeId: true, endDate: true, leaveType: { select: { name: true } } },
+    });
+    return new Map(rows.map((r) => [r.employeeId, { leaveType: r.leaveType.name, until: utcDateToDateKey(r.endDate) }]));
+  }
+
   /** Create a pending leave request after checking the balance. `days` = working days in the range. */
   async createRequest(db: Db, employeeId: string, body: CreateLeaveRequest, days: number) {
     if (days <= 0) throw new BadRequestException('The selected dates have no working days');

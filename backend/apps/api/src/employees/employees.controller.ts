@@ -67,8 +67,9 @@ export class EmployeesController {
   ): Promise<EmployeeListResponse> {
     const result = await this.employees.list(q, await this.scope(user));
     const ids = result.items.map((i) => i.id);
-    const [statuses, briefs] = await Promise.all([
+    const [statuses, details, briefs] = await Promise.all([
       this.attendance.statusForDate(ids, manilaToday()),
+      this.attendance.dayDetails(ids, manilaToday()),
       canReview201Files(user.role) ? this.documents.briefs(ids) : new Map(),
     ]);
     return {
@@ -76,6 +77,7 @@ export class EmployeesController {
       items: result.items.map((i) => ({
         ...i,
         todayStatus: statuses.get(i.id) ?? null,
+        today: details.get(i.id) ?? null,
         record201: briefs.get(i.id) ?? null,
       })),
     };

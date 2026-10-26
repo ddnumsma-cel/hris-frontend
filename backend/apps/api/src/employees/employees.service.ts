@@ -61,6 +61,7 @@ export class EmployeesService {
       position: e.position?.title ?? null,
       dailyRate: moneyString(e.dailyRate.toString()),
       todayStatus: null,
+      managerId: e.managerId,
       record201: null,
     };
   }

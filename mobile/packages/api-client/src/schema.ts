@@ -839,6 +839,16 @@ export interface operations {
               dailyRate: string;
               /** @enum {string|null} */
               todayStatus: 'PRESENT' | 'ABSENT' | 'LEAVE' | 'RESTDAY' | 'HOLIDAY' | null;
+              /** @description Who this person reports to (for the org chart) */
+              managerId?: string | null;
+              /** @description Today's time-in and minutes late, and the approved leave covering today (list only) */
+              today?: {
+                timeIn: string | null;
+                lateMinutes: number;
+                leaveType: string | null;
+                /** @description Manila calendar date "YYYY-MM-DD" */
+                leaveUntil: string | null;
+              } | null;
               /** @description 201 file status; null for roles that do not review 201 files */
               record201: {
                 percent: number;

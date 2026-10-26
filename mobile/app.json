@@ -26,6 +26,13 @@
         {
           "faceIDPermission": "Allow $(PRODUCT_NAME) to use Face ID to confirm it's you when you clock in or out."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use the camera to take a photo of a receipt for a reimbursement.",
+          "photosPermission": "Allow $(PRODUCT_NAME) to choose a receipt photo for a reimbursement."
+        }
       ]
     ],
     "owner": "msma-solutions",
