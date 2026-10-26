@@ -103,7 +103,7 @@ describe('dashboard summary', () => {
   it('filters by site', async () => {
     const sites = (await http().get('/employees/filters').set(auth('hr')).expect(200)).body
       .sites as { id: string; name: string }[];
-    const mandaue = sites.find((s) => s.name === 'Mandaue branch')!;
+    const mandaue = sites.find((s) => s.name === 'Manila')!;
     const res = await http()
       .get('/dashboard/summary')
       .query({ siteId: mandaue.id })
@@ -111,7 +111,7 @@ describe('dashboard summary', () => {
       .expect(200);
     expect(res.body.kpis.headcount).toBe(48);
     expect(res.body.presentBySite).toEqual([
-      expect.objectContaining({ siteName: 'Mandaue branch' }),
+      expect.objectContaining({ siteName: 'Manila' }),
     ]);
   });
 
@@ -138,12 +138,12 @@ describe('approvals', () => {
     expect(hr.total).toBe(9);
     expect(manager.total).toBeGreaterThan(0);
     expect(manager.total).toBeLessThan(hr.total);
-    expect(manager.items.every((i) => i.employee.siteName === 'Mandaue branch')).toBe(true);
+    expect(manager.items.every((i) => i.employee.siteName === 'Manila')).toBe(true);
   });
 
   it('blocks managers from deciding requests outside their team', async () => {
     const outside = (await pending('hr')).items.find(
-      (i) => i.employee.siteName !== 'Mandaue branch',
+      (i) => i.employee.siteName !== 'Manila',
     )!;
     await http().post(`/approvals/${outside.id}/approve`).set(auth('manager')).send({}).expect(403);
   });

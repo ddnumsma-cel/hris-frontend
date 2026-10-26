@@ -1,9 +1,9 @@
 // Static synthetic reference data for the seed. Names are fictional Filipino-style combinations.
 
 export const SITES = [
-  { code: 'HQ', name: 'HQ Cebu City', address: 'Osmeña Blvd, Cebu City' },
-  { code: 'MND', name: 'Mandaue branch', address: 'A.S. Fortuna St, Mandaue City' },
-  { code: 'LLC', name: 'Lapu-Lapu branch', address: 'M.L. Quezon Hwy, Lapu-Lapu City' },
+  { code: 'HQ', name: 'Cebu HQ', address: '8F Park Centrale Tower, Cebu IT Park, Lahug, Cebu City' },
+  { code: 'MND', name: 'Manila', address: '21F Zuellig Building, Makati Avenue, Makati City' },
+  { code: 'LLC', name: 'Davao', address: '3F Abreeza Corporate Center, J.P. Laurel Avenue, Davao City' },
 ] as const;
 
 /** Positions are [title, min daily rate, max daily rate, isLead]. */
@@ -99,8 +99,8 @@ export const HEADCOUNT: Record<string, Record<string, number>> = {
 export const DEVICES = [
   { serial: 'ZKHQ0001', name: 'HQ main entrance', site: 'HQ', model: 'ZKTeco SpeedFace-V5L' },
   { serial: 'ZKHQ0002', name: 'HQ warehouse', site: 'HQ', model: 'ZKTeco MB560-VL' },
-  { serial: 'ZKMD0001', name: 'Mandaue entrance', site: 'MND', model: 'ZKTeco SpeedFace-V5L' },
-  { serial: 'ZKLL0001', name: 'Lapu-Lapu entrance', site: 'LLC', model: 'ZKTeco MB560-VL' },
+  { serial: 'ZKMD0001', name: 'Manila entrance', site: 'MND', model: 'ZKTeco SpeedFace-V5L' },
+  { serial: 'ZKLL0001', name: 'Davao entrance', site: 'LLC', model: 'ZKTeco MB560-VL' },
 ] as const;
 
 export const MOBILE_DEVICE_SERIAL = 'MOBILE-APP';
