@@ -4,7 +4,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { radius } from '@msma/shared';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { Animated, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useReducedMotion } from '~/lib/useReducedMotion';
 import { Row } from '~/components/sheets';
@@ -44,7 +44,7 @@ export default function SearchScreen() {
   const [q, setQ] = useState('');
   const [focused, setFocused] = useState(false);
   const [recent, setRecent] = useState<string[]>(() => readRecent(key));
-  const input = useRef<TextInput>(null);
+  const input = useRef<ComponentRef<typeof TextInput>>(null);
 
   const pages = user ? navFor(user.workspace, who).flatMap((g) => g.items.flatMap((i) => [i, ...(i.children ?? [])])) : [];
   const actions = user ? startFor(user.workspace, who).flatMap((g) => g.items) : [];

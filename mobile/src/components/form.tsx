@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { addDays, DateKey, formatDate, formatMinutes, weekdayOf } from '@msma/shared';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { parseTime } from '~/lib/timeText';
 import { Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { useTheme } from '~/lib/theme';
@@ -65,7 +65,7 @@ export function DayPicker({
   onChange: (d: DateKey) => void;
   today: DateKey;
 }) {
-  const scroller = useRef<ScrollView>(null);
+  const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   return (
     <ScrollView
       ref={scroller}
@@ -110,7 +110,7 @@ export function SelectField({
   const { c } = useTheme();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
-  const field = useRef<View>(null);
+  const field = useRef<ComponentRef<typeof View>>(null);
   const { height: screenH } = useWindowDimensions();
   // Where the field is on screen, so the floating list can sit right against it.
   const [at, setAt] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
