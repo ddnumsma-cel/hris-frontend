@@ -18,10 +18,8 @@ import TimeAdjustmentNew from './employee/TimeAdjustmentNew';
 import UndertimeNew from './employee/UndertimeNew';
 import Approvals from './hr/Approvals';
 import HrAttendance from './hr/Attendance';
-import Departments from './hr/Departments';
 import Documents201 from './hr/Documents201';
 import Locations from './hr/Locations';
-import OrgChart from './hr/OrgChart';
 import HrHome from './hr/HrHome';
 import People from './hr/People';
 import Person from './hr/Person';
@@ -51,9 +49,7 @@ const SCREENS: Record<string, ComponentType> = {
   '/admin': HrHome,
   '/admin/approvals': Approvals,
   '/admin/maintenance/people': People,
-  '/admin/maintenance/departments': Departments,
   '/admin/maintenance/locations': Locations,
-  '/admin/maintenance/org-chart': OrgChart,
   '/admin/maintenance/documents': Documents201,
   '/admin/timekeeping': HrAttendance,
   // Approver workspace (the server limits it to their team)

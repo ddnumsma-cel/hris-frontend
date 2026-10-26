@@ -88,9 +88,7 @@ const ADMIN: NavGroup[] = [
     items: [
       { label: 'People', to: '/admin/maintenance/people', icon: 'people-outline' },
       { label: 'User accounts', short: 'Accounts', to: '/admin/maintenance/user-accounts', icon: 'key-outline' },
-      { label: 'Departments', to: '/admin/maintenance/departments', icon: 'business-outline' },
       { label: 'Locations', to: '/admin/maintenance/locations', icon: 'location-outline' },
-      { label: 'Org chart', to: '/admin/maintenance/org-chart', icon: 'git-network-outline' },
       { label: '201 documents', short: '201 docs', to: '/admin/maintenance/documents', icon: 'folder-outline' },
       {
         label: 'Leave',

@@ -84,7 +84,6 @@ const ADMIN: StartGroup[] = [
     items: [
       { label: 'Add employee', to: '/admin/maintenance/people/new', hint: 'Start a new 201 record' },
       { label: 'Post announcement', to: '/admin?create=announcement', hint: "Show news on everyone's Home page" },
-      { label: 'Update reporting lines', to: '/admin/maintenance/org-chart', action: 'edit', hint: 'Change who reports to whom' },
       { label: 'Review documents', to: '/admin/maintenance/documents', action: 'edit', hint: 'Uploaded 201 papers to check', waiting: 'documents' },
     ],
   },

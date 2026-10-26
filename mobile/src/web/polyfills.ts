@@ -17,6 +17,41 @@ if (typeof g.sessionStorage === 'undefined') {
   };
 }
 
+// Window events: the website's code listens for "storage" and its own signals (e.g. the theme changing) and sends
+// them with dispatchEvent. A phone's global has none of this, so keep a small in-app listener list instead.
+if (typeof g.addEventListener !== 'function') {
+  type Listener = (e: { type: string }) => void;
+  const listeners = new Map<string, Set<Listener>>();
+  g.addEventListener = (type: string, fn: Listener) => {
+    if (typeof fn !== 'function') return;
+    if (!listeners.has(type)) listeners.set(type, new Set());
+    listeners.get(type)!.add(fn);
+  };
+  g.removeEventListener = (type: string, fn: Listener) => void listeners.get(type)?.delete(fn);
+  g.dispatchEvent = (e: { type: string }) => {
+    for (const fn of [...(listeners.get(e.type) ?? [])]) fn(e);
+    return true;
+  };
+}
+if (typeof g.Event !== 'function') {
+  g.Event = class Event {
+    readonly type: string;
+    constructor(type: string) {
+      this.type = type;
+    }
+  };
+}
+if (typeof g.CustomEvent !== 'function') {
+  g.CustomEvent = class CustomEvent<T = unknown> {
+    readonly type: string;
+    readonly detail: T | null;
+    constructor(type: string, init?: { detail?: T }) {
+      this.type = type;
+      this.detail = init?.detail ?? null;
+    }
+  };
+}
+
 // The mock API copies its answers. shortcut: a JSON copy drops Dates and files, which its data doesn't hold; swap for a full clone if that changes.
 if (typeof g.structuredClone !== 'function') {
   g.structuredClone = <T>(v: T): T => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
