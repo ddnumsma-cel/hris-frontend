@@ -228,6 +228,17 @@ model Shift {
   graceMinutes Int        @default(5)
   /// 0 = Sunday … 6 = Saturday
   workDays     Int[]
+  /// When the unpaid lunch starts ("12:00"); only the part of it they were at work is taken out. Null = the old rule
+  /// (the whole break off when they stayed over 5 hours).
+  breakStart      String?
+  /// Flexible time: clock in any time from startTime, done by endTime; no lateness, only requiredMinutes counts
+  flexible        Boolean    @default(false)
+  /// Flexible shifts: minutes to work, not counting lunch (480 = 8 hours)
+  requiredMinutes Int?
+  /// A shorter Saturday ("12:00"), when the shift has one
+  saturdayEnd     String?
+  /// Inactive shifts can't be picked any more; people on them keep them until moved
+  active          Boolean    @default(true)
   employees    Employee[]
 }
 

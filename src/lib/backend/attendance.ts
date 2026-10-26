@@ -5,10 +5,10 @@
 
 import { api } from "./client";
 import { backendIdOf, backendPeople, employeeNoOf } from "./people";
-import { addDays, computeDay } from "../timekeeping/compute";
+import { addDays, computeDay, longRuns } from "../timekeeping/compute";
 import { schedulingRules } from "../timekeeping/store";
 import { holidayOn, isDoubleHoliday } from "../holidays";
-import type { DayRow, TkPerson } from "../timekeeping/api";
+import type { DayRow, RosterCell, RosterRow, TkPerson } from "../timekeeping/api";
 import type { DayKind, Punch, PunchSource, ShiftTemplate } from "../timekeeping/types";
 
 interface BackendShift {
@@ -20,6 +20,11 @@ interface BackendShift {
   breakMinutes: number;
   graceMinutes: number;
   workDays: number[];
+  breakStart?: string | null;
+  flexible?: boolean;
+  requiredMinutes?: number | null;
+  saturdayEnd?: string | null;
+  active?: boolean;
 }
 
 interface BackendDay {
@@ -45,7 +50,7 @@ interface DaysResponse {
 /** The backend allows 62 days per call. */
 const WINDOW_DAYS = 62;
 
-/** A backend shift as a Timekeeping shift template (lunch at noon, the website's default). */
+/** A backend shift as a Timekeeping shift template (lunch at noon when the backend has no lunch start). */
 export function shiftTemplateOf(s: BackendShift): ShiftTemplate {
   return {
     id: s.id,
@@ -53,11 +58,69 @@ export function shiftTemplateOf(s: BackendShift): ShiftTemplate {
     start: s.startTime,
     end: s.endTime,
     breakMinutes: s.breakMinutes,
-    breakStart: "12:00",
+    breakStart: s.breakStart ?? "12:00",
     graceMinutes: s.graceMinutes,
     restDays: [0, 1, 2, 3, 4, 5, 6].filter((d) => !s.workDays.includes(d)),
-    active: true,
+    ...(s.flexible ? { flexible: true, requiredHours: (s.requiredMinutes ?? 480) / 60 } : {}),
+    ...(s.saturdayEnd ? { saturdayEnd: s.saturdayEnd } : {}),
+    active: s.active ?? true,
   };
+}
+
+/**
+ * The Schedules roster for a week from the backend: each person on their usual shift, working its work days and
+ * resting on the others (holidays from the company calendar). Day-by-day changes aren't on the backend yet.
+ */
+export async function backendRoster(weekStart: string): Promise<RosterRow[]> {
+  const [people, shifts] = await Promise.all([backendPeople(), api<BackendShift[]>("/org/shifts")]);
+  const byId = new Map(shifts.map((s) => [s.id, s]));
+  const span = (from: string, to: string) => {
+    const out: string[] = [];
+    for (let d = from; d <= to; d = addDays(d, 1)) out.push(d);
+    return out;
+  };
+  const weekday = (date: string) => new Date(`${date}T00:00:00Z`).getUTCDay();
+  const week = span(weekStart, addDays(weekStart, 6));
+  const context = span(addDays(weekStart, -6), addDays(weekStart, 13));
+  return people.map((p) => {
+    const s = p.usualShiftId ? byId.get(p.usualShiftId) : undefined;
+    const works = (date: string) => Boolean(s?.workDays.includes(weekday(date)));
+    const cells = week.map((date): RosterCell => {
+      if (!s) return { date, kind: "unscheduled", label: "No shift", changed: false };
+      const holiday = holidayOn(date, p.branch);
+      if (holiday && works(date)) return { date, kind: "holiday", shiftId: s.id, label: holiday.name, changed: false };
+      return works(date) ? { date, kind: "work", shiftId: s.id, label: s.name, changed: false } : { date, kind: "rest", label: "Rest day", changed: false };
+    });
+    const run = longRuns(context.map((date) => ({ date, working: works(date) }))).find((r) => r.to >= weekStart && r.from <= addDays(weekStart, 6));
+    return { person: p, cells, longRun: run };
+  });
+}
+
+/** Add or edit a shift on the backend (Attendance › Shifts). */
+export async function backendSaveShift(input: Omit<ShiftTemplate, "id" | "active"> & { id?: string }): Promise<ShiftTemplate> {
+  const body = {
+    name: input.name.trim(),
+    startTime: input.start,
+    endTime: input.end,
+    breakMinutes: input.breakMinutes,
+    breakStart: input.breakStart || null,
+    graceMinutes: input.graceMinutes,
+    workDays: [0, 1, 2, 3, 4, 5, 6].filter((d) => !input.restDays.includes(d)),
+    flexible: Boolean(input.flexible),
+    requiredMinutes: input.flexible ? Math.round((input.requiredHours ?? 8) * 60) : null,
+    saturdayEnd: input.saturdayEnd || null,
+  };
+  const saved = input.id
+    ? await api<BackendShift>(`/org/shifts/${encodeURIComponent(input.id)}`, { method: "PUT", body })
+    : await api<BackendShift>("/org/shifts", { method: "POST", body });
+  return shiftTemplateOf(saved);
+}
+
+/** Put people (employee numbers) on a usual shift from today. */
+export async function backendSetUsualShift(employeeNos: string[], shiftId: string | null): Promise<void> {
+  if (!shiftId) throw new Error("Everyone needs a usual shift on the HR server: pick another shift instead.");
+  const employeeIds = (await Promise.all(employeeNos.map((no) => backendIdOf(no)))).filter((x): x is string => Boolean(x));
+  await api("/org/usual-shift", { method: "PUT", body: { employeeIds, shiftId } });
 }
 
 /** "2026-10-26T06:40:03.000Z" → Manila wall clock "2026-10-26T14:40". */
@@ -140,10 +203,10 @@ export async function backendDays(from: string, to: string): Promise<DayRow[]> {
   );
 }
 
-/** The backend's shifts, for the Add employee form and attendance settings. */
+/** The backend's shifts, for the Add employee form and attendance settings. Turned-off shifts nobody is on are left out. */
 export async function backendShifts(): Promise<ShiftTemplate[]> {
-  const f = await api<{ shifts: BackendShift[] }>("/employees/filters");
-  return f.shifts.map(shiftTemplateOf);
+  const shifts = await api<(BackendShift & { people?: number })[]>("/org/shifts");
+  return shifts.filter((s) => s.active !== false || (s.people ?? 0) > 0).map(shiftTemplateOf);
 }
 
 /** One person's day (employee number + date). */

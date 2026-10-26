@@ -15,7 +15,7 @@ import { dates as when, EVERYONE, tellApprover, tellEmployees, tellRoles, who as
 import { backendOn } from "../backend/client";
 import { backendDecide, backendFixes, backendTimeRequests } from "../backend/requests";
 import { backendPeople } from "../backend/people";
-import { backendDay, backendDays, backendShifts } from "../backend/attendance";
+import { backendDay, backendDays, backendRoster, backendSaveShift, backendSetUsualShift, backendShifts } from "../backend/attendance";
 
 /** Device punches live on the HR server, which has no correction endpoints yet. */
 const NO_SERVER_CORRECTIONS = "Punch corrections aren't kept on the HR server yet. Ask the employee to file a time fix from their Requests page.";
@@ -258,8 +258,9 @@ export async function saveShift(input: Omit<ShiftTemplate, "id" | "active"> & { 
   const denied = deny("attendanceSettings", input.id ? "edit" : "create");
   if (denied) return denied;
   if (serverMode) return remote(api<ShiftTemplate>("POST", "/timekeeping/shifts", input));
-  const problem = shiftProblem(input, tk.shifts);
+  const problem = shiftProblem(input, backendOn() ? [] : tk.shifts);
   if (problem) return fail(problem);
+  if (backendOn()) return backendSaveShift(input);
   const name = input.name.trim();
   const existing = tk.shifts.find((s) => s.id === input.id);
   const shift: ShiftTemplate = { active: true, ...existing, ...input, name, id: existing?.id ?? newId("sh") };
@@ -271,6 +272,7 @@ export async function setUsualShift(employeeIds: string[], shiftId: string | nul
   const denied = deny("attendanceSettings", "edit");
   if (denied) return denied;
   if (serverMode) return remote(api<void>("PUT", "/timekeeping/usual-shift", { employeeIds, shiftId }));
+  if (backendOn()) return backendSetUsualShift(employeeIds, shiftId);
   const usualShift = { ...tk.usualShift };
   for (const id of employeeIds) usualShift[id] = shiftId;
   const name = tk.shifts.find((s) => s.id === shiftId)?.name ?? "no shift";
@@ -312,6 +314,7 @@ export interface RosterRow {
 export async function getRoster(weekStart: string): Promise<RosterRow[]> {
   const denied = deny("attendanceSettings", "view");
   if (denied) return denied;
+  if (backendOn()) return backendRoster(weekStart);
   if (serverMode) await fresh();
   const week = dates(weekStart, addDays(weekStart, 6));
   const context = dates(addDays(weekStart, -6), addDays(weekStart, 13));

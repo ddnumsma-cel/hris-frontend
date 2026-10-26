@@ -380,6 +380,12 @@ export class AttendanceService {
           breakMinutes: e.shift.breakMinutes,
           graceMinutes: e.shift.graceMinutes ?? 0,
           workDays: e.shift.workDays,
+          breakStart: e.shift.breakStart ?? null,
+          flexible: e.shift.flexible ?? false,
+          requiredMinutes: e.shift.requiredMinutes ?? null,
+          saturdayEnd: null,
+          active: true,
+          people: 0,
         },
       })),
       days: dtrs.map((r) => ({

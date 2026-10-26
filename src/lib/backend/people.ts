@@ -21,6 +21,8 @@ interface BackendEmployee {
   position: string | null;
   dailyRate: string | null;
   todayStatus: string | null;
+  /** Their usual shift. */
+  shiftId?: string;
   record201: { percent: number; missing: number; expiring: number; expired: number } | null;
 }
 
@@ -112,7 +114,10 @@ export async function backendListEmployees(): Promise<EmployeeSummary[]> {
 
 /** Everyone in scope, as the attendance pages list people. */
 export async function backendPeople(): Promise<TkPerson[]> {
-  return (await backendListEmployees()).map((e) => ({ id: e.id, name: e.name, initials: e.initials, positionTitle: e.positionTitle, departmentId: e.departmentId ?? "", departmentName: e.departmentName, branch: e.branchName, monthlySalary: 0, usualShiftId: null }));
+  return (await fetchAll())
+    .map((raw) => ({ raw, e: summarize(raw) }))
+    .sort((a, b) => a.e.name.localeCompare(b.e.name))
+    .map(({ raw, e }) => ({ id: e.id, name: e.name, initials: e.initials, positionTitle: e.positionTitle, departmentId: e.departmentId ?? "", departmentName: e.departmentName, branch: e.branchName, monthlySalary: 0, usualShiftId: raw.shiftId ?? null }));
 }
 
 /** Offices (the backend's sites) and the departments at each (Maintenance › Locations and Departments), with head counts. */

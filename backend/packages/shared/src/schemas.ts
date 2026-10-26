@@ -84,8 +84,40 @@ export const ShiftBriefSchema = z.object({
   breakMinutes: z.number().int(),
   graceMinutes: z.number().int(),
   workDays: z.array(z.number().int()).describe('0 = Sunday … 6 = Saturday'),
+  breakStart: z.string().nullable().describe('When the unpaid lunch starts, "12:00"'),
+  flexible: z.boolean(),
+  requiredMinutes: z.number().int().nullable().describe('Flexible shifts: minutes to work, not counting lunch'),
+  saturdayEnd: z.string().nullable(),
+  active: z.boolean(),
+  people: z.number().int().describe('Active employees on this shift'),
 });
 export type ShiftBrief = z.infer<typeof ShiftBriefSchema>;
+
+const HHMM = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use a 24-hour time like 08:30');
+/** Add or edit a shift (Attendance › Shifts). */
+export const SaveShiftSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Name the shift').max(60),
+    startTime: HHMM,
+    endTime: HHMM,
+    breakMinutes: z.number().int().min(0).max(180),
+    breakStart: HHMM.nullable(),
+    graceMinutes: z.number().int().min(0).max(60),
+    workDays: z.array(z.number().int().min(0).max(6)).min(1, 'Pick at least one work day'),
+    flexible: z.boolean(),
+    requiredMinutes: z.number().int().min(60).max(16 * 60).nullable(),
+    saturdayEnd: HHMM.nullable(),
+    active: z.boolean().optional(),
+  })
+  .refine((s) => !s.flexible || s.requiredMinutes, { message: 'Enter the hours to work on a flexible shift', path: ['requiredMinutes'] });
+export type SaveShift = z.infer<typeof SaveShiftSchema>;
+
+/** Put people on a usual shift (Attendance › Schedules). Applies from today. */
+export const SetUsualShiftSchema = z.object({
+  employeeIds: z.array(z.string()).min(1).max(500),
+  shiftId: z.string().min(1),
+});
+export type SetUsualShift = z.infer<typeof SetUsualShiftSchema>;
 
 export const OrgFiltersSchema = z.object({
   sites: z.array(Ref),
@@ -402,6 +434,7 @@ export const EmployeeListItemSchema = z.object({
   dailyRate: MoneySchema,
   todayStatus: DtrStatusSchema.nullable(),
   managerId: z.string().nullable().optional().describe('Who this person reports to (for the org chart)'),
+  shiftId: z.string().optional().describe('Their usual shift'),
   today: z
     .object({
       timeIn: z.string().nullable(),

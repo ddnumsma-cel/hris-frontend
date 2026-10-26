@@ -13,6 +13,12 @@ export interface ShiftDefinition {
   otMinimumMinutes?: number;
   /** 0 = Sunday … 6 = Saturday */
   workDays: number[];
+  /** When the unpaid lunch starts ("12:00"): only the part of it they were at work is taken out. */
+  breakStart?: string | null;
+  /** Flexible time: clock in any time from startTime, finish by endTime; no lateness, only requiredMinutes count. */
+  flexible?: boolean;
+  /** Flexible shifts: minutes to work, not counting lunch (default 8 hours). */
+  requiredMinutes?: number | null;
 }
 
 export interface HolidayInfo {
@@ -81,12 +87,25 @@ export function nightDiffMinutes(from: Date, to: Date): number {
   return total;
 }
 
+/** Unpaid lunch minutes inside [from, to): the overlap with the shift's lunch hour, or (no lunch start set) the whole
+ * break once the span of work passes 5 hours. */
+function lunchMinutes(date: DateKey, shift: ShiftDefinition, from: Date, to: Date): number {
+  const span = Math.max(0, minutesBetween(from, to));
+  if (!shift.breakStart) return span > BREAK_THRESHOLD_MINUTES ? shift.breakMinutes : 0;
+  const lunchStart = fromManila(date, shift.breakStart);
+  const lunchEnd = new Date(lunchStart.getTime() + shift.breakMinutes * MINUTE);
+  const overlap = Math.min(to.getTime(), lunchEnd.getTime()) - Math.max(from.getTime(), lunchStart.getTime());
+  return overlap > 0 ? Math.floor(overlap / MINUTE) : 0;
+}
+
 /**
  * Compute a Daily Time Record from raw punches (pure function; all times in Asia/Manila).
  *
  * - Uses the first punch of the day as time-in and the last as time-out.
- * - Late: minutes after shift start, counted only beyond the grace period (default 5 min).
- * - Undertime: minutes left before shift end when timing out early.
+ * - Late: minutes after shift start, counted only beyond the grace period (default 5 min). Flexible shifts have none.
+ * - Undertime: minutes left before shift end when timing out early; on flexible shifts, minutes short of the
+ *   required hours (default 8).
+ * - Lunch: with a lunch start (12:00), only the part of the lunch hour they were at work is unpaid.
  * - OT: only worked minutes beyond 8 hours (break excluded), once the excess reaches the OT minimum (30 min).
  * - Night differential: worked minutes between 22:00 and 06:00.
  * - Rest days and holidays are not scheduled, so they have no late/undertime.
@@ -124,7 +143,7 @@ export function computeDailyTimeRecord(input: ComputeDtrInput): DailyTimeRecordR
   const timeIn = dayPunches[0];
   const timeOut = dayPunches.length > 1 ? dayPunches[dayPunches.length - 1] : null;
   const minutesLate = minutesBetween(start, timeIn);
-  const lateMinutes = scheduled && minutesLate > grace ? minutesLate : 0;
+  const lateMinutes = scheduled && !shift.flexible && minutesLate > grace ? minutesLate : 0;
   const remarks: string[] = [];
   if (holiday) remarks.push(holiday.name);
   if (!scheduled && !holiday) remarks.push('Worked on rest day');
@@ -137,9 +156,16 @@ export function computeDailyTimeRecord(input: ComputeDtrInput): DailyTimeRecordR
   // Work counts from shift start at the earliest (arriving early is not overtime).
   const workStart = scheduled && timeIn < start ? start : timeIn;
   const span = Math.max(0, minutesBetween(workStart, timeOut));
-  const workedMinutes = span > BREAK_THRESHOLD_MINUTES ? span - shift.breakMinutes : span;
-  const undertimeMinutes = scheduled && timeOut < end ? minutesBetween(timeOut, end) : 0;
-  const excess = Math.max(0, workedMinutes - REGULAR_WORK_MINUTES);
+  const workedMinutes = Math.max(0, span - lunchMinutes(date, shift, workStart, timeOut));
+  const required = shift.requiredMinutes ?? REGULAR_WORK_MINUTES;
+  const undertimeMinutes = !scheduled
+    ? 0
+    : shift.flexible
+      ? Math.max(0, required - workedMinutes)
+      : timeOut < end
+        ? minutesBetween(timeOut, end)
+        : 0;
+  const excess = Math.max(0, workedMinutes - (shift.flexible ? required : REGULAR_WORK_MINUTES));
   const otMinutes = excess >= (shift.otMinimumMinutes ?? 30) ? excess : 0;
 
   return {

@@ -203,3 +203,37 @@ describe('nightDiffMinutes', () => {
     expect(nightDiffMinutes(at(FRIDAY, '21:00'), at('2026-09-27', '07:00'))).toBe(960);
   });
 });
+
+// MSMA's shifts: 8:30 start, lunch 12:00-1:00 PM taken out only when they were at work then, 5-minute grace.
+const FIXED: ShiftDefinition = { startTime: '08:30', endTime: '17:30', breakMinutes: 60, graceMinutes: 5, workDays: [1, 2, 3, 4, 5], breakStart: '12:00' };
+const BUSY: ShiftDefinition = { ...FIXED, endTime: '17:00', workDays: [1, 2, 3, 4, 5, 6] };
+const FLEX: ShiftDefinition = { ...FIXED, endTime: '19:30', graceMinutes: 0, flexible: true, requiredMinutes: 480 };
+const SATURDAY = '2026-09-26';
+
+describe('MSMA shifts (fixed lunch 12-1, flex)', () => {
+  it('Fixed shift: a full day is 8 hours after the 12-1 lunch, on time within 5 minutes', () => {
+    const r = computeDailyTimeRecord({ date: FRIDAY, punches: [at(FRIDAY, '08:34'), at(FRIDAY, '17:30')], shift: FIXED });
+    expect(r).toMatchObject({ lateMinutes: 0, undertimeMinutes: 0, workedMinutes: 476, otMinutes: 0 });
+  });
+
+  it('Fixed shift: late past the grace, and no lunch taken out when they left before noon', () => {
+    const r = computeDailyTimeRecord({ date: FRIDAY, punches: [at(FRIDAY, '08:40'), at(FRIDAY, '11:40')], shift: FIXED });
+    expect(r).toMatchObject({ lateMinutes: 10, workedMinutes: 180, undertimeMinutes: 350 });
+  });
+
+  it('Fixed shift: Saturday is a rest day; Busy season works Saturday until 5:00 PM', () => {
+    const punches = [at(SATURDAY, '08:30'), at(SATURDAY, '17:00')];
+    expect(computeDailyTimeRecord({ date: SATURDAY, punches, shift: FIXED })).toMatchObject({ lateMinutes: 0, undertimeMinutes: 0, remarks: 'Worked on rest day' });
+    expect(computeDailyTimeRecord({ date: SATURDAY, punches, shift: BUSY })).toMatchObject({ lateMinutes: 0, undertimeMinutes: 0, workedMinutes: 450, remarks: null });
+  });
+
+  it('Flex shift: no lateness, complete at 8 hours after lunch (10:00 AM to 7:00 PM)', () => {
+    const r = computeDailyTimeRecord({ date: FRIDAY, punches: [at(FRIDAY, '10:00'), at(FRIDAY, '19:00')], shift: FLEX });
+    expect(r).toMatchObject({ lateMinutes: 0, workedMinutes: 480, undertimeMinutes: 0, otMinutes: 0 });
+  });
+
+  it('Flex shift: leaving short of 8 hours is undertime; work before 8:30 AM does not count', () => {
+    const r = computeDailyTimeRecord({ date: FRIDAY, punches: [at(FRIDAY, '07:45'), at(FRIDAY, '16:00')], shift: FLEX });
+    expect(r).toMatchObject({ lateMinutes: 0, workedMinutes: 390, undertimeMinutes: 90 });
+  });
+});

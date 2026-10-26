@@ -82,6 +82,7 @@ export class EmployeesService {
       dailyRate: moneyString(e.dailyRate.toString()),
       todayStatus: null,
       managerId: e.managerId,
+      shiftId: e.shiftId,
       record201: null,
     };
   }
@@ -366,12 +367,14 @@ export class EmployeesService {
   }
 
   async filters(): Promise<OrgFilters> {
-    const [sites, departments, positions, shifts] = await Promise.all([
+    const [sites, departments, positions, shifts, onShift] = await Promise.all([
       this.prisma.site.findMany({ orderBy: { code: 'asc' } }),
       this.prisma.department.findMany({ orderBy: { name: 'asc' } }),
       this.prisma.position.findMany({ orderBy: { title: 'asc' } }),
-      this.prisma.shift.findMany({ orderBy: { startTime: 'asc' } }),
+      this.prisma.shift.findMany({ orderBy: [{ active: 'desc' }, { name: 'asc' }] }),
+      this.prisma.employee.groupBy({ by: ['shiftId'], where: { active: true }, _count: true }),
     ]);
+    const people = new Map(onShift.map((c) => [c.shiftId, c._count]));
     // HQ first, then branches
     const siteOrder = ['HQ', 'MND', 'LLC'];
     sites.sort((a, b) => siteOrder.indexOf(a.code) - siteOrder.indexOf(b.code));
@@ -389,6 +392,12 @@ export class EmployeesService {
         breakMinutes: s.breakMinutes,
         graceMinutes: s.graceMinutes,
         workDays: s.workDays,
+        breakStart: s.breakStart,
+        flexible: s.flexible,
+        requiredMinutes: s.requiredMinutes,
+        saturdayEnd: s.saturdayEnd,
+        active: s.active,
+        people: people.get(s.id) ?? 0,
       })),
     };
   }
@@ -587,6 +596,9 @@ export class EmployeesService {
         breakMinutes: e.shift.breakMinutes,
         graceMinutes: e.shift.graceMinutes,
         workDays: e.shift.workDays,
+        breakStart: e.shift.breakStart,
+        flexible: e.shift.flexible,
+        requiredMinutes: e.shift.requiredMinutes,
       },
     }));
   }

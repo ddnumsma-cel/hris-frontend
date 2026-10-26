@@ -38,8 +38,9 @@ export function weekday(date: string) {
 
 export const isOvernight = (s: Pick<ShiftTemplate, "start" | "end">) => s.end <= s.start;
 
-/** Scheduled hours, net of break. */
+/** Scheduled hours, net of break (a flexible shift's required hours). */
 export function shiftHours(s: ShiftTemplate) {
+  if (s.flexible && s.requiredHours) return s.requiredHours;
   const [sh, sm] = s.start.split(":").map(Number);
   const [eh, em] = s.end.split(":").map(Number);
   let minutes = eh! * 60 + em! - (sh! * 60 + sm!);

@@ -8,8 +8,13 @@ import {
   SaveDepartmentSchema,
   SaveLocation,
   SaveLocationSchema,
+  SaveShift,
+  SaveShiftSchema,
   SetActive,
   SetActiveSchema,
+  SetUsualShift,
+  SetUsualShiftSchema,
+  ShiftBriefSchema,
 } from '@msma/shared';
 import { AuthUser, CurrentUser, Roles } from '../common/auth.decorators';
 import { ApiZodBody, ApiZodResponse, ZodPipe } from '../common/zod';
@@ -109,5 +114,42 @@ export class OrgController {
     @Body(new ZodPipe(SetActiveSchema)) body: SetActive,
   ) {
     await this.org.setDepartmentActive(id, body.active, user.userId);
+  }
+
+  @Get('shifts')
+  @ApiOperation({ operationId: 'listShifts', summary: 'Shifts with their lunch, grace, work days and how many people are on each' })
+  @ApiZodResponse(z.array(ShiftBriefSchema))
+  shifts() {
+    return this.org.shifts();
+  }
+
+  @Post('shifts')
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'createShift', summary: 'Add a shift' })
+  @ApiZodBody(SaveShiftSchema)
+  @ApiZodResponse(ShiftBriefSchema, 201)
+  createShift(@CurrentUser() user: AuthUser, @Body(new ZodPipe(SaveShiftSchema)) body: SaveShift) {
+    return this.org.saveShift(null, body, user.userId);
+  }
+
+  @Put('shifts/:id')
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({
+    operationId: 'updateShift',
+    summary: 'Edit a shift (or turn it off when nobody is on it); today is recalculated for everyone on it',
+  })
+  @ApiZodBody(SaveShiftSchema)
+  @ApiZodResponse(ShiftBriefSchema)
+  updateShift(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(SaveShiftSchema)) body: SaveShift) {
+    return this.org.saveShift(id, body, user.userId);
+  }
+
+  @Put('usual-shift')
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'setUsualShift', summary: "Put people on a usual shift from today (today's attendance is recalculated)" })
+  @ApiZodBody(SetUsualShiftSchema)
+  @ApiZodResponse(z.object({ updated: z.number().int() }))
+  setUsualShift(@CurrentUser() user: AuthUser, @Body(new ZodPipe(SetUsualShiftSchema)) body: SetUsualShift) {
+    return this.org.setUsualShift(body.employeeIds, body.shiftId, user.userId);
   }
 }

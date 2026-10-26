@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { OrgDepartment, OrgLocation, SaveDepartment, SaveLocation } from '@msma/shared';
+import { manilaToday, OrgDepartment, OrgLocation, SaveDepartment, SaveLocation, SaveShift, ShiftBrief } from '@msma/shared';
+import { AttendanceService } from '../attendance/attendance.service';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { fullName } from './employees.service';
@@ -18,6 +19,7 @@ export class OrgService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly attendance: AttendanceService,
   ) {}
 
   // ---------- Offices ----------
@@ -223,5 +225,113 @@ export class OrgService {
         tx,
       );
     });
+  }
+
+  // ---------- Shifts (Attendance › Shifts and Schedules) ----------
+
+  async shifts(): Promise<ShiftBrief[]> {
+    const [rows, onShift] = await Promise.all([
+      this.prisma.shift.findMany({ orderBy: [{ active: 'desc' }, { name: 'asc' }] }),
+      this.prisma.employee.groupBy({ by: ['shiftId'], where: { active: true }, _count: true }),
+    ]);
+    const people = new Map(onShift.map((c) => [c.shiftId, c._count]));
+    return rows.map((r) => ({
+      id: r.id,
+      code: r.code,
+      name: r.name,
+      startTime: r.startTime,
+      endTime: r.endTime,
+      breakMinutes: r.breakMinutes,
+      graceMinutes: r.graceMinutes,
+      workDays: r.workDays,
+      breakStart: r.breakStart,
+      flexible: r.flexible,
+      requiredMinutes: r.requiredMinutes,
+      saturdayEnd: r.saturdayEnd,
+      active: r.active,
+      people: people.get(r.id) ?? 0,
+    }));
+  }
+
+  /** Add or edit a shift. New shifts get a short code from their name ("Mid shift" → MID). */
+  async saveShift(id: string | null, input: SaveShift, actorId: string): Promise<ShiftBrief> {
+    const existing = id ? await this.prisma.shift.findUnique({ where: { id } }) : null;
+    if (id && !existing) throw new NotFoundException('That shift no longer exists');
+    const clash = await this.prisma.shift.findFirst({
+      where: { id: id ? { not: id } : undefined, name: { equals: input.name, mode: 'insensitive' } },
+    });
+    if (clash) throw new ConflictException('Another shift already has that name');
+    if (existing && input.active === false && existing.active) {
+      const people = await this.prisma.employee.count({ where: { shiftId: existing.id, active: true } });
+      if (people > 0)
+        throw new ConflictException(`${people} people are on ${existing.name}. Move them to another shift first.`);
+    }
+    const data = {
+      name: input.name,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      breakMinutes: input.breakMinutes,
+      breakStart: input.breakStart,
+      graceMinutes: input.flexible ? 0 : input.graceMinutes,
+      workDays: [...new Set(input.workDays)].sort(),
+      flexible: input.flexible,
+      requiredMinutes: input.flexible ? input.requiredMinutes : null,
+      saturdayEnd: input.saturdayEnd,
+      ...(input.active === undefined ? {} : { active: input.active }),
+    };
+    const saved = await this.prisma.$transaction(async (tx) => {
+      let code = existing?.code;
+      if (!code) {
+        const base = (input.name.toUpperCase().replace(/SHIFT/g, '').replace(/[^A-Z0-9]/g, '') || 'SHIFT').slice(0, 8);
+        code = base;
+        for (let n = 2; await tx.shift.findUnique({ where: { code } }); n++) code = `${base}${n}`;
+      }
+      const row = existing
+        ? await tx.shift.update({ where: { id: existing.id }, data })
+        : await tx.shift.create({ data: { ...data, code } });
+      await this.audit.log(
+        {
+          actorId,
+          action: existing ? 'SHIFT_UPDATED' : 'SHIFT_CREATED',
+          entity: 'Shift',
+          entityId: row.id,
+          before: existing ?? undefined,
+          after: data,
+        },
+        tx,
+      );
+      return row;
+    });
+    // A changed shift changes today's late / undertime for everyone on it.
+    if (existing) await this.attendance.recompute(manilaToday(), manilaToday());
+    return (await this.shifts()).find((x) => x.id === saved.id)!;
+  }
+
+  /** Put people on a usual shift from today: their attendance is worked out against it from now on. */
+  async setUsualShift(employeeIds: string[], shiftId: string, actorId: string): Promise<{ updated: number }> {
+    const shift = await this.prisma.shift.findUnique({ where: { id: shiftId } });
+    if (!shift || !shift.active) throw new BadRequestException('Pick an active shift');
+    const people = await this.prisma.employee.findMany({
+      where: { id: { in: employeeIds }, active: true },
+      select: { id: true, shiftId: true },
+    });
+    if (people.length !== new Set(employeeIds).size) throw new BadRequestException('Some of these people are no longer employed');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.employee.updateMany({ where: { id: { in: people.map((p) => p.id) } }, data: { shiftId } });
+      for (const p of people)
+        await this.audit.log(
+          {
+            actorId,
+            action: 'USUAL_SHIFT_CHANGED',
+            entity: 'Employee',
+            entityId: p.id,
+            before: { shiftId: p.shiftId },
+            after: { shiftId, shift: shift.name },
+          },
+          tx,
+        );
+    });
+    await this.attendance.recompute(manilaToday(), manilaToday(), people.map((p) => p.id));
+    return { updated: people.length };
   }
 }
