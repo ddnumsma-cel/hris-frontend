@@ -5,7 +5,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { accountById, IDLE_FLAG, markSignedIn, recordSignOut, sessionValid } from '@/lib/admin/auth';
-import { roleOf, type UserAccount } from '@/lib/admin/store';
+import { admin, roleOf, saveAdmin, type UserAccount } from '@/lib/admin/store';
 import { backendSignIn, backendSignOut } from '@/lib/backend/auth';
 import { setBackendBase, whenSignedOut } from '@/lib/backend/client';
 import { markSignInTime, sessionWho } from '@/lib/session';
@@ -59,6 +59,10 @@ interface SessionValue {
   user: SessionUser | null;
   signIn: (username: string, password: string) => Promise<string | null>;
   signOut: () => void;
+  /** Signed in with a temporary password: Choose your password comes first. */
+  mustChangePassword: boolean;
+  /** They saved their own password: the app opens. */
+  passwordChanged: () => void;
 }
 
 const SessionContext = createContext<SessionValue | null>(null);
@@ -96,6 +100,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         markSignInTime();
         setUser(userFor(result.account, result.workspace));
         return null;
+      },
+      mustChangePassword: !!user?.account.mustChangePassword,
+      passwordChanged() {
+        if (!user) return;
+        const account = { ...user.account, mustChangePassword: false };
+        saveAdmin({ ...admin, accounts: admin.accounts.map((a) => (a.id === account.id ? account : a)) });
+        setUser({ ...user, account });
       },
       signOut() {
         recordSignOut(user?.account.id, 'manual');

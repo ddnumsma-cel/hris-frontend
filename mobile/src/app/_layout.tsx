@@ -25,7 +25,7 @@ function useAppStateFocus() {
 }
 
 function RootNavigator() {
-  const { user } = useSession();
+  const { user, mustChangePassword } = useSession();
   const { c, dark } = useTheme();
   const [fontsLoaded, fontError] = useFonts({ Lexend_300Light, Lexend_400Regular, Lexend_500Medium, Lexend_600SemiBold, Lexend_700Bold });
   // Wait for Lexend (the website's font); if it can't load, carry on with the system font.
@@ -40,8 +40,12 @@ function RootNavigator() {
     <>
       <StatusBar style={dark ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
-        <Stack.Protected guard={!!user}>
+        <Stack.Protected guard={!!user && !mustChangePassword}>
           <Stack.Screen name="(app)" />
+        </Stack.Protected>
+        {/* A temporary password (new login or a reset): they choose their own first. */}
+        <Stack.Protected guard={!!user && mustChangePassword}>
+          <Stack.Screen name="set-password" />
         </Stack.Protected>
         <Stack.Protected guard={!user}>
           <Stack.Screen name="login" />
