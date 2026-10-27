@@ -18,6 +18,8 @@ export interface BackendUser {
   employeeId: string | null;
   employeeNo: string | null;
   site: { id: string; name: string } | null;
+  /** A new or reset login: they choose their own password first (SetPasswordPage). */
+  mustChangePassword?: boolean;
   /** Approvers: the employee numbers the backend lets them see (their team), saved at sign-in. */
   team?: string[];
 }
@@ -85,6 +87,7 @@ export async function backendSignIn(email: string, password: string): Promise<Si
     employeeId: result.user.employeeNo ?? undefined,
     roleId: role.id,
     status: "active",
+    mustChangePassword: !!result.user.mustChangePassword,
     failedAttempts: 0,
     lastSignIn: new Date().toISOString(),
     createdAt: new Date().toISOString(),

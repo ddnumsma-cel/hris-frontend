@@ -11,6 +11,7 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { hasHrAccess } from "@/lib/admin/auth";
 import { SignInWelcome } from "@/features/auth/SignInWelcome";
 import { LoginPage } from "@/features/auth/LoginPage";
+import { SetPasswordPage } from "@/features/auth/SetPasswordPage";
 import { OfficeFilterProvider } from "@/features/admin/OfficeFilterContext";
 import { FirstLoginTour } from "@/components/shared/FirstLoginTour";
 import { applyAccountPrefs, applyAppearance, resetPreferences, usePreferencesVersion } from "@/lib/preferences";
@@ -183,12 +184,15 @@ function AttendanceApprovalsMoved() {
 }
 
 function App() {
-  const { user } = useAuth();
+  const { user: signedIn } = useAuth();
+  // Choosing a first password: only that form, without the app around it (top bar, assistant, tour, welcome).
+  const choosingPassword = useLocation().pathname === "/set-password";
+  const user = choosingPassword ? null : signedIn;
   // Re-render every screen when a preference (date format, timezone…) changes.
   usePreferencesVersion();
   // Apply the signed-in person's saved preferences before paint (no flash); defaults when signed out.
   // The theme isn't touched: it belongs to this device (moon toggle).
-  const prefsKey = user ? settingsKeyFor(user) : null;
+  const prefsKey = signedIn ? settingsKeyFor(signedIn) : null;
   // The MSMA logo draws itself on every full page load, then gets out of the way.
   const preloader = useLogoPreloader();
   useLayoutEffect(() => {
@@ -201,14 +205,15 @@ function App() {
   return (
     <OfficeFilterProvider>
       {preloader.overlay}
-      <div className="min-h-screen text-ink" data-role={user?.role} aria-busy={preloader.busy || undefined}>
+      <div className="min-h-screen text-ink" data-role={signedIn?.role} aria-busy={preloader.busy || undefined}>
         <div className="app-background" aria-hidden="true" />
         <ScrollToTop />
         <DocumentTitle />
-        <TopBar />
+        {!choosingPassword && <TopBar />}
         <Suspense fallback={<PageLoadingFallback />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/set-password" element={<SetPasswordPage />} />
             {/* Careers: the public job link applicants open (Pipeline › Share job link). */}
             <Route path="/apply" element={<ApplyPage />} />
             <Route path="/apply/:requisitionId" element={<ApplyPage />} />
