@@ -170,7 +170,8 @@ export async function myNotices(): Promise<MyNotice[]> {
   for (const r of approvedRuns().filter((x) => x.approvedAt && x.approvedAt >= since && x.lines.some((l) => l.person.id === id))) {
     out.push({ id: `ps-${r.id}`, title: `Your payslip for ${r.label} is ready`, postedOn: when(r.approvedAt!), at: r.approvedAt! });
   }
-  for (const p of (await policiesFor(id)).filter((x) => x.requireAck && !x.acknowledgedAt)) {
+  // Policies come from the server when there is one; a failed lookup leaves them out rather than the whole list.
+  for (const p of (await policiesFor(id).catch(() => [])).filter((x) => x.requireAck && !x.acknowledgedAt)) {
     out.push({ id: `po-${p.id}`, title: `Please read: ${p.title}`, postedOn: "Company policy", at: p.updatedAt });
   }
   return out.sort((a, b) => b.at.localeCompare(a.at)).map(({ at: _at, ...n }) => n);

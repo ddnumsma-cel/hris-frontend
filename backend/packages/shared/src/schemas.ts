@@ -1017,3 +1017,38 @@ export const MyRequestSchema = z.object({
   reason: z.string().nullable(),
 });
 export type MyRequest = z.infer<typeof MyRequestSchema>;
+
+// ---------- Company policies (Maintenance > Rules on the website) ----------
+export const POLICY_CATEGORIES = ['Employee handbook', 'Code of conduct', 'Attendance & time', 'Leave', 'Pay & benefits', 'Data privacy', 'Health & safety', 'Other'] as const;
+export const PolicyInputSchema = z.object({
+  title: z.string().trim().min(1, 'Give the policy a title').max(160),
+  category: z.enum(POLICY_CATEGORIES),
+  effectiveDate: DateKeySchema,
+  summary: z.string().trim().max(500).default(''),
+  body: z.string().trim().max(100_000).default(''),
+  fileId: z.string().max(200).optional(),
+  fileName: z.string().max(200).optional(),
+  requireAck: z.boolean(),
+});
+export type PolicyInput = z.infer<typeof PolicyInputSchema>;
+export const PolicySchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  category: z.enum(POLICY_CATEGORIES),
+  version: z.number().int(),
+  effectiveDate: DateKeySchema,
+  summary: z.string(),
+  body: z.string(),
+  fileId: z.string().optional(),
+  fileName: z.string().optional(),
+  requireAck: z.boolean(),
+  status: z.enum(['draft', 'published', 'archived']),
+  updatedBy: z.string(),
+  updatedAt: InstantSchema,
+});
+export type PolicyView = z.infer<typeof PolicySchema>;
+export const PolicyRowSchema = PolicySchema.extend({ acknowledged: z.number().int(), total: z.number().int() });
+export type PolicyRowView = z.infer<typeof PolicyRowSchema>;
+export const MyPolicySchema = PolicySchema.extend({ acknowledgedAt: InstantSchema.optional() });
+export const PolicyStatusSchema = z.object({ status: z.enum(['draft', 'published', 'archived']) });
+export const PolicyAcksSchema = z.object({ done: z.array(z.object({ name: z.string(), at: InstantSchema })), waiting: z.array(z.string()) });

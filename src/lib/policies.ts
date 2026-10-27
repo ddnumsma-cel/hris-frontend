@@ -6,7 +6,8 @@
 
 import { fullName, state as core } from "./corehr/store";
 import { getFile, uploadedPolicyFiles } from "./fileStore";
-import { api, serverMode } from "./http";
+import { serverMode } from "./http";
+import { remoteApi, remoteOn } from "./remote";
 import { notifyEmployee } from "./outbox";
 import { SEED_POLICIES } from "./policySeed";
 import { EVERYONE, tellRoles } from "./requestNotices";
@@ -86,7 +87,7 @@ export interface PolicyRow extends Policy {
 }
 
 export function listPolicies(): Promise<PolicyRow[]> {
-  if (serverMode) return api<PolicyRow[]>("GET", "/policies");
+  if (remoteOn()) return remoteApi<PolicyRow[]>("GET", "/policies");
   const people = current();
   return respond(
     [...saved.policies]
@@ -98,10 +99,10 @@ export function listPolicies(): Promise<PolicyRow[]> {
 export type PolicyInput = Pick<Policy, "title" | "category" | "effectiveDate" | "summary" | "body" | "fileId" | "fileName" | "requireAck"> & { id?: string };
 
 export async function savePolicy(input: PolicyInput, actor: string): Promise<Policy> {
-  if (serverMode) {
+  if (remoteOn()) {
     const { id, ...rest } = input;
     const fileId = input.fileId ? (uploadedPolicyFiles.get(input.fileId) ?? input.fileId) : undefined;
-    return api<Policy>(id ? "PUT" : "POST", id ? `/policies/${encodeURIComponent(id)}` : "/policies", { ...rest, fileId });
+    return remoteApi<Policy>(id ? "PUT" : "POST", id ? `/policies/${encodeURIComponent(id)}` : "/policies", { ...rest, fileId });
   }
   const title = input.title.trim();
   if (!title) return fail("Give the policy a title");
@@ -131,7 +132,7 @@ export async function savePolicy(input: PolicyInput, actor: string): Promise<Pol
 }
 
 export async function setPolicyStatus(id: string, status: Policy["status"], actor: string): Promise<void> {
-  if (serverMode) return void (await api("PUT", `/policies/${encodeURIComponent(id)}/status`, { status }));
+  if (remoteOn()) return void (await remoteApi("PUT", `/policies/${encodeURIComponent(id)}/status`, { status }));
   const p = saved.policies.find((x) => x.id === id);
   if (!p) return fail("That policy no longer exists");
   persist({ ...saved, policies: saved.policies.map((x) => (x.id === id ? { ...x, status, updatedBy: actor, updatedAt: new Date().toISOString() } : x)) });
@@ -141,7 +142,7 @@ export async function setPolicyStatus(id: string, status: Policy["status"], acto
 }
 
 export async function deletePolicy(id: string): Promise<void> {
-  if (serverMode) return void (await api("DELETE", `/policies/${encodeURIComponent(id)}`));
+  if (remoteOn()) return void (await remoteApi("DELETE", `/policies/${encodeURIComponent(id)}`));
   const p = saved.policies.find((x) => x.id === id);
   if (!p) return fail("That policy no longer exists");
   if (p.status !== "draft") return fail("Published policies stay on record. Archive it instead.");
@@ -151,7 +152,7 @@ export async function deletePolicy(id: string): Promise<void> {
 
 /** Who has and hasn't acknowledged the current version. */
 export function acknowledgementsFor(id: string) {
-  if (serverMode) return api<{ done: { name: string; at: string }[]; waiting: string[] }>("GET", `/policies/${encodeURIComponent(id)}/acknowledgements`);
+  if (remoteOn()) return remoteApi<{ done: { name: string; at: string }[]; waiting: string[] }>("GET", `/policies/${encodeURIComponent(id)}/acknowledgements`);
   const p = saved.policies.find((x) => x.id === id);
   if (!p) return respond({ done: [] as { name: string; at: string }[], waiting: [] as string[] });
   const people = current().map((e) => ({ e, a: acked(p, e.id) }));
@@ -181,7 +182,7 @@ export interface MyPolicy extends Policy {
 /** Published policies for one employee, unacknowledged first. */
 export function policiesFor(employeeId: string): Promise<MyPolicy[]> {
   // The server answers for the signed-in person (employeeId is always theirs).
-  if (serverMode) return api<MyPolicy[]>("GET", "/policies/mine");
+  if (remoteOn()) return remoteApi<MyPolicy[]>("GET", "/policies/mine");
   return respond(
     saved.policies
       .filter((p) => p.status === "published")
@@ -191,7 +192,7 @@ export function policiesFor(employeeId: string): Promise<MyPolicy[]> {
 }
 
 export async function acknowledgePolicy(id: string, employeeId: string): Promise<void> {
-  if (serverMode) return void (await api("POST", `/policies/${encodeURIComponent(id)}/acknowledge`));
+  if (remoteOn()) return void (await remoteApi("POST", `/policies/${encodeURIComponent(id)}/acknowledge`));
   const p = saved.policies.find((x) => x.id === id && x.status === "published");
   if (!p) return fail("That policy is no longer published");
   if (acked(p, employeeId)) return respond(undefined);
