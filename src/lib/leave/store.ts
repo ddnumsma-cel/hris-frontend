@@ -6,7 +6,8 @@
 // database is the source and this store is a cache loaded after sign-in.
 
 import { state as core, fullName } from "../corehr/store";
-import { api, serverMode } from "../http";
+import { remoteApi, remoteOn } from "../remote";
+import { backendOn } from "../backend/client";
 import { admin } from "../admin/store";
 import { addDays, balanceOf, countDays as countDaysIn, creditsOf, DEFAULT_LEAVE_POLICY, isoToday, policyOf, type LeaveData, type LeavePolicy } from "./rules";
 import type { Balance, LeaveType, LeaveRequest } from "./types";
@@ -89,7 +90,7 @@ function notInFuture(s: LeaveState): LeaveState {
 
 function load(): LeaveState {
   // With the API server, the records come from the database (see refreshLeave).
-  if (serverMode) return { types: [], requests: [], adjustments: [], carryOver: {} };
+  if (remoteOn()) return { types: [], requests: [], adjustments: [], carryOver: {} };
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -106,7 +107,7 @@ export let leave: LeaveState = load();
 
 export function saveLeave(next: LeaveState) {
   leave = next;
-  if (serverMode) return;
+  if (remoteOn()) return;
   try {
     localStorage.setItem(KEY, JSON.stringify(leave));
   } catch {
@@ -116,7 +117,23 @@ export function saveLeave(next: LeaveState) {
 
 // ---- Balances ----
 
-const personFacts = (employeeId: string) => core.employees.find((x) => x.id === employeeId);
+/** On the backend: the people in the leave data (name, office, and the facts the rules read), sent with it. */
+export interface BackendLeavePerson {
+  name: string;
+  departmentName: string;
+  branch: string;
+  sex: string;
+  civilStatus: string;
+  employmentType: string;
+  dateHired: string;
+}
+export let backendLeavePeople: Record<string, BackendLeavePerson> = {};
+
+const personFacts = (employeeId: string) => {
+  if (!backendOn()) return core.employees.find((x) => x.id === employeeId);
+  const p = backendLeavePeople[employeeId];
+  return p ? { personal: { sex: p.sex, civilStatus: p.civilStatus }, job: { dateHired: p.dateHired, employmentType: p.employmentType } } : undefined;
+};
 
 export function balanceFor(employeeId: string, type: LeaveType, today?: string): Balance {
   return balanceOf(leave, employeeId, personFacts(employeeId), type, today);
@@ -141,12 +158,13 @@ let loadedAt = 0;
 
 /** Loads leave from the API server. Reads within a moment of the last load reuse it. */
 export function refreshLeave(maxAgeMs = 0): Promise<void> {
-  if (!serverMode) return Promise.resolve();
+  if (!remoteOn()) return Promise.resolve();
   if (loading) return loading;
   if (maxAgeMs && Date.now() - loadedAt < maxAgeMs) return Promise.resolve();
-  loading = api<LeaveState>("GET", "/leave/state")
-    .then((next) => {
+  loading = remoteApi<LeaveState & { people?: Record<string, BackendLeavePerson> }>("GET", "/leave/state")
+    .then(({ people, ...next }) => {
       leave = next;
+      backendLeavePeople = people ?? {};
       loadedAt = Date.now();
     })
     .finally(() => (loading = null));
@@ -154,7 +172,7 @@ export function refreshLeave(maxAgeMs = 0): Promise<void> {
 }
 
 export function clearLeave() {
-  if (!serverMode) return;
+  if (!remoteOn()) return;
   loadedAt = 0;
   leave = load();
 }

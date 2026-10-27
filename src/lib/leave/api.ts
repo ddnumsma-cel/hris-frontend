@@ -2,15 +2,16 @@
 
 import { fullName, initialsOf, newId, state as core } from "../corehr/store";
 import { api, serverMode } from "../http";
+import { remoteApi, remoteOn } from "../remote";
 import { previewOf, type FileInput, type Preview } from "./rules";
-import { addDays, CREDITS_ADJUSTMENT, creditsFor, isoToday, leave, leaveData, LEAVE_CREDITS_PER_YEAR, leavePolicy, refreshLeave, saveLeave, type Credits } from "./store";
+import { addDays, backendLeavePeople, CREDITS_ADJUSTMENT, creditsFor, isoToday, leave, leaveData, LEAVE_CREDITS_PER_YEAR, leavePolicy, refreshLeave, saveLeave, type Credits } from "./store";
 import type { Adjustment, LeaveRequest, LeaveType } from "./types";
 import { can, canFor, visible } from "../permissions";
 import { deny, forbidden, sessionWho } from "../session";
 import { managerOf, nameOf, notifyEmployee } from "../outbox";
 import { dates, tellApprover, tellEmployees, who as nameFor } from "../requestNotices";
 import { backendOn } from "../backend/client";
-import { BACKEND_LEAVE_TYPES, backendDecide, backendLeaveRows } from "../backend/requests";
+import { backendDecide, backendLeaveRows } from "../backend/requests";
 
 const DELAY = 250;
 const respond = <T,>(v: T): Promise<T> => new Promise((r) => setTimeout(() => r(structuredClone(v)), DELAY));
@@ -42,6 +43,11 @@ function unitUp(unitId: string, type: string) {
 }
 
 export function people(): LeavePerson[] {
+  // On the backend: the people sent with the leave data (call after refreshLeave).
+  if (backendOn())
+    return Object.entries(backendLeavePeople)
+      .map(([id, p]) => ({ id, name: p.name, initials: p.name.split(" ").filter(Boolean).map((w, i, a) => (i === 0 || i === a.length - 1 ? w[0] : "")).join("").toUpperCase(), departmentName: p.departmentName, branch: p.branch }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   return core.employees
     .filter((e) => e.job.status !== "Separated")
     .map((e) => ({ id: e.id, name: fullName(e.personal), initials: initialsOf(e.personal), departmentName: unitUp(e.job.unitId, "department"), branch: unitUp(e.job.unitId, "branch") }))
@@ -51,15 +57,14 @@ export function people(): LeavePerson[] {
 // ---- Leave types ----
 
 export async function listTypes() {
-  if (backendOn()) return respond(BACKEND_LEAVE_TYPES);
-  if (serverMode) await fresh();
+  if (remoteOn()) await fresh();
   return respond(leave.types);
 }
 
 export async function saveType(input: Omit<LeaveType, "id" | "active"> & { id?: string }): Promise<LeaveType> {
   const denied = deny("leaveTypes", input.id ? "edit" : "create");
   if (denied) return denied;
-  if (serverMode) return remote(api<LeaveType>("POST", "/leave/types", input));
+  if (remoteOn()) return remote(remoteApi<LeaveType>("POST", "/leave/types", input));
   const name = input.name.trim();
   if (!name) return fail("Name the leave type");
   if (!input.code.trim()) return fail("Give it a short code, e.g. VL");
@@ -73,7 +78,7 @@ export async function saveType(input: Omit<LeaveType, "id" | "active"> & { id?: 
 export async function setTypeActive(id: string, active: boolean): Promise<void> {
   const denied = deny("leaveTypes", "edit");
   if (denied) return denied;
-  if (serverMode) return remote(api<void>("PUT", `/leave/types/${encodeURIComponent(id)}/active`, { active }));
+  if (remoteOn()) return remote(remoteApi<void>("PUT", `/leave/types/${encodeURIComponent(id)}/active`, { active }));
   saveLeave({ ...leave, types: leave.types.map((t) => (t.id === id ? { ...t, active } : t)) });
   return respond(undefined);
 }
@@ -207,7 +212,7 @@ export interface CreditRow {
 }
 
 export async function listCredits(): Promise<CreditRow[]> {
-  if (serverMode) await fresh();
+  if (remoteOn()) await fresh();
   const who = sessionWho();
   if (!can(who, "view", "leaveBalances")) return forbidden();
   const year = isoToday().slice(0, 4);
@@ -230,7 +235,7 @@ export async function listCredits(): Promise<CreditRow[]> {
 export async function adjustCredits(input: { employeeId: string; leaves: number; reason: string }, actor: string): Promise<Adjustment> {
   const denied = deny("leaveBalances", "edit", input.employeeId);
   if (denied) return denied;
-  if (serverMode) return remote(api<Adjustment>("POST", "/leave/credits", input));
+  if (remoteOn()) return remote(remoteApi<Adjustment>("POST", "/leave/credits", input));
   if (!Number.isInteger(input.leaves * 2) || input.leaves === 0) return fail("Enter the days to add (e.g. 1 or 0.5) or remove (e.g. -1)");
   if (Math.abs(input.leaves) > LEAVE_CREDITS_PER_YEAR) return fail(`Change at most ${LEAVE_CREDITS_PER_YEAR} days at a time`);
   if (!input.reason.trim()) return fail("Say why the days are changing");
@@ -247,7 +252,7 @@ export async function adjustCredits(input: { employeeId: string; leaves: number;
 export async function listAdjustments(employeeId: string) {
   const denied = deny("leaveBalances", "view", employeeId);
   if (denied) return denied;
-  if (serverMode) await fresh();
+  if (remoteOn()) await fresh();
   return respond(leave.adjustments.filter((a) => a.employeeId === employeeId).sort((a, b) => b.at.localeCompare(a.at)));
 }
 
@@ -261,7 +266,7 @@ export interface AwayEntry {
 
 /** Everyone away (approved or pending) between two dates. */
 export async function listAway(from: string, to: string): Promise<AwayEntry[]> {
-  if (serverMode) await fresh();
+  if (remoteOn()) await fresh();
   const who = sessionWho();
   if (!can(who, "view", "leave")) return forbidden();
   const ps = people();

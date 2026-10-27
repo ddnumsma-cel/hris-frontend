@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@msma/db';
 import {
+  checkLeaveFiling,
   CreateLeaveRequest,
+  LeaveData,
+  LeavePersonFacts,
   DateKey,
   dateKeyToUtcDate,
   dateRange,
@@ -119,32 +122,22 @@ export class LeaveService {
   }
 
   /** Create a pending leave request after checking the balance. `days` = working days in the range. */
-  async createRequest(db: Db, employeeId: string, body: CreateLeaveRequest, days: number) {
-    if (days <= 0) throw new BadRequestException('The selected dates have no working days');
+  /**
+   * File a leave request, checked with the website's rules (shared leaveRules): days counted on the company calendar,
+   * eligibility, the VL/SL pool left this leave year, and overlaps. Returns the days it counts.
+   */
+  async createRequest(db: Db, employeeId: string, body: CreateLeaveRequest) {
     const type = await db.leaveType.findUnique({ where: { code: body.leaveTypeCode } });
-    if (!type) throw new NotFoundException('Unknown leave type');
-    const year = Number(body.startDate.slice(0, 4));
-    const balance = await db.leaveBalance.findUnique({
-      where: { employeeId_leaveTypeId_year: { employeeId, leaveTypeId: type.id, year } },
-    });
-    const remaining = balance
-      ? new Decimal(balance.entitled.toString()).minus(balance.used.toString())
-      : new Decimal(0);
-    if (remaining.lt(days)) {
-      throw new BadRequestException(
-        `Not enough ${type.name.toLowerCase()}: ${remaining.toFixed(1)} day(s) left, ${days} requested`,
-      );
-    }
-    const overlap = await db.leaveRequest.findFirst({
-      where: {
-        employeeId,
-        status: { in: ['PENDING', 'APPROVED'] },
-        startDate: { lte: dateKeyToUtcDate(body.endDate) },
-        endDate: { gte: dateKeyToUtcDate(body.startDate) },
-      },
-    });
-    if (overlap)
-      throw new BadRequestException('You already have a leave request for some of these dates');
+    if (!type || !type.active) throw new NotFoundException('That leave type is not in use');
+    const data = await this.ruleData(db, [employeeId]);
+    const person = data.people.get(employeeId);
+    const { days, errors } = checkLeaveFiling(
+      data.rules,
+      person,
+      { employeeId, typeId: type.id, start: body.startDate, end: body.endDate, halfDay: body.halfDay },
+      manilaToday(),
+    );
+    if (errors.length) throw new BadRequestException(errors.join(' '));
     const request = await db.leaveRequest.create({
       data: {
         employeeId,
@@ -155,7 +148,7 @@ export class LeaveService {
         reason: body.reason,
       },
     });
-    return { request, typeName: type.name };
+    return { request, typeName: type.name, days };
   }
 
   /** Apply an approval decision to the leave request (and deduct the balance when approved). */
@@ -179,5 +172,52 @@ export class LeaveService {
       from: utcDateToDateKey(request.startDate),
       to: utcDateToDateKey(request.endDate),
     };
+  }
+
+  /**
+   * What the shared leave rules need for some employees (keyed by their backend id): leave types, every leave
+   * request and credit change of theirs, the company holidays, and each person's sex, civil status and hire date.
+   */
+  async ruleData(db: Db, employeeIds: string[]): Promise<{ rules: LeaveData; people: Map<string, LeavePersonFacts> }> {
+    const [types, requests, adjustments, holidays, employees] = await Promise.all([
+      db.leaveType.findMany(),
+      db.leaveRequest.findMany({ where: { employeeId: { in: employeeIds } } }),
+      db.leaveAdjustment.findMany({ where: { employeeId: { in: employeeIds } } }),
+      db.holiday.findMany(),
+      db.employee.findMany({ where: { id: { in: employeeIds } } }),
+    ]);
+    const lower = { PENDING: 'pending', APPROVED: 'approved', REJECTED: 'rejected', CANCELLED: 'cancelled' } as const;
+    const civil: Record<string, string> = { SINGLE: 'Single', MARRIED: 'Married', WIDOWED: 'Widowed', SEPARATED: 'Separated', ANNULLED: 'Annulled' };
+    const rules: LeaveData = {
+      types: types.map((t) => ({
+        id: t.id,
+        name: t.name,
+        code: t.code,
+        daysPerYear: Number(t.defaultDays.toString()),
+        earning: t.earning as LeaveData['types'][number]['earning'],
+        paid: t.paid,
+        carryOverMax: Number(t.carryOverMax.toString()),
+        countBy: t.countBy === 'calendar' ? 'calendar' : 'workdays',
+        eligibility: t.eligibility as LeaveData['types'][number]['eligibility'],
+        attachmentOver: t.attachmentOver === null ? null : Number(t.attachmentOver.toString()),
+        confidential: t.confidential,
+        basis: t.basis,
+        active: t.active,
+      })),
+      requests: requests.map((r) => ({ id: r.id, employeeId: r.employeeId, typeId: r.leaveTypeId, start: utcDateToDateKey(r.startDate), end: utcDateToDateKey(r.endDate), days: Number(r.days.toString()), status: lower[r.status] })),
+      adjustments: adjustments.map((a) => ({ employeeId: a.employeeId, typeId: a.typeId, days: Number(a.days.toString()), at: a.at.toISOString() })),
+      carryOver: {},
+      holidays: holidays.map((h) => ({ date: utcDateToDateKey(h.date), name: h.name })),
+    };
+    const people = new Map<string, LeavePersonFacts>(
+      employees.map((e) => [
+        e.id,
+        {
+          personal: { sex: e.sex === 'MALE' ? 'Male' : e.sex === 'FEMALE' ? 'Female' : '', civilStatus: e.civilStatus ? civil[e.civilStatus] ?? '' : '' },
+          job: { dateHired: utcDateToDateKey(e.hireDate), employmentType: e.status === 'REGULAR' ? 'Regular' : e.status === 'PROBATIONARY' ? 'Probationary' : 'Fixed-term' },
+        },
+      ]),
+    );
+    return { rules, people };
   }
 }

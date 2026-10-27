@@ -1,7 +1,15 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   addDays,
+  CreditAdjustmentInput,
+  CreditAdjustmentInputSchema,
+  LeaveAdjustmentViewSchema,
+  LeaveStateSchema,
+  LeaveTypeViewSchema,
+  SaveLeaveType,
+  SaveLeaveTypeSchema,
+  SetActiveSchema,
   LeaveOverview,
   LeaveOverviewQuery,
   LeaveOverviewQuerySchema,
@@ -15,7 +23,9 @@ import {
   requireEmployeeId,
   Roles,
 } from '../common/auth.decorators';
-import { ApiZodQuery, ApiZodResponse, ZodPipe } from '../common/zod';
+import { ApiZodBody, ApiZodQuery, ApiZodResponse, ZodPipe } from '../common/zod';
+import { z } from 'zod';
+import { LeaveAdminService } from './leave-admin.service';
 import { EmployeesService } from '../employees/employees.service';
 import { LeaveService } from './leave.service';
 
@@ -30,6 +40,7 @@ export class LeaveController {
   constructor(
     private readonly leave: LeaveService,
     private readonly employees: EmployeesService,
+    private readonly admin: LeaveAdminService,
   ) {}
 
   @Get('overview')
@@ -63,5 +74,54 @@ export class LeaveController {
         .map((id) => ({ employee: person(id), remaining: remaining.get(id) ?? {} }))
         .sort((a, b) => a.employee.fullName.localeCompare(b.employee.fullName)),
     };
+  }
+
+  // ---------- Maintenance > Leave on the website ----------
+
+  @Get('state')
+  @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({
+    operationId: 'getLeaveState',
+    summary: 'Leave types, requests and VL/SL changes for the website to show balances (HR: everyone; managers: their team; others: themselves)',
+  })
+  @ApiZodResponse(LeaveStateSchema)
+  async state(@CurrentUser() user: AuthUser) {
+    const team = user.role === 'MANAGER' && user.employeeId ? await this.employees.teamIds(user.employeeId) : undefined;
+    return this.admin.state(user, team);
+  }
+
+  @Get('types')
+  @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'listLeaveTypes', summary: 'Leave types with their rules' })
+  @ApiZodResponse(z.array(LeaveTypeViewSchema))
+  types() {
+    return this.admin.types();
+  }
+
+  @Post('types')
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'saveLeaveType', summary: 'Add a leave type, or change one (with its id)' })
+  @ApiZodBody(SaveLeaveTypeSchema)
+  @ApiZodResponse(LeaveTypeViewSchema, 201)
+  saveType(@CurrentUser() user: AuthUser, @Body(new ZodPipe(SaveLeaveTypeSchema)) body: SaveLeaveType) {
+    return this.admin.saveType(body, user);
+  }
+
+  @Put('types/:id/active')
+  @HttpCode(204)
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'setLeaveTypeActive', summary: 'Turn a leave type off (no new requests) or back on' })
+  @ApiZodBody(SetActiveSchema)
+  async setActive(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(SetActiveSchema)) body: { active: boolean }) {
+    await this.admin.setTypeActive(id, body.active, user);
+  }
+
+  @Post('credits')
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'adjustLeaveCredits', summary: 'Add or take away VL/SL days (half days allowed), with the reason' })
+  @ApiZodBody(CreditAdjustmentInputSchema)
+  @ApiZodResponse(LeaveAdjustmentViewSchema, 201)
+  adjustCredits(@CurrentUser() user: AuthUser, @Body(new ZodPipe(CreditAdjustmentInputSchema)) body: CreditAdjustmentInput) {
+    return this.admin.adjustCredits(body, user);
   }
 }

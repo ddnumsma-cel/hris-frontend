@@ -191,14 +191,13 @@ export class ApprovalsService {
   /** Employee self-service: file a leave request (creates the leave request and its approval item). */
   async submitLeave(user: AuthUser, body: CreateLeaveRequest): Promise<MyRequest> {
     const employeeId = requireEmployeeId(user);
-    const days = await this.attendance.countWorkingDays(body.startDate, body.endDate);
     const approval = await this.prisma.$transaction(async (tx) => {
-      const { request } = await this.leave.createRequest(tx, employeeId, body, days);
+      const { request, typeName, days } = await this.leave.createRequest(tx, employeeId, body);
       const created = await tx.approvalRequest.create({
         data: {
           type: 'LEAVE',
           employeeId,
-          detail: `${LEAVE_LABEL[body.leaveTypeCode]} · ${formatDateRange(body.startDate, body.endDate)} · ${days} day${days === 1 ? '' : 's'} · ${body.reason}`,
+          detail: `${LEAVE_LABEL[body.leaveTypeCode] ?? typeName} · ${formatDateRange(body.startDate, body.endDate)} · ${days} day${days === 1 ? '' : 's'} · ${body.reason}`,
           leaveRequestId: request.id,
         },
       });

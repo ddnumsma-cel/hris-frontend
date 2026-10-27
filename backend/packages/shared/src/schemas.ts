@@ -368,7 +368,8 @@ export type LeaveOverview = z.infer<typeof LeaveOverviewSchema>;
 
 export const CreateLeaveRequestSchema = z
   .object({
-    leaveTypeCode: z.enum(['VL', 'SL', 'SIL']),
+    leaveTypeCode: z.string().trim().min(1, 'Choose the leave type').max(12).describe('A leave type code, e.g. VL'),
+    halfDay: z.enum(['am', 'pm']).optional(),
     startDate: DateKeySchema,
     endDate: DateKeySchema,
     reason: z.string().trim().min(3, 'Please give a short reason').max(300),
@@ -378,6 +379,53 @@ export const CreateLeaveRequestSchema = z
     path: ['endDate'],
   });
 export type CreateLeaveRequest = z.infer<typeof CreateLeaveRequestSchema>;
+
+// Leave types and credits as the website keeps them (Maintenance > Leave): one VL/SL pool by length of service.
+export const LeaveTypeRuleSchema = z.object({
+  name: z.string().trim().min(1, 'Name the leave type').max(80),
+  code: z.string().trim().min(1, 'Give it a short code, e.g. VL').max(12),
+  daysPerYear: z.number().finite().min(0).max(366),
+  earning: z.union([
+    z.object({ kind: z.literal('monthly'), perMonth: z.number().finite().min(0).max(31) }),
+    z.object({ kind: z.literal('yearly') }),
+    z.object({ kind: z.literal('per-event') }),
+    z.object({ kind: z.literal('unlimited') }),
+  ]),
+  paid: z.boolean(),
+  carryOverMax: z.number().finite().min(0).max(366),
+  countBy: z.enum(['workdays', 'calendar']),
+  eligibility: z.enum(['everyone', 'female', 'male-married', 'solo-parent', 'after-1-year', 'after-6-months']),
+  attachmentOver: z.number().finite().min(0).max(366).nullable(),
+  confidential: z.boolean(),
+  basis: z.string().trim().max(200),
+});
+export const SaveLeaveTypeSchema = LeaveTypeRuleSchema.extend({ id: z.string().optional() });
+export type SaveLeaveType = z.infer<typeof SaveLeaveTypeSchema>;
+export const LeaveTypeViewSchema = LeaveTypeRuleSchema.extend({ id: z.string(), active: z.boolean() });
+export type LeaveTypeView = z.infer<typeof LeaveTypeViewSchema>;
+
+export const CreditAdjustmentInputSchema = z.object({
+  employeeId: z.string().min(1).describe('Employee number'),
+  leaves: z.number().finite().refine((n) => n !== 0 && Number.isInteger(n * 2), 'Enter the days to add (e.g. 1 or 0.5) or remove (e.g. -1)'),
+  reason: z.string().trim().min(1, 'Say why the days are changing').max(300),
+});
+export type CreditAdjustmentInput = z.infer<typeof CreditAdjustmentInputSchema>;
+export const LeaveAdjustmentViewSchema = z.object({ id: z.string(), employeeId: z.string(), typeId: z.string(), days: z.number(), reason: z.string(), by: z.string(), at: InstantSchema });
+export type LeaveAdjustmentView = z.infer<typeof LeaveAdjustmentViewSchema>;
+/** Everything the website needs to show and check leave, employees named by employee number. */
+export const LeaveStateSchema = z.object({
+  types: z.array(LeaveTypeViewSchema),
+  requests: z.array(z.object({
+    id: z.string(), employeeId: z.string(), typeId: z.string(), start: DateKeySchema, end: DateKeySchema, days: z.number(), reason: z.string(),
+    status: z.enum(['pending', 'approved', 'rejected', 'cancelled']), filedBy: z.string(), filedAt: InstantSchema,
+    decidedBy: z.string().optional(), decidedAt: InstantSchema.optional(), note: z.string().optional(),
+  })),
+  adjustments: z.array(LeaveAdjustmentViewSchema),
+  carryOver: z.record(z.string(), z.number()),
+  /** For the leave rules: sex, civil status, employment type and hire date by employee number. */
+  people: z.record(z.string(), z.object({ name: z.string(), departmentName: z.string(), branch: z.string(), sex: z.string(), civilStatus: z.string(), employmentType: z.string(), dateHired: DateKeySchema })),
+});
+export type LeaveState = z.infer<typeof LeaveStateSchema>;
 
 // ---------- Overtime, undertime and time adjustment requests (filed by the employee) ----------
 

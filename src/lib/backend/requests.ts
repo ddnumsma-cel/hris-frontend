@@ -11,6 +11,7 @@ import type { DayRow, TkPerson } from "../timekeeping/api";
 import type { DayStatus, FixRequest, Punch, TimeRequest } from "../timekeeping/types";
 import { backendUser } from "./auth";
 import { api } from "./client";
+import { balanceFor, creditsFor, leave, refreshLeave } from "../leave/store";
 
 type BackendType = "LEAVE" | "OT" | "UNDERTIME" | "DTR_FIX";
 type BackendStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
@@ -88,7 +89,15 @@ export const BACKEND_LEAVE_TYPES: LeaveType[] = [
   { ...LEAVE_BASE, id: "SL", code: "SL", name: "Sick leave", daysPerYear: 15 },
   { ...LEAVE_BASE, id: "SIL", code: "SIL", name: "Service incentive leave", daysPerYear: 5 },
 ];
-const LEAVE_BY_LABEL: Record<string, LeaveType> = { Vacation: BACKEND_LEAVE_TYPES[0]!, Sick: BACKEND_LEAVE_TYPES[1]!, "Service incentive": BACKEND_LEAVE_TYPES[2]! };
+/** Older requests name VL, SL and SIL by these labels; newer ones by the leave type's name. */
+const LEGACY_LABEL: Record<string, string> = { Vacation: "VL", Sick: "SL", "Service incentive": "SIL" };
+
+/** The leave type a request's label names, from the backend's types (loaded with the leave data). */
+function typeOfLabel(label: string): LeaveType | undefined {
+  const types = leave.types.length ? leave.types : BACKEND_LEAVE_TYPES;
+  const code = LEGACY_LABEL[label];
+  return types.find((t) => (code ? t.code === code : t.name === label));
+}
 
 const leaveStatus: Record<BackendStatus, RequestStatus> = { PENDING: "pending", APPROVED: "approved", REJECTED: "rejected", CANCELLED: "cancelled" };
 const timeStatus = (s: BackendStatus): TimeRequest["status"] => (s === "PENDING" ? "pending" : s === "APPROVED" ? "approved" : "declined");
@@ -113,7 +122,7 @@ function personOf(r: BackendRequest): TkPerson {
 
 function toLeave(r: BackendRequest): (LeaveRequest & { type: LeaveType }) | null {
   const p = parseDetail("LEAVE", r.detail);
-  const type = LEAVE_BY_LABEL[p.label];
+  const type = typeOfLabel(p.label);
   if (!type) return null;
   return { id: r.id, employeeId: personOf(r).id, typeId: type.id, type, start: p.start, end: p.end, days: p.days ?? 0, reason: p.reason, status: leaveStatus[r.status], filedBy: personOf(r).name, filedAt: r.createdAt, decidedBy: r.decidedBy ?? undefined, decidedAt: r.decidedAt ?? undefined, note: r.reason ?? undefined };
 }
@@ -141,6 +150,7 @@ async function approvals(type: BackendType): Promise<BackendRequest[]> {
 }
 
 export async function backendLeaveRows(): Promise<RequestRow[]> {
+  await refreshLeave(2000);
   return (await approvals("LEAVE")).flatMap((r) => {
     const l = toLeave(r);
     const p = personOf(r);
@@ -167,22 +177,26 @@ export async function backendDecide(id: string, approve: boolean, note: string):
 const myRequestsRaw = () => api<BackendRequest[]>("/me/requests");
 
 export async function backendMyLeave(): Promise<MyLeave> {
-  const [rows, raw] = await Promise.all([api<{ leaveTypeCode: string; entitled: string; used: string; remaining: string }[]>("/me/leave-balances"), myRequestsRaw()]);
-  const requests = raw.filter((r) => r.type === "LEAVE").flatMap((r) => toLeave(r) ?? []);
-  const balances = rows.flatMap((b) => {
-    const type = BACKEND_LEAVE_TYPES.find((t) => t.code === b.leaveTypeCode);
-    if (!type) return [];
-    const pending = requests.filter((r) => r.typeId === type.id && r.status === "pending").reduce((n, r) => n + r.days, 0);
-    const remaining = Number(b.remaining);
-    return [{ typeId: type.id, type, earned: Number(b.entitled), yearTotal: Number(b.entitled), carriedOver: 0, adjusted: 0, used: Number(b.used), pending, remaining, available: remaining - pending, unlimited: false, eligible: true }];
-  });
-  const sum = (k: "earned" | "used" | "pending") => balances.reduce((n, b) => n + b[k], 0);
-  const total = sum("earned");
-  return { types: BACKEND_LEAVE_TYPES, credits: { total, adjusted: 0, used: sum("used"), pending: sum("pending"), available: total - sum("used") - sum("pending") }, balances, requests: requests.sort((a, b) => b.filedAt.localeCompare(a.filedAt)) };
+  // The backend sends only the signed-in employee's leave; balances use the same rules as everywhere (leave/rules).
+  await refreshLeave();
+  const myId = me().id;
+  const types = leave.types.filter((t) => t.active);
+  const balances = types.map((t) => ({ ...balanceFor(myId, t), type: t })).filter((b) => b.eligible || b.used > 0 || b.pending > 0);
+  const requests = leave.requests
+    .filter((r) => r.employeeId === myId)
+    .flatMap((r) => {
+      const type = leave.types.find((t) => t.id === r.typeId);
+      return type ? [{ ...r, type }] : [];
+    })
+    .sort((a, b) => b.filedAt.localeCompare(a.filedAt));
+  return { types, credits: creditsFor(myId), balances, requests };
 }
 
 export async function backendFileLeave(input: { typeId: string; start: string; end: string; reason: string }): Promise<LeaveRequest> {
-  const r = await api<BackendRequest>("/me/leave-requests", { body: { leaveTypeCode: input.typeId, startDate: input.start, endDate: input.end, reason: input.reason.trim() } });
+  // The website picks a type by id; the backend files by its code.
+  const code = leave.types.find((t) => t.id === input.typeId)?.code ?? input.typeId;
+  const r = await api<BackendRequest>("/me/leave-requests", { body: { leaveTypeCode: code, startDate: input.start, endDate: input.end, reason: input.reason.trim() } });
+  await refreshLeave();
   return toLeave(r)!;
 }
 
