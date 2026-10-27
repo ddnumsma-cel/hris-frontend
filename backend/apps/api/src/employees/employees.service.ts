@@ -561,14 +561,28 @@ export class EmployeesService {
     return this.prisma.employee.count({ where: { active: true, ...(siteId ? { siteId } : {}) } });
   }
 
-  /** Active employees' device IDs (biometric PINs) and names, for keeping the terminals' user lists in step. */
+  /**
+   * Active employees' device IDs (biometric PINs) and names, for keeping the terminals' user lists in step.
+   * Someone past their separation date is left out, even before the record is set inactive.
+   */
   async devicePins(): Promise<{ id: string; pin: string; name: string }[]> {
+    const today = dateKeyToUtcDate(manilaToday());
     const rows = await this.prisma.employee.findMany({
-      where: { active: true },
+      where: { active: true, OR: [{ separationDate: null }, { separationDate: { gte: today } }] },
       select: { id: true, biometricPin: true, firstName: true, lastName: true },
       orderBy: { biometricPin: 'asc' },
     });
     return rows.map((r) => ({ id: r.id, pin: r.biometricPin, name: fullName(r) }));
+  }
+
+  /** Device IDs of separated employees (record inactive, or separation date already passed): they come off the terminals. */
+  async separatedPins(): Promise<Set<string>> {
+    const today = dateKeyToUtcDate(manilaToday());
+    const rows = await this.prisma.employee.findMany({
+      where: { OR: [{ active: false }, { separationDate: { lt: today } }] },
+      select: { biometricPin: true },
+    });
+    return new Set(rows.map((r) => r.biometricPin));
   }
 
   /** Map biometric PINs to employee ids (unknown PINs are omitted). */

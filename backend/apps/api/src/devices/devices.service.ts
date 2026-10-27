@@ -32,7 +32,8 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Every hour, online terminals are asked for their user list and any active employee missing from it is added back
-   * (same device ID; it never deletes). ZKTeco terminals drop a user whose last face or fingerprint is deleted.
+   * (same device ID), and separated employees are deleted from it. ZKTeco terminals drop a user whose last face or
+   * fingerprint is deleted.
    * Off in tests, or with DEVICE_AUTO_READD=off.
    */
   onModuleInit() {
@@ -62,14 +63,18 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /** Add back active employees missing from a terminal, but only from a user list it sent after `asked`. */
+  /**
+   * From a user list the terminal sent after `asked`: remove separated employees, then add back active employees
+   * missing from it. Users who aren't on any HRIS record (tests, visitors) are left alone.
+   */
   async readdMissing(serial: string, asked: Date): Promise<string[]> {
     const fresh = await this.prisma.deviceUser.count({ where: { deviceSerial: serial, seenAt: { gte: asked } } });
     if (!fresh) {
       this.logger.warn(`${serial}: no user list since ${asked.toISOString()}; nothing re-added this time`);
       return [];
     }
-    const { toAdd } = await this.syncPlan(serial);
+    const { toAdd, toDelete } = await this.syncPlan(serial);
+    await this.removeSeparated(serial, toDelete);
     if (!toAdd.length) return [];
     await this.queue(serial, toAdd.map((u) => this.protocol.upsertUserCommand(u.pin, u.name)), null);
     await this.audit.log({
@@ -81,6 +86,24 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
     });
     this.logger.log(`${serial}: re-added ${toAdd.map((u) => u.pin).join(', ')}`);
     return toAdd.map((u) => u.pin);
+  }
+
+  /** Delete the terminal's users who are separated employees (this also deletes their face and fingerprints there). */
+  private async removeSeparated(serial: string, extras: { pin: string; name: string | null }[]): Promise<string[]> {
+    const separated = await this.employees.separatedPins();
+    const gone = extras.filter((u) => separated.has(u.pin));
+    if (!gone.length) return [];
+    await this.queue(serial, gone.map((u) => this.protocol.deleteUserCommand(u.pin)), null);
+    await this.prisma.deviceUser.deleteMany({ where: { deviceSerial: serial, pin: { in: gone.map((u) => u.pin) } } });
+    await this.audit.log({
+      actorId: null,
+      action: 'DEVICE_USERS_SEPARATED_REMOVED',
+      entity: 'Device',
+      entityId: serial,
+      after: { removed: gone.map((u) => `${u.pin} ${u.name ?? ''}`.trim()) },
+    });
+    this.logger.log(`${serial}: removed separated ${gone.map((u) => u.pin).join(', ')}`);
+    return gone.map((u) => u.pin);
   }
 
   constructor(
