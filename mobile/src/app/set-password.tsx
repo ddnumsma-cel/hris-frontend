@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '@/lib/backend/client';
 import { Button, Card, font, T } from '~/components/ui';
@@ -17,6 +18,10 @@ export default function SetPasswordScreen() {
   const [again, setAgain] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Saved: the success note shows for a moment before the app opens. */
+  const [saved, setSaved] = useState(false);
+  /** Which fields show what was typed (the eye button). */
+  const [shown, setShown] = useState<Record<string, boolean>>({});
 
   async function save() {
     if (!current) return setError('Enter the temporary password you just signed in with.');
@@ -27,7 +32,9 @@ export default function SetPasswordScreen() {
     setError(null);
     try {
       await api('/auth/change-password', { method: 'POST', body: { currentPassword: current, newPassword: next } });
-      passwordChanged();
+      setSaved(true);
+      // Show the success note first; the app opens once the flag is cleared.
+      setTimeout(passwordChanged, 1600);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save your password. Try again.");
     } finally {
@@ -41,19 +48,30 @@ export default function SetPasswordScreen() {
       <T size={12} weight="500" style={{ marginTop: 12, marginBottom: 4 }}>
         {label}
       </T>
+      <View style={styles.row}>
       <TextInput
-        style={input}
+        style={[input, { flex: 1, paddingRight: 48 }]}
         value={value}
         onChangeText={(v) => {
           set(v);
           setError(null);
         }}
-        secureTextEntry
+        secureTextEntry={!shown[label]}
         autoCapitalize="none"
         textContentType={textContentType}
         accessibilityLabel={label}
         onSubmitEditing={last ? () => void save() : undefined}
       />
+      <Pressable
+        onPress={() => setShown((v) => ({ ...v, [label]: !v[label] }))}
+        accessibilityRole="button"
+        accessibilityLabel={shown[label] ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+        hitSlop={8}
+        style={styles.eye}
+      >
+        <Ionicons name={shown[label] ? 'eye-off-outline' : 'eye-outline'} size={20} color={c.muted} />
+      </Pressable>
+      </View>
     </>
   );
 
@@ -90,8 +108,16 @@ export default function SetPasswordScreen() {
                 {error}
               </T>
             )}
+            {saved && (
+              <View accessibilityRole="alert" style={[styles.saved, { backgroundColor: c.successSoft }]}>
+                <Ionicons name="checkmark-circle" size={18} color={c.success} />
+                <T size={14} weight="500" style={{ color: c.success, flex: 1 }}>
+                  Your password is saved. Opening the app…
+                </T>
+              </View>
+            )}
             <View style={{ marginTop: 16, gap: 8 }}>
-              <Button label="Save and continue" onPress={() => void save()} loading={busy} disabled={!current || !next || !again} />
+              <Button label="Save and continue" onPress={() => void save()} loading={busy} disabled={!current || !next || !again || saved} />
               <Button label="Sign out" variant="outline" onPress={signOut} />
             </View>
           </Card>
@@ -107,4 +133,7 @@ const styles = StyleSheet.create({
   logo: { width: 44, height: 44, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
   mark: { width: 32, height: 32 },
   input: { minHeight: 48, borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, fontSize: 16 },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  eye: { position: 'absolute', right: 12, height: 48, justifyContent: 'center' },
+  saved: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 10 },
 });
