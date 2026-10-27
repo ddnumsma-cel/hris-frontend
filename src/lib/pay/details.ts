@@ -4,6 +4,8 @@
 import { fullName, state } from "../corehr/store";
 import { deny } from "../session";
 import { payProfileOf, refreshPaySettings, type PayProfile } from "./settings";
+import { backendOn } from "../backend/client";
+import { backendPayrollPeople } from "../backend/payroll";
 
 export interface PayDetail {
   id: string;
@@ -48,6 +50,14 @@ export async function listPayDetails(): Promise<PayDetail[]> {
   if (denied) return denied;
   await refreshPaySettings();
   const year = String(new Date().getFullYear());
+  const missingOf = (g: { tin: string; sss: string; philhealth: string; pagibig: string }) => ([["TIN", g.tin], ["SSS", g.sss], ["PhilHealth", g.philhealth], ["Pag-IBIG", g.pagibig]] as const).filter(([, v]) => !v.trim()).map(([k]) => k);
+  if (backendOn()) {
+    // On the backend: its employees, salaries and government numbers.
+    return (await backendPayrollPeople())
+      .filter((p) => p.status !== "Separated" || (p.separated ?? "").startsWith(year))
+      .map((p) => ({ id: p.id, name: p.name, position: p.position, department: p.department, office: p.branch, employmentType: p.type, status: p.status, dateHired: p.hired, separationDate: p.separated, monthlySalary: p.salary, tin: p.tin, sss: p.sssNo, philhealth: p.philhealthNo, pagibig: p.pagibigNo, bank: p.bank, profile: payProfileOf(p.id), missing: missingOf({ tin: p.tin, sss: p.sssNo, philhealth: p.philhealthNo, pagibig: p.pagibigNo }) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
   return respond(
     state.employees
       .filter((e) => e.job.status !== "Separated" || (e.job.separationDate ?? "").startsWith(year))

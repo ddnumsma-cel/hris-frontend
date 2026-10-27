@@ -323,6 +323,8 @@ model Employee {
   undertimeRequests UndertimeRequest[]
   approvals         ApprovalRequest[]
   payslips          Payslip[]
+  payProfile        PayProfile?
+  loans             Loan[]
   dependents        Dependent[]
   documents         EmployeeDocument[]
   events            EmploymentEvent[]
@@ -678,6 +680,80 @@ model Payslip {
   netPay                 Decimal    @db.Decimal(14, 2)
 
   @@unique([payrollRunId, employeeId])
+}
+
+// ---------- Payroll inputs (set on the website: Payroll > Pay details, Loans & deductions) ----------
+
+/// Company-wide settings by key, e.g. "paydays" = { cutoffDays: [10, 25] }
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+/// Each employee's pay settings from MSMA's workbook: work week, allowances and tax-free pay
+model PayProfile {
+  employeeId         String   @id
+  employee           Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  workWeek           String   @default("5-day")
+  transportAllowance Decimal  @default(0) @db.Decimal(14, 2)
+  otMealRate         Decimal  @default(0) @db.Decimal(14, 2)
+  deMinimis          Decimal  @default(0) @db.Decimal(14, 2)
+  otherNonTaxable    Decimal  @default(0) @db.Decimal(14, 2)
+  clientShare        Decimal  @default(0) @db.Decimal(5, 2)
+  client             String   @default("")
+  skipSss            Boolean  @default(false)
+  skipPhilhealth     Boolean  @default(false)
+  skipPagibig        Boolean  @default(false)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(3)
+}
+
+/// SSS / Pag-IBIG loans, cash advances and other deductions taken from each cut-off until paid
+model Loan {
+  id          String    @id @default(cuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  kind        String
+  reference   String
+  principal   Decimal   @db.Decimal(14, 2)
+  installment Decimal   @db.Decimal(14, 2)
+  startDate   DateTime  @db.Date
+  /// active, stopped (no more deductions) or settled (closed in final pay)
+  status      String    @default("active")
+  note        String?
+  createdBy   String
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  closedBy    String?
+  closedAt    DateTime? @db.Timestamptz(3)
+
+  @@index([employeeId])
+}
+
+/// Holidays HR adds on the website's calendar (the national ones are built into the website)
+model HolidayRule {
+  id        String      @id
+  name      String
+  type      HolidayType
+  /// { kind: "fixed", month, day } or { kind: "once", date }
+  repeat    Json
+  offices   String[]
+  source    String
+  createdBy String
+  createdAt DateTime    @default(now()) @db.Timestamptz(3)
+}
+
+/// A one-year move or cancellation of a holiday (built-in or added by HR), from a proclamation
+model HolidayChange {
+  id     String    @id @default(cuid())
+  ruleId String
+  year   Int
+  kind   String
+  date   DateTime? @db.Date
+  source String
+  by     String
+  at     DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@unique([ruleId, year])
 }
 
 // ---------- Audit ----------

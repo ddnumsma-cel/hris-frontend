@@ -363,6 +363,7 @@ export class AttendanceService {
         orderBy: { punchedAt: 'asc' },
       }),
     ]);
+    const approvedOt = await this.approvedOtMinutes(inScope, from, to);
     const byDay = new Map<string, typeof punches>();
     for (const p of punches) {
       const key = `${p.employeeId}|${manilaDateKey(p.punchedAt)}`;
@@ -391,6 +392,7 @@ export class AttendanceService {
       days: dtrs.map((r) => ({
         ...toRow(r),
         employeeId: r.employeeId,
+        approvedOtMinutes: Math.min(r.otMinutes, approvedOt.get(`${r.employeeId}|${utcDateToDateKey(r.date)}`) ?? 0),
         punches: (byDay.get(`${r.employeeId}|${utcDateToDateKey(r.date)}`) ?? []).map((p) => ({
           id: p.id,
           punchedAt: p.punchedAt.toISOString(),

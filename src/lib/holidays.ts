@@ -8,7 +8,8 @@
 // A proclamation can also move a holiday or cancel it for one year.
 // HR maintains these on the Holiday calendar; verify against each year's proclamation.
 
-import { api, serverMode } from "./http";
+import { remoteApi, remoteOn } from "./remote";
+import { backendOn } from "./backend/client";
 
 export type HolidayType = "regular" | "special";
 
@@ -131,7 +132,7 @@ type Saved = SavedHolidays;
 const KEY = "heyhr-holidays-v1";
 
 function load(): Saved {
-  if (serverMode) return { rules: BUILT_IN_RULES, changes: [] };
+  if (remoteOn()) return { rules: BUILT_IN_RULES, changes: [] };
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -192,7 +193,7 @@ rebuild();
 
 function persist(next: Saved) {
   saved = next;
-  if (serverMode) return rebuild();
+  if (remoteOn()) return rebuild();
   try {
     localStorage.setItem(KEY, JSON.stringify(next));
   } catch {
@@ -223,10 +224,10 @@ let loadedAt = 0;
 
 /** Loads HR's holidays and changes from the API server; the built-ins always come from the code. */
 export function refreshHolidays(maxAgeMs = 0): Promise<void> {
-  if (!serverMode) return Promise.resolve();
+  if (!remoteOn()) return Promise.resolve();
   if (loading) return loading;
   if (maxAgeMs && Date.now() - loadedAt < maxAgeMs) return Promise.resolve();
-  loading = api<Saved>("GET", "/holidays")
+  loading = remoteApi<Saved>("GET", "/holidays")
     .then((next) => {
       persist({ rules: [...BUILT_IN_RULES, ...next.rules.filter((r) => !r.builtIn)], changes: next.changes });
       loadedAt = Date.now();
@@ -236,6 +237,13 @@ export function refreshHolidays(maxAgeMs = 0): Promise<void> {
 }
 
 const fresh = () => refreshHolidays(2000);
+
+/** On the backend: send the holidays worked out for last year to next year (every-office ones), so its own day records mark them. */
+async function pushCalendar() {
+  if (!backendOn()) return;
+  const holidays = HOLIDAYS.filter((h) => !h.offices?.length).map((h) => ({ date: h.date, name: h.name, type: h.type }));
+  await remoteApi("PUT", "/holidays/calendar", { years: holidayYears(), holidays });
+}
 
 export const listHolidayRules = async () => (await fresh(), respond(saved.rules));
 export const listHolidays = async (year: number) => (await fresh(), respond(holidaysFor(year)));
@@ -249,9 +257,10 @@ export async function addHoliday(input: { name: string; type: HolidayType; date:
   const repeat: Repeat = input.everyYear ? { kind: "fixed", month: m!, day: d! } : { kind: "once", date: input.date };
   const clash = holidaysFor(Number(input.date.slice(0, 4))).find((h) => h.date === input.date && h.name.toLowerCase() === input.name.trim().toLowerCase());
   if (clash) return fail("That holiday is already on the calendar for that date");
-  if (serverMode) {
-    const added = await api<HolidayRule>("POST", "/holidays", { ...input, name: input.name.trim(), source: input.source.trim() });
+  if (remoteOn()) {
+    const added = await remoteApi<HolidayRule>("POST", "/holidays", { ...input, name: input.name.trim(), source: input.source.trim() });
     await refreshHolidays();
+    await pushCalendar();
     return added;
   }
   const rule: HolidayRule = { id: newId(), name: input.name.trim(), type: input.type, repeat, offices: input.offices, source: input.source.trim(), builtIn: false, active: true };
@@ -263,9 +272,10 @@ export async function removeHoliday(ruleId: string): Promise<void> {
   const r = saved.rules.find((x) => x.id === ruleId);
   if (!r) return fail("That holiday no longer exists");
   if (r.builtIn) return fail("National holidays can't be deleted. Cancel it for one year instead, if a proclamation says so.");
-  if (serverMode) {
-    await api("DELETE", `/holidays/${encodeURIComponent(ruleId)}`);
-    return refreshHolidays();
+  if (remoteOn()) {
+    await remoteApi("DELETE", `/holidays/${encodeURIComponent(ruleId)}`);
+    await refreshHolidays();
+    return pushCalendar();
   }
   persist({ rules: saved.rules.filter((x) => x.id !== ruleId), changes: saved.changes.filter((c) => c.ruleId !== ruleId) });
   return respond(undefined);
@@ -280,9 +290,10 @@ export async function changeHolidayForYear(input: { ruleId: string; year: number
     if (!input.date || !input.date.startsWith(`${input.year}-`)) return fail(`Choose the new date in ${input.year}`);
     if (input.date === dateOf(rule, input.year)) return fail("That's already its date");
   }
-  if (serverMode) {
-    const change = await api<HolidayChange>("PUT", "/holidays/changes", { ...input, source: input.source.trim() });
+  if (remoteOn()) {
+    const change = await remoteApi<HolidayChange>("PUT", "/holidays/changes", { ...input, source: input.source.trim() });
     await refreshHolidays();
+    await pushCalendar();
     return change;
   }
   const change: HolidayChange = { id: newId(), ruleId: input.ruleId, year: input.year, kind: input.kind, date: input.kind === "move" ? input.date : undefined, source: input.source.trim(), by, at: new Date().toISOString() };
@@ -292,9 +303,10 @@ export async function changeHolidayForYear(input: { ruleId: string; year: number
 
 /** Put a holiday back on its usual date for that year. */
 export async function undoHolidayChange(ruleId: string, year: number): Promise<void> {
-  if (serverMode) {
-    await api("DELETE", `/holidays/changes/${encodeURIComponent(ruleId)}/${year}`);
-    return refreshHolidays();
+  if (remoteOn()) {
+    await remoteApi("DELETE", `/holidays/changes/${encodeURIComponent(ruleId)}/${year}`);
+    await refreshHolidays();
+    return pushCalendar();
   }
   persist({ ...saved, changes: saved.changes.filter((c) => !(c.ruleId === ruleId && c.year === year)) });
   return respond(undefined);
@@ -323,7 +335,7 @@ export function setCustomHolidays(next: Holiday[]) {
 // Company holidays saved by the older Settings-only list move into the calendar once.
 // With the API server, Settings adds and removes them through the API (lib/settings/workspace.ts).
 (function adoptOldCompanyHolidays() {
-  if (serverMode) return;
+  if (remoteOn()) return;
   const OLD = "heyhr-custom-holidays-v1";
   try {
     const raw = localStorage.getItem(OLD);

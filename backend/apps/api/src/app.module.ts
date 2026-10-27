@@ -1,3 +1,4 @@
+import { HolidaysModule } from './holidays/holidays.module';
 import { Module } from '@nestjs/common';
 import { ApprovalsModule } from './approvals/approvals.module';
 import { AttendanceModule } from './attendance/attendance.module';
@@ -27,6 +28,7 @@ import { PrismaModule } from './prisma/prisma.service';
     DevicesModule,
     ApprovalsModule,
     PayrollModule,
+    HolidaysModule,
     DashboardModule,
     MeModule,
   ],

@@ -3,7 +3,9 @@
 
 import { logAdmin } from "../admin/store";
 import { fullName, newId, state as core } from "../corehr/store";
-import { api, serverMode } from "../http";
+import { remoteApi, remoteOn } from "../remote";
+import { backendOn } from "../backend/client";
+import { backendPayrollPeople } from "../backend/payroll";
 import { deny } from "../session";
 import { tellEmployees } from "../requestNotices";
 import { allLoans, LOAN_KINDS, refreshLoans, saveLoans, type Loan, type LoanKind } from "./loanStore";
@@ -22,17 +24,28 @@ export interface LoanRow extends Loan {
   cutoffsLeft: number;
 }
 
+/** On the backend: the people loans can be for (loaded with the loans), since the in-browser records are demo data. */
+let backendPeople: { id: string; name: string; status: string }[] = [];
+async function refreshPeople() {
+  if (backendOn()) backendPeople = (await backendPayrollPeople()).map((p) => ({ id: p.id, name: p.name, status: p.status }));
+}
+function personOf(id: string) {
+  if (backendOn()) return backendPeople.find((p) => p.id === id);
+  const e = core.employees.find((x) => x.id === id);
+  return e ? { id: e.id, name: fullName(e.personal), status: e.job.status } : undefined;
+}
+
 function toRow(l: Loan): LoanRow {
-  const e = core.employees.find((x) => x.id === l.employeeId);
+  const e = personOf(l.employeeId);
   const paid = round2(loanPaid(l.id));
   const balance = l.status === "active" ? round2(Math.max(0, l.principal - paid)) : 0;
-  return { ...l, employeeName: e ? fullName(e.personal) : l.employeeId, paid, balance, cutoffsLeft: balance > 0 ? Math.ceil(balance / l.installment) : 0 };
+  return { ...l, employeeName: e ? e.name : l.employeeId, paid, balance, cutoffsLeft: balance > 0 ? Math.ceil(balance / l.installment) : 0 };
 }
 
 export function listLoans(): Promise<LoanRow[]> {
   const denied = deny("payrollRuns", "view");
   if (denied) return denied;
-  return (serverMode ? refreshLoans() : Promise.resolve()).then(() => respond(
+  return (remoteOn() ? Promise.all([refreshLoans(), refreshPeople()]) : Promise.resolve()).then(() => respond(
     allLoans()
       .map(toRow)
       // Running ones first, then by name.
@@ -62,8 +75,8 @@ export interface LoanInput {
 export async function saveLoan(input: LoanInput, actor: string): Promise<Loan> {
   const denied = deny("payrollRuns", input.id ? "edit" : "create");
   if (denied) return denied;
-  const e = core.employees.find((x) => x.id === input.employeeId && x.job.status !== "Separated");
-  if (!e) return fail("Choose a current employee");
+  const e = personOf(input.employeeId);
+  if (!e || e.status === "Separated") return fail("Choose a current employee");
   if (!input.kind || !LOAN_KINDS.includes(input.kind)) return fail("Choose the kind of loan or deduction");
   if (!input.reference.trim()) return fail(input.kind === "Other deduction" ? "Say what the deduction is for" : "Enter the loan or reference number");
   if (!(input.principal > 0)) return fail("Enter the total amount to deduct");
@@ -74,9 +87,9 @@ export async function saveLoan(input: LoanInput, actor: string): Promise<Loan> {
   const old = list.find((l) => l.id === input.id);
   if (old && old.status !== "active") return fail("This loan is closed");
   if (old && input.principal < loanPaid(old.id)) return fail(`₱${loanPaid(old.id).toLocaleString("en-PH")} is already paid, so the total can't be less than that`);
-  if (serverMode) {
+  if (remoteOn()) {
     const body = { employeeId: input.employeeId, kind: input.kind, reference: input.reference, principal: input.principal, installment: input.installment, startDate: input.startDate, note: input.note };
-    const saved = await api<Loan & { paid?: number }>(old ? "PUT" : "POST", old ? `/payroll/loans/${encodeURIComponent(old.id)}` : "/payroll/loans", body);
+    const saved = await remoteApi<Loan & { paid?: number }>(old ? "PUT" : "POST", old ? `/payroll/loans/${encodeURIComponent(old.id)}` : "/payroll/loans", body);
     await refreshLoans();
     const { paid: _paid, ...loan } = saved;
     void _paid;
@@ -94,7 +107,7 @@ export async function saveLoan(input: LoanInput, actor: string): Promise<Loan> {
   };
   saveLoans(old ? list.map((l) => (l.id === loan.id ? loan : l)) : [loan, ...list]);
   tellEmployees(loan.employeeId, "loan", "update", old ? `Your ${loan.kind} deduction changed` : `New ${loan.kind} deduction`, `₱${loan.installment.toLocaleString("en-PH")} per cutoff from ${loan.startDate}, ₱${loan.principal.toLocaleString("en-PH")} in all (${loan.reference}).`);
-  logAdmin({ actor, module: "Payroll", action: old ? "Changed loan" : "Added loan", target: fullName(e.personal), detail: `${loan.kind} ${loan.reference}: ₱${loan.principal.toLocaleString("en-PH")}, ₱${loan.installment.toLocaleString("en-PH")} per cutoff from ${loan.startDate}` });
+  logAdmin({ actor, module: "Payroll", action: old ? "Changed loan" : "Added loan", target: e.name, detail: `${loan.kind} ${loan.reference}: ₱${loan.principal.toLocaleString("en-PH")}, ₱${loan.installment.toLocaleString("en-PH")} per cutoff from ${loan.startDate}` });
   return respond(loan);
 }
 
@@ -107,8 +120,8 @@ export async function stopLoan(id: string, reason: string, actor: string): Promi
   if (!l) return fail("That loan no longer exists");
   if (l.status !== "active") return fail("This loan is already closed");
   if (!reason.trim()) return fail("Say why the deductions stop");
-  if (serverMode) {
-    await api("POST", `/payroll/loans/${encodeURIComponent(id)}/stop`, { reason: reason.trim() });
+  if (remoteOn()) {
+    await remoteApi("POST", `/payroll/loans/${encodeURIComponent(id)}/stop`, { reason: reason.trim() });
     await refreshLoans();
     return;
   }
@@ -123,13 +136,14 @@ export async function stopLoan(id: string, reason: string, actor: string): Promi
 /** Final pay closes what's left of someone's loans (the balance is deducted there). */
 export function settleLoans(employeeId: string, actor: string) {
   // With the API server, releasing final pay settles them there.
-  if (serverMode) return;
+  if (remoteOn()) return;
   const now = new Date().toISOString();
   saveLoans(allLoans().map((l) => (l.employeeId === employeeId && l.status === "active" ? { ...l, status: "settled" as const, closedBy: actor, closedAt: now, note: "Balance deducted from final pay" } : l)));
 }
 
 /** Current employees, for choosing who a loan is for. */
 export function loanPeople() {
+  if (backendOn()) return backendPeople.filter((p) => p.status !== "Separated").map((p) => ({ id: p.id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name));
   return core.employees
     .filter((e) => e.job.status !== "Separated")
     .map((e) => ({ id: e.id, name: fullName(e.personal) }))

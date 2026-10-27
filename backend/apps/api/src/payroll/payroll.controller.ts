@@ -5,6 +5,16 @@ import {
   ApprovePayRunSchema,
   CreatePayRun,
   CreatePayRunSchema,
+  LoanInput,
+  LoanInputSchema,
+  LoanSchema,
+  Paydays,
+  PaydaysSchema,
+  PayProfile,
+  PayProfileSchema,
+  PaySettingsSchema,
+  StopLoan,
+  StopLoanSchema,
   PayrollPersonSchema,
   PayrollPreviewQuery,
   PayrollPreviewQuerySchema,
@@ -14,8 +24,9 @@ import {
   UpdatePayRunSchema,
 } from '@msma/shared';
 import { z } from 'zod';
-import { AuthUser, CurrentUser, Roles } from '../common/auth.decorators';
+import { AuthUser, canSeePay, CurrentUser, Roles } from '../common/auth.decorators';
 import { ApiZodBody, ApiZodQuery, ApiZodResponse, ZodPipe } from '../common/zod';
+import { PayInputsService } from './pay-inputs.service';
 import { PayrollRunsService } from './payroll-runs.service';
 import { PayrollService } from './payroll.service';
 
@@ -26,6 +37,7 @@ export class PayrollController {
   constructor(
     private readonly payroll: PayrollService,
     private readonly runs: PayrollRunsService,
+    private readonly inputs: PayInputsService,
   ) {}
 
   @Post('preview')
@@ -116,5 +128,70 @@ export class PayrollController {
   @ApiOperation({ operationId: 'deletePayRun', summary: 'Delete a draft run (approved runs stay on record)' })
   async remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     await this.runs.remove(id, user);
+  }
+
+  // ---------- Payroll inputs (Payroll > Pay details, Loans & deductions) ----------
+
+  @Get('pay-settings')
+  @ApiOperation({
+    operationId: 'getPaySettings',
+    summary: 'Paydays (cut-offs) for everyone; pay settings per employee for those who see pay',
+  })
+  @ApiZodResponse(PaySettingsSchema)
+  paySettings(@CurrentUser() user: AuthUser) {
+    return this.inputs.settings(canSeePay(user.role));
+  }
+
+  @Put('paydays')
+  @Roles('PAYROLL_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'savePaydays', summary: 'The two days of the month each cut-off closes (and is paid)' })
+  @ApiZodBody(PaydaysSchema)
+  @ApiZodResponse(PaydaysSchema)
+  savePaydays(@CurrentUser() user: AuthUser, @Body(new ZodPipe(PaydaysSchema)) body: Paydays) {
+    return this.inputs.savePaydays(body, user);
+  }
+
+  @Put('pay-profiles/:employeeNo')
+  @Roles('PAYROLL_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'savePayProfile', summary: 'Pay settings for one employee: work week, allowances, tax-free pay' })
+  @ApiZodBody(PayProfileSchema)
+  @ApiZodResponse(PayProfileSchema)
+  saveProfile(@CurrentUser() user: AuthUser, @Param('employeeNo') employeeNo: string, @Body(new ZodPipe(PayProfileSchema)) body: PayProfile) {
+    return this.inputs.saveProfile(employeeNo, body, user);
+  }
+
+  @Get('loans')
+  @ApiOperation({ operationId: 'listLoans', summary: 'Loans and deductions with what approved runs have paid: all for payroll, your own otherwise' })
+  @ApiZodResponse(z.array(LoanSchema))
+  loans(@CurrentUser() user: AuthUser) {
+    return this.inputs.loans(user, user.role === 'PAYROLL_ADMIN' || user.role === 'SYSTEM_ADMIN');
+  }
+
+  @Post('loans')
+  @Roles('PAYROLL_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'addLoan', summary: 'Add a loan or deduction taken from each cut-off until paid' })
+  @ApiZodBody(LoanInputSchema)
+  @ApiZodResponse(LoanSchema, 201)
+  addLoan(@CurrentUser() user: AuthUser, @Body(new ZodPipe(LoanInputSchema)) body: LoanInput) {
+    return this.inputs.saveLoan(undefined, body, user);
+  }
+
+  @Put('loans/:id')
+  @Roles('PAYROLL_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'changeLoan', summary: 'Change a running loan' })
+  @ApiZodBody(LoanInputSchema)
+  @ApiZodResponse(LoanSchema)
+  changeLoan(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(LoanInputSchema)) body: LoanInput) {
+    return this.inputs.saveLoan(id, body, user);
+  }
+
+  @Post('loans/:id/stop')
+  @HttpCode(200)
+  @Roles('PAYROLL_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'stopLoan', summary: 'Stop the deductions, e.g. when it was paid outside payroll' })
+  @ApiZodBody(StopLoanSchema)
+  @ApiZodResponse(LoanSchema)
+  stopLoan(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(StopLoanSchema)) body: StopLoan) {
+    return this.inputs.stopLoan(id, body.reason, user);
   }
 }

@@ -90,7 +90,7 @@ const replace = (run: PayrollRun) => save(runs.map((r) => (r.id === run.id ? run
 /** What approved runs (other than this one) have already taken for a loan. */
 export function loanPaid(loanId: string, exceptRunId?: string) {
   // With the API server, the database adds up the approved runs (as of the last refreshLoans).
-  if (serverMode) return serverLoanPaid(loanId);
+  if (serverMode || backendOn()) return serverLoanPaid(loanId);
   sync();
   const id = loanAdjustmentId(loanId);
   return runs
@@ -126,6 +126,8 @@ async function compute(run: Pick<PayrollRun, "label" | "from" | "to" | "adjustme
   const period: Period = { id: run.from, label: run.label, from: run.from, to: run.to };
   // With the API server, the latest loans and claims first: the server only takes pay worked out with them.
   if (serverMode) await Promise.all([refreshLoans(), refreshClaims()]);
+  // On the backend: the latest loans (reimbursements aren't paid through payroll there).
+  if (backendOn()) await refreshLoans();
   const auto = autoAdjustments(run);
   const lines = await payroll(period, "All offices", (id) => [...(auto[id] ?? []), ...(run.adjustments[id] ?? [])]);
   // Only people on this run's payroll actually receive their automatic items.
@@ -156,7 +158,7 @@ export async function openCutoffs(): Promise<Period[]> {
   const denied = deny("payrollRuns", "create");
   if (denied) return denied;
   if (serverMode) await Promise.all([refreshRuns(), refreshPaySettings(2000)]);
-  if (backendOn()) await refreshRuns();
+  if (backendOn()) await Promise.all([refreshRuns(), refreshPaySettings(2000)]);
   sync();
   // A cut-off that shares days with an existing run (e.g. one made before the paydays changed) is left out, so no day is paid twice.
   return respond(cutoffChoices().filter((p) => !runs.some((r) => overlaps(r, p))));

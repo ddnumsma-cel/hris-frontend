@@ -293,6 +293,7 @@ export class PayrollRunsService {
         philhealthNo: e.govId?.philhealth ?? '',
         pagibigNo: e.govId?.pagibig ?? '',
         tin: e.govId?.tin ?? '',
+        ...(e.bankName ? { bank: { bank: e.bankName, accountName: e.bankAccountName ?? '', accountNumber: e.bankAccountNo ?? '' } } : {}),
       };
     });
   }

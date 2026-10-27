@@ -4,7 +4,7 @@
 // server they live in the database (refreshPaySettings loads them; saving goes through the API).
 
 import { logAdmin } from "../admin/store";
-import { api, serverMode } from "../http";
+import { remoteApi, remoteOn } from "../remote";
 import { deny } from "../session";
 import { rosterEntry } from "../msmaRoster";
 
@@ -111,8 +111,8 @@ export async function savePayRules(input: PayRules, actor: string): Promise<PayR
   if (a === b) throw new Error("Pick two different paydays");
   if (Math.abs(a! - b!) < 7) throw new Error("Paydays should be at least a week apart");
   const next: PayRules = { cutoffDays: [Math.min(a!, b!), Math.max(a!, b!)] };
-  if (serverMode) {
-    rules = await api<PayRules>("PUT", "/payroll/paydays", next);
+  if (remoteOn()) {
+    rules = await remoteApi<PayRules>("PUT", "/payroll/paydays", next);
     return rules;
   }
   rules = next;
@@ -189,8 +189,8 @@ export async function savePayProfile(employeeId: string, input: PayProfile, acto
   const share = Number(input.clientShare) || 0;
   if (share < 0 || share > 100) throw new Error("The share charged to a client is 0 to 100%");
   const next: PayProfile = { workWeek: input.workWeek === "6-day" ? "6-day" : "5-day", transportAllowance: round(input.transportAllowance), otMealRate: round(input.otMealRate), deMinimis: round(input.deMinimis), otherNonTaxable: round(input.otherNonTaxable), clientShare: round(share), client: share ? (input.client ?? "").trim().slice(0, 80) : "", skipSss: !!input.skipSss, skipPhilhealth: !!input.skipPhilhealth, skipPagibig: !!input.skipPagibig };
-  if (serverMode) {
-    const saved = await api<PayProfile>("PUT", `/payroll/pay-profiles/${encodeURIComponent(employeeId)}`, next);
+  if (remoteOn()) {
+    const saved = await remoteApi<PayProfile>("PUT", `/payroll/pay-profiles/${encodeURIComponent(employeeId)}`, next);
     profiles = { ...profiles, [employeeId]: saved };
     return saved;
   }
@@ -214,10 +214,10 @@ let loadedAt = 0;
 /** Loads the paydays and (for whoever sees salaries) everyone's pay settings from the server.
  * Reads within maxAgeMs of the last load reuse it. */
 export function refreshPaySettings(maxAgeMs = 0): Promise<void> {
-  if (!serverMode) return Promise.resolve();
+  if (!remoteOn()) return Promise.resolve();
   if (loading) return loading;
   if (maxAgeMs && Date.now() - loadedAt < maxAgeMs) return Promise.resolve();
-  loading = api<{ cutoffDays: [number, number]; profiles: Record<string, PayProfile> }>("GET", "/payroll/pay-settings")
+  loading = remoteApi<{ cutoffDays: [number, number]; profiles: Record<string, PayProfile> }>("GET", "/payroll/pay-settings")
     .then((r) => {
       rules = { cutoffDays: r.cutoffDays };
       profiles = r.profiles;
@@ -229,7 +229,7 @@ export function refreshPaySettings(maxAgeMs = 0): Promise<void> {
 
 /** Signed out: drop what the server sent. */
 export function clearPaySettings() {
-  if (!serverMode) return;
+  if (!remoteOn()) return;
   loadedAt = 0;
   rules = DEFAULT_RULES;
   profiles = {};

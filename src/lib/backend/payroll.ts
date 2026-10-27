@@ -24,6 +24,7 @@ export interface PayrollPerson {
   philhealthNo: string;
   pagibigNo: string;
   tin: string;
+  bank?: { bank: string; accountName: string; accountNumber: string };
 }
 
 type Pay = { lines: PayLine[]; auto: Record<string, Adjustment[]> };

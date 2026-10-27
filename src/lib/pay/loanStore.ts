@@ -2,7 +2,7 @@
 // managed on Payroll → Loans & deductions (loans.ts). No imports from runs, so both can use it.
 // With the API server they're kept in the database (see refreshLoans).
 
-import { api, serverMode } from "../http";
+import { remoteApi, remoteOn } from "../remote";
 
 export const LOAN_KINDS = ["SSS salary loan", "SSS calamity loan", "Pag-IBIG multi-purpose loan", "Pag-IBIG calamity loan", "Cash advance", "Company loan", "Other deduction"] as const;
 export type LoanKind = (typeof LOAN_KINDS)[number];
@@ -47,7 +47,7 @@ function seed(): Loan[] {
 
 function load(): Loan[] {
   // With the API server, loans come from the database (see refreshLoans).
-  if (serverMode) return [];
+  if (remoteOn()) return [];
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw) as Loan[];
@@ -64,8 +64,8 @@ const paidOnServer = new Map<string, number>();
 
 /** With the API server: the loans this account may see, and what's been paid on each. */
 export async function refreshLoans() {
-  if (!serverMode) return;
-  const rows = await api<(Loan & { paid: number })[]>("GET", "/payroll/loans");
+  if (!remoteOn()) return;
+  const rows = await remoteApi<(Loan & { paid: number })[]>("GET", "/payroll/loans");
   paidOnServer.clear();
   loans = rows.map(({ paid, ...l }) => {
     paidOnServer.set(l.id, paid);
@@ -78,7 +78,7 @@ export const serverLoanPaid = (loanId: string) => paidOnServer.get(loanId) ?? 0;
 
 /** Re-read what's saved, so another tab's change is seen. */
 export function allLoans(): Loan[] {
-  if (!serverMode) loans = load();
+  if (!remoteOn()) loans = load();
   return loans;
 }
 

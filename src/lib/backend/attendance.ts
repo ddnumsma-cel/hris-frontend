@@ -7,7 +7,7 @@ import { api } from "./client";
 import { backendIdOf, backendPeople, employeeNoOf } from "./people";
 import { addDays, computeDay, longRuns } from "../timekeeping/compute";
 import { schedulingRules } from "../timekeeping/store";
-import { holidayOn, isDoubleHoliday } from "../holidays";
+import { holidayOn, isDoubleHoliday, refreshHolidays } from "../holidays";
 import type { DayRow, RosterCell, RosterRow, TkPerson } from "../timekeeping/api";
 import type { DayKind, Punch, PunchSource, ShiftTemplate } from "../timekeeping/types";
 
@@ -36,6 +36,8 @@ interface BackendDay {
   lateMinutes: number;
   undertimeMinutes: number;
   otMinutes: number;
+  /** Overtime that counts for pay: approved requests, capped at the time clock. */
+  approvedOtMinutes?: number;
   nightDiffMinutes: number;
   status: "PRESENT" | "ABSENT" | "LEAVE" | "RESTDAY" | "HOLIDAY";
   remarks: string | null;
@@ -168,17 +170,21 @@ function toDayRow(person: TkPerson, date: string, shift: ShiftTemplate | undefin
     };
   });
   const weekdayWorks = workDays.includes(new Date(`${date}T00:00:00Z`).getUTCDay());
-  const kind: DayKind = (day && KIND[day.status]) ?? (shift ? (weekdayWorks ? "work" : "rest") : "unscheduled");
+  const holiday = holidayOn(date, person.branch);
+  // The company holiday calendar decides holidays, as without the backend: a workday on it is a holiday day
+  // (time worked on it is holiday work), whatever the backend marked it.
+  const kind: DayKind = holiday && weekdayWorks && day?.status !== "LEAVE" ? "holiday" : ((day && KIND[day.status]) ?? (shift ? (weekdayWorks ? "work" : "rest") : "unscheduled"));
   const result = computeDay({
     employeeId: person.id,
     date,
     kind,
     shift,
-    holiday: holidayOn(date, person.branch),
+    holiday,
     punches,
     employeeBranch: person.branch,
     now: Date.now(),
-    approvedOvertimeMinutes: day?.otMinutes ?? 0,
+    // Only approved overtime is paid; older backends without the field pay none.
+    approvedOvertimeMinutes: day?.approvedOtMinutes ?? 0,
     undertimeExcused: Boolean(day?.remarks?.includes("UNDERTIME_APPROVED")),
     overtimeThresholdMinutes: schedulingRules().overtimeThresholdMinutes,
   });
@@ -190,6 +196,8 @@ function toDayRow(person: TkPerson, date: string, shift: ShiftTemplate | undefin
 
 /** Every person's day for each date in [from, to], newest first (like the local listDays). */
 export async function backendDays(from: string, to: string): Promise<DayRow[]> {
+  // The shared holiday calendar first: it decides which days are holidays.
+  await refreshHolidays(60_000);
   const [people, data, devices] = await Promise.all([backendPeople(), fetchDays(from, to), deviceNames()]);
   const shiftOf = new Map(data.employees.map((e) => [employeeNoOf(e.id) ?? e.id, e.shift]));
   const dayOf = new Map(data.days.map((d) => [`${employeeNoOf(d.employeeId) ?? d.employeeId}|${d.date}`, d]));

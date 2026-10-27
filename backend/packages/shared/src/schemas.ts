@@ -300,6 +300,7 @@ export const AttendancePunchSchema = z.object({
 export const AttendanceDaySchema = DtrRowSchema.extend({
   employeeId: z.string(),
   punches: z.array(AttendancePunchSchema).describe('Every punch that day, earliest first'),
+  approvedOtMinutes: z.number().int().describe('Overtime that counts for pay: approved requests, never more than the time clock shows'),
 });
 export type AttendanceDay = z.infer<typeof AttendanceDaySchema>;
 
@@ -737,8 +738,118 @@ export const PayrollPersonSchema = z.object({
   philhealthNo: z.string(),
   pagibigNo: z.string(),
   tin: z.string(),
+  bank: z.object({ bank: z.string(), accountName: z.string(), accountNumber: z.string() }).optional(),
 });
 export type PayrollPerson = z.infer<typeof PayrollPersonSchema>;
+
+// Payroll inputs set on the website (Payroll > Pay details, Loans & deductions), keyed by employee number.
+export const PaydaysSchema = z.object({
+  cutoffDays: z.tuple([z.number().int().min(1).max(31), z.number().int().min(1).max(31)]),
+});
+export type Paydays = z.infer<typeof PaydaysSchema>;
+const nonNegative = z.number().finite().min(0, "Amounts can't be negative").max(10_000_000);
+export const PayProfileSchema = z.object({
+  workWeek: z.enum(['5-day', '6-day']),
+  transportAllowance: nonNegative,
+  otMealRate: nonNegative,
+  deMinimis: nonNegative,
+  otherNonTaxable: nonNegative,
+  clientShare: z.number().finite().min(0).max(100, 'The share charged to a client is 0 to 100%'),
+  client: z.string().trim().max(80),
+  skipSss: z.boolean(),
+  skipPhilhealth: z.boolean(),
+  skipPagibig: z.boolean(),
+});
+export type PayProfile = z.infer<typeof PayProfileSchema>;
+export const PaySettingsSchema = PaydaysSchema.extend({ profiles: z.record(z.string(), PayProfileSchema) });
+export type PaySettings = z.infer<typeof PaySettingsSchema>;
+
+export const LOAN_KINDS = ['SSS salary loan', 'SSS calamity loan', 'Pag-IBIG multi-purpose loan', 'Pag-IBIG calamity loan', 'Cash advance', 'Company loan', 'Other deduction'] as const;
+export const LoanInputSchema = z
+  .object({
+    employeeId: z.string().min(1).describe('Employee number'),
+    kind: z.enum(LOAN_KINDS, { message: 'Choose the kind of loan or deduction' }),
+    reference: z.string().trim().min(1, 'Enter the loan or reference number').max(200),
+    principal: z.number().finite().positive('Enter the total amount to deduct').max(100_000_000),
+    installment: z.number().finite().positive('Enter how much to deduct each cutoff'),
+    startDate: DateKeySchema,
+    note: z.string().trim().max(500).default(''),
+  })
+  .refine((l) => l.installment <= l.principal, { message: "The amount per cutoff can't be more than the total", path: ['installment'] });
+export type LoanInput = z.infer<typeof LoanInputSchema>;
+export const LoanSchema = z.object({
+  id: z.string(),
+  employeeId: z.string(),
+  kind: z.string(),
+  reference: z.string(),
+  principal: z.number(),
+  installment: z.number(),
+  startDate: DateKeySchema,
+  status: z.enum(['active', 'stopped', 'settled']),
+  note: z.string().optional(),
+  createdBy: z.string(),
+  createdAt: InstantSchema,
+  closedBy: z.string().optional(),
+  closedAt: InstantSchema.optional(),
+  /** What approved payroll runs have taken for it so far. */
+  paid: z.number(),
+});
+export type Loan = z.infer<typeof LoanSchema>;
+export const StopLoanSchema = z.object({ reason: z.string().trim().min(1, 'Say why the deductions stop').max(300) });
+export type StopLoan = z.infer<typeof StopLoanSchema>;
+
+// ---------- Holiday calendar (the website's; national holidays are built into it) ----------
+export const HolidayRepeatSchema = z.union([
+  z.object({ kind: z.literal('fixed'), month: z.number().int().min(1).max(12), day: z.number().int().min(1).max(31) }),
+  z.object({ kind: z.literal('once'), date: DateKeySchema }),
+]);
+export const HolidayRuleSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.enum(['regular', 'special']),
+  repeat: HolidayRepeatSchema,
+  offices: z.array(z.string()),
+  source: z.string(),
+  builtIn: z.literal(false),
+  active: z.literal(true),
+});
+export type HolidayRule = z.infer<typeof HolidayRuleSchema>;
+export const HolidayChangeSchema = z.object({
+  id: z.string(),
+  ruleId: z.string(),
+  year: z.number().int(),
+  kind: z.enum(['move', 'cancel']),
+  date: DateKeySchema.optional(),
+  source: z.string(),
+  by: z.string(),
+  at: InstantSchema,
+});
+export type HolidayChange = z.infer<typeof HolidayChangeSchema>;
+export const SavedHolidaysSchema = z.object({ rules: z.array(HolidayRuleSchema), changes: z.array(HolidayChangeSchema) });
+export type SavedHolidays = z.infer<typeof SavedHolidaysSchema>;
+export const AddHolidaySchema = z.object({
+  name: z.string().trim().min(1, 'Name the holiday').max(120),
+  type: z.enum(['regular', 'special']),
+  date: DateKeySchema,
+  everyYear: z.boolean(),
+  offices: z.array(z.string().max(120)).max(50),
+  source: z.string().trim().min(1, 'Name the source, for example the proclamation number or the city ordinance').max(200),
+});
+export type AddHoliday = z.infer<typeof AddHolidaySchema>;
+export const ChangeHolidaySchema = z.object({
+  ruleId: z.string().min(1).max(80),
+  year: z.number().int().min(2000).max(2100),
+  kind: z.enum(['move', 'cancel']),
+  date: DateKeySchema.optional(),
+  source: z.string().trim().min(1, 'Name the proclamation that changes it').max(200),
+});
+export type ChangeHoliday = z.infer<typeof ChangeHolidaySchema>;
+/** The holidays the website works out for some years, so the backend's own day records mark them too. */
+export const HolidayCalendarSchema = z.object({
+  years: z.array(z.number().int().min(2000).max(2100)).min(1).max(5),
+  holidays: z.array(z.object({ date: DateKeySchema, name: z.string().max(200), type: z.enum(['regular', 'special']) })).max(500),
+});
+export type HolidayCalendar = z.infer<typeof HolidayCalendarSchema>;
 
 // ---------- Dashboard ----------
 export const DashboardQuerySchema = z.object({
