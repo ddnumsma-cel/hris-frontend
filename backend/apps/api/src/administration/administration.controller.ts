@@ -22,8 +22,8 @@ import { AuditTrailService } from './audit-trail.service';
 import { SubscriptionService } from './subscription.service';
 import { SupportService } from './support.service';
 
-const EVERYONE = ['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN'] as const;
-/** Our own team only (PLATFORM_ADMIN_EMAILS), whatever their role in the client's HRIS. */
+const EVERYONE = ['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN', 'PLATFORM_ADMIN'] as const;
+/** The IT team's System Admin account only (role PLATFORM_ADMIN). */
 const platformOnly = (user: AuthUser) => {
   if (!isPlatformAdmin(user)) throw new ForbiddenException('Only our support team can do this');
 };
@@ -98,7 +98,7 @@ export class AdministrationController {
   // ---------- The company's subscription ----------
 
   @Get('subscription')
-  @Roles('HR_ADMIN', 'SYSTEM_ADMIN', 'PAYROLL_ADMIN', 'MANAGER')
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN', 'PAYROLL_ADMIN', 'MANAGER', 'PLATFORM_ADMIN')
   @ApiOperation({ operationId: 'getSubscription', summary: 'The plan, and employee seats and admin accounts in use (counted from the records)' })
   @ApiZodResponse(UsageSchema)
   usage() {

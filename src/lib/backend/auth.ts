@@ -7,7 +7,7 @@ import type { SignInResult } from "../admin/auth";
 import type { RoleKey } from "../permissions";
 import { api, setToken } from "./client";
 
-export type BackendRole = "EMPLOYEE" | "MANAGER" | "HR_ADMIN" | "PAYROLL_ADMIN" | "SYSTEM_ADMIN";
+export type BackendRole = "EMPLOYEE" | "MANAGER" | "HR_ADMIN" | "PAYROLL_ADMIN" | "SYSTEM_ADMIN" | "PLATFORM_ADMIN";
 
 export interface BackendUser {
   id: string;
@@ -24,7 +24,7 @@ export interface BackendUser {
 
 /**
  * Backend roles → this app's roles. The backend's SYSTEM_ADMIN sees HR data, so it's this app's
- * Super Admin (this app's System Admin is maintenance-only and sees no HR data).
+ * Super Admin; PLATFORM_ADMIN (the IT team's shared account) is this app's System Admin, maintenance only.
  */
 export const ROLE_FROM_BACKEND: Record<BackendRole, RoleKey> = {
   EMPLOYEE: "employee",
@@ -32,6 +32,7 @@ export const ROLE_FROM_BACKEND: Record<BackendRole, RoleKey> = {
   HR_ADMIN: "hr",
   PAYROLL_ADMIN: "accounting",
   SYSTEM_ADMIN: "super_admin",
+  PLATFORM_ADMIN: "system_admin",
 };
 
 /** The backend's seeded demo logins (synthetic data), shown on the sign-in page while it's connected. */

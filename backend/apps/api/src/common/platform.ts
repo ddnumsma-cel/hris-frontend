@@ -1,10 +1,10 @@
 import type { AuthUser } from './auth.decorators';
 
 /**
- * Our own team (support, plans and seats for the client), named by email in PLATFORM_ADMIN_EMAILS, comma separated.
- * The backend's SYSTEM_ADMIN is the client's Super Admin, so it can't be this; .env can't be changed from the app.
+ * The IT team's shared System Admin account (role PLATFORM_ADMIN, the website's System Admin): answers support
+ * tickets and manages the plan and seats. SYSTEM_ADMIN is the client's Super Admin, so it isn't this. The role is
+ * listed only on the endpoints it needs, so everything else (HR, pay, attendance) refuses it.
  */
 export function isPlatformAdmin(user: AuthUser): boolean {
-  const emails = (process.env.PLATFORM_ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-  return emails.includes(user.email.toLowerCase());
+  return user.role === 'PLATFORM_ADMIN';
 }

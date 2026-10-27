@@ -25,6 +25,8 @@ enum Role {
   HR_ADMIN
   PAYROLL_ADMIN
   SYSTEM_ADMIN
+  /// The IT team's shared account (the website's System Admin): support, plans and seats; no HR, pay or attendance data
+  PLATFORM_ADMIN
 }
 
 enum VerifyMode {

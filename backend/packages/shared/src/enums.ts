@@ -1,6 +1,6 @@
 // Mirrors of the Prisma enums, usable by web and mobile without importing Prisma.
 
-export const ROLES = ['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN'] as const;
+export const ROLES = ['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN', 'PLATFORM_ADMIN'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const EMPLOYMENT_STATUSES = ['PROBATIONARY', 'REGULAR', 'CONTRACTUAL', 'PROJECT'] as const;
@@ -45,7 +45,9 @@ export const LABELS = {
     MANAGER: 'Manager',
     HR_ADMIN: 'HR Admin',
     PAYROLL_ADMIN: 'Payroll Admin',
-    SYSTEM_ADMIN: 'System Admin',
+    // SYSTEM_ADMIN is the client's top admin (the website's Super Admin); PLATFORM_ADMIN is the IT team's System Admin.
+    SYSTEM_ADMIN: 'Super Admin',
+    PLATFORM_ADMIN: 'System Admin',
   } satisfies Record<Role, string>,
   employmentStatus: {
     PROBATIONARY: 'Probationary',
