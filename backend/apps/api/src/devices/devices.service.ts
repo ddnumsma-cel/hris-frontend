@@ -1,4 +1,12 @@
-import { ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import type { DeviceCommand, DeviceStatus, DeviceSyncPlan } from '@msma/shared';
 import { AttendanceService } from '../attendance/attendance.service';
 import { AuditService } from '../audit/audit.service';
@@ -12,10 +20,68 @@ const ONLINE_WINDOW_MS = 5 * 60_000;
 const COMMANDS_PER_CHECKIN = 20;
 /** A sent command with no reply after this long is sent again. */
 const RESEND_AFTER_MS = 5 * 60_000;
+/** How often online terminals are checked for missing employees. */
+const READD_EVERY_MS = 60 * 60_000;
+/** How long to give a terminal to send its user list before re-adding. */
+const READD_ANSWER_WAIT_MS = 3 * 60_000;
 
 @Injectable()
-export class DevicesService {
+export class DevicesService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DevicesService.name);
+  private readonly timers: NodeJS.Timeout[] = [];
+
+  /**
+   * Every hour, online terminals are asked for their user list and any active employee missing from it is added back
+   * (same device ID; it never deletes). ZKTeco terminals drop a user whose last face or fingerprint is deleted.
+   * Off in tests, or with DEVICE_AUTO_READD=off.
+   */
+  onModuleInit() {
+    if (process.env.VITEST || process.env.DEVICE_AUTO_READD === 'off') return;
+    const run = () => void this.checkTerminals().catch((e) => this.logger.error(`Hourly terminal check failed: ${e}`));
+    this.timers.push(setTimeout(run, 2 * 60_000), setInterval(run, READD_EVERY_MS));
+  }
+
+  onModuleDestroy() {
+    for (const t of this.timers) clearTimeout(t);
+  }
+
+  /** Ask each online terminal for its users, then re-add whoever is missing once it has answered. */
+  async checkTerminals(): Promise<void> {
+    const online = await this.prisma.device.findMany({
+      where: { serial: { not: MOBILE_DEVICE_SERIAL }, lastSeenAt: { gte: new Date(Date.now() - ONLINE_WINDOW_MS) } },
+    });
+    for (const d of online) {
+      const asked = new Date();
+      await this.refreshUsers(d.serial, null);
+      this.timers.push(
+        setTimeout(
+          () => void this.readdMissing(d.serial, asked).catch((e) => this.logger.error(`${d.serial}: re-add failed: ${e}`)),
+          READD_ANSWER_WAIT_MS,
+        ),
+      );
+    }
+  }
+
+  /** Add back active employees missing from a terminal, but only from a user list it sent after `asked`. */
+  async readdMissing(serial: string, asked: Date): Promise<string[]> {
+    const fresh = await this.prisma.deviceUser.count({ where: { deviceSerial: serial, seenAt: { gte: asked } } });
+    if (!fresh) {
+      this.logger.warn(`${serial}: no user list since ${asked.toISOString()}; nothing re-added this time`);
+      return [];
+    }
+    const { toAdd } = await this.syncPlan(serial);
+    if (!toAdd.length) return [];
+    await this.queue(serial, toAdd.map((u) => this.protocol.upsertUserCommand(u.pin, u.name)), null);
+    await this.audit.log({
+      actorId: null,
+      action: 'DEVICE_USERS_READDED',
+      entity: 'Device',
+      entityId: serial,
+      after: { readded: toAdd.map((u) => `${u.pin} ${u.name}`) },
+    });
+    this.logger.log(`${serial}: re-added ${toAdd.map((u) => u.pin).join(', ')}`);
+    return toAdd.map((u) => u.pin);
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -84,7 +150,7 @@ export class DevicesService {
   }
 
   /** Ask a terminal for its full user list (the old list is forgotten until it answers). */
-  async refreshUsers(serial: string, actorId: string): Promise<void> {
+  async refreshUsers(serial: string, actorId: string | null): Promise<void> {
     await this.device(serial);
     await this.prisma.deviceUser.deleteMany({ where: { deviceSerial: serial } });
     await this.queue(serial, [this.protocol.queryUsersCommand()], actorId);
