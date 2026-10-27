@@ -563,23 +563,26 @@ export class EmployeesService {
 
   /**
    * Active employees' device IDs (biometric PINs) and names, for keeping the terminals' user lists in step.
-   * Someone past their separation date is left out, even before the record is set inactive.
+   * Someone HR has marked Separated is left out once their last day has passed.
    */
   async devicePins(): Promise<{ id: string; pin: string; name: string }[]> {
     const today = dateKeyToUtcDate(manilaToday());
     const rows = await this.prisma.employee.findMany({
-      where: { active: true, OR: [{ separationDate: null }, { separationDate: { gte: today } }] },
+      where: { active: true, events: { none: { type: 'SEPARATED', effectiveDate: { lt: today } } } },
       select: { id: true, biometricPin: true, firstName: true, lastName: true },
       orderBy: { biometricPin: 'asc' },
     });
     return rows.map((r) => ({ id: r.id, pin: r.biometricPin, name: fullName(r) }));
   }
 
-  /** Device IDs of separated employees (record inactive, or separation date already passed): they come off the terminals. */
+  /**
+   * Device IDs of employees HR has marked Separated (a SEPARATED history entry) whose last day has passed: they come
+   * off the terminals. Nothing else (an inactive record, a separation date alone) takes anyone off.
+   */
   async separatedPins(): Promise<Set<string>> {
     const today = dateKeyToUtcDate(manilaToday());
     const rows = await this.prisma.employee.findMany({
-      where: { OR: [{ active: false }, { separationDate: { lt: today } }] },
+      where: { events: { some: { type: 'SEPARATED', effectiveDate: { lt: today } } } },
       select: { biometricPin: true },
     });
     return new Set(rows.map((r) => r.biometricPin));

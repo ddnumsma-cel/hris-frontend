@@ -32,7 +32,7 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Every hour, online terminals are asked for their user list and any active employee missing from it is added back
-   * (same device ID), and separated employees are deleted from it. ZKTeco terminals drop a user whose last face or
+   * (same device ID), and employees HR marked Separated are deleted from it. ZKTeco terminals drop a user whose last face or
    * fingerprint is deleted.
    * Off in tests, or with DEVICE_AUTO_READD=off.
    */
