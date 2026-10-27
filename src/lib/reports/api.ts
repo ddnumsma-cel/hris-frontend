@@ -2,7 +2,7 @@
 // Timekeeping and Leave data, so it always matches what the other pages show.
 
 import { fullName, state as core } from "../corehr/store";
-import { leave, countDays } from "../leave/store";
+import { leave, countDays, refreshLeave } from "../leave/store";
 import { listDays, type DayRow } from "../timekeeping/api";
 import { addDays } from "../timekeeping/compute";
 import { computePay, type Adjustment, type PayResult } from "../pay/engine";
@@ -194,7 +194,8 @@ function unpaidLeaveDays(employeeId: string, from: string, to: string) {
 
 /** Pay for everyone in a cut-off, computed live from attendance. Payroll runs freeze this. */
 export async function payroll(period: Period, office: string, adjustmentsFor?: (employeeId: string) => Adjustment[]): Promise<PayLine[]> {
-  await refreshPaySettings(2000);
+  // The latest leave too: unpaid leave comes off the pay.
+  await Promise.all([refreshPaySettings(2000), refreshLeave(2000)]);
   const att = await attendance(period.from, period.to);
   // Two weeks before the cut-off too, so an AWOL run that started in the last cut-off carries over.
   const end = period.to > todayIso() ? todayIso() : period.to;
@@ -688,7 +689,8 @@ export const REPORTS: ReportDef[] = ALL_REPORTS.map((r) => ({
   run: async (period: Period, office: string) => {
     const denied = deny(r.category === "payroll" || r.category === "statutory" ? "payrollReports" : "analytics", "view");
     if (denied) return denied;
-    if (backendOn()) backendPeople = await backendPayrollPeople();
+    // On the backend: its employees, and its leave (the leave report reads it).
+    if (backendOn()) [backendPeople] = await Promise.all([backendPayrollPeople(), refreshLeave(2000)]);
     return r.run(period, office);
   },
 }));
