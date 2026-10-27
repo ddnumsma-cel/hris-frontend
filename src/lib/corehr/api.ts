@@ -27,7 +27,7 @@ import { notifyEmployees } from "../notifications";
 import { dates, tellApprover, tellAssigned, tellEmployees } from "../requestNotices";
 import { assertSeatsAvailable, checkSeatThresholds, isSeatLimitError } from "../subscription/api";
 import { backendOn } from "../backend/client";
-import { backendCreateEmployee, backendGetEmployee, backendListDocuments, backendListEmployees, backendListEvents, backendListPositions, backendListUnits, backendUpdateSection } from "../backend/people";
+import { backendCancelSeparation, backendCreateEmployee, backendGetEmployee, backendListDocuments, backendListEmployees, backendListEvents, backendListPositions, backendListUnits, backendRecordSeparation, backendUpdateSection } from "../backend/people";
 
 const DELAY_MS = 300;
 function respond<T>(value: T): Promise<T> {
@@ -805,6 +805,8 @@ export { SEPARATION_REASONS };
 export async function recordSeparation(id: string, input: { lastDay: string; reason: string; note: string }, actor: string): Promise<CoreEmployee> {
   const denied = deny("people", "edit", id);
   if (denied) return denied;
+  // The backend checks the dates and reason itself and keeps the attendance terminals in step.
+  if (backendOn()) return backendRecordSeparation(id, input);
   if (serverMode) await fresh();
   const e = employeeById(id);
   if (!e) return fail("That employee no longer exists");
@@ -885,6 +887,7 @@ export async function regularize(id: string, input: { date: string; note: string
 export async function cancelSeparation(id: string, actor: string): Promise<CoreEmployee> {
   const denied = deny("people", "edit", id);
   if (denied) return denied;
+  if (backendOn()) return backendCancelSeparation(id);
   if (serverMode) await fresh();
   const e = employeeById(id);
   if (!e?.job.separationDate) return fail("There's no separation to cancel");

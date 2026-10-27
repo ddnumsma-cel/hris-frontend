@@ -233,6 +233,14 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
     for (const d of devices) await this.queue(d.serial, [this.protocol.upsertUserCommand(e.pin, e.name)], null);
   }
 
+  /** HR marked someone Separated with a last day already passed: delete them from every terminal now, not at the hourly check. */
+  async removeIfSeparated(employeeId: string): Promise<void> {
+    const e = await this.prisma.employee.findUnique({ where: { id: employeeId }, select: { biometricPin: true, firstName: true, lastName: true } });
+    if (!e || !(await this.employees.separatedPins()).has(e.biometricPin)) return;
+    const devices = await this.prisma.device.findMany({ where: { serial: { not: MOBILE_DEVICE_SERIAL } } });
+    for (const d of devices) await this.removeSeparated(d.serial, [{ pin: e.biometricPin, name: `${e.firstName} ${e.lastName}` }]);
+  }
+
   async recentCommands(serial: string): Promise<DeviceCommand[]> {
     await this.device(serial);
     const rows = await this.prisma.deviceCommand.findMany({

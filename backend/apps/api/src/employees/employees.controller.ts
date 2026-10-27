@@ -1,6 +1,7 @@
 import {
   Body,
   ConflictException,
+  Delete,
   Controller,
   ForbiddenException,
   Get,
@@ -26,6 +27,10 @@ import {
   manilaToday,
   OrgFiltersSchema,
   PersonalInfoSchema,
+  RecordSeparation,
+  RecordSeparationSchema,
+  Separation,
+  SeparationSchema,
   UpdatePersonalInfo,
   UpdatePersonalInfoSchema,
 } from '@msma/shared';
@@ -117,6 +122,41 @@ export class EmployeesController {
     // Put them on the attendance terminals now; they register a face or finger there.
     await this.devices.addEmployeeToTerminals(created.id);
     return created;
+  }
+
+  @Post(':id/separation')
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({
+    operationId: 'recordSeparation',
+    summary: 'HR marks an employee Separated',
+    description:
+      'Saves the last day and a SEPARATED history entry. After the last day they come off the attendance terminals (right away if it has already passed).',
+  })
+  @ApiZodBody(RecordSeparationSchema)
+  @ApiZodResponse(SeparationSchema, 201)
+  @ApiResponse({ status: 409, description: 'Already marked separated' })
+  async recordSeparation(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body(new ZodPipe(RecordSeparationSchema)) body: RecordSeparation,
+  ): Promise<Separation> {
+    await this.employees.recordSeparation(id, body, user.userId);
+    await this.devices.removeIfSeparated(id);
+    return { employeeId: id, lastDay: body.lastDay };
+  }
+
+  @Delete(':id/separation')
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({
+    operationId: 'cancelSeparation',
+    summary: 'Cancel a separation recorded by mistake or a withdrawn resignation',
+    description: 'Removes the mark and last day; if they were already taken off the terminals they are added back (they register a face or finger again).',
+  })
+  @ApiZodResponse(SeparationSchema)
+  async cancelSeparation(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<Separation> {
+    await this.employees.cancelSeparation(id, user.userId);
+    await this.devices.addEmployeeToTerminals(id);
+    return { employeeId: id, lastDay: null };
   }
 
   @Get(':id')

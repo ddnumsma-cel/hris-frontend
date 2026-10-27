@@ -90,7 +90,8 @@ function summarize(e: BackendEmployee, detail?: BackendEmployeeDetail): Employee
     branchId: e.site?.id,
     branchName: e.site?.name ?? "—",
     employmentType: EMPLOYMENT_TYPE[e.status] ?? "Regular",
-    status: detail?.personal?.separationDate ? "Separated" : e.todayStatus === "ON_LEAVE" ? "On leave" : "Active",
+    // Separated once the last day has passed; before that they're still working.
+    status: detail?.personal?.separationDate && detail.personal.separationDate < new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }) ? "Separated" : e.todayStatus === "ON_LEAVE" ? "On leave" : "Active",
     dateHired: e.hireDate,
     workEmail: detail?.email ?? "",
     mobile: detail?.mobileNo ?? "",
@@ -269,6 +270,26 @@ export async function backendUpdateSection(employeeNo: string, section: "persona
     body = { bank: b.bank ? { bankName: b.bank, accountName: b.accountName, accountNo: b.accountNumber } : null };
   }
   await api(`/employees/${id}/personal`, { method: "PATCH", body });
+  const record = await backendGetEmployee(employeeNo);
+  if (!record) throw new Error("That employee no longer exists");
+  return record.employee;
+}
+
+/** HR marks someone Separated on the backend (it takes them off the attendance terminals after the last day). */
+export async function backendRecordSeparation(employeeNo: string, input: { lastDay: string; reason: string; note: string }): Promise<CoreEmployee> {
+  const id = await backendIdOf(employeeNo);
+  if (!id) throw new Error("That employee no longer exists");
+  await api(`/employees/${id}/separation`, { method: "POST", body: input });
+  const record = await backendGetEmployee(employeeNo);
+  if (!record) throw new Error("That employee no longer exists");
+  return record.employee;
+}
+
+/** Undo a separation on the backend. */
+export async function backendCancelSeparation(employeeNo: string): Promise<CoreEmployee> {
+  const id = await backendIdOf(employeeNo);
+  if (!id) throw new Error("That employee no longer exists");
+  await api(`/employees/${id}/separation`, { method: "DELETE" });
   const record = await backendGetEmployee(employeeNo);
   if (!record) throw new Error("That employee no longer exists");
   return record.employee;

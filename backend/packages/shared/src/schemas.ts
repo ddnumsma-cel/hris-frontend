@@ -245,6 +245,20 @@ export const CreatedEmployeeSchema = z.object({
   fullName: z.string(),
 });
 export type CreatedEmployee = z.infer<typeof CreatedEmployeeSchema>;
+
+/** HR marks someone Separated: their last day and why (the website's reasons). */
+export const SEPARATION_REASONS = ['Resigned', 'End of contract', 'Retired', 'Terminated', 'Redundancy', 'Death', 'Other'] as const;
+export const RecordSeparationSchema = z.object({
+  lastDay: DateKeySchema,
+  reason: z.enum(SEPARATION_REASONS, { message: "Choose why they're leaving" }),
+  note: z.string().trim().max(500).default(''),
+});
+export type RecordSeparation = z.infer<typeof RecordSeparationSchema>;
+export const SeparationSchema = z.object({
+  employeeId: z.string(),
+  lastDay: DateKeySchema.nullable(),
+});
+export type Separation = z.infer<typeof SeparationSchema>;
 export type OrgFilters = z.infer<typeof OrgFiltersSchema>;
 
 // ---------- Attendance ----------

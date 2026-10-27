@@ -15,6 +15,7 @@ import {
   moneyString,
   OrgFilters,
   PersonalInfo,
+  RecordSeparation,
   ShiftDefinition,
   UpdatePersonalInfo,
   utcDateToDateKey,
@@ -316,6 +317,44 @@ export class EmployeesService {
       );
     });
     return enrolledAt;
+  }
+
+  /**
+   * HR marks someone Separated: saves their last day and adds a SEPARATED history entry (the mark that takes them off
+   * the attendance terminals once the last day has passed).
+   */
+  async recordSeparation(id: string, input: RecordSeparation, actorId: string): Promise<void> {
+    const e = await this.prisma.employee.findUnique({ where: { id }, select: { hireDate: true, separationDate: true } });
+    if (!e) throw new NotFoundException('That employee no longer exists');
+    if (e.separationDate) throw new ConflictException('This employee is already marked separated. Cancel that first to change it.');
+    if (input.lastDay < utcDateToDateKey(e.hireDate)) throw new BadRequestException("The last day can't be before they were hired");
+    const lastDay = dateKeyToUtcDate(input.lastDay);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.employee.update({ where: { id }, data: { separationDate: lastDay } });
+      await tx.employmentEvent.create({
+        data: { employeeId: id, type: 'SEPARATED', effectiveDate: lastDay, remarks: input.note ? `${input.reason}: ${input.note}` : input.reason },
+      });
+      await this.audit.log(
+        { actorId, action: 'EMPLOYEE_SEPARATED', entity: 'Employee', entityId: id, after: { lastDay: input.lastDay, reason: input.reason, note: input.note } },
+        tx,
+      );
+    });
+  }
+
+  /** Undo a separation recorded by mistake or a withdrawn resignation: the mark and last day are removed. */
+  async cancelSeparation(id: string, actorId: string): Promise<void> {
+    const e = await this.prisma.employee.findUnique({ where: { id }, select: { separationDate: true } });
+    if (!e) throw new NotFoundException('That employee no longer exists');
+    if (!e.separationDate) throw new ConflictException("There's no separation to cancel");
+    const lastDay = utcDateToDateKey(e.separationDate);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.employee.update({ where: { id }, data: { separationDate: null } });
+      await tx.employmentEvent.deleteMany({ where: { employeeId: id, type: 'SEPARATED' } });
+      await this.audit.log(
+        { actorId, action: 'EMPLOYEE_SEPARATION_CANCELLED', entity: 'Employee', entityId: id, before: { lastDay } },
+        tx,
+      );
+    });
   }
 
   /**
