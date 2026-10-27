@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Megaphone,
   Eye,
+  EyeOff,
   Banknote,
   CalendarClock,
   ChartPie,
@@ -98,6 +99,10 @@ export function FolderIcon(props: IconProps) {
 
 export function EyeIcon(props: IconProps) {
   return <Eye strokeWidth={strokeWidth} {...props} />;
+}
+
+export function EyeOffIcon(props: IconProps) {
+  return <EyeOff strokeWidth={strokeWidth} {...props} />;
 }
 
 export function FileIcon(props: IconProps) {

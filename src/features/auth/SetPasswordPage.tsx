@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { LockIcon } from "@/components/icons";
+import { EyeIcon, EyeOffIcon, LockIcon } from "@/components/icons";
 import { PasswordStrength } from "@/components/ui/PasswordStrength";
 import { admin, saveAdmin } from "@/lib/admin/store";
 import { changeMyPassword, minPasswordLength } from "@/lib/settings/api";
@@ -33,6 +33,10 @@ export function SetPasswordPage() {
   const [again, setAgain] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  /** Saved: the success note shows for a moment before they go in. */
+  const [saved, setSaved] = useState(false);
+  /** Which fields show what was typed (the eye button). */
+  const [shown, setShown] = useState<Record<string, boolean>>({});
 
   if (!user) return <Navigate to="/login" replace />;
   const home = landingPath(user.role, settingsFor(settingsKeyFor(user)).appearance.landing);
@@ -47,8 +51,12 @@ export function SetPasswordPage() {
     setSaving(true);
     try {
       await changeMyPassword(user!, current, next);
-      saveAdmin({ ...admin, accounts: admin.accounts.map((a) => (a.id === user!.accountId ? { ...a, mustChangePassword: false } : a)) });
-      navigate(home, { replace: true });
+      setSaved(true);
+      // Show the success note first; clearing the flag sooner would send them on before they see it.
+      setTimeout(() => {
+        saveAdmin({ ...admin, accounts: admin.accounts.map((a) => (a.id === user!.accountId ? { ...a, mustChangePassword: false } : a)) });
+        navigate(home, { replace: true });
+      }, 1600);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save your password. Try again.");
     } finally {
@@ -65,7 +73,7 @@ export function SetPasswordPage() {
         <LockIcon className="h-4 w-4 flex-none text-[var(--login-ink-3)]" />
         <input
           id={id}
-          type="password"
+          type={shown[id] ? "text" : "password"}
           autoComplete={autoComplete}
           value={value}
           onChange={(e) => {
@@ -75,6 +83,15 @@ export function SetPasswordPage() {
           placeholder={placeholder}
           className={inputClass}
         />
+        <button
+          type="button"
+          onClick={() => setShown((v) => ({ ...v, [id]: !v[id] }))}
+          aria-label={shown[id] ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          aria-pressed={!!shown[id]}
+          className="flex-none rounded-full text-[var(--login-ink-3)] transition-colors hover:text-[var(--login-ink)]"
+        >
+          {shown[id] ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+        </button>
       </div>
     </div>
   );
@@ -98,7 +115,12 @@ export function SetPasswordPage() {
                 {next && <PasswordStrength password={next} id="sp-strength" />}
                 {field("sp-again", "New password again", again, setAgain, "new-password", "Type it once more")}
                 {error && <p className="rounded-[var(--radius-control)] border border-[var(--login-line)] bg-[var(--login-card)] px-3 py-2 text-xs font-medium text-[var(--login-ink)]">{error}</p>}
-                <Button type="submit" loading={saving} disabled={saving} className="h-11 w-full justify-center rounded-[var(--radius-pill)]">
+                {saved && (
+                  <p role="status" className="rounded-[var(--radius-control)] bg-good-tint px-3 py-2 text-center text-xs font-medium text-good">
+                    Your password is saved. Taking you to your Home page…
+                  </p>
+                )}
+                <Button type="submit" loading={saving} succeeded={saved} disabled={saving || saved} className="h-11 w-full justify-center rounded-[var(--radius-pill)]">
                   Save and continue
                 </Button>
                 <button type="button" onClick={logout} className="text-center text-xs font-medium text-[var(--login-ink-2)] hover:underline">
