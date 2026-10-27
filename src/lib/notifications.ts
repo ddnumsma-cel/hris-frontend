@@ -4,7 +4,7 @@
 // With the API server (serverMode) the server stores them (one row per person told, created with the
 // action that caused it, server/src/notify.ts) and the bell reads and marks them read there.
 
-import { api, serverMode } from "./http";
+import { remoteApi, remoteOn } from "./remote";
 import type { NotificationKind } from "./noticeLinks";
 import type { RoleKey } from "./permissions";
 import { sessionAccountId, sessionWho } from "./session";
@@ -82,7 +82,7 @@ export function notify(o: {
   employees?: (string | undefined)[];
   links?: AppNotification["links"];
 }) {
-  if (serverMode) return; // the server sends them (server/src/notify.ts)
+  if (remoteOn()) return; // the server sends them, with the change that causes them
   const employees = [...new Set(o.employees?.filter((e): e is string => !!e))];
   if (!o.roles?.length && !employees.length) return;
   const n: AppNotification = { id: newId(), kind: o.kind, toRoles: o.roles ?? [], toEmployees: employees.length ? employees : undefined, title: o.title, body: o.body, links: o.links, at: new Date().toISOString(), readBy: [], by: sessionAccountId() };
@@ -91,14 +91,14 @@ export function notify(o: {
 
 /** Sends a notification to everyone holding these roles. Called by the mock API only. */
 export function notifyRoles(toRoles: RoleKey[], title: string, body: string, links?: AppNotification["links"]) {
-  if (serverMode) return; // the server sends them (server/src/notify.ts)
+  if (remoteOn()) return; // the server sends them, with the change that causes them
   const n: AppNotification = { id: newId(), kind: "alert", toRoles, title, body, links, at: new Date().toISOString(), readBy: [] };
   save([n, ...all]);
 }
 
 /** Sends a notification to particular employees (whoever signs in with their record). `link` is an Employee-workspace page, so only employee accounts get it. Called by the mock API only. */
 export function notifyEmployees(employeeIds: string[], title: string, body: string, link?: string) {
-  if (serverMode) return; // the server sends them (server/src/notify.ts)
+  if (remoteOn()) return; // the server sends them, with the change that causes them
   if (!employeeIds.length) return;
   const n: AppNotification = { id: newId(), kind: "update", toRoles: [], toEmployees: employeeIds, title, body, links: link ? { employee: link } : undefined, at: new Date().toISOString(), readBy: [] };
   save([n, ...all]);
@@ -109,7 +109,7 @@ const isFor = (n: AppNotification, role: RoleKey, employeeId?: string, me?: stri
 
 /** The signed-in person's notifications, newest first. */
 export function listMyNotifications(): Promise<MyNotification[]> {
-  if (serverMode) return api<MyNotification[]>("GET", "/notifications");
+  if (remoteOn()) return remoteApi<MyNotification[]>("GET", "/notifications");
   const { role, employeeId } = sessionWho();
   const me = sessionAccountId() ?? "";
   if (!role) return Promise.resolve([]);
@@ -121,7 +121,7 @@ export function listMyNotifications(): Promise<MyNotification[]> {
 
 /** Marks all of the signed-in person's notifications as read. */
 export async function markMyNotificationsRead(): Promise<void> {
-  if (serverMode) return void (await api("POST", "/notifications/read"));
+  if (remoteOn()) return void (await remoteApi("POST", "/notifications/read"));
   const { role, employeeId } = sessionWho();
   const me = sessionAccountId();
   if (role && me) save(all.map((n) => (isFor(n, role, employeeId, me) && !n.readBy.includes(me) ? { ...n, readBy: [...n.readBy, me] } : n)));

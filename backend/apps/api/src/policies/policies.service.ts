@@ -5,6 +5,7 @@ import type { AuthUser } from '../common/auth.decorators';
 import { requireEmployeeId } from '../common/auth.decorators';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 type Row = Prisma.PolicyGetPayload<object>;
 
@@ -33,6 +34,7 @@ export class PoliciesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Current employees: who should read the published policies. */
@@ -94,6 +96,9 @@ export class PoliciesService {
       await tx.policy.update({ where: { id }, data: { status, updatedBy: user.displayName, updatedAt: new Date() } });
       await this.audit.log({ actorId: user.userId, action: `POLICY_${status.toUpperCase()}`, entity: 'Policy', entityId: id, before: { status: p.status }, after: { status, title: p.title } }, tx);
     });
+    // Company news: everyone hears about a newly published policy.
+    if (status === 'published' && p.status !== 'published')
+      await this.notifications.send({ topic: 'policy', kind: 'update', title: `New company policy: ${p.title}`, body: p.requireAck ? "Read it and confirm you've read it under Company policies." : 'Read it under Company policies.', roles: ['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN'], actorId: user.userId });
   }
 
   /** Drafts only; published policies stay on record and are archived instead. */

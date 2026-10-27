@@ -42,6 +42,7 @@ import { ApiZodBody, ApiZodQuery, ApiZodResponse, ZodPipe } from '../common/zod'
 import { DocumentsService } from '../documents/documents.service';
 import { LeaveService } from '../leave/leave.service';
 import { EmployeesService } from './employees.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const mask = (v: string) => v.replace(/\d(?=[\d-]{4})/g, '•');
 
@@ -57,6 +58,7 @@ export class EmployeesController {
     private readonly documents: DocumentsService,
     private readonly devices: DevicesService,
     private readonly subscription: SubscriptionService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Managers only see their direct reports. */
@@ -146,6 +148,9 @@ export class EmployeesController {
   ): Promise<Separation> {
     await this.employees.recordSeparation(id, body, user.userId);
     await this.devices.removeIfSeparated(id);
+    // Accounting prepares the final pay.
+    const who = await this.employees.profile(id);
+    await this.notifications.send({ topic: 'separation', kind: 'request', title: `Final pay to prepare for ${who.fullName}`, body: `${body.reason}, last day ${body.lastDay}.`, roles: ['PAYROLL_ADMIN'], actorId: user.userId });
     return { employeeId: id, lastDay: body.lastDay };
   }
 

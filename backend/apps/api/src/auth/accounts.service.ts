@@ -7,6 +7,7 @@ import type { AuthUser } from '../common/auth.decorators';
 import { SubscriptionService } from '../administration/subscription.service';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { LoginThrottle } from './login-throttle';
 
 /** The website's role ids (lib/admin/store.ts) and the backend roles they are. */
@@ -56,6 +57,7 @@ export class AccountsService {
     private readonly audit: AuditService,
     private readonly throttle: LoginThrottle,
     private readonly subscription: SubscriptionService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private mayGive(user: AuthUser, role: Role) {
@@ -150,6 +152,7 @@ export class AccountsService {
       await tx.user.update({ where: { id: u.id }, data: { role } });
       await this.audit.log({ actorId: user.userId, action: 'ACCOUNT_ROLE_CHANGED', entity: 'User', entityId: u.id, before: { role: ROLE_NAME[WEB_ROLE_OF[u.role]] }, after: { username: u.email, role: ROLE_NAME[roleId] } }, tx);
     });
+    await this.notifications.send({ topic: 'account', kind: 'update', title: `Your role is now ${ROLE_NAME[roleId]}`, body: `${user.displayName} changed it. What you can see and do changes the next time you sign in.`, userIds: [u.id], actorId: user.userId });
   }
 
   async setStatus(id: string, status: 'active' | 'disabled', user: AuthUser) {

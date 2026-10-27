@@ -18,6 +18,7 @@ import {
 import type { AuthUser } from '../common/auth.decorators';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { LeaveService } from './leave.service';
 
 type TypeRow = Prisma.LeaveTypeGetPayload<object>;
@@ -52,6 +53,7 @@ export class LeaveAdminService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly leave: LeaveService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ---------- Leave types ----------
@@ -163,6 +165,8 @@ export class LeaveAdminService {
       await this.audit.log({ actorId: user.userId, action: 'LEAVE_CREDITS_ADJUSTED', entity: 'Employee', entityId: e.id, after: { employeeNo: input.employeeId, days: input.leaves, reason: input.reason } }, tx);
       return a;
     });
+    const n = Math.abs(input.leaves);
+    await this.notifications.send({ topic: 'leave', kind: 'update', title: input.leaves > 0 ? `${n} ${n === 1 ? 'day' : 'days'} added to your leave balance` : `${n} ${n === 1 ? 'day' : 'days'} taken from your leave balance`, body: `${user.displayName}: "${input.reason}"`, employeeIds: [e.id], actorId: user.userId });
     return this.adjustmentView(row, input.employeeId);
   }
 }

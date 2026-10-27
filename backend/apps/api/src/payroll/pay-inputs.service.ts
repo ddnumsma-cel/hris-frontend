@@ -12,6 +12,7 @@ import {
 import type { AuthUser } from '../common/auth.decorators';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const PAYDAYS_KEY = 'paydays';
 const DEFAULT_PAYDAYS: Paydays = { cutoffDays: [10, 25] };
@@ -30,6 +31,7 @@ export class PayInputsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private async employeeIdOf(employeeNo: string): Promise<{ id: string; name: string }> {
@@ -183,6 +185,7 @@ export class PayInputsService {
       );
       return row;
     });
+    await this.notifications.send({ topic: 'loan', kind: 'update', title: id ? `Your ${input.kind} deduction changed` : `New ${input.kind} deduction`, body: `₱${input.installment.toLocaleString('en-PH')} per cutoff from ${input.startDate}, ₱${input.principal.toLocaleString('en-PH')} in all (${input.reference}).`, employeeIds: [e.id], actorId: user.userId });
     return this.view(saved, paid);
   }
 

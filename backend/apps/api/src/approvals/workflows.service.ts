@@ -75,6 +75,24 @@ export class WorkflowsService {
   }
 
   /**
+   * Who is told a request is waiting at this step: the manager with an Approver login (else the Super Admins), the
+   * department head (else HR), or everyone with the role.
+   */
+  async approversOf(employeeId: string, step: WorkflowStep | undefined): Promise<{ employeeIds: string[]; roles: Role[] }> {
+    const s = step ?? { approver: 'supervisor' as const };
+    if (s.approver === 'role') return { employeeIds: [], roles: s.roleId && ROLE_OF[s.roleId] ? [ROLE_OF[s.roleId]] : [] };
+    const e = await this.prisma.employee.findUnique({ where: { id: employeeId }, select: { managerId: true, siteId: true, departmentId: true } });
+    if (s.approver === 'supervisor') {
+      const ok = e?.managerId && (await this.prisma.user.count({ where: { employeeId: e.managerId, role: 'MANAGER', status: 'active' } }));
+      return ok ? { employeeIds: [e!.managerId!], roles: [] } : { employeeIds: [], roles: ['SYSTEM_ADMIN'] };
+    }
+    const head = e?.departmentId
+      ? (await this.prisma.siteDepartment.findUnique({ where: { siteId_departmentId: { siteId: e.siteId, departmentId: e.departmentId } }, select: { headEmployeeId: true } }))?.headEmployeeId
+      : null;
+    return head ? { employeeIds: [head], roles: [] } : { employeeIds: [], roles: ['HR_ADMIN'] };
+  }
+
+  /**
    * May this person decide the step a request is at? The Super Admin always may. A supervisor step: the employee's
    * manager with an active Approver login (no such login: only the Super Admin). A department-head step: the head set
    * in Maintenance > Departments (none: HR). A role step: anyone with that role.

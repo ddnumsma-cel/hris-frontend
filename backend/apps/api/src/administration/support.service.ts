@@ -5,6 +5,7 @@ import type { AuthUser } from '../common/auth.decorators';
 import { isPlatformAdmin } from '../common/platform';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 type Row = Prisma.SupportTicketGetPayload<{ include: { messages: true } }>;
 
@@ -20,6 +21,7 @@ export class SupportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private view(t: Row) {
@@ -80,6 +82,7 @@ export class SupportService {
       await this.audit.log({ actorId: user.userId, action: 'SUPPORT_TICKET_FILED', entity: 'SupportTicket', entityId: t.id, after: { number: t.number, subject: t.subject } }, tx);
       return t;
     });
+    if (!support) await this.notifications.send({ topic: 'support', kind: 'request', title: `New support ticket #${row.number}: ${row.subject}`, body: `${user.displayName} · ${row.category} · ${row.priority} priority.`, roles: ['PLATFORM_ADMIN'], actorId: user.userId });
     return this.view(row);
   }
 
@@ -93,13 +96,22 @@ export class SupportService {
       data: { status, updatedAt: new Date(), messages: { create: { by: support ? 'Support team' : user.displayName, side: support ? 'support' : 'client', text } } },
       include: { messages: true },
     });
+    // Our reply tells whoever filed it; their reply tells our team.
+    await this.notifications.send(
+      support
+        ? { topic: 'support', kind: 'update', title: `Support replied to ticket #${t.number}`, body: text.slice(0, 140), userIds: [t.filedById], actorId: user.userId }
+        : { topic: 'support', kind: 'update', title: `${user.displayName} replied on ticket #${t.number}`, body: text.slice(0, 140), roles: ['PLATFORM_ADMIN'], actorId: user.userId },
+    );
     return this.view(row);
   }
 
   /** Our team only: status, priority and who's on it. */
   async update(id: string, patch: TicketPatch, user: AuthUser) {
-    await this.open(id, user);
+    const before = await this.open(id, user);
     const row = await this.prisma.supportTicket.update({ where: { id }, data: { ...patch, updatedAt: new Date() }, include: { messages: true } });
+    const LABEL: Record<string, string> = { open: 'Open', in_progress: 'In progress', waiting: 'Waiting for you', resolved: 'Resolved', closed: 'Closed' };
+    if (patch.status && patch.status !== before.status)
+      await this.notifications.send({ topic: 'support', kind: 'update', title: `Ticket #${row.number} is now ${LABEL[patch.status]}`, body: row.subject, userIds: [row.filedById], actorId: user.userId });
     return this.view(row);
   }
 

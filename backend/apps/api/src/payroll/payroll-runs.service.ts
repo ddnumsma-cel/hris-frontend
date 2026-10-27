@@ -14,6 +14,7 @@ import {
 import type { AuthUser } from '../common/auth.decorators';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 type RunRow = Prisma.PayrollRunGetPayload<object>;
 
@@ -36,6 +37,7 @@ export class PayrollRunsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private view(r: RunRow): PayRun {
@@ -252,6 +254,7 @@ export class PayrollRunsService {
       );
       return run;
     });
+    await this.notifications.send({ topic: 'payslip', kind: 'update', title: `Your payslip for ${r.label} is ready`, body: 'Open Payslips to see your take-home pay and deductions.', employeeIds: [...ids.values()], actorId: user.userId });
     return this.view(next);
   }
 

@@ -4,6 +4,7 @@ import { ApplicationInput, RequisitionInput, TrainingInput, TrainingView, utcDat
 import type { AuthUser } from '../common/auth.decorators';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 type ReqRow = Prisma.JobRequisitionGetPayload<{ include: { applicants: { select: { appliedAt: true } } } }>;
 type ApplicantRow = Prisma.ApplicantGetPayload<object>;
@@ -38,6 +39,7 @@ export class OnboardingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ---------- Requisitions ----------
@@ -202,6 +204,7 @@ export class OnboardingService {
       await this.audit.log({ actorId: user.userId, action: 'TRAINING_ASSIGNED', entity: 'TrainingRecord', entityId: t.id, after: { employee: input.employeeName, course: input.course, due: utcDateToDateKey(due) } }, tx);
       return t;
     });
+    await this.notifications.send({ topic: 'training', kind: 'update', title: `New training: ${input.course}`, body: `Due ${this.trainingView(row).dueDate}. Assigned by ${user.displayName}.`, employeeIds: [people[0]!.id], actorId: user.userId });
     return this.trainingView(row);
   }
 

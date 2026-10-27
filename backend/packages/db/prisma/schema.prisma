@@ -434,6 +434,7 @@ model User {
   decidedRequests ApprovalRequest[]
   auditLogs       AuditLog[]
   uploads         EmployeeDocument[] @relation("DocumentUploads")
+  notifications      Notification[]
 }
 
 // ---------- Attendance ----------
@@ -939,6 +940,27 @@ model SubscriptionEvent {
   seats   String
   admins  String
   at      DateTime @default(now()) @db.Timestamptz(3)
+}
+
+// ---------- Bell notifications ----------
+
+/// One notice for one person: a request to decide, a decision, a change to their records, company news
+model Notification {
+  id     String    @id @default(cuid())
+  userId String
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// request, approved, rejected, update, seat or alert (the bell's icon)
+  kind   String
+  /// What it's about (leave, overtime, payslip, policy, support...), for its page
+  topic  String
+  title  String
+  body   String
+  /// The page where it's dealt with, for this person's role
+  link   String?
+  at     DateTime  @default(now()) @db.Timestamptz(3)
+  readAt DateTime? @db.Timestamptz(3)
+
+  @@index([userId, at])
 }
 
 // ---------- Audit ----------

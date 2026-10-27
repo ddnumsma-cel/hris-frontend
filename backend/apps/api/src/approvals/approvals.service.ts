@@ -34,6 +34,7 @@ import { AuthUser, isHrLike, requireEmployeeId } from '../common/auth.decorators
 import { EmployeesService, fullName } from '../employees/employees.service';
 import { LeaveService } from '../leave/leave.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService, type Topic } from '../notifications/notifications.service';
 import { WorkflowsService } from './workflows.service';
 
 const include = {
@@ -58,7 +59,28 @@ export class ApprovalsService {
     private readonly attendance: AttendanceService,
     private readonly audit: AuditService,
     private readonly workflows: WorkflowsService,
+    private readonly notifications: NotificationsService,
   ) {}
+
+  private static TOPIC: Record<ApprovalType, Topic> = { LEAVE: 'leave', OT: 'overtime', UNDERTIME: 'undertime', DTR_FIX: 'adjustment' };
+  private static WHAT: Record<ApprovalType, string> = { LEAVE: 'leave', OT: 'overtime', UNDERTIME: 'undertime', DTR_FIX: 'a time adjustment' };
+
+  /** Tells whoever decides the step a request is at (filed, or the step before was approved). */
+  private async tellStep(id: string, actorId: string, after?: string) {
+    const a = await this.prisma.approvalRequest.findUnique({ where: { id }, include });
+    if (!a || a.status !== 'PENDING') return;
+    const steps = this.stepsOf(a);
+    const to = await this.workflows.approversOf(a.employeeId, steps[a.step]);
+    const name = fullName(a.employee);
+    await this.notifications.send({
+      topic: ApprovalsService.TOPIC[a.type],
+      kind: 'request',
+      title: after ? `${name}'s ${ApprovalsService.WHAT[a.type]} needs your approval` : `${name} filed ${ApprovalsService.WHAT[a.type]}`,
+      body: after ? `${after} ${a.detail}` : `${a.detail}. Review it under Approvals.`,
+      ...to,
+      actorId,
+    });
+  }
 
   private stepsOf(a: { steps: unknown }): WorkflowStep[] {
     return Array.isArray(a.steps) && a.steps.length ? (a.steps as WorkflowStep[]) : [{ approver: 'supervisor' }];
@@ -173,6 +195,7 @@ export class ApprovalsService {
           tx,
         );
       });
+      await this.tellStep(id, user.userId, `${user.displayName} approved the ${this.workflows.stepName(steps[approval.step]!).toLowerCase()} step.`);
       return this.withWorkflow(user, (await this.prisma.approvalRequest.findUnique({ where: { id }, include }))!);
     }
 
@@ -232,6 +255,14 @@ export class ApprovalsService {
     ) {
       await this.attendance.recompute(effect.from, effect.to, [effect.employeeId]);
     }
+    await this.notifications.send({
+      topic: ApprovalsService.TOPIC[approval.type],
+      kind: decision === 'APPROVED' ? 'approved' : 'rejected',
+      title: `Your ${ApprovalsService.WHAT[approval.type]} was ${decision === 'APPROVED' ? 'approved' : 'declined'}`,
+      body: `${approval.detail} · ${decision === 'APPROVED' ? 'approved' : 'declined'} by ${user.displayName}${reason ? `. "${reason}"` : '.'}`,
+      employeeIds: [approval.employeeId],
+      actorId: user.userId,
+    });
     return this.withWorkflow(user, (await this.prisma.approvalRequest.findUnique({ where: { id }, include }))!);
   }
 
@@ -262,6 +293,7 @@ export class ApprovalsService {
       );
       return created;
     });
+    await this.tellStep(approval.id, user.userId);
     return this.toMyRequest(approval);
   }
 
@@ -346,6 +378,7 @@ export class ApprovalsService {
         body,
       );
     });
+    await this.tellStep(approval.id, user.userId);
     return this.toMyRequest(approval);
   }
 
@@ -384,6 +417,7 @@ export class ApprovalsService {
         { ...body, minutes },
       );
     });
+    await this.tellStep(approval.id, user.userId);
     return this.toMyRequest(approval);
   }
 
@@ -425,6 +459,7 @@ export class ApprovalsService {
         body,
       );
     });
+    await this.tellStep(approval.id, user.userId);
     return this.toMyRequest(approval);
   }
 
