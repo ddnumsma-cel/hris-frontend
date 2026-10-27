@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@msma/db';
 import { ApplicationInput, RequisitionInput, TrainingInput, TrainingView, utcDateToDateKey } from '@msma/shared';
 import type { AuthUser } from '../common/auth.decorators';
@@ -59,12 +59,16 @@ export class OnboardingService {
       ...(r.targetStart ? { targetStart: utcDateToDateKey(r.targetStart) } : {}),
       ...(r.salaryRange ? { salaryRange: r.salaryRange } : {}),
       ...(r.justification ? { justification: r.justification } : {}),
+      // Who signed off each step (the website shows only the approval label for now).
+      ...(r.l1ApprovedBy ? { l1ApprovedBy: r.l1ApprovedBy, l1ApprovedAt: r.l1ApprovedAt?.toISOString() } : {}),
+      ...(r.l2ApprovedBy ? { l2ApprovedBy: r.l2ApprovedBy, l2ApprovedAt: r.l2ApprovedAt?.toISOString() } : {}),
     };
   }
 
   async requisitions(openOnly = false) {
     const rows = await this.prisma.jobRequisition.findMany({
-      where: openOnly ? { approval: 'Approved', openings: { gt: 0 } } : {},
+      // Declined requisitions stay on record but leave the list.
+      where: openOnly ? { approval: 'Approved', openings: { gt: 0 }, declinedAt: null } : { declinedAt: null },
       include: { applicants: { select: { appliedAt: true } } },
       orderBy: { createdAt: 'asc' },
     });
@@ -77,13 +81,62 @@ export class OnboardingService {
     if (input.targetStart && !targetStart) throw new BadRequestException('Enter the target start date');
     const row = await this.prisma.$transaction(async (tx) => {
       const r = await tx.jobRequisition.create({
-        data: { ...input, targetStart, stage: 'Sourcing', approval: 'Pending L1', createdBy: user.displayName },
+        data: { ...input, targetStart, stage: 'Sourcing', approval: 'Pending L1', createdBy: user.displayName, createdById: user.userId },
         include: { applicants: { select: { appliedAt: true } } },
       });
       await this.audit.log({ actorId: user.userId, action: 'REQUISITION_ADDED', entity: 'JobRequisition', entityId: r.id, after: { title: r.title, office: r.office, openings: r.openings } }, tx);
       return r;
     });
     return this.requisitionView(row);
+  }
+
+  /**
+   * Sign off the step the requisition is at: L1 by the Partner (approver) or a Super Admin, then L2 by HR or a
+   * Super Admin, after which it's Approved and on the job link. Whoever asked for it can't give the L1 sign-off
+   * (the Partner's is the independent check); HR may confirm L2 on one it raised.
+   */
+  async approveRequisition(id: string, user: AuthUser) {
+    const r = await this.pending(id);
+    const l1 = r.approval === 'Pending L1';
+    const allowed = l1 ? user.role === 'MANAGER' || user.role === 'SYSTEM_ADMIN' : user.role === 'HR_ADMIN' || user.role === 'SYSTEM_ADMIN';
+    if (!allowed) throw new ForbiddenException(l1 ? 'The Partner approves this step first' : 'HR approves this step');
+    if (l1 && r.createdById === user.userId) throw new ForbiddenException("You can't give the first approval on a requisition you asked for");
+    const now = new Date();
+    const row = await this.prisma.$transaction(async (tx) => {
+      // Only flip a requisition still at this step, so two approvers can't both pass it.
+      const { count } = await tx.jobRequisition.updateMany({
+        where: { id, approval: r.approval, declinedAt: null },
+        data: l1 ? { approval: 'Pending L2', l1ApprovedBy: user.displayName, l1ApprovedAt: now } : { approval: 'Approved', l2ApprovedBy: user.displayName, l2ApprovedAt: now },
+      });
+      if (!count) throw new ConflictException('Someone else just decided this requisition');
+      await this.audit.log({ actorId: user.userId, action: l1 ? 'REQUISITION_APPROVED_L1' : 'REQUISITION_APPROVED', entity: 'JobRequisition', entityId: id, before: { approval: r.approval }, after: { approval: l1 ? 'Pending L2' : 'Approved', title: r.title } }, tx);
+      return tx.jobRequisition.findUniqueOrThrow({ where: { id }, include: { applicants: { select: { appliedAt: true } } } });
+    });
+    return this.requisitionView(row);
+  }
+
+  /** Decline at either step, with the reason. It leaves the list and never reaches the job link. */
+  async declineRequisition(id: string, reason: string, user: AuthUser) {
+    const r = await this.pending(id);
+    const l1 = r.approval === 'Pending L1';
+    const allowed = l1 ? user.role === 'MANAGER' || user.role === 'SYSTEM_ADMIN' : user.role === 'HR_ADMIN' || user.role === 'SYSTEM_ADMIN';
+    if (!allowed) throw new ForbiddenException(l1 ? 'The Partner decides this step first' : 'HR decides this step');
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.jobRequisition.updateMany({
+        where: { id, approval: r.approval, declinedAt: null },
+        data: { declinedBy: user.displayName, declinedAt: new Date(), declineReason: reason },
+      });
+      if (!count) throw new ConflictException('Someone else just decided this requisition');
+      await this.audit.log({ actorId: user.userId, action: 'REQUISITION_DECLINED', entity: 'JobRequisition', entityId: id, before: { approval: r.approval }, after: { reason, title: r.title } }, tx);
+    });
+  }
+
+  /** A requisition still waiting for a decision. */
+  private async pending(id: string) {
+    const r = await this.prisma.jobRequisition.findUnique({ where: { id } });
+    if (!r || r.declinedAt) throw new NotFoundException('That requisition no longer exists');
+    if (r.approval === 'Approved') throw new ConflictException('This requisition is already approved');
+    return r;
   }
 
   // ---------- Applicants ----------

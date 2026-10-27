@@ -1404,6 +1404,31 @@ export async function createJobRequisition(input: CreateJobRequisitionInput): Pr
   return delay(requisition);
 }
 
+/**
+ * Approve the step a requisition is at: L1 by the Partner (approver) or a Super Admin, then L2 by HR or a Super
+ * Admin, after which it's Approved and open on the job link. Nobody approves a requisition they asked for (the
+ * backend checks that). No screen calls this yet: the Recruitment page only shows the approval label.
+ */
+export async function approveJobRequisition(id: string): Promise<JobRequisition> {
+  if (backendOn()) return backendApi<JobRequisition>(`/recruitment/requisitions/${encodeURIComponent(id)}/approve`, { method: "POST" });
+  const r = jobRequisitions.find((x) => x.id === id);
+  if (!r) throw new Error("That requisition no longer exists");
+  if (r.approval === "Approved") throw new Error("This requisition is already approved");
+  // Who may approve each step is decided by the backend; recruitment has no row in the access table (lib/permissions.ts).
+  const next: JobRequisition = { ...r, approval: r.approval === "Pending L1" ? "Pending L2" : "Approved" };
+  setJobRequisitions(jobRequisitions.map((x) => (x.id === id ? next : x)));
+  return delay(next);
+}
+
+/** Decline a requisition at its current step, with the reason; it leaves the list (the backend keeps it on record). */
+export async function declineJobRequisition(id: string, reason: string): Promise<void> {
+  if (reason.trim().length < 3) throw new Error("Say why, so HR knows");
+  if (backendOn()) return backendApi<void>(`/recruitment/requisitions/${encodeURIComponent(id)}/decline`, { method: "POST", body: { reason: reason.trim() } });
+  if (!jobRequisitions.some((x) => x.id === id && x.approval !== "Approved")) throw new Error("That requisition can no longer be declined");
+  setJobRequisitions(jobRequisitions.filter((x) => x.id !== id));
+  return delay(undefined);
+}
+
 export function fetchApplicants() {
   if (backendOn()) return backendApi<Applicant[]>("/recruitment/applicants");
   return delay(applicants);
