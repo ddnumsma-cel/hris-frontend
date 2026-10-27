@@ -42,7 +42,7 @@ export const BACKEND_DEMO_ACCOUNTS = [
   { label: "Super Admin (Partner)", username: "partner@msma.test", password: "Demo@2026" },
   { label: "HR", username: "hr@msma.test", password: "Demo@2026" },
   { label: "Payroll", username: "payroll@msma.test", password: "Demo@2026" },
-  { label: "Manager (Approver)", username: "manager@msma.test", password: "Demo@2026" },
+  { label: "Approver (Cora Jane Marana)", username: "cjm.msma@gmail.com", password: "Demo@2026" },
   { label: "Employee", username: "employee@msma.test", password: "Demo@2026" },
 ];
 
