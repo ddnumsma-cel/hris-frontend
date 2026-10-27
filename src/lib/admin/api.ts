@@ -64,7 +64,7 @@ export async function syncRoles() {
 }
 
 export async function syncWorkflows() {
-  const workflows = await api<Workflow[]>("GET", "/workflows");
+  const workflows = await remoteApi<Workflow[]>("GET", "/workflows");
   if (workflows.length) saveAdmin({ ...admin, workflows });
 }
 
@@ -270,15 +270,15 @@ export const WORKFLOW_LABEL: Record<RequestKind, { name: string; description: st
 export const listWorkflows = async () => {
   const denied = deny("rules", "view");
   if (denied) return denied;
-  if (serverMode) await syncWorkflows();
+  if (remoteOn()) await syncWorkflows();
   return respond(admin.workflows);
 };
 
 export async function saveWorkflow(input: Workflow, actor: string) {
   const denied = deny("rules", "edit");
   if (denied) return denied;
-  if (serverMode) {
-    const saved = await api<Workflow>("PUT", "/admin/workflows", input);
+  if (remoteOn()) {
+    const saved = await remoteApi<Workflow>("PUT", "/admin/workflows", input);
     await syncWorkflows();
     return saved;
   }

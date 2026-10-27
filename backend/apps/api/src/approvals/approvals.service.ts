@@ -26,6 +26,7 @@ import {
   REQUEST_FILING_WINDOW_DAYS,
   shiftBounds,
   timeOnShift,
+  WorkflowStep,
 } from '@msma/shared';
 import { AttendanceService } from '../attendance/attendance.service';
 import { AuditService } from '../audit/audit.service';
@@ -33,6 +34,7 @@ import { AuthUser, isHrLike, requireEmployeeId } from '../common/auth.decorators
 import { EmployeesService, fullName } from '../employees/employees.service';
 import { LeaveService } from '../leave/leave.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { WorkflowsService } from './workflows.service';
 
 const include = {
   employee: { include: { site: true } },
@@ -55,7 +57,25 @@ export class ApprovalsService {
     private readonly leave: LeaveService,
     private readonly attendance: AttendanceService,
     private readonly audit: AuditService,
+    private readonly workflows: WorkflowsService,
   ) {}
+
+  private stepsOf(a: { steps: unknown }): WorkflowStep[] {
+    return Array.isArray(a.steps) && a.steps.length ? (a.steps as WorkflowStep[]) : [{ approver: 'supervisor' }];
+  }
+
+  /** The item with its workflow: step names, the one it's at, who it's waiting for and whether this person may decide it. */
+  private async withWorkflow(user: AuthUser, a: ApprovalWithRefs): Promise<ApprovalItem> {
+    const steps = this.stepsOf(a);
+    const pending = a.status === 'PENDING';
+    return {
+      ...this.toItem(a),
+      steps: steps.map((s) => this.workflows.stepName(s)),
+      step: a.step,
+      ...(pending ? { waitingFor: this.workflows.stepName(steps[a.step] ?? steps[0]!) } : {}),
+      canDecide: pending && a.employeeId !== user.employeeId && (await this.workflows.canDecide(user, a.employeeId, steps[a.step])),
+    };
+  }
 
   private toItem(a: ApprovalWithRefs): ApprovalItem {
     return {
@@ -79,7 +99,15 @@ export class ApprovalsService {
   /** Employees whose requests the caller may see: HR/System = everyone (undefined), managers = their team. */
   async scopeIds(user: AuthUser): Promise<string[] | undefined> {
     if (isHrLike(user.role)) return undefined;
-    if (user.role === 'MANAGER') return this.employees.teamIds(requireEmployeeId(user));
+    if (user.role === 'MANAGER') {
+      // Their team, and the people in any department they head (for department-head workflow steps).
+      const me = requireEmployeeId(user);
+      const headed = await this.prisma.siteDepartment.findMany({ where: { headEmployeeId: me }, select: { siteId: true, departmentId: true } });
+      const inDepts = headed.length
+        ? (await this.prisma.employee.findMany({ where: { active: true, OR: headed.map((h) => ({ siteId: h.siteId, departmentId: h.departmentId })) }, select: { id: true } })).map((e) => e.id)
+        : [];
+      return [...new Set([...(await this.employees.teamIds(me)), ...inDepts])];
+    }
     throw new ForbiddenException('You do not have access to approvals');
   }
 
@@ -99,7 +127,7 @@ export class ApprovalsService {
         take: q.limit,
       }),
     ]);
-    return { total, items: rows.map((r) => this.toItem(r)) };
+    return { total, items: await Promise.all(rows.map((r) => this.withWorkflow(user, r))) };
   }
 
   async countPending(scope?: string[], siteId?: string): Promise<number> {
@@ -118,15 +146,34 @@ export class ApprovalsService {
   ): Promise<ApprovalItem> {
     const approval = await this.prisma.approvalRequest.findUnique({ where: { id }, include });
     if (!approval) throw new NotFoundException('Request not found');
-    const scope = await this.scopeIds(user);
-    if (scope && !scope.includes(approval.employeeId))
-      throw new ForbiddenException('This request is not from your team');
     if (approval.employeeId === user.employeeId)
       throw new ForbiddenException('You cannot decide on your own request');
     if (approval.status !== 'PENDING') {
       throw new ConflictException(
         `Already ${approval.status.toLowerCase()}${approval.decidedBy ? ` by ${approval.decidedBy.displayName}` : ''}`,
       );
+    }
+    // The approval workflow decides who may act on the step it's at; the Super Admin may act on any step.
+    const steps = this.stepsOf(approval);
+    if (!(await this.workflows.canDecide(user, approval.employeeId, steps[approval.step])))
+      throw new ForbiddenException(`This request is waiting for: ${this.workflows.stepName(steps[approval.step] ?? steps[0]!)}`);
+    // Approving a step that isn't the last moves it to the next step; it stays waiting.
+    if (decision === 'APPROVED' && approval.step + 1 < steps.length) {
+      await this.prisma.$transaction(async (tx) => {
+        const { count } = await tx.approvalRequest.updateMany({
+          where: { id, status: 'PENDING', step: approval.step },
+          data: {
+            step: approval.step + 1,
+            stepLog: [...((approval.stepLog as object[]) ?? []), { step: this.workflows.stepName(steps[approval.step]!), by: user.displayName, at: new Date().toISOString(), reason: reason ?? null }],
+          },
+        });
+        if (count === 0) throw new ConflictException('This request was just decided by someone else');
+        await this.audit.log(
+          { actorId: user.userId, action: 'APPROVAL_STEP_APPROVED', entity: 'ApprovalRequest', entityId: id, after: { type: approval.type, step: this.workflows.stepName(steps[approval.step]!), next: this.workflows.stepName(steps[approval.step + 1]!), employeeId: approval.employeeId } },
+          tx,
+        );
+      });
+      return this.withWorkflow(user, (await this.prisma.approvalRequest.findUnique({ where: { id }, include }))!);
     }
 
     const effect = await this.prisma.$transaction(async (tx) => {
@@ -185,7 +232,7 @@ export class ApprovalsService {
     ) {
       await this.attendance.recompute(effect.from, effect.to, [effect.employeeId]);
     }
-    return this.toItem((await this.prisma.approvalRequest.findUnique({ where: { id }, include }))!);
+    return this.withWorkflow(user, (await this.prisma.approvalRequest.findUnique({ where: { id }, include }))!);
   }
 
   /** Employee self-service: file a leave request (creates the leave request and its approval item). */
@@ -199,6 +246,8 @@ export class ApprovalsService {
           employeeId,
           detail: `${LEAVE_LABEL[body.leaveTypeCode] ?? typeName} · ${formatDateRange(body.startDate, body.endDate)} · ${days} day${days === 1 ? '' : 's'} · ${body.reason}`,
           leaveRequestId: request.id,
+          // Long-leave steps count only past their days.
+          steps: await this.workflows.stepsFor('LEAVE', days),
         },
       });
       await this.audit.log(
@@ -263,7 +312,7 @@ export class ApprovalsService {
     action: string,
     after: Record<string, unknown>,
   ) {
-    const created = await tx.approvalRequest.create({ data });
+    const created = await tx.approvalRequest.create({ data: { ...data, steps: await this.workflows.stepsFor(data.type) } });
     await this.audit.log(
       { actorId: user.userId, action, entity: 'ApprovalRequest', entityId: created.id, after },
       tx,

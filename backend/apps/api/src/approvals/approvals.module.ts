@@ -4,11 +4,13 @@ import { EmployeesModule } from '../employees/employees.module';
 import { LeaveModule } from '../leave/leave.module';
 import { ApprovalsController } from './approvals.controller';
 import { ApprovalsService } from './approvals.service';
+import { WorkflowsController } from './workflows.controller';
+import { WorkflowsService } from './workflows.service';
 
 @Module({
   imports: [EmployeesModule, LeaveModule, AttendanceModule],
-  controllers: [ApprovalsController],
-  providers: [ApprovalsService],
-  exports: [ApprovalsService],
+  controllers: [ApprovalsController, WorkflowsController],
+  providers: [ApprovalsService, WorkflowsService],
+  exports: [ApprovalsService, WorkflowsService],
 })
 export class ApprovalsModule {}

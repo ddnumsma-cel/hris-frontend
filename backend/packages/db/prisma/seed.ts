@@ -454,6 +454,15 @@ async function main() {
         employeeId: byKey.get('carlo')!.id,
       },
     }),
+    // The partners' role: everything, and may decide any approval step (no employee record).
+    partner: await prisma.user.create({
+      data: {
+        email: 'partner@msma.test',
+        passwordHash,
+        role: 'SYSTEM_ADMIN',
+        displayName: 'Partner (Super Admin)',
+      },
+    }),
     employee: await prisma.user.create({
       data: {
         email: 'employee@msma.test',

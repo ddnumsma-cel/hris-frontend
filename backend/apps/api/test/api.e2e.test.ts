@@ -36,7 +36,7 @@ beforeAll(async () => {
   await app
     .get(AttendanceService)
     .recompute(manilaDateKey(first!.punchedAt), manilaDateKey(new Date()));
-  for (const who of ['hr', 'manager', 'employee', 'payroll']) {
+  for (const who of ['hr', 'manager', 'employee', 'payroll', 'partner']) {
     const res = await http()
       .post('/auth/login')
       .send({ email: `${who}@msma.test`, password: PASSWORD })
@@ -148,17 +148,25 @@ describe('approvals', () => {
     await http().post(`/approvals/${outside.id}/approve`).set(auth('manager')).send({}).expect(403);
   });
 
-  it('approves a DTR fix, recomputes the DTR, audits it, and refuses a second decision', async () => {
+  it('HR may only look: the workflow sends requests to the supervisor (or the Super Admin)', async () => {
     const fix = (await pending('hr')).items.find(
+      (i) => i.type === 'DTR_FIX' && i.employee.fullName === 'Mark Dela Cruz',
+    )!;
+    expect(fix).toMatchObject({ waitingFor: 'Manager or supervisor', canDecide: false });
+    await http().post(`/approvals/${fix.id}/approve`).set(auth('hr')).send({}).expect(403);
+  });
+
+  it('approves a DTR fix, recomputes the DTR, audits it, and refuses a second decision', async () => {
+    const fix = (await pending('partner')).items.find(
       (i) => i.type === 'DTR_FIX' && i.employee.fullName === 'Mark Dela Cruz',
     )!;
     const auditBefore = await prisma.auditLog.count();
     const res = await http()
       .post(`/approvals/${fix.id}/approve`)
-      .set(auth('hr'))
+      .set(auth('partner'))
       .send({})
       .expect(200);
-    expect(res.body).toMatchObject({ status: 'APPROVED', decidedBy: 'Princess Alcantara' });
+    expect(res.body).toMatchObject({ status: 'APPROVED', decidedBy: 'Partner (Super Admin)' });
     expect(await prisma.auditLog.count()).toBe(auditBefore + 1);
     const audit = await prisma.auditLog.findFirst({ where: { entityId: fix.id } });
     expect(audit).toMatchObject({ action: 'APPROVAL_APPROVED', entity: 'ApprovalRequest' });
@@ -174,7 +182,7 @@ describe('approvals', () => {
 
     const again = await http()
       .post(`/approvals/${fix.id}/approve`)
-      .set(auth('hr'))
+      .set(auth('partner'))
       .send({})
       .expect(409);
     expect(again.body.message).toContain('Already approved');
@@ -218,8 +226,9 @@ describe('filing overtime, undertime and time adjustments', () => {
     return rows.filter((r) => r.status === 'PRESENT' && r.date < manilaToday() && r.timeOut)[skip]
       .date;
   };
+  // Jose's supervisor is Carlo (the Approver), so his requests are Carlo's to decide.
   const approveAsHr = async (id: string) =>
-    http().post(`/approvals/${id}/approve`).set(auth('hr')).send({}).expect(200);
+    http().post(`/approvals/${id}/approve`).set(auth('manager')).send({}).expect(200);
 
   it('files overtime, audits it, and refuses duplicates, bad lengths and old dates', async () => {
     const date = addDays(manilaToday(), -1);

@@ -567,6 +567,11 @@ export const ApprovalItemSchema = z.object({
     employeeNo: z.string(),
     siteName: z.string(),
   }),
+  /** The approval workflow: its steps, which one it's at, who it's waiting for, and whether you may decide it. */
+  steps: z.array(z.string()).optional(),
+  step: z.number().int().optional(),
+  waitingFor: z.string().optional(),
+  canDecide: z.boolean().optional(),
 });
 export type ApprovalItem = z.infer<typeof ApprovalItemSchema>;
 
@@ -1160,3 +1165,20 @@ export const ChangePasswordSchema = z.object({
   newPassword: z.string().min(8, 'Use at least 8 characters.').max(200),
 });
 export type ChangePassword = z.infer<typeof ChangePasswordSchema>;
+
+// ---------- Approval workflows (Maintenance > Rules on the website) ----------
+export const WorkflowStepSchema = z.object({
+  approver: z.enum(['supervisor', 'department-head', 'role']),
+  /** For approver = role: the website's role id, e.g. hr. */
+  roleId: z.string().max(40).optional(),
+  /** Only for requests longer than this many days. */
+  overDays: z.number().int().min(1, "The 'only when longer than' days must be 1 or more").max(366).optional(),
+});
+export type WorkflowStep = z.infer<typeof WorkflowStepSchema>;
+export const WorkflowSchema = z.object({
+  kind: z.enum(['leave', 'overtime', 'undertime', 'correction', 'profile']),
+  steps: z.array(WorkflowStepSchema).max(10),
+  remindAfterDays: z.number().int().min(0, 'Reminder days must be 0 or more').max(60),
+  active: z.boolean(),
+});
+export type Workflow = z.infer<typeof WorkflowSchema>;

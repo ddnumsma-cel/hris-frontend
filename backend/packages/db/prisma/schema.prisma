@@ -653,6 +653,12 @@ model ApprovalRequest {
   dtrCorrection      DtrCorrection?    @relation(fields: [dtrCorrectionId], references: [id])
   undertimeRequestId String?           @unique
   undertimeRequest   UndertimeRequest? @relation(fields: [undertimeRequestId], references: [id])
+  /// The approval workflow steps that applied when it was filed (Maintenance > Rules)
+  steps              Json              @default("[]")
+  /// Which of those steps it's waiting on (0 = the first)
+  step               Int               @default(0)
+  /// Who approved the earlier steps, and when
+  stepLog            Json              @default("[]")
   createdAt          DateTime          @default(now()) @db.Timestamptz(3)
 
   @@index([status, createdAt])
