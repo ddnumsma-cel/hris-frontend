@@ -1,0 +1,3 @@
+# The helper's certificate and private key are made on each PC and never committed.
+*.pem
+logs/
