@@ -561,6 +561,16 @@ export class EmployeesService {
     return this.prisma.employee.count({ where: { active: true, ...(siteId ? { siteId } : {}) } });
   }
 
+  /** Active employees' device IDs (biometric PINs) and names, for keeping the terminals' user lists in step. */
+  async devicePins(): Promise<{ id: string; pin: string; name: string }[]> {
+    const rows = await this.prisma.employee.findMany({
+      where: { active: true },
+      select: { id: true, biometricPin: true, firstName: true, lastName: true },
+      orderBy: { biometricPin: 'asc' },
+    });
+    return rows.map((r) => ({ id: r.id, pin: r.biometricPin, name: fullName(r) }));
+  }
+
   /** Map biometric PINs to employee ids (unknown PINs are omitted). */
   async resolvePins(pins: string[]): Promise<Map<string, string>> {
     const rows = await this.prisma.employee.findMany({

@@ -425,6 +425,42 @@ model User {
 
 // ---------- Attendance ----------
 
+enum DeviceCommandStatus {
+  /// Waiting for the terminal's next check-in
+  PENDING
+  /// Handed to the terminal; waiting for its reply
+  SENT
+  DONE
+  FAILED
+}
+
+/// A command for a biometric terminal (ZKTeco ADMS "C:<id>:<command>"), sent on its next check-in.
+model DeviceCommand {
+  id           Int                 @id @default(autoincrement())
+  deviceSerial String
+  command      String
+  status       DeviceCommandStatus @default(PENDING)
+  /// The terminal's Return code (0 = done) or why it failed
+  result       String?
+  /// Who asked for it (null = the HRIS itself, e.g. after adding an employee)
+  requestedBy  String?
+  createdAt    DateTime            @default(now()) @db.Timestamptz(3)
+  sentAt       DateTime?           @db.Timestamptz(3)
+  doneAt       DateTime?           @db.Timestamptz(3)
+
+  @@index([deviceSerial, status])
+}
+
+/// Users enrolled on a terminal, as it last reported them.
+model DeviceUser {
+  deviceSerial String
+  pin          String
+  name         String?
+  seenAt       DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([deviceSerial, pin])
+}
+
 model Device {
   id         String    @id @default(cuid())
   serial     String    @unique

@@ -52,12 +52,51 @@ export class IclockController {
   @Header('Content-Type', 'text/plain')
   @ApiOperation({
     operationId: 'iclockHeartbeat',
-    summary: 'Terminal heartbeat / command poll (no commands in the sample)',
+    summary: 'Terminal heartbeat / command poll: replies with waiting commands ("C:<id>:<command>" lines) or "OK"',
   })
   @ApiZodQuery(IclockQuerySchema)
   @ApiProduces('text/plain')
   async heartbeat(@Query(new ZodPipe(IclockQuerySchema)) q: IclockQuery, @Ip() ip: string) {
     await this.devices.touch(q.SN, ip);
+    return this.devices.commandsFor(q.SN);
+  }
+
+  @Post('devicecmd')
+  @HttpCode(200)
+  @Header('Content-Type', 'text/plain')
+  @ApiOperation({
+    operationId: 'iclockCommandReply',
+    summary: 'Terminal reports command results ("ID=<id>&Return=<code>&CMD=..." lines; 0 = done)',
+  })
+  @ApiZodQuery(IclockQuerySchema)
+  @ApiConsumes('text/plain')
+  @ApiProduces('text/plain')
+  async commandReply(
+    @Query(new ZodPipe(IclockQuerySchema)) q: IclockQuery,
+    @Body() body: unknown,
+    @Ip() ip: string,
+  ) {
+    await this.devices.commandReplies(q.SN, typeof body === 'string' ? body : '', ip);
+    return 'OK';
+  }
+
+  @Post('querydata')
+  @HttpCode(200)
+  @Header('Content-Type', 'text/plain')
+  @ApiOperation({
+    operationId: 'iclockQueryData',
+    summary: 'Terminal answers a data query (newer firmware sends its user list here)',
+  })
+  @ApiZodQuery(IclockQuerySchema)
+  @ApiConsumes('text/plain')
+  @ApiProduces('text/plain')
+  async queryData(
+    @Query(new ZodPipe(IclockQuerySchema)) q: IclockQuery,
+    @Body() body: unknown,
+    @Ip() ip: string,
+  ) {
+    await this.devices.touch(q.SN, ip);
+    await this.devices.recordUsers(q.SN, typeof body === 'string' ? body : '');
     return 'OK';
   }
 }

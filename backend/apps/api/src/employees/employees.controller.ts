@@ -30,6 +30,7 @@ import {
   UpdatePersonalInfoSchema,
 } from '@msma/shared';
 import { AttendanceService } from '../attendance/attendance.service';
+import { DevicesService } from '../devices/devices.service';
 import { AuthUser, canSeePay, CurrentUser, isHrLike, Roles } from '../common/auth.decorators';
 import { ApiZodBody, ApiZodQuery, ApiZodResponse, ZodPipe } from '../common/zod';
 import { DocumentsService } from '../documents/documents.service';
@@ -48,6 +49,7 @@ export class EmployeesController {
     private readonly attendance: AttendanceService,
     private readonly leave: LeaveService,
     private readonly documents: DocumentsService,
+    private readonly devices: DevicesService,
   ) {}
 
   /** Managers only see their direct reports. */
@@ -107,11 +109,14 @@ export class EmployeesController {
   @ApiZodBody(CreateEmployeeSchema)
   @ApiZodResponse(CreatedEmployeeSchema, 201)
   @ApiResponse({ status: 409, description: 'The work email or mobile number is already on another record' })
-  create(
+  async create(
     @CurrentUser() user: AuthUser,
     @Body(new ZodPipe(CreateEmployeeSchema)) body: CreateEmployee,
   ) {
-    return this.employees.create(body, user.userId);
+    const created = await this.employees.create(body, user.userId);
+    // Put them on the attendance terminals now; they register a face or finger there.
+    await this.devices.addEmployeeToTerminals(created.id);
+    return created;
   }
 
   @Get(':id')

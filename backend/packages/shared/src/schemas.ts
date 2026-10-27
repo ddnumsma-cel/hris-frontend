@@ -532,6 +532,36 @@ export const DeviceStatusSchema = z.object({
 });
 export type DeviceStatus = z.infer<typeof DeviceStatusSchema>;
 
+/** What syncing a terminal's user list with the HRIS would do. */
+export const DeviceSyncPlanSchema = z.object({
+  serial: z.string(),
+  /** When the terminal last sent its user list (null = never asked yet). */
+  usersReportedAt: InstantSchema.nullable(),
+  onDevice: z.number().int().describe('Users the terminal reported'),
+  toAdd: z.array(z.object({ pin: z.string(), name: z.string() })).describe('Active employees not on the terminal'),
+  toDelete: z
+    .array(z.object({ pin: z.string(), name: z.string().nullable() }))
+    .describe('Users on the terminal who are not active employees'),
+  pendingCommands: z.number().int(),
+});
+export type DeviceSyncPlan = z.infer<typeof DeviceSyncPlanSchema>;
+
+export const DeviceSyncRequestSchema = z.object({
+  /** Delete the terminal's users who aren't active employees (shown in the plan first). */
+  deleteExtras: z.boolean(),
+});
+export type DeviceSyncRequest = z.infer<typeof DeviceSyncRequestSchema>;
+
+export const DeviceCommandSchema = z.object({
+  id: z.number().int(),
+  command: z.string(),
+  status: z.enum(['PENDING', 'SENT', 'DONE', 'FAILED']),
+  result: z.string().nullable(),
+  createdAt: InstantSchema,
+  doneAt: InstantSchema.nullable(),
+});
+export type DeviceCommand = z.infer<typeof DeviceCommandSchema>;
+
 /** Query string sent by ZKTeco ADMS terminals (/iclock/*). */
 export const IclockQuerySchema = z.object({
   SN: z.string().trim().min(1).max(64).describe('Terminal serial number'),
