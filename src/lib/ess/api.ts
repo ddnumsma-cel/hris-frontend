@@ -8,7 +8,7 @@ import { balanceFor, creditsFor, leave, refreshLeave, type Credits } from "../le
 import { currentEmployee } from "../mockData";
 import { sessionWho } from "../session";
 import { fileClaim, listMyClaims, type ClaimInput } from "../reimbursements/api";
-import { approvedLinesFor } from "../pay/runs";
+import { approvedLinesFor, approvedRuns, loadRunsFromServer } from "../pay/runs";
 import { api, serverMode } from "../http";
 import type { PayLine, Period } from "../reports/api";
 import { addDays } from "../timekeeping/compute";
@@ -110,6 +110,22 @@ export async function myPayslips(): Promise<MyPayslip[]> {
     // The server doesn't send the payslip items yet; an empty list until it does.
     const rows = await api<{ run: Period; line: PayLine; items?: MyPayslip["items"]; preparedBy?: string; approvedBy?: string }[]>("GET", "/payroll/my-payslips");
     return rows.map(({ run, line, items, preparedBy, approvedBy }) => ({ period: run, line, released: true, items: items ?? [], preparedBy, approvedBy }));
+  }
+  if (backendOn()) {
+    // The backend sends only approved runs, each with just the signed-in employee's own line.
+    await loadRunsFromServer();
+    return approvedRuns()
+      .reverse()
+      .flatMap((run) =>
+        run.lines.slice(0, 1).map((line) => ({
+          period: { id: run.id, label: run.label, from: run.from, to: run.to },
+          line,
+          released: true,
+          items: [...(run.auto?.[line.person.id] ?? []), ...(run.adjustments[line.person.id] ?? [])].map((a) => ({ label: a.label, amount: a.amount, taxable: a.taxable, reason: a.reason })),
+          preparedBy: run.createdBy,
+          approvedBy: run.approvedBy,
+        })),
+      );
   }
   const id = myId();
   return respond(

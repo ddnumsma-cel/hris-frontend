@@ -14,6 +14,8 @@ import { allLoans, loanAdjustmentId, refreshLoans, serverLoanPaid } from "./loan
 import { cutoffOf, recentCutoffs, refreshPaySettings } from "./settings";
 import { deny, forbidden, sessionWho } from "../session";
 import { notifyEmployee } from "../outbox";
+import { backendOn } from "../backend/client";
+import { backendApproveRun, backendCreateRun, backendDeleteRun, backendGetRun, backendListRuns, backendReviewRun, backendUpdateRun } from "../backend/payroll";
 import { tellAssigned, tellEmployees } from "../requestNotices";
 
 export interface PayrollRun {
@@ -57,18 +59,18 @@ let runs: PayrollRun[] = load();
 
 /** Re-read what is saved, so a run approved in another tab or by another account here is seen right away. */
 const sync = () => {
-  if (!serverMode) runs = load();
+  if (!serverMode && !backendOn()) runs = load();
 };
 
-// With the API server, pay is still computed here (from the attendance, leave and salary
+// With the API server or the backend, pay is still computed here (from the attendance, leave and salary
 // already loaded) and the server stores each run, checks its lines and locks it on approval.
 async function refreshRuns() {
-  runs = await api<PayrollRun[]>("GET", "/payroll/runs");
+  runs = backendOn() ? await backendListRuns() : await api<PayrollRun[]>("GET", "/payroll/runs");
 }
 
-/** With the API server: loads the runs (for final pay and year-end figures, which read approvedRuns). */
+/** With the API server or the backend: loads the runs (for payslips, final pay and year-end figures, which read approvedRuns). */
 export async function loadRunsFromServer() {
-  if (serverMode) await refreshRuns();
+  if (serverMode || backendOn()) await refreshRuns();
 }
 /** The computed pay the server stores: the lines, and the loan installments and reimbursements they include. */
 const computed = (c: { lines: PayLine[]; auto: Record<string, Adjustment[]> }) => ({ lines: c.lines, auto: c.auto });
@@ -134,13 +136,14 @@ async function compute(run: Pick<PayrollRun, "label" | "from" | "to" | "adjustme
 export async function listRuns() {
   // Whole runs are for those who work on payroll (Accounting, Super Admin); employees get their payslips.
   if (scopeFor(sessionWho(), "view", "payrollRuns") !== "all") return forbidden();
-  if (serverMode) await refreshRuns();
+  if (serverMode || backendOn()) await refreshRuns();
   sync();
   return respond([...runs].sort((a, b) => b.from.localeCompare(a.from)));
 }
 
 export async function getRun(id: string) {
   if (scopeFor(sessionWho(), "view", "payrollRuns") !== "all") return forbidden();
+  if (backendOn()) return backendGetRun(id);
   if (serverMode) return api<PayrollRun>("GET", `/payroll/runs/${encodeURIComponent(id)}`);
   const r = find(id);
   return r ? respond(r) : fail("That payroll run no longer exists");
@@ -153,6 +156,7 @@ export async function openCutoffs(): Promise<Period[]> {
   const denied = deny("payrollRuns", "create");
   if (denied) return denied;
   if (serverMode) await Promise.all([refreshRuns(), refreshPaySettings(2000)]);
+  if (backendOn()) await refreshRuns();
   sync();
   // A cut-off that shares days with an existing run (e.g. one made before the paydays changed) is left out, so no day is paid twice.
   return respond(cutoffChoices().filter((p) => !runs.some((r) => overlaps(r, p))));
@@ -184,9 +188,10 @@ export function runWarnings(run: Pick<PayrollRun, "from" | "to">) {
 export async function createRun(period: Period, actor: string): Promise<PayrollRun> {
   const denied = deny("payrollRuns", "create");
   if (denied) return denied;
-  if (serverMode) {
+  if (serverMode || backendOn()) {
     const draft = { label: period.label, from: period.from, to: period.to, adjustments: {} };
-    return api<PayrollRun>("POST", "/payroll/runs", { ...draft, ...computed(await compute(draft)) });
+    const body = { ...draft, ...computed(await compute(draft)) };
+    return backendOn() ? backendCreateRun(body) : api<PayrollRun>("POST", "/payroll/runs", body);
   }
   sync();
   if (runs.some((r) => r.from === period.from && r.to === period.to)) return fail("There's already a payroll run for this cutoff");
@@ -204,6 +209,11 @@ export async function createRun(period: Period, actor: string): Promise<PayrollR
 export async function refreshRun(id: string): Promise<PayrollRun> {
   const denied = deny("payrollRuns", "edit");
   if (denied) return denied;
+  if (backendOn()) {
+    const r = await getRun(id);
+    if (r.status !== "draft") return fail("This run is approved and locked");
+    return backendUpdateRun(r.id, { adjustments: r.adjustments, ...computed(await compute(r)) });
+  }
   if (serverMode) {
     const r = await getRun(id);
     if (r.status !== "draft") return fail("This run is approved and locked");
@@ -227,7 +237,8 @@ export async function addAdjustment(id: string, employeeId: string, input: Omit<
     const adjustments = { ...r.adjustments, [employeeId]: [...(r.adjustments[employeeId] ?? []), adj] };
     return api<PayrollRun>("POST", `/payroll/runs/${r.id}/adjustments`, { employeeId, ...input, ...computed(await compute({ ...r, adjustments })) });
   }
-  const r = find(id);
+  // The backend keeps the whole draft: same checks as here, then the run worked out again with the adjustment.
+  const r = backendOn() ? await getRun(id) : find(id);
   if (!r) return fail("That payroll run no longer exists");
   if (r.status !== "draft") return fail("This run is approved and locked. Add the correction to the next run.");
   if (!input.label.trim()) return fail("Name the adjustment, for example \"Rice allowance\" or \"Salary loan\"");
@@ -235,6 +246,7 @@ export async function addAdjustment(id: string, employeeId: string, input: Omit<
   if (!input.reason.trim()) return fail("Give the reason");
   const adj: Adjustment = { id: newId("adj"), label: input.label.trim(), amount: Math.round(input.amount * 100) / 100, taxable: input.taxable, reason: input.reason.trim() };
   const adjustments = { ...r.adjustments, [employeeId]: [...(r.adjustments[employeeId] ?? []), adj] };
+  if (backendOn()) return backendUpdateRun(r.id, { adjustments, ...computed(await compute({ ...r, adjustments })) });
   const next = { ...r, adjustments, ...(await compute({ ...r, adjustments })), computedAt: new Date().toISOString() };
   replace(next);
   const name = next.lines.find((l) => l.person.id === employeeId)?.person.name ?? employeeId;
@@ -251,10 +263,11 @@ export async function removeAdjustment(id: string, employeeId: string, adjustmen
     const adjustments = { ...r.adjustments, [employeeId]: (r.adjustments[employeeId] ?? []).filter((a) => a.id !== adjustmentId) };
     return api<PayrollRun>("POST", `/payroll/runs/${r.id}/adjustments/${encodeURIComponent(adjustmentId)}/remove`, computed(await compute({ ...r, adjustments })));
   }
-  const r = find(id);
+  const r = backendOn() ? await getRun(id) : find(id);
   if (!r) return fail("That payroll run no longer exists");
   if (r.status !== "draft") return fail("This run is approved and locked");
   const adjustments = { ...r.adjustments, [employeeId]: (r.adjustments[employeeId] ?? []).filter((a) => a.id !== adjustmentId) };
+  if (backendOn()) return backendUpdateRun(r.id, { adjustments, ...computed(await compute({ ...r, adjustments })) });
   const next = { ...r, adjustments, ...(await compute({ ...r, adjustments })), computedAt: new Date().toISOString() };
   replace(next);
   return respond(next);
@@ -274,14 +287,17 @@ export async function approveRun(id: string, actor: string): Promise<PayrollRun>
     await refreshClaims();
     return approved;
   }
-  const r = find(id);
+  const r = backendOn() ? await getRun(id) : find(id);
   if (!r) return fail("That payroll run no longer exists");
   if (r.status !== "draft") return fail("This run is already approved");
   // Approve exactly what is computed now, not a stale preview.
   const { lines, auto } = await compute(r);
   const now = new Date().toISOString();
-  const next: PayrollRun = { ...r, lines, auto, computedAt: now, status: "approved", approvedBy: actor, approvedAt: now };
-  replace(next);
+  // The backend locks it and writes everyone's payslip; the notices below go out the same way.
+  const next: PayrollRun = backendOn()
+    ? await backendApproveRun(r.id, { lines, auto })
+    : { ...r, lines, auto, computedAt: now, status: "approved", approvedBy: actor, approvedAt: now };
+  if (!backendOn()) replace(next);
   // Reimbursements in this run are now paid, with this payroll.
   const paid = new Set(Object.values(auto).flat().filter((a) => a.id.startsWith("claim-")).map((a) => a.id.slice("claim-".length)));
   for (const l of lines) notifyEmployee(l.person.id, "payslip", `Your payslip for ${r.label} is ready`, `Your payslip for ${r.label} is released. Take-home pay: ₱${l.net.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. See it on heyhr under Payslips.`, `heyhr: your payslip for ${r.label} is ready.`);
@@ -297,6 +313,7 @@ export async function approveRun(id: string, actor: string): Promise<PayrollRun>
 export async function reviewRun(id: string, actor: string): Promise<PayrollRun> {
   const who = sessionWho();
   if (!can(who, "final", "payrollRuns") && !can(who, "edit", "payrollRuns")) return forbidden();
+  if (backendOn()) return backendReviewRun(id);
   if (serverMode) return api<PayrollRun>("POST", `/payroll/runs/${encodeURIComponent(id)}/review`);
   const r = find(id);
   if (!r) return fail("That payroll run no longer exists");
@@ -311,6 +328,7 @@ export async function reviewRun(id: string, actor: string): Promise<PayrollRun> 
 export async function deleteRun(id: string, actor: string): Promise<void> {
   const denied = deny("payrollRuns", "delete");
   if (denied) return denied;
+  if (backendOn()) return backendDeleteRun(id);
   if (serverMode) return void (await api("DELETE", `/payroll/runs/${encodeURIComponent(id)}`));
   const r = find(id);
   if (!r) return fail("That payroll run no longer exists");

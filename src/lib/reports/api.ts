@@ -11,6 +11,8 @@ import { pagibig, philhealth, round2, sss, THIRTEENTH_MONTH_EXEMPT } from "./sta
 import { deny } from "../session";
 import { cutoffsInMonth, payProfileOf, recentCutoffs, refreshPaySettings } from "../pay/settings";
 import { applyRegister, registerRow } from "../pay/register";
+import { backendOn } from "../backend/client";
+import { backendPayrollPeople } from "../backend/payroll";
 
 // ---- Periods ----
 
@@ -194,7 +196,9 @@ export async function payroll(period: Period, office: string, adjustmentsFor?: (
   const end = period.to > todayIso() ? todayIso() : period.to;
   const history = new Map<string, DayRow[]>();
   for (const d of end < period.from ? [] : await listDays(addDays(period.from, -14), end)) history.set(d.person.id, [...(history.get(d.person.id) ?? []), d]);
-  return everyone(office)
+  // On the backend: its employees and salaries, matching the attendance listDays read from it.
+  const people = backendOn() ? (await backendPayrollPeople()).filter((p) => office === "All offices" || p.branch === office) : everyone(office);
+  return people
     .filter((p) => employedIn(p, period.from, period.to) && p.salary > 0)
     .map((p) => {
       const a = att.get(p.id);

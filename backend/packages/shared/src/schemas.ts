@@ -656,6 +656,90 @@ export const PayslipViewSchema = z.object({
 });
 export type PayslipView = z.infer<typeof PayslipViewSchema>;
 
+// Payroll runs made on the website: it works the pay out with MSMA's workbook rules (its lib/pay/engine.ts) and the
+// backend keeps each run, locks it on approval and writes the payslips. Employees are keyed by employee number.
+const amount = z.number().finite();
+export const PayRunAdjustmentSchema = z.object({
+  id: z.string().min(1).max(60),
+  label: z.string().trim().min(1).max(80),
+  amount,
+  taxable: z.boolean(),
+  reason: z.string().trim().max(300),
+});
+export const PayRunAdjustmentsSchema = z.record(z.string(), z.array(PayRunAdjustmentSchema));
+export const PayRunLineSchema = z.looseObject({
+  person: z.looseObject({ id: z.string().min(1), name: z.string() }),
+  pay: z.looseObject({}),
+  time: z.looseObject({ present: z.number() }),
+  basic: amount,
+  deductions: amount,
+  overtime: amount,
+  premiums: amount,
+  gross: amount,
+  sssEe: amount,
+  phEe: amount,
+  piEe: amount,
+  tax: amount,
+  net: amount,
+});
+export type PayRunLine = z.infer<typeof PayRunLineSchema>;
+const runPay = {
+  lines: z.array(PayRunLineSchema).max(5000),
+  auto: z.record(z.string(), z.array(z.looseObject({ id: z.string(), amount }))),
+};
+export const CreatePayRunSchema = z.object({
+  label: z.string().trim().min(1).max(80),
+  from: DateKeySchema,
+  to: DateKeySchema,
+  adjustments: PayRunAdjustmentsSchema,
+  ...runPay,
+});
+export type CreatePayRun = z.infer<typeof CreatePayRunSchema>;
+/** A draft worked out again: from the latest attendance, or with an adjustment added or removed. */
+export const UpdatePayRunSchema = z.object({ adjustments: PayRunAdjustmentsSchema, ...runPay });
+export type UpdatePayRun = z.infer<typeof UpdatePayRunSchema>;
+/** Approve exactly what the screen shows now. */
+export const ApprovePayRunSchema = z.object(runPay);
+export type ApprovePayRun = z.infer<typeof ApprovePayRunSchema>;
+export const PayRunSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  from: DateKeySchema,
+  to: DateKeySchema,
+  status: z.enum(['draft', 'approved']),
+  lines: z.array(z.looseObject({})),
+  adjustments: PayRunAdjustmentsSchema,
+  auto: z.record(z.string(), z.array(z.looseObject({}))),
+  createdBy: z.string(),
+  createdAt: InstantSchema,
+  computedAt: InstantSchema,
+  reviewedBy: z.string().optional(),
+  reviewedAt: InstantSchema.optional(),
+  approvedBy: z.string().optional(),
+  approvedAt: InstantSchema.optional(),
+});
+export type PayRun = z.infer<typeof PayRunSchema>;
+
+/** Who is on payroll, with what the website's pay engine and payroll exports need. */
+export const PayrollPersonSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  position: z.string(),
+  department: z.string(),
+  branch: z.string(),
+  type: z.string(),
+  status: z.string(),
+  hired: DateKeySchema,
+  separated: DateKeySchema.optional(),
+  salary: z.number(),
+  sex: z.string(),
+  sssNo: z.string(),
+  philhealthNo: z.string(),
+  pagibigNo: z.string(),
+  tin: z.string(),
+});
+export type PayrollPerson = z.infer<typeof PayrollPersonSchema>;
+
 // ---------- Dashboard ----------
 export const DashboardQuerySchema = z.object({
   siteId: z.string().optional(),

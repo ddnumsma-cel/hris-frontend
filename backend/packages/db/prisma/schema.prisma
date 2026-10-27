@@ -641,6 +641,17 @@ model PayrollRun {
   totalDeductions Decimal          @default(0) @db.Decimal(14, 2)
   totalNet        Decimal          @default(0) @db.Decimal(14, 2)
   createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+  /// The website works the run out (lib/pay/engine.ts) and the backend keeps it: name, lines and adjustments as sent
+  label           String           @default("")
+  lines           Json             @default("[]")
+  adjustments     Json             @default("{}")
+  auto            Json             @default("{}")
+  createdBy       String           @default("")
+  computedAt      DateTime         @default(now()) @db.Timestamptz(3)
+  reviewedBy      String?
+  reviewedAt      DateTime?        @db.Timestamptz(3)
+  approvedBy      String?
+  approvedAt      DateTime?        @db.Timestamptz(3)
   payslips        Payslip[]
 
   @@unique([cutoffFrom, cutoffTo])
