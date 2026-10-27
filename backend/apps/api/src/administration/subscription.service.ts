@@ -71,7 +71,7 @@ export class SubscriptionService {
     const today = new Date(`${manilaToday()}T00:00:00Z`);
     const [seats, admins] = await Promise.all([
       this.prisma.employee.count({ where: { active: true, OR: [{ separationDate: null }, { separationDate: { gte: today } }] } }),
-      this.prisma.user.count({ where: { role: { in: ['HR_ADMIN', 'MANAGER', 'PAYROLL_ADMIN'] } } }),
+      this.prisma.user.count({ where: { role: { in: ['HR_ADMIN', 'MANAGER', 'PAYROLL_ADMIN'] }, status: 'active' } }),
     ]);
     return { seats, admins };
   }
@@ -127,6 +127,20 @@ export class SubscriptionService {
     throw new SeatLimitException(
       `All ${u.seatLimit} employee seats are used${u.seatCap > u.seatLimit ? ` (including the ${u.seatCap - u.seatLimit}-seat grace)` : ''}. Ask your Super Admin to request more seats.`,
       'SEAT_LIMIT_REACHED',
+    );
+  }
+
+  /**
+   * Before giving one more HR, Approver or Accounting login (new, promoted or turned back on): refused
+   * (409 ADMIN_LIMIT_REACHED, logged) past the plan's admin accounts plus grace.
+   */
+  async assertAdminAccount() {
+    const u = await this.usage();
+    if (u.adminsUsed + 1 <= u.adminCap) return;
+    await this.log('blocked', "Admin account refused: the plan's admin accounts are used up");
+    throw new SeatLimitException(
+      `All ${u.adminLimit} admin accounts (HR, Approver, Accounting) on your plan are used. Ask your Super Admin to request more.`,
+      'ADMIN_LIMIT_REACHED',
     );
   }
 

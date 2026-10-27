@@ -31,6 +31,7 @@ export class LocalAuthService extends AuthService {
     const user = await this.prisma.user.findUnique({ where: { email } });
     const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
     if (!user || !ok) throw new UnauthorizedException('Incorrect email or password');
+    if (user.status !== 'active') throw new UnauthorizedException('This account is turned off. Ask your administrator to turn it back on.');
     await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     const payload: JwtPayload = {
       sub: user.id,
@@ -57,9 +58,10 @@ export class LocalAuthService extends AuthService {
     // Re-read the account so removed users lose access and role changes apply immediately.
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, email: true, role: true, employeeId: true, displayName: true },
+      select: { id: true, email: true, role: true, employeeId: true, displayName: true, status: true },
     });
-    if (!user) throw new UnauthorizedException('Session expired. Please sign in again.');
+    // A turned-off account loses access at its next request, not when its token runs out.
+    if (!user || user.status !== 'active') throw new UnauthorizedException('Session expired. Please sign in again.');
     return {
       userId: user.id,
       email: user.email,
@@ -84,6 +86,7 @@ export class LocalAuthService extends AuthService {
       employeeNo: user.employee?.employeeNo ?? null,
       site: user.employee ? { id: user.employee.site.id, name: user.employee.site.name } : null,
       preferences: { theme: user.theme, textSize: user.textSize, tableDensity: user.tableDensity },
+      mustChangePassword: user.mustChangePassword,
     };
   }
 

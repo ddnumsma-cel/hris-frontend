@@ -47,6 +47,13 @@ export class LoginThrottle {
     e.count += 1;
   }
 
+  /** When the email stops being locked out, or null when it isn't (for the Users page). */
+  lockedUntil(email: string, now = Date.now()): Date | null {
+    const e = this.attempts.get(email);
+    if (!e || e.count < MAX_ATTEMPTS || now - e.firstAt > WINDOW_MS) return null;
+    return new Date(e.firstAt + WINDOW_MS);
+  }
+
   /** Call after a successful sign-in. */
   succeeded(email: string) {
     this.attempts.delete(email);

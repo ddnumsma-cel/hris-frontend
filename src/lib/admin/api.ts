@@ -5,6 +5,7 @@ import { leave } from "../leave/store";
 import { tk } from "../timekeeping/store";
 import { api, serverMode } from "../http";
 import { api as backendApi, backendOn } from "../backend/client";
+import { remoteApi, remoteOn } from "../remote";
 import { admin, logAdmin, saveAdmin, type Access, type RequestKind, type Settings, type SystemRole, type UserAccount, type Workflow } from "./store";
 import { LIMITS, type RoleKey } from "../permissions";
 import { deny, employeeOfAccount, forbidden, sessionWho } from "../session";
@@ -36,7 +37,21 @@ export { ACCESS_LABEL };
 // What comes back is also kept in the browser's Administration store, which the
 // rest of the app reads synchronously (access checks, idle time, account names).
 
+/** On the backend: the accounts as it sent them (with names), and the employees still without a login. */
+let backendRows: AccountRow[] = [];
+let backendUnlinked: { id: string; name: string; email: string }[] = [];
+
 async function syncAccounts() {
+  if (backendOn()) {
+    [backendRows, backendUnlinked] = await Promise.all([
+      backendApi<AccountRow[]>("/admin/accounts"),
+      backendApi<{ id: string; name: string; email: string }[]>("/admin/accounts/people"),
+    ]);
+    // The rest of the app reads accounts synchronously; the signed-in one stays as sign-in made it.
+    const mine = admin.accounts.filter((a) => a.id.startsWith("be-") && !backendRows.some((r) => r.id === a.id));
+    saveAdmin({ ...admin, accounts: [...mine, ...backendRows.map(({ roleName: _r, employeeName: _e, locked: _l, ...a }) => a)] });
+    return backendRows;
+  }
   const rows = await api<AccountRow[]>("GET", "/admin/accounts");
   saveAdmin({ ...admin, accounts: rows.map(({ roleName: _r, employeeName: _e, locked: _l, ...a }) => a) });
   return rows;
@@ -73,6 +88,7 @@ export interface AccountRow extends Omit<UserAccount, "password"> {
 }
 
 function rows(): AccountRow[] {
+  if (backendOn()) return structuredClone(backendRows);
   const now = new Date().toISOString();
   return admin.accounts
     .map(({ password: _password, ...a }) => {
@@ -83,7 +99,7 @@ function rows(): AccountRow[] {
 }
 
 /** Every account, for whoever manages users (System Admin creates them, Super Admin oversees them). */
-export const listAccounts = () => deny("roleAssignment", "view") ?? (serverMode ? syncAccounts().then(() => rows()) : respond(rows()));
+export const listAccounts = () => deny("roleAssignment", "view") ?? (remoteOn() ? syncAccounts().then(() => rows()) : respond(rows()));
 
 export interface UserAccountRow extends AccountRow {
   /** The temporary password, only until the person sets their own (then null: we never show it). */
@@ -100,14 +116,17 @@ export function listUserAccounts(): Promise<UserAccountRow[]> {
     rows().map((r) => {
       const a = admin.accounts.find((x) => x.id === r.id);
       const e = core.employees.find((x) => x.id === r.employeeId);
+      // On the backend the username is the work email and the employee number comes with the row.
+      if (backendOn()) return { ...r, tempPassword: null, employeeCode: r.employeeId, email: r.username };
       return { ...r, tempPassword: a && !a.demo && a.mustChangePassword ? (a.password ?? null) : null, employeeCode: e?.id, email: e?.contact.workEmail };
     });
   // Server: refresh the cached accounts; the server never returns passwords, so tempPassword stays null there.
-  if (serverMode) return syncAccounts().then(build);
+  if (remoteOn()) return syncAccounts().then(build);
   return respond(build());
 }
 
 export function employeesWithoutAccount() {
+  if (backendOn()) return structuredClone(backendUnlinked);
   // Names and work emails only, so System Admins can link a new account to its person without seeing HR records.
   const taken = new Set(admin.accounts.map((a) => employeeOfAccount(a)));
   return core.employees
@@ -140,7 +159,7 @@ export async function createAccount(input: { name: string; username: string; rol
   // One person, one account.
   const holder = input.employeeId ? admin.accounts.find((a) => employeeOfAccount(a) === input.employeeId) : undefined;
   if (holder) return fail(`This person already has an account (username ${holder.username}).`);
-  if (serverMode) return api<{ username: string; password: string }>("POST", "/admin/accounts", input);
+  if (remoteOn()) return remoteApi<{ username: string; password: string }>("POST", "/admin/accounts", input);
   const name = input.name.trim();
   const username = input.username.trim().toLowerCase();
   if (!name) return fail("Enter the person's name");
@@ -169,7 +188,7 @@ export async function setAccountRole(id: string, roleId: string, actor: string, 
   const current = admin.accounts.find((x) => x.id === id);
   const giving = admin.roles.find((r) => r.id === roleId)?.key;
   if (!current || !giving || !mayAssign(giving) || !mayAssign(roleKeyOf(current.roleId))) return forbidden("You can't give or change that role.");
-  if (serverMode) return void (await api("PUT", `/admin/accounts/${id}/role`, { roleId }));
+  if (remoteOn()) return void (await remoteApi("PUT", `/admin/accounts/${id}/role`, { roleId }));
   const a = admin.accounts.find((x) => x.id === id);
   const role = admin.roles.find((r) => r.id === roleId);
   if (!a || !role) return fail("Choose a role");
@@ -188,7 +207,7 @@ export async function setAccountRole(id: string, roleId: string, actor: string, 
 export async function setAccountStatus(id: string, status: UserAccount["status"], actor: string, actorAccountId?: string) {
   const denied = deny("roleAssignment", "edit") ?? (mayAssign(roleKeyOf(admin.accounts.find((x) => x.id === id)?.roleId)) ? null : forbidden());
   if (denied) return denied;
-  if (serverMode) return void (await api("PUT", `/admin/accounts/${id}/status`, { status }));
+  if (remoteOn()) return void (await remoteApi("PUT", `/admin/accounts/${id}/status`, { status }));
   const a = admin.accounts.find((x) => x.id === id);
   if (!a) return fail("That account no longer exists");
   const next = admin.accounts.map((x) => (x.id === id ? { ...x, status } : x));
@@ -204,7 +223,7 @@ export async function setAccountStatus(id: string, status: UserAccount["status"]
 export async function unlockAccount(id: string, actor: string, _actorAccountId?: string) {
   const denied = deny("roleAssignment", "edit") ?? (mayAssign(roleKeyOf(admin.accounts.find((x) => x.id === id)?.roleId)) ? null : forbidden());
   if (denied) return denied;
-  if (serverMode) return void (await api("POST", `/admin/accounts/${id}/unlock`));
+  if (remoteOn()) return void (await remoteApi("POST", `/admin/accounts/${id}/unlock`));
   const a = admin.accounts.find((x) => x.id === id);
   if (!a) return fail("That account no longer exists");
   saveAdmin({ ...admin, accounts: admin.accounts.map((x) => (x.id === id ? { ...x, lockedUntil: undefined, failedAttempts: 0 } : x)) });
@@ -215,7 +234,7 @@ export async function unlockAccount(id: string, actor: string, _actorAccountId?:
 export async function resetPassword(id: string, actor: string, _actorAccountId?: string) {
   const denied = deny("userAccounts", "edit") === null ? null : (deny("roleAssignment", "edit") ?? (mayAssign(roleKeyOf(admin.accounts.find((x) => x.id === id)?.roleId)) ? null : forbidden()));
   if (denied) return denied;
-  if (serverMode) return api<{ username: string; password: string }>("POST", `/admin/accounts/${id}/reset-password`);
+  if (remoteOn()) return remoteApi<{ username: string; password: string }>("POST", `/admin/accounts/${id}/reset-password`);
   const a = admin.accounts.find((x) => x.id === id);
   if (!a) return fail("That account no longer exists");
   if (a.demo) return fail("This is a demo login. Its password is set on the sign-in screen's demo list.");

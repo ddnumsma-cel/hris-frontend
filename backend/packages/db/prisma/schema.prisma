@@ -415,6 +415,12 @@ model User {
   id              String             @id @default(cuid())
   email           String             @unique
   passwordHash    String
+  /// active, or disabled (can't sign in; signed-in sessions stop at the next request)
+  status             String    @default("active")
+  /// Set for a new account or a reset; cleared when they choose their own password
+  mustChangePassword Boolean   @default(false)
+  /// Who added the login (blank for the seeded ones)
+  createdBy          String?
   role            Role
   displayName     String
   employeeId      String?            @unique

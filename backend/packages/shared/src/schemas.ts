@@ -63,6 +63,8 @@ export const SessionUserSchema = z.object({
   employeeNo: z.string().nullable(),
   site: Ref.nullable(),
   preferences: PreferencesSchema,
+  /** A new or reset account: choose your own password. */
+  mustChangePassword: z.boolean().optional(),
 });
 export type SessionUser = z.infer<typeof SessionUserSchema>;
 
@@ -1137,3 +1139,24 @@ export const SeatOverrideSchema = z.object({ seats: z.number().int().min(1, 'Ent
 export const ExtensionSchema = z.object({ extension: z.object({ seats: z.number().int().min(1, 'Enter how many extra seats, 1 or more').max(10000), until: DateKeySchema }).nullable() });
 
 export const AuditRowSchema = z.object({ id: z.string(), at: InstantSchema, actor: z.string(), module: z.string(), action: z.string(), target: z.string(), detail: z.string() });
+
+// ---------- User accounts (Administration › Users on the website) ----------
+/** The website's six fixed role ids (lib/admin/store.ts DEFAULT_ROLES). */
+export const WEB_ROLE_IDS = ['system-admin', 'super-admin', 'hr', 'approver', 'accounting', 'employee'] as const;
+export type WebRoleId = (typeof WEB_ROLE_IDS)[number];
+export const CreateAccountSchema = z.object({
+  name: z.string().trim().min(1, "Enter the person's name").max(120),
+  username: z.email("Use the person's email as the username (they sign in with it)").max(160),
+  roleId: z.enum(WEB_ROLE_IDS, { message: 'Choose a role' }),
+  employeeId: z.string().max(40).optional().describe('Employee number, when the login belongs to an employee'),
+});
+export type CreateAccount = z.infer<typeof CreateAccountSchema>;
+export const AccountRoleSchema = z.object({ roleId: z.enum(WEB_ROLE_IDS, { message: 'Choose a role' }) });
+export const AccountStatusSchema = z.object({ status: z.enum(['active', 'disabled']) });
+export const AccountRowSchema = z.looseObject({ id: z.string(), username: z.string(), roleId: z.string(), status: z.string(), locked: z.boolean() });
+export const TempPasswordSchema = z.object({ username: z.string(), password: z.string() });
+export const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Enter your current password').max(200),
+  newPassword: z.string().min(8, 'Use at least 8 characters.').max(200),
+});
+export type ChangePassword = z.infer<typeof ChangePasswordSchema>;

@@ -74,7 +74,9 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   }
   const body = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) {
-    const message = (body && typeof body === "object" && "message" in body ? String((body as { message: unknown }).message) : "") || `The HR server couldn't do that (${res.status}).`;
+    // A form error names the field's problem ("Enter the date") rather than the backend's general "Validation failed".
+    const issue = body && typeof body === "object" && Array.isArray((body as { issues?: unknown }).issues) ? (body as { issues: { message?: string }[] }).issues[0]?.message : undefined;
+    const message = issue || (body && typeof body === "object" && "message" in body ? String((body as { message: unknown }).message) : "") || `The HR server couldn't do that (${res.status}).`;
     const code = body && typeof body === "object" && "code" in body ? String((body as { code: unknown }).code) : undefined;
     throw new ApiError(message, res.status, code);
   }
