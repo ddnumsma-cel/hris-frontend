@@ -37,6 +37,7 @@ export const ROLE_FROM_BACKEND: Record<BackendRole, RoleKey> = {
 
 /** The backend's seeded demo logins (synthetic data), shown on the sign-in page while it's connected. */
 export const BACKEND_DEMO_ACCOUNTS = [
+  { label: "Super Admin (Partner)", username: "partner@msma.test", password: "Demo@2026" },
   { label: "HR", username: "hr@msma.test", password: "Demo@2026" },
   { label: "Payroll", username: "payroll@msma.test", password: "Demo@2026" },
   { label: "Manager (Approver)", username: "manager@msma.test", password: "Demo@2026" },
