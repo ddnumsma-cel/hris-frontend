@@ -1,3 +1,4 @@
+import { RequestsModule } from './requests/requests.module';
 import { NotificationsModule } from './notifications/notifications.service';
 import { AdministrationModule } from './administration/administration.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
@@ -37,6 +38,7 @@ import { PrismaModule } from './prisma/prisma.service';
     OnboardingModule,
     AdministrationModule,
     NotificationsModule,
+    RequestsModule,
     DashboardModule,
     MeModule,
   ],

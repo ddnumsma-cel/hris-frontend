@@ -2,7 +2,7 @@
 // the employee's approver (supervisor) first, then Accounting's final approval. HR isn't involved. Saved to localStorage, receipts as compressed JPEG data URLs;
 // with the API server, in the database (receipts served from /api/files).
 
-import { api, serverMode } from "../http";
+import { remoteApi, remoteOn } from "../remote";
 
 import { state as core } from "../corehr/store";
 
@@ -88,7 +88,7 @@ function seed(): Claim[] {
 
 function load(): Claim[] {
   // With the API server, claims come from the database (see refreshClaims).
-  if (serverMode) return [];
+  if (remoteOn()) return [];
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw) as Claim[];
@@ -102,7 +102,7 @@ export let claims: Claim[] = load();
 
 /** With the API server: the claims this account may see. Receipts load from /api/files. */
 export async function refreshClaims() {
-  if (serverMode) claims = await api<Claim[]>("GET", "/reimbursements/claims");
+  if (remoteOn()) claims = await remoteApi<Claim[]>("GET", "/reimbursements/claims");
 }
 
 /** Saves the claims; false when storage is full (receipt photos are the heavy part). */

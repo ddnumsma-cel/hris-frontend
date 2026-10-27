@@ -330,6 +330,8 @@ model Employee {
   leaveAdjustments  LeaveAdjustment[]
   policyAcks        PolicyAck[]
   trainings         TrainingRecord[]
+  claims            Claim[]
+  certificates      CertificateRequest[]
   dependents        Dependent[]
   documents         EmployeeDocument[]
   events            EmploymentEvent[]
@@ -961,6 +963,63 @@ model Notification {
   readAt DateTime? @db.Timestamptz(3)
 
   @@index([userId, at])
+}
+
+// ---------- Reimbursements (Requests > Reimbursements on the website) ----------
+
+/// An expense claim: the approver endorses it, Accounting gives the final approval and releases the money
+/// (cash, bank transfer, e-wallet or check). Never paid through payroll.
+model Claim {
+  id                String    @id @default(cuid())
+  employeeId        String
+  employee          Employee  @relation(fields: [employeeId], references: [id])
+  category          String
+  otherType         String?
+  merchant          String
+  purchaseDate      DateTime  @db.Date
+  amount            Decimal   @db.Decimal(14, 2)
+  description       String
+  /// The receipt photo (a compressed JPEG data URL)
+  receipt           String
+  /// pending (with the approver), endorsed (with Accounting), approved, rejected
+  status            String    @default("pending")
+  filedAt           DateTime  @default(now()) @db.Timestamptz(3)
+  approverDecidedBy String?
+  approverDecidedAt DateTime? @db.Timestamptz(3)
+  approverNote      String?
+  decidedBy         String?
+  decidedAt         DateTime? @db.Timestamptz(3)
+  note              String?
+  paidAt            DateTime? @db.Timestamptz(3)
+  paidBy            String?
+  /// cash, transfer, e-wallet or check
+  payoutMethod      String?
+  payoutRef         String?
+
+  @@index([employeeId, filedAt])
+  @@index([status])
+}
+
+/// A certificate an employee asked for (COE, BIR 2316, employment verification). HR issues a digital copy, or
+/// prepares a signed copy for pickup, or declines it. Issuing files the exact copy (number, wording) on the request.
+model CertificateRequest {
+  id          String    @id @default(cuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  type        String
+  purpose     String    @default("")
+  /// Pending, Ready for pickup, Released or Declined
+  status      String    @default("Pending")
+  requestedOn DateTime  @default(now()) @db.Timestamptz(3)
+  handledBy   String?
+  handledAt   DateTime? @db.Timestamptz(3)
+  /// digital or pickup
+  delivery    String?
+  note        String?
+  /// The copy filed when issued: { number, statement, purpose, issuedAt, issuedBy }
+  issued      Json?
+
+  @@index([employeeId])
 }
 
 // ---------- Audit ----------

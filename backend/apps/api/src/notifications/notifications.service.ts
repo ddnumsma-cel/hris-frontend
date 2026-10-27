@@ -19,7 +19,9 @@ export type Topic =
   | 'account'
   | 'support'
   | 'training'
-  | 'subscription';
+  | 'subscription'
+  | 'claim'
+  | 'certificate';
 
 /** The website's roles, as the backend's (its links are per website role). */
 const WEB_ROLE: Record<Role, string> = {
@@ -44,6 +46,8 @@ const LINKS: Record<Topic, Record<string, string>> = {
   account: ADMIN('/admin/administration/users'),
   support: { ...ADMIN('/admin/administration/support'), employee: '/employee/support' },
   training: { ...ADMIN('/admin/onboarding/trainings'), approver: '/manager/trainings', employee: '/employee/trainings' },
+  claim: { ...ADMIN('/admin/requests/reimbursement'), approver: '/manager/approvals?tab=claims', employee: '/employee/reimbursements' },
+  certificate: { ...ADMIN('/admin/requests/certificates'), employee: '/employee/certificates' },
   subscription: { super_admin: '/admin/settings/subscription', hr: '/admin/settings/subscription', system_admin: '/admin/administration/subscription' },
 };
 

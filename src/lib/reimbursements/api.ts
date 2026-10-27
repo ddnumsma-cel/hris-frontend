@@ -2,8 +2,9 @@
 
 import { newId } from "../corehr/store";
 import { people, type LeavePerson } from "../leave/api";
+import { refreshLeave } from "../leave/store";
 import { claimProblems, type ClaimInput } from "./rules";
-import { api, serverMode } from "../http";
+import { remoteApi as api, remoteOn } from "../remote";
 import { claims, refreshClaims, saveClaims, type Category, type Claim, type PayoutMethod } from "./store";
 import { can, visible } from "../permissions";
 import { deny, forbidden, sessionWho } from "../session";
@@ -28,7 +29,7 @@ export function checkClaim(input: ClaimInput): Partial<Record<keyof ClaimInput, 
 export async function fileClaim(input: ClaimInput): Promise<Claim> {
   const denied = deny("claims", "create", input.employeeId);
   if (denied) return denied;
-  if (serverMode) {
+  if (remoteOn()) {
     const claim = await api<Claim>("POST", "/reimbursements/claims", input);
     await refreshClaims();
     return claim;
@@ -56,7 +57,7 @@ export async function fileClaim(input: ClaimInput): Promise<Claim> {
 export async function listMyClaims(employeeId: string): Promise<Claim[]> {
   const denied = deny("claims", "view", employeeId);
   if (denied) return denied;
-  if (serverMode) await refreshClaims();
+  if (remoteOn()) await refreshClaims();
   return respond(claims.filter((c) => c.employeeId === employeeId).sort((a, b) => b.filedAt.localeCompare(a.filedAt)));
 }
 
@@ -70,7 +71,7 @@ export async function listClaims(): Promise<ClaimRow[]> {
   // Approvers see their team's claims, Accounting and Super Admins everyone's; HR none.
   const who = sessionWho();
   if (!can(who, "view", "claims")) return forbidden();
-  if (serverMode) await refreshClaims();
+  if (remoteOn()) await Promise.all([refreshClaims(), refreshLeave(2000)]);
   const ps = people();
   return respond(
     visible(who, "claims", claims, (c) => c.employeeId)
@@ -88,7 +89,7 @@ export async function listClaims(): Promise<ClaimRow[]> {
  * Each step records who, when and the reason.
  */
 export async function decideClaim(id: string, approve: boolean, note: string, actor: string): Promise<Claim> {
-  if (serverMode) {
+  if (remoteOn()) {
     const claim = await api<Claim>("POST", `/reimbursements/claims/${encodeURIComponent(id)}/decision`, { approve, note });
     await refreshClaims();
     return claim;
@@ -133,7 +134,7 @@ export async function releaseClaims(ids: string[], method: PayoutMethod, referen
   if (picked.some((c) => c.status !== "approved" || c.paidAt)) return fail("Only approved claims that aren't paid yet can be paid out");
   if (method !== "cash" && !reference.trim()) return fail(method === "check" ? "Enter the check number" : "Enter the transfer reference");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(paidOn)) return fail("Enter the date it was released");
-  if (serverMode) {
+  if (remoteOn()) {
     // The server stores the method, reference, date and who released it.
     const { paid } = await api<{ paid: number }>("POST", "/reimbursements/claims/pay", { ids, method, reference: reference.trim() || (method === "cash" ? "Cash" : ""), paidOn });
     await refreshClaims();

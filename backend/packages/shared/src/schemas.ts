@@ -1182,3 +1182,35 @@ export const WorkflowSchema = z.object({
   active: z.boolean(),
 });
 export type Workflow = z.infer<typeof WorkflowSchema>;
+
+// ---------- Reimbursement claims (Requests > Reimbursements on the website) ----------
+export const CLAIM_CATEGORIES = ['Transportation', 'Meals & client meetings', 'Office supplies', 'Communication', 'Training & seminars', 'Medical', 'Other'] as const;
+export const ClaimInputSchema = z.object({
+  employeeId: z.string().max(40).describe('Employee number (yours)'),
+  category: z.enum(CLAIM_CATEGORIES, { message: 'Choose what the expense was for' }),
+  otherType: z.string().trim().max(60, 'Keep it under 60 characters').optional(),
+  merchant: z.string().trim().min(1, 'Enter the store or merchant on the receipt').max(120),
+  purchaseDate: DateKeySchema,
+  amount: z.number().finite().positive('Enter the total on the receipt'),
+  description: z.string().trim().min(1, 'Say what it was for').max(1000),
+  receipt: z.string().min(1, 'Add a photo of the receipt').max(4_000_000, 'That photo is too large. Try a smaller or cropped photo.'),
+});
+export type ClaimInput = z.infer<typeof ClaimInputSchema>;
+export const ClaimDecisionSchema = z.object({ approve: z.boolean(), note: z.string().trim().max(500).default('') });
+export const ClaimPaySchema = z.object({
+  ids: z.array(z.string()).min(1, 'Choose the claims to pay').max(500),
+  method: z.enum(['cash', 'transfer', 'e-wallet', 'check']),
+  reference: z.string().trim().max(120).default(''),
+  paidOn: DateKeySchema,
+});
+export type ClaimPay = z.infer<typeof ClaimPaySchema>;
+export const ClaimSchema = z.looseObject({ id: z.string(), employeeId: z.string(), status: z.enum(['pending', 'endorsed', 'approved', 'rejected']), amount: z.number() });
+
+// ---------- Certificate requests (Requests > Certificates on the website) ----------
+export const CERTIFICATE_TYPES = ['Certificate of Employment', 'Certificate of Tax Withheld (2316)', 'Employment Verification Letter'] as const;
+export const CertificateInputSchema = z.object({
+  type: z.enum(CERTIFICATE_TYPES, { message: 'Choose the certificate' }),
+  purpose: z.string().trim().max(300).default(''),
+});
+export const CertificateDeclineSchema = z.object({ reason: z.string().trim().min(1, 'Say why, so the employee knows').max(500) });
+export const CertificateSchema = z.looseObject({ id: z.string(), type: z.string(), status: z.enum(['Pending', 'Ready for pickup', 'Released', 'Declined']) });

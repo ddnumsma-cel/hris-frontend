@@ -29,6 +29,8 @@ export async function createApp(
   });
   // Biometric terminals (ZKTeco ADMS) post plain-text bodies, sometimes without a proper content type.
   app.use('/iclock', text({ type: () => true, limit: '1mb' }));
+  // Receipt photos and a large company's payroll runs are bigger than the 100 kB default.
+  app.useBodyParser('json', { limit: '5mb' });
   app.enableShutdownHooks();
   return app;
 }

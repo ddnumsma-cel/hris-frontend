@@ -475,7 +475,7 @@ export async function removeMyPersonnelDocument(id: string) {
 }
 
 export async function fetchCertificateRequests() {
-  if (serverMode) return api<CertificateRequest[]>("GET", "/me/certificates");
+  if (remoteOn()) return remoteApi<CertificateRequest[]>("GET", "/me/certificates");
   return delay(certificateRequests);
 }
 
@@ -489,7 +489,7 @@ export interface CreateCertificateRequestInput {
 export async function createCertificateRequest(
   input: CreateCertificateRequestInput,
 ): Promise<CertificateRequest> {
-  if (serverMode) return api<CertificateRequest>("POST", "/me/certificates", input);
+  if (remoteOn()) return remoteApi<CertificateRequest>("POST", "/me/certificates", input);
   const who = input.employee ?? currentEmployee;
   const request: CertificateRequest = {
     id: `cr-${Date.now()}`,
@@ -1030,7 +1030,7 @@ export interface CertificateReviewRow extends CertificateRequest {
 export async function fetchCertificateRequestsForReview(): Promise<CertificateReviewRow[]> {
   const denied = deny("selfService", "edit");
   if (denied) return denied;
-  if (serverMode) return api<CertificateReviewRow[]>("GET", "/certificates");
+  if (remoteOn()) return remoteApi<CertificateReviewRow[]>("GET", "/certificates");
   return delay(certificateRequests);
 }
 
@@ -1049,7 +1049,7 @@ function handleCertificate(id: string, from: CertificateRequestStatus[], change:
 export async function issueCertificate(id: string, actor: string): Promise<CertificateRequest> {
   const denied = deny("selfService", "edit");
   if (denied) return denied;
-  if (serverMode) return api<CertificateRequest>("POST", `/certificates/${encodeURIComponent(id)}/issue`);
+  if (remoteOn()) return remoteApi<CertificateRequest>("POST", `/certificates/${encodeURIComponent(id)}/issue`);
   const target = certificateRequests.find((x) => x.id === id);
   const person = employeeDirectory.find((e) => e.id === target?.employeeId);
   if (target && !person) return Promise.reject(new Error("This request isn't linked to an employee record, so a certificate can't be made. Prepare a signed copy for pickup instead."));
@@ -1063,7 +1063,7 @@ export async function issueCertificate(id: string, actor: string): Promise<Certi
 export async function markCertificateReady(id: string, actor: string): Promise<CertificateRequest> {
   const denied = deny("selfService", "edit");
   if (denied) return denied;
-  if (serverMode) return api<CertificateRequest>("POST", `/certificates/${encodeURIComponent(id)}/ready`);
+  if (remoteOn()) return remoteApi<CertificateRequest>("POST", `/certificates/${encodeURIComponent(id)}/ready`);
   const r = handleCertificate(id, ["Pending"], { status: "Ready for pickup", delivery: "pickup" }, actor);
   if ("error" in r) return Promise.reject(new Error(r.error));
   if (r.updated.employeeId) tellEmployees(r.updated.employeeId, "certificate", "approved", `Your ${r.updated.type} is ready for pickup`, `${actor} prepared a signed copy. Pick it up from HR.`);
@@ -1074,7 +1074,7 @@ export async function markCertificateReady(id: string, actor: string): Promise<C
 export async function markCertificateReleased(id: string, actor: string): Promise<CertificateRequest> {
   const denied = deny("selfService", "edit");
   if (denied) return denied;
-  if (serverMode) return api<CertificateRequest>("POST", `/certificates/${encodeURIComponent(id)}/released`);
+  if (remoteOn()) return remoteApi<CertificateRequest>("POST", `/certificates/${encodeURIComponent(id)}/released`);
   const target = certificateRequests.find((x) => x.id === id);
   const person = employeeDirectory.find((e) => e.id === target?.employeeId);
   const r = handleCertificate(id, ["Ready for pickup"], { status: "Released", ...(target && person && !target.issued ? { issued: fileCertificate(person, target, certificateRequests, actor) } : {}) }, actor);
@@ -1088,7 +1088,7 @@ export async function declineCertificate(id: string, reason: string, actor: stri
   const denied = deny("selfService", "edit");
   if (denied) return denied;
   if (!reason.trim()) return Promise.reject(new Error("Say why, so the employee knows"));
-  if (serverMode) return api<CertificateRequest>("POST", `/certificates/${encodeURIComponent(id)}/decline`, { reason: reason.trim() });
+  if (remoteOn()) return remoteApi<CertificateRequest>("POST", `/certificates/${encodeURIComponent(id)}/decline`, { reason: reason.trim() });
   const r = handleCertificate(id, ["Pending"], { status: "Declined", note: reason.trim() }, actor);
   if ("error" in r) return Promise.reject(new Error(r.error));
   if (r.updated.employeeId) tellEmployees(r.updated.employeeId, "certificate", "rejected", `Your ${r.updated.type} request was declined`, `${actor}: “${reason.trim()}”`);
