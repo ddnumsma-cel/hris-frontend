@@ -64,7 +64,11 @@ interface Person {
   tin: string;
 }
 
+/** On the backend: its employees (salaries, offices, government numbers), loaded before each report runs. */
+let backendPeople: Person[] = [];
+
 function everyone(office: string): Person[] {
+  if (backendOn()) return backendPeople.filter((p) => office === "All offices" || p.branch === office).sort((a, b) => a.name.localeCompare(b.name));
   return core.employees
     .map((e) => ({
       id: e.id,
@@ -681,5 +685,10 @@ const ALL_REPORTS: ReportDef[] = [
  */
 export const REPORTS: ReportDef[] = ALL_REPORTS.map((r) => ({
   ...r,
-  run: (period: Period, office: string) => deny(r.category === "payroll" || r.category === "statutory" ? "payrollReports" : "analytics", "view") ?? r.run(period, office),
+  run: async (period: Period, office: string) => {
+    const denied = deny(r.category === "payroll" || r.category === "statutory" ? "payrollReports" : "analytics", "view");
+    if (denied) return denied;
+    if (backendOn()) backendPeople = await backendPayrollPeople();
+    return r.run(period, office);
+  },
 }));
