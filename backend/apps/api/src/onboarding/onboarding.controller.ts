@@ -3,7 +3,6 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import {
   ApplicantSchema,
   ApplicantStageSchema,
-  DeclineRequisitionSchema,
   ApplicationInput,
   ApplicationInputSchema,
   RequisitionInput,
@@ -48,28 +47,6 @@ export class OnboardingController {
   @ApiZodResponse(RequisitionSchema, 201)
   addRequisition(@CurrentUser() user: AuthUser, @Body(new ZodPipe(RequisitionInputSchema)) body: RequisitionInput) {
     return this.onboarding.createRequisition(body, user);
-  }
-
-  @Post('recruitment/requisitions/:id/approve')
-  @HttpCode(200)
-  @Roles('MANAGER', 'HR_ADMIN', 'SYSTEM_ADMIN')
-  @ApiOperation({
-    operationId: 'approveRequisition',
-    summary: 'Approve the step a requisition is at: L1 Partner (or Super Admin), then L2 HR (or Super Admin)',
-    description: 'Nobody approves a requisition they asked for. After L2 it is Approved and open on the job link.',
-  })
-  @ApiZodResponse(RequisitionSchema)
-  approve(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.onboarding.approveRequisition(id, user);
-  }
-
-  @Post('recruitment/requisitions/:id/decline')
-  @HttpCode(204)
-  @Roles('MANAGER', 'HR_ADMIN', 'SYSTEM_ADMIN')
-  @ApiOperation({ operationId: 'declineRequisition', summary: 'Decline a requisition at its current step, with the reason (it stays on record)' })
-  @ApiZodBody(DeclineRequisitionSchema)
-  async decline(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(DeclineRequisitionSchema)) body: { reason: string }) {
-    await this.onboarding.declineRequisition(id, body.reason, user);
   }
 
   @Get('recruitment/applicants')

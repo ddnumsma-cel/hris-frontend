@@ -841,19 +841,7 @@ model JobRequisition {
   salaryRange    String?
   justification  String?
   createdBy      String
-  /// The account that asked for it (it can't approve its own requisition)
-  createdById    String?
   createdAt      DateTime    @default(now()) @db.Timestamptz(3)
-  /// L1: the Partner (approver) or a Super Admin
-  l1ApprovedBy   String?
-  l1ApprovedAt   DateTime?   @db.Timestamptz(3)
-  /// L2: HR or a Super Admin; then it's Approved and on the job link
-  l2ApprovedBy   String?
-  l2ApprovedAt   DateTime?   @db.Timestamptz(3)
-  /// A declined requisition leaves the list but stays on record
-  declinedBy     String?
-  declinedAt     DateTime?   @db.Timestamptz(3)
-  declineReason  String?
   applicants     Applicant[]
 }
 

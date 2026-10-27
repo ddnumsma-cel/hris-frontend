@@ -1071,7 +1071,6 @@ export const RequisitionInputSchema = z.object({
   justification: shortText(2000).optional(),
 });
 export type RequisitionInput = z.infer<typeof RequisitionInputSchema>;
-export const DeclineRequisitionSchema = z.object({ reason: z.string().trim().min(3, 'Say why, so HR knows').max(500) });
 export const RequisitionSchema = z.looseObject({ id: z.string(), title: z.string(), openings: z.number(), applicants: z.number(), applicantsThisWeek: z.number() });
 
 /** What someone sends from the shared job link (no sign-in). */
