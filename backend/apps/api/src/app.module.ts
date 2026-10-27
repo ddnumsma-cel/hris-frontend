@@ -1,3 +1,4 @@
+import { OnboardingModule } from './onboarding/onboarding.module';
 import { PoliciesModule } from './policies/policies.module';
 import { HolidaysModule } from './holidays/holidays.module';
 import { Module } from '@nestjs/common';
@@ -31,6 +32,7 @@ import { PrismaModule } from './prisma/prisma.service';
     PayrollModule,
     HolidaysModule,
     PoliciesModule,
+    OnboardingModule,
     DashboardModule,
     MeModule,
   ],

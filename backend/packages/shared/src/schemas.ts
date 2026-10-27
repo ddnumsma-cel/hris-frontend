@@ -1052,3 +1052,63 @@ export type PolicyRowView = z.infer<typeof PolicyRowSchema>;
 export const MyPolicySchema = PolicySchema.extend({ acknowledgedAt: InstantSchema.optional() });
 export const PolicyStatusSchema = z.object({ status: z.enum(['draft', 'published', 'archived']) });
 export const PolicyAcksSchema = z.object({ done: z.array(z.object({ name: z.string(), at: InstantSchema })), waiting: z.array(z.string()) });
+
+// ---------- Onboarding: recruitment (job requisitions, applicants) and trainings ----------
+export const REQUISITION_STAGES = ['Sourcing', 'Interviewing', 'Offer extended'] as const;
+export const APPLICANT_STAGES = ['Applied', 'Screening', 'Interview', 'Offered', 'Hired', 'Rejected'] as const;
+export const TRAINING_STATUSES = ['Not started', 'In progress', 'Completed'] as const;
+const shortText = (max: number) => z.string().trim().max(max);
+
+export const RequisitionInputSchema = z.object({
+  title: shortText(120).min(1, 'Name the role'),
+  department: shortText(120).min(1, 'Choose the department'),
+  cluster: shortText(60).optional(),
+  office: shortText(120).min(1, 'Choose the office'),
+  openings: z.number().int().min(1, 'At least one opening').max(500),
+  employmentType: shortText(40).optional(),
+  targetStart: z.string().max(40).optional(),
+  salaryRange: shortText(80).optional(),
+  justification: shortText(2000).optional(),
+});
+export type RequisitionInput = z.infer<typeof RequisitionInputSchema>;
+export const RequisitionSchema = z.looseObject({ id: z.string(), title: z.string(), openings: z.number(), applicants: z.number(), applicantsThisWeek: z.number() });
+
+/** What someone sends from the shared job link (no sign-in). */
+export const ApplicationInputSchema = z.object({
+  requisitionId: shortText(60).optional(),
+  appliedRole: shortText(120).min(1, 'Choose the role'),
+  field: shortText(120),
+  background: shortText(200).default(''),
+  workExperience: shortText(4000).default(''),
+  firstName: shortText(80).min(1, 'Enter your first name'),
+  lastName: shortText(80).min(1, 'Enter your last name'),
+  email: z.email('Enter a valid email').max(160),
+  phone: shortText(40).min(7, 'Enter your mobile number'),
+  province: shortText(80).default(''),
+  city: shortText(80).default(''),
+  profession: z.enum(['CPA', 'BS Accountancy graduate', 'Accounting student / undergrad', 'Other']),
+  yearsExperience: z.number().min(0).max(60).default(0),
+  prcLicenseNumber: shortText(40).optional(),
+  resumeFileName: shortText(200).optional(),
+  message: shortText(4000).optional(),
+  experienceLevel: z.enum(['Fresh graduate', 'Has work experience']).optional(),
+  coverLetter: z.union([z.object({ kind: z.literal('upload'), fileName: shortText(200) }), z.object({ kind: z.literal('write'), text: shortText(8000) })]).optional(),
+  languages: z.array(shortText(60)).max(20).optional(),
+  careerHistory: z.array(z.object({ title: shortText(120), company: shortText(120), start: shortText(10), end: shortText(10), description: shortText(2000).optional() })).max(30).optional(),
+  education: z.array(z.object({ degree: shortText(160), school: shortText(160), finished: shortText(10) })).max(20).optional(),
+  skills: z.array(shortText(60)).max(60).optional(),
+});
+export type ApplicationInput = z.infer<typeof ApplicationInputSchema>;
+export const ApplicantSchema = z.looseObject({ id: z.string(), requisitionId: z.string(), firstName: z.string(), lastName: z.string(), stage: z.enum(APPLICANT_STAGES) });
+export const ApplicantStageSchema = z.object({ stage: z.enum(APPLICANT_STAGES) });
+
+export const TrainingInputSchema = z.object({
+  employeeName: shortText(160).min(1, 'Choose the employee'),
+  employeeInitials: shortText(4).optional(),
+  course: shortText(160).min(1, 'Choose the course'),
+  dueDate: shortText(40).min(1, 'Enter the due date, e.g. Nov 15, 2026'),
+});
+export type TrainingInput = z.infer<typeof TrainingInputSchema>;
+export const TrainingSchema = z.object({ id: z.string(), employeeName: z.string(), employeeInitials: z.string(), course: z.string(), dueDate: z.string(), status: z.enum(TRAINING_STATUSES) });
+export type TrainingView = z.infer<typeof TrainingSchema>;
+export const TrainingStatusSchema = z.object({ status: z.enum(TRAINING_STATUSES) });

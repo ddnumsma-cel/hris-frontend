@@ -1,4 +1,6 @@
 import { api, serverMode } from "./http";
+import { remoteApi, remoteOn } from "./remote";
+import { api as backendApi, backendOn } from "./backend/client";
 import { refreshCoreHr, state as coreState } from "./corehr/store";
 import type { PayrollRun } from "./pay/runs";
 import { updateDocument as updateCoreDocument } from "./corehr/api";
@@ -223,7 +225,7 @@ export function fetchMyAssets() {
 }
 
 export async function fetchMyTrainingRecords() {
-  if (serverMode) return api<TrainingRecord[]>("GET", "/me/trainings");
+  if (remoteOn()) return remoteApi<TrainingRecord[]>("GET", "/me/trainings");
   return delay(trainingRecords.filter((t) => t.employeeName === currentEmployee.name));
 }
 
@@ -612,13 +614,15 @@ export async function updatePerformanceReviewStatus(employeeId: string, status: 
 export function fetchTeamTrainingRecords() {
   const denied = deny("trainings", "view");
   if (denied) return denied;
+  // On the backend: a manager gets their team's trainings.
+  if (backendOn()) return backendApi<TrainingRecord[]>("/trainings");
   const teamNames = new Set(teamRosterFromCore().map((m) => m.name));
   return delay(trainingRecords.filter((t) => teamNames.has(t.employeeName)));
 }
 
 /** An employee moving their own training forward (started, completed); never back, never someone else's. */
 export async function updateMyTrainingStatus(id: string, status: Exclude<TrainingStatus, "Not started">) {
-  if (serverMode) return api<TrainingRecord>("PUT", `/me/trainings/${encodeURIComponent(id)}/status`, { status });
+  if (remoteOn()) return remoteApi<TrainingRecord>("PUT", `/me/trainings/${encodeURIComponent(id)}/status`, { status });
   const t = trainingRecords.find((x) => x.id === id && x.employeeName === currentEmployee.name);
   if (!t) return Promise.reject(new Error("That training isn't assigned to you"));
   if (t.status === "Completed") return delay(t);
@@ -630,7 +634,7 @@ export async function updateMyTrainingStatus(id: string, status: Exclude<Trainin
 export async function updateTrainingStatus(id: string, status: TrainingStatus) {
   const denied = deny("trainings", "edit");
   if (denied) return denied;
-  if (serverMode) return api<TrainingRecord>("PUT", `/trainings/${encodeURIComponent(id)}/status`, { status });
+  if (remoteOn()) return remoteApi<TrainingRecord>("PUT", `/trainings/${encodeURIComponent(id)}/status`, { status });
   const next = trainingRecords.map((t) => (t.id === id ? { ...t, status } : t));
   setTrainingRecords(next);
   return delay(next.find((t) => t.id === id)!);
@@ -881,6 +885,7 @@ export function fetchOnboardingPipeline() {
 export function fetchJobRequisitions() {
   const denied = deny("dashboard", "view");
   if (denied) return denied;
+  if (backendOn()) return backendApi<JobRequisition[]>("/recruitment/requisitions");
   return delay(jobRequisitions);
 }
 
@@ -987,6 +992,7 @@ export async function deleteCompanyAsset(id: string): Promise<void> {
 export function fetchAllTrainingRecords() {
   const denied = deny("trainings", "view");
   if (denied) return denied;
+  if (backendOn()) return backendApi<TrainingRecord[]>("/trainings");
   return delay(trainingRecords);
 }
 
@@ -1000,6 +1006,7 @@ export interface CreateTrainingRecordInput {
 export async function createTrainingRecord(input: CreateTrainingRecordInput): Promise<TrainingRecord> {
   const denied = deny("trainings", "create");
   if (denied) return denied;
+  if (backendOn()) return backendApi<TrainingRecord>("/trainings", { method: "POST", body: input });
   const record: TrainingRecord = { id: `tr-${Date.now()}`, status: "Not started", ...input };
   setTrainingRecords([record, ...trainingRecords]);
   return delay(record);
@@ -1008,6 +1015,7 @@ export async function createTrainingRecord(input: CreateTrainingRecordInput): Pr
 export async function deleteTrainingRecord(id: string): Promise<void> {
   const denied = deny("trainings", "delete");
   if (denied) return denied;
+  if (backendOn()) return backendApi<void>(`/trainings/${encodeURIComponent(id)}`, { method: "DELETE" });
   setTrainingRecords(trainingRecords.filter((t) => t.id !== id));
   return delay(undefined);
 }
@@ -1383,6 +1391,7 @@ export function fetchEmployeeHireDates() {
 
 /** New requisitions start with the Partner (L1), then go to HR and the Project Sponsor (BRD §8.1). */
 export async function createJobRequisition(input: CreateJobRequisitionInput): Promise<JobRequisition> {
+  if (backendOn()) return backendApi<JobRequisition>("/recruitment/requisitions", { method: "POST", body: input });
   const requisition: JobRequisition = {
     id: `jr-${Date.now()}`,
     ...input,
@@ -1396,11 +1405,14 @@ export async function createJobRequisition(input: CreateJobRequisitionInput): Pr
 }
 
 export function fetchApplicants() {
+  if (backendOn()) return backendApi<Applicant[]>("/recruitment/applicants");
   return delay(applicants);
 }
 
 /** Roles open to the public: approved and still hiring. */
 export function fetchOpenRequisitions() {
+  // On the backend: the public list (no sign-in needed), as the job link shows it.
+  if (backendOn()) return backendApi<JobRequisition[]>("/careers/openings");
   return delay(jobRequisitions.filter((r) => r.approval === "Approved" && r.openings > 0));
 }
 
@@ -1409,6 +1421,7 @@ export function fetchOpenRequisitions() {
  * or a government number already on someone's 201 file. Catches rehires and double entry.
  */
 export async function moveApplicant(id: string, stage: ApplicantStage): Promise<Applicant> {
+  if (backendOn()) return backendApi<Applicant>(`/recruitment/applicants/${encodeURIComponent(id)}/stage`, { method: "PUT", body: { stage } });
   const next = applicants.map((a) => (a.id === id ? { ...a, stage } : a));
   setApplicants(next);
   return delay(next.find((a) => a.id === id)!);
@@ -1416,6 +1429,7 @@ export async function moveApplicant(id: string, stage: ApplicantStage): Promise<
 
 /** Someone applies through the shared link; they land in Recruitment's Applied column. */
 export async function submitApplication(input: ApplicationInput): Promise<Applicant> {
+  if (backendOn()) return backendApi<Applicant>("/careers/applications", { method: "POST", body: { ...input, phone: formatPhMobile(input.phone) } });
   let role = input.requisitionId
     ? jobRequisitions.find((r) => r.id === input.requisitionId)
     : jobRequisitions.find((r) => r.approval === "Approved" && r.openings > 0 && r.title.toLowerCase() === input.appliedRole.toLowerCase());
