@@ -1,11 +1,11 @@
 // Support tickets: a client's people (Super Admin, HR, Accounting, and employees for problems on
 // their own side) report a problem or ask for help, and our System Admins answer, set priority and
 // close them. An employee's ticket goes straight to us: only they and System Admins see it. Kept in this
-// browser like the other mock stores; with the API server (serverMode) they're in the database
+// browser like the other mock stores; with the API server (remoteOn()) they're in the database
 // (server/src/support.ts), where the client's people see only the tickets they filed.
 
 import { admin, roleOf } from "../admin/store";
-import { api, serverMode } from "../http";
+import { remoteApi, remoteOn } from "../remote";
 import { deny } from "../session";
 import { sessionWho } from "../session";
 import { LIMITS, scopeFor } from "../permissions";
@@ -137,7 +137,7 @@ function mayOpen(t: Ticket, who: ReturnType<typeof me>) {
 export function listTickets(): Promise<Ticket[]> {
   const denied = deny("support", "view");
   if (denied) return denied;
-  if (serverMode) return api<Ticket[]>("GET", "/support/tickets");
+  if (remoteOn()) return remoteApi<Ticket[]>("GET", "/support/tickets");
   const who = me();
   return respond(tickets.filter((t) => mayOpen(t, who)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
 }
@@ -145,7 +145,7 @@ export function listTickets(): Promise<Ticket[]> {
 export function fileTicket(input: { subject: string; category: TicketCategory; priority: TicketPriority; text: string; page?: string }): Promise<Ticket> {
   const denied = deny("support", "create");
   if (denied) return denied;
-  if (serverMode) return api<Ticket>("POST", "/support/tickets", input);
+  if (remoteOn()) return remoteApi<Ticket>("POST", "/support/tickets", input);
   const subject = input.subject.trim();
   const text = input.text.trim();
   if (!subject) return fail("Give the problem a short title.");
@@ -176,7 +176,7 @@ export function fileTicket(input: { subject: string; category: TicketCategory; p
 export function replyTicket(id: string, text: string): Promise<Ticket> {
   const denied = deny("support", "create");
   if (denied) return denied;
-  if (serverMode) return api<Ticket>("POST", `/support/tickets/${encodeURIComponent(id)}/messages`, { text });
+  if (remoteOn()) return remoteApi<Ticket>("POST", `/support/tickets/${encodeURIComponent(id)}/messages`, { text });
   const who = me();
   const t = tickets.find((x) => x.id === id && mayOpen(x, who));
   if (!t) return fail("That ticket is gone.");
@@ -195,7 +195,7 @@ export function replyTicket(id: string, text: string): Promise<Ticket> {
 export function updateTicket(id: string, patch: Partial<Pick<Ticket, "status" | "priority" | "assignee">>): Promise<Ticket> {
   const denied = deny("support", "edit");
   if (denied) return denied;
-  if (serverMode) return api<Ticket>("PATCH", `/support/tickets/${encodeURIComponent(id)}`, patch);
+  if (remoteOn()) return remoteApi<Ticket>("PATCH", `/support/tickets/${encodeURIComponent(id)}`, patch);
   const t = tickets.find((x) => x.id === id);
   if (!t) return fail("That ticket is gone.");
   const next = { ...t, ...patch, updatedAt: new Date().toISOString() };
@@ -208,7 +208,7 @@ export function updateTicket(id: string, patch: Partial<Pick<Ticket, "status" | 
 export function closeTicket(id: string): Promise<Ticket> {
   const denied = deny("support", "create");
   if (denied) return denied;
-  if (serverMode) return api<Ticket>("POST", `/support/tickets/${encodeURIComponent(id)}/close`);
+  if (remoteOn()) return remoteApi<Ticket>("POST", `/support/tickets/${encodeURIComponent(id)}/close`);
   const t = tickets.find((x) => x.id === id && mayOpen(x, me()));
   if (!t) return fail("That ticket is gone.");
   const next = { ...t, status: "closed" as const, updatedAt: new Date().toISOString() };

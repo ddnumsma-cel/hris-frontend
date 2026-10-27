@@ -2,13 +2,13 @@
 // threshold alerts, the Subscription card (Super Admin, HR) and Clients & Subscriptions (System
 // Admin). Every endpoint asks deny() first, so Approver, Accounting and Employee get a 403.
 //
-// With the API server (serverMode) the plan, the counts, the checks and the event log live on the
+// With the API server (remoteOn()) the plan, the counts, the checks and the event log live on the
 // server (server/src/subscription.ts): it checks seats inside the add's own transaction, under a
 // lock, so two adds can't both take the last seat, and it remembers which seat alerts were sent.
 // Without it, the check and the save run in one synchronous step, which gives the same guarantee
 // in one browser.
 
-import { api, serverMode } from "../http";
+import { remoteApi, remoteOn } from "../remote";
 import { notifyRoles } from "../notifications";
 import { deny } from "../session";
 import { tellRoles } from "../requestNotices";
@@ -67,7 +67,7 @@ function alertsFrom({ alerts: _alerts, ...u }: ServerUsage): Usage {
  */
 export function assertSeatsAvailable(count = 1) {
   // With the API server, the server checks inside the add itself (409 SEAT_LIMIT_REACHED).
-  if (serverMode) return;
+  if (remoteOn()) return;
   const client = currentClient();
   const u = usageOf(client);
   if (u.seatsUsed + count <= u.seatCap) return;
@@ -81,7 +81,7 @@ export function assertSeatsAvailable(count = 1) {
 /** Throws AdminLimitError when one more HR / Approver / Accounting login would pass the plan's limit plus grace. */
 export function assertAdminAccountAvailable() {
   // With the API server, the server checks inside the account change (409 ADMIN_LIMIT_REACHED).
-  if (serverMode) return;
+  if (remoteOn()) return;
   const client = currentClient();
   const u = usageOf(client);
   if (u.adminsUsed + 1 <= u.adminCap) return;
@@ -96,7 +96,7 @@ export function assertAdminAccountAvailable() {
  */
 export function checkSeatThresholds() {
   // With the API server, the server keeps the levels and reports new crossings with the usage.
-  if (serverMode) return;
+  if (remoteOn()) return;
   const client = currentClient();
   const u = usageOf(client);
   const level = seatLevelOf(u);
@@ -143,7 +143,7 @@ function tellCompany(u: Usage, level: SeatLevel) {
 export async function checkSeatAvailable(): Promise<void> {
   const denied = deny("people", "create");
   if (denied) return denied;
-  if (serverMode) return void (await api("POST", "/subscription/seat-check", {}));
+  if (remoteOn()) return void (await remoteApi("POST", "/subscription/seat-check", {}));
   try {
     assertSeatsAvailable(1);
   } catch (err) {
@@ -157,7 +157,7 @@ export async function checkSeatAvailable(): Promise<void> {
 export async function getSubscription(): Promise<Usage> {
   const denied = deny("subscription", "view");
   if (denied) return denied;
-  if (serverMode) return alertsFrom(await api<ServerUsage>("GET", "/subscription"));
+  if (remoteOn()) return alertsFrom(await remoteApi<ServerUsage>("GET", "/subscription"));
   checkSeatThresholds();
   return respond(usageOf(currentClient()));
 }
@@ -167,7 +167,7 @@ export async function requestUpgrade(note: string, actor: string): Promise<void>
   if (denied) return denied;
   const text = note.trim();
   // With the API server, the server logs it and tells System Admins.
-  if (serverMode) return void (await api<Usage>("POST", "/subscription/upgrade-requests", { note: text }));
+  if (remoteOn()) return void (await remoteApi<Usage>("POST", "/subscription/upgrade-requests", { note: text }));
   const u = usageOf(currentClient());
   logEvent(currentClient(), "upgrade-request", `Upgrade requested${text ? `: "${text}"` : ""}`, actor);
   const n = upgradeAlert(u, actor, text);
@@ -180,7 +180,7 @@ export async function requestUpgrade(note: string, actor: string): Promise<void>
 export async function listClients(): Promise<Usage[]> {
   const denied = deny("clients", "view");
   if (denied) return denied;
-  if (serverMode) return (await api<ServerUsage[]>("GET", "/subscription/clients")).map(alertsFrom);
+  if (remoteOn()) return (await remoteApi<ServerUsage[]>("GET", "/subscription/clients")).map(alertsFrom);
   checkSeatThresholds();
   return respond(sub.clients.map(usageOf));
 }
@@ -188,14 +188,14 @@ export async function listClients(): Promise<Usage[]> {
 export async function listPlans(): Promise<Plan[]> {
   const denied = deny("clients", "view");
   if (denied) return denied;
-  if (serverMode) return api<Plan[]>("GET", "/subscription/plans");
+  if (remoteOn()) return remoteApi<Plan[]>("GET", "/subscription/plans");
   return respond(sub.plans);
 }
 
 export async function listSubscriptionEvents(): Promise<(SubscriptionEvent & { clientName: string })[]> {
   const denied = deny("clients", "view");
   if (denied) return denied;
-  if (serverMode) return api<(SubscriptionEvent & { clientName: string })[]>("GET", "/subscription/events");
+  if (remoteOn()) return remoteApi<(SubscriptionEvent & { clientName: string })[]>("GET", "/subscription/events");
   return respond(sub.events.map((e) => ({ ...e, clientName: sub.clients.find((c) => c.id === e.clientId)?.name ?? e.clientId })));
 }
 
@@ -212,9 +212,9 @@ const tellExtension = (input: { seats: number; until: string } | null) => tellNo
 export async function changePlan(clientId: string, planId: string, actor: string): Promise<void> {
   const denied = deny("clients", "edit");
   if (denied) return denied;
-  if (serverMode) {
+  if (remoteOn()) {
     // The server tells Super Admins and HR, and sends any seat alerts.
-    await api<{ plan: Plan; from: string; usage: ServerUsage }>("PUT", `/subscription/clients/${encodeURIComponent(clientId)}/plan`, { planId });
+    await remoteApi<{ plan: Plan; from: string; usage: ServerUsage }>("PUT", `/subscription/clients/${encodeURIComponent(clientId)}/plan`, { planId });
     return;
   }
   const client = sub.clients.find((c) => c.id === clientId);
@@ -232,8 +232,8 @@ export async function changePlan(clientId: string, planId: string, actor: string
 export async function setSeatOverride(clientId: string, seats: number | null, actor: string): Promise<void> {
   const denied = deny("clients", "edit");
   if (denied) return denied;
-  if (serverMode) {
-    await api<ServerUsage>("PUT", `/subscription/clients/${encodeURIComponent(clientId)}/seat-override`, { seats });
+  if (remoteOn()) {
+    await remoteApi<ServerUsage>("PUT", `/subscription/clients/${encodeURIComponent(clientId)}/seat-override`, { seats });
     return;
   }
   if (!sub.clients.some((c) => c.id === clientId)) return fail("That client no longer exists");
@@ -248,8 +248,8 @@ export async function setSeatOverride(clientId: string, seats: number | null, ac
 export async function grantExtension(clientId: string, input: { seats: number; until: string } | null, actor: string): Promise<void> {
   const denied = deny("clients", "edit");
   if (denied) return denied;
-  if (serverMode) {
-    await api<ServerUsage>("PUT", `/subscription/clients/${encodeURIComponent(clientId)}/extension`, { extension: input });
+  if (remoteOn()) {
+    await remoteApi<ServerUsage>("PUT", `/subscription/clients/${encodeURIComponent(clientId)}/extension`, { extension: input });
     return;
   }
   if (!sub.clients.some((c) => c.id === clientId)) return fail("That client no longer exists");

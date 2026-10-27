@@ -879,6 +879,54 @@ model TrainingRecord {
   @@index([employeeId])
 }
 
+// ---------- Support tickets and the subscription (Administration on the website) ----------
+
+/// A problem or question a client's person sends to our support team
+model SupportTicket {
+  id                String           @id @default(cuid())
+  number            Int              @unique
+  subject           String
+  category          String
+  /// low, normal, high, urgent
+  priority          String           @default("normal")
+  /// open, in_progress, waiting, resolved, closed
+  status            String           @default("open")
+  filedBy           String
+  filedById         String
+  filedByEmployeeId String?
+  /// admin (shared in the HR workspace), manager or employee (private)
+  workspace         String           @default("admin")
+  page              String?
+  assignee          String?
+  createdAt         DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime         @default(now()) @db.Timestamptz(3)
+  messages          SupportMessage[]
+}
+
+model SupportMessage {
+  id       String        @id @default(cuid())
+  ticketId String
+  ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  by       String
+  /// client or support
+  side     String
+  text     String
+  at       DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@index([ticketId])
+}
+
+/// Seat alerts, refused adds, upgrade requests and plan changes (the plan itself is AppSetting "subscription")
+model SubscriptionEvent {
+  id      String   @id @default(cuid())
+  kind    String
+  message String
+  by      String?
+  seats   String
+  admins  String
+  at      DateTime @default(now()) @db.Timestamptz(3)
+}
+
 // ---------- Audit ----------
 
 model AuditLog {

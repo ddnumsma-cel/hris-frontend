@@ -4,6 +4,7 @@ import { fullName, state as core } from "../corehr/store";
 import { leave } from "../leave/store";
 import { tk } from "../timekeeping/store";
 import { api, serverMode } from "../http";
+import { api as backendApi, backendOn } from "../backend/client";
 import { admin, logAdmin, saveAdmin, type Access, type RequestKind, type Settings, type SystemRole, type UserAccount, type Workflow } from "./store";
 import { LIMITS, type RoleKey } from "../permissions";
 import { deny, employeeOfAccount, forbidden, sessionWho } from "../session";
@@ -367,6 +368,8 @@ export async function listAudit(): Promise<AuditRow[]> {
   // Each role sees its own areas of the trail (lib/permissions.ts LIMITS.auditAreas).
   const areas = LIMITS.auditAreas[sessionWho().role ?? "employee"];
   // Sign-in and administration entries come from the database; the modules still in the browser add theirs.
+  // On the backend: its audit log is the whole trail (every change made through it); the browser's demo records aren't added.
+  if (backendOn()) return (await backendApi<AuditRow[]>("/admin/audit")).filter((r) => areas === "all" || areas.includes(r.module));
   const adminRows: AuditRow[] = serverMode ? await api<AuditRow[]>("GET", "/admin/audit") : admin.log.map((l) => ({ ...l }));
   const name = (id: string) => {
     const e = core.employees.find((x) => x.id === id);

@@ -1,3 +1,4 @@
+import { AdministrationModule } from './administration/administration.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { PoliciesModule } from './policies/policies.module';
 import { HolidaysModule } from './holidays/holidays.module';
@@ -33,6 +34,7 @@ import { PrismaModule } from './prisma/prisma.service';
     HolidaysModule,
     PoliciesModule,
     OnboardingModule,
+    AdministrationModule,
     DashboardModule,
     MeModule,
   ],

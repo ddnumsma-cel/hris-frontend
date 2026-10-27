@@ -36,10 +36,13 @@ export function setToken(token: string | null) {
 /** A refused or failed backend call, with the backend's own message when it gives one. */
 export class ApiError extends Error {
   readonly status: number;
-  constructor(message: string, status: number) {
+  /** The backend's error code, when it sends one (e.g. SEAT_LIMIT_REACHED). */
+  readonly code?: string;
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    if (code) this.code = code;
   }
 }
 
@@ -72,7 +75,8 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   const body = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) {
     const message = (body && typeof body === "object" && "message" in body ? String((body as { message: unknown }).message) : "") || `The HR server couldn't do that (${res.status}).`;
-    throw new ApiError(message, res.status);
+    const code = body && typeof body === "object" && "code" in body ? String((body as { code: unknown }).code) : undefined;
+    throw new ApiError(message, res.status, code);
   }
   return body as T;
 }

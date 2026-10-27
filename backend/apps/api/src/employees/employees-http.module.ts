@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AdministrationModule } from '../administration/administration.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { DevicesModule } from '../devices/devices.module';
 import { DocumentsModule } from '../documents/documents.module';
@@ -10,7 +11,7 @@ import { OrgService } from './org.service';
 
 /** HTTP endpoints for employees. Kept apart from EmployeesModule because the profile composes attendance, leave and the 201 file. */
 @Module({
-  imports: [EmployeesModule, AttendanceModule, LeaveModule, DocumentsModule, DevicesModule],
+  imports: [EmployeesModule, AttendanceModule, LeaveModule, DocumentsModule, DevicesModule, AdministrationModule],
   controllers: [EmployeesController, OrgController],
   providers: [OrgService],
 })

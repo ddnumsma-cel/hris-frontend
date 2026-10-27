@@ -36,6 +36,7 @@ import {
 } from '@msma/shared';
 import { AttendanceService } from '../attendance/attendance.service';
 import { DevicesService } from '../devices/devices.service';
+import { SubscriptionService } from '../administration/subscription.service';
 import { AuthUser, canSeePay, CurrentUser, isHrLike, Roles } from '../common/auth.decorators';
 import { ApiZodBody, ApiZodQuery, ApiZodResponse, ZodPipe } from '../common/zod';
 import { DocumentsService } from '../documents/documents.service';
@@ -55,6 +56,7 @@ export class EmployeesController {
     private readonly leave: LeaveService,
     private readonly documents: DocumentsService,
     private readonly devices: DevicesService,
+    private readonly subscription: SubscriptionService,
   ) {}
 
   /** Managers only see their direct reports. */
@@ -118,6 +120,8 @@ export class EmployeesController {
     @CurrentUser() user: AuthUser,
     @Body(new ZodPipe(CreateEmployeeSchema)) body: CreateEmployee,
   ) {
+    // A new hire takes a seat: refused (409 SEAT_LIMIT_REACHED) past the plan's limit plus grace.
+    await this.subscription.assertSeats(1);
     const created = await this.employees.create(body, user.userId);
     // Put them on the attendance terminals now; they register a face or finger there.
     await this.devices.addEmployeeToTerminals(created.id);
@@ -154,6 +158,8 @@ export class EmployeesController {
   })
   @ApiZodResponse(SeparationSchema)
   async cancelSeparation(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<Separation> {
+    // Bringing back someone already separated takes a seat again.
+    if ((await this.employees.devicePins()).every((e) => e.id !== id)) await this.subscription.assertSeats(1);
     await this.employees.cancelSeparation(id, user.userId);
     await this.devices.addEmployeeToTerminals(id);
     return { employeeId: id, lastDay: null };

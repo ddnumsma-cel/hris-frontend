@@ -1112,3 +1112,28 @@ export type TrainingInput = z.infer<typeof TrainingInputSchema>;
 export const TrainingSchema = z.object({ id: z.string(), employeeName: z.string(), employeeInitials: z.string(), course: z.string(), dueDate: z.string(), status: z.enum(TRAINING_STATUSES) });
 export type TrainingView = z.infer<typeof TrainingSchema>;
 export const TrainingStatusSchema = z.object({ status: z.enum(TRAINING_STATUSES) });
+
+// ---------- Support tickets, the subscription and the audit trail (Administration on the website) ----------
+export const TICKET_CATEGORIES = ['Bug or error', 'How do I…', 'Account or sign-in', 'Payroll', 'Data fix', 'Billing', 'Feature request'] as const;
+export const TICKET_PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
+export const TICKET_STATUSES = ['open', 'in_progress', 'waiting', 'resolved', 'closed'] as const;
+export const FileTicketSchema = z.object({
+  subject: z.string().trim().min(1, 'Give the problem a short title.').max(160),
+  category: z.enum(TICKET_CATEGORIES),
+  priority: z.enum(TICKET_PRIORITIES),
+  text: z.string().trim().min(1, 'Describe what happened.').max(8000),
+  page: z.string().max(300).optional(),
+});
+export type FileTicket = z.infer<typeof FileTicketSchema>;
+export const TicketReplySchema = z.object({ text: z.string().trim().min(1, 'Write a reply first.').max(8000) });
+export const TicketPatchSchema = z.object({ status: z.enum(TICKET_STATUSES).optional(), priority: z.enum(TICKET_PRIORITIES).optional(), assignee: z.string().trim().max(120).optional() });
+export type TicketPatch = z.infer<typeof TicketPatchSchema>;
+export const TicketSchema = z.looseObject({ id: z.string(), number: z.number(), subject: z.string(), status: z.enum(TICKET_STATUSES) });
+
+export const UsageSchema = z.looseObject({ clientId: z.string(), seatsUsed: z.number(), seatLimit: z.number(), seatCap: z.number(), adminsUsed: z.number(), adminLimit: z.number() });
+export const UpgradeRequestSchema = z.object({ note: z.string().trim().max(1000).default('') });
+export const ChangePlanSchema = z.object({ planId: z.string().min(1, 'Choose a plan') });
+export const SeatOverrideSchema = z.object({ seats: z.number().int().min(1, 'Enter a whole number of seats, 1 or more').max(100000).nullable() });
+export const ExtensionSchema = z.object({ extension: z.object({ seats: z.number().int().min(1, 'Enter how many extra seats, 1 or more').max(10000), until: DateKeySchema }).nullable() });
+
+export const AuditRowSchema = z.object({ id: z.string(), at: InstantSchema, actor: z.string(), module: z.string(), action: z.string(), target: z.string(), detail: z.string() });
