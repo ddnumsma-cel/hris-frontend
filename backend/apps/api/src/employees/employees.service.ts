@@ -64,6 +64,11 @@ function dashGov(value: string | undefined, groups: number[]): string {
 }
 
 /** Employee master data (the 201 file). Other modules use this service instead of the Employee table. */
+const NUMBER_FIELDS = new Set(['tin', 'sss', 'philhealth', 'pagibig', 'bankAccountNo']);
+/** A copy with government and bank numbers cut to their last four digits (for the audit trail). */
+const hideNumbers = <T>(o: T): T =>
+  JSON.parse(JSON.stringify(o ?? null), (k, v) => (NUMBER_FIELDS.has(k) && typeof v === 'string' && v ? `••••${v.replace(/\D/g, '').slice(-4)}` : v));
+
 @Injectable()
 export class EmployeesService {
   constructor(
@@ -282,8 +287,9 @@ export class EmployeesService {
           action: 'PERSONAL_INFO_UPDATED',
           entity: 'Employee',
           entityId: id,
-          before: { ...before, govIds: patch.govIds ? beforeIds : undefined },
-          after: { ...patch, effectiveDate: patch.effectiveDate ?? manilaToday() },
+          // Government and bank numbers stay out of the audit trail in full: only the last four digits are kept.
+          before: hideNumbers({ ...before, govIds: patch.govIds ? beforeIds : undefined }),
+          after: hideNumbers({ ...patch, effectiveDate: patch.effectiveDate ?? manilaToday() }),
         },
         tx,
       );

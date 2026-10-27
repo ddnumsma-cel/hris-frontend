@@ -19,6 +19,7 @@ import { admin, logAdmin, saveAdmin } from "@/lib/admin/store";
 import { getCredential, setCredential } from "@/lib/credentials";
 import { changePasswordRemote } from "@/lib/admin/auth";
 import { api as backendApi, backendOn } from "@/lib/backend/client";
+import { backendPasswordChanged } from "@/lib/backend/auth";
 import { serverMode } from "@/lib/http";
 import type { AuthUser } from "@/features/auth/AuthContext";
 import type { Employee } from "@/lib/types";
@@ -184,7 +185,9 @@ export function passwordStrength(pw: string): { score: 0 | 1 | 2 | 3 | 4; label:
 export async function changeMyPassword(user: AuthUser, current: string, next: string) {
   // On the backend: it checks the current password and saves the new one (min. 8 characters).
   if (backendOn()) {
-    await backendApi("/auth/change-password", { method: "POST", body: { currentPassword: current, newPassword: next } });
+    // Older sessions end when the password changes; this one carries on with the fresh token the backend sends back.
+    const r = await backendApi<{ accessToken?: string } | null>("/auth/change-password", { method: "POST", body: { currentPassword: current, newPassword: next } });
+    await backendPasswordChanged(r?.accessToken);
     return true;
   }
   // With the API server the password is checked and changed in the database.

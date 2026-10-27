@@ -10,6 +10,8 @@ export abstract class AuthService {
   abstract login(email: string, password: string): Promise<LoginResponse>;
   /** Resolve a bearer token to the caller. Throws UnauthorizedException if invalid/expired. */
   abstract verify(token: string): Promise<AuthUser>;
+  /** A fresh access token for this account (after it changes its own password). */
+  abstract tokenFor(userId: string): Promise<string>;
   /** Profile + preferences for the signed-in user. */
   abstract sessionUser(userId: string): Promise<SessionUser>;
   abstract updatePreferences(userId: string, prefs: UpdatePreferences): Promise<SessionUser>;

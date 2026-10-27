@@ -1,16 +1,18 @@
-import { Body, Controller, Get, Header, HttpCode, Ip, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Header, HttpCode, Ip, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiOperation, ApiProduces, ApiTags } from '@nestjs/swagger';
 import { IclockQuery, IclockQuerySchema } from '@msma/shared';
 import { Public } from '../common/auth.decorators';
+import { LanOnlyGuard } from '../common/lan-only.guard';
 import { ApiZodQuery, ZodPipe } from '../common/zod';
 import { DevicesService } from './devices.service';
 
 /**
- * ZKTeco ADMS push endpoints. Terminals can't send JWTs, so these are public but only accept
- * registered serial numbers. (Production: put behind the site VPN / IP allow-list.)
+ * ZKTeco ADMS push endpoints. Terminals can't send JWTs, so these are public but only accept registered serial
+ * numbers, and only from the office network (LanOnlyGuard; ICLOCK_ALLOWED_IPS adds a site's own address).
  */
 @ApiTags('devices')
 @Public()
+@UseGuards(LanOnlyGuard)
 @Controller('iclock')
 export class IclockController {
   constructor(private readonly devices: DevicesService) {}

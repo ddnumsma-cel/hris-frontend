@@ -12,6 +12,7 @@ import {
   utcDateToDateKey,
 } from '@msma/shared';
 import type { AuthUser } from '../common/auth.decorators';
+import { notSelf } from '../common/not-self';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -65,10 +66,17 @@ export class PayrollRunsService {
   private async checkLines(lines: PayRunLine[]): Promise<Map<string, string>> {
     const nos = lines.map((l) => l.person.id);
     if (new Set(nos).size !== nos.length) throw new BadRequestException('Someone is on this run twice');
-    const rows = await this.prisma.employee.findMany({ where: { employeeNo: { in: nos } }, select: { id: true, employeeNo: true } });
+    const rows = await this.prisma.employee.findMany({ where: { employeeNo: { in: nos } }, select: { id: true, employeeNo: true, monthlySalary: true } });
     const ids = new Map(rows.map((r) => [r.employeeNo, r.id]));
     const unknown = nos.filter((n) => !ids.has(n));
     if (unknown.length) throw new BadRequestException(`Not employee records: ${unknown.slice(0, 5).join(', ')}. Reload the page and try again.`);
+    // The website works the pay out; the backend still checks it against the records: basic pay is at most the half
+    // month of the salary on file.
+    const salary = new Map(rows.map((r) => [r.employeeNo, r.monthlySalary ? Number(r.monthlySalary.toString()) : null]));
+    for (const l of lines) {
+      const monthly = salary.get(l.person.id);
+      if (monthly != null && l.basic > monthly / 2 + 1) throw new BadRequestException(`${l.person.name}'s basic pay is more than half their monthly salary on record. Reload the page and work the run out again.`);
+    }
     return ids;
   }
 
@@ -162,9 +170,13 @@ export class PayrollRunsService {
     const newIds = new Set(flat(input.adjustments).map((a) => a.id));
     const added = flat(input.adjustments).filter((a) => !oldIds.has(a.id));
     const removed = flat(before).filter((a) => !newIds.has(a.id));
+    // Nobody adds or removes an adjustment on their own pay line.
+    const mine = user.employeeId ? (await this.prisma.employee.findUnique({ where: { id: user.employeeId }, select: { employeeNo: true } }))?.employeeNo : undefined;
+    if (mine && [...added, ...removed].some((a) => a.emp === mine)) notSelf(user, user.employeeId, 'change an adjustment on your own pay');
     const next = await this.prisma.$transaction(async (tx) => {
-      const run = await tx.payrollRun.update({
-        where: { id },
+      // Only a draft still as it was read changes (an approval at the same moment wins, and this one is refused).
+      const { count } = await tx.payrollRun.updateMany({
+        where: { id, status: r.status },
         data: {
           lines: input.lines as Prisma.InputJsonValue,
           adjustments: input.adjustments as Prisma.InputJsonValue,
@@ -173,6 +185,8 @@ export class PayrollRunsService {
           ...this.totals(input.lines),
         },
       });
+      if (!count) throw new ConflictException('This run was just approved or changed by someone else. Reload it.');
+      const run = await tx.payrollRun.findUniqueOrThrow({ where: { id } });
       for (const a of added)
         await this.audit.log(
           { actorId: user.userId, action: 'PAYROLL_ADJUSTMENT_ADDED', entity: 'PayrollRun', entityId: id, after: { employeeNo: a.emp, label: a.label, amount: a.amount, taxable: a.taxable, reason: a.reason } },
@@ -193,7 +207,9 @@ export class PayrollRunsService {
     const r = await this.draft(id);
     if (r.reviewedBy) throw new ConflictException(`Already reviewed by ${r.reviewedBy}`);
     const next = await this.prisma.$transaction(async (tx) => {
-      const run = await tx.payrollRun.update({ where: { id }, data: { reviewedBy: user.displayName, reviewedAt: new Date() } });
+      const { count } = await tx.payrollRun.updateMany({ where: { id, status: r.status, reviewedBy: null }, data: { reviewedBy: user.displayName, reviewedAt: new Date() } });
+      if (!count) throw new ConflictException('This run was just reviewed, approved or changed by someone else. Reload it.');
+      const run = await tx.payrollRun.findUniqueOrThrow({ where: { id } });
       await this.audit.log({ actorId: user.userId, action: 'PAYROLL_RUN_REVIEWED', entity: 'PayrollRun', entityId: id, after: { label: r.label } }, tx);
       return run;
     });
@@ -207,8 +223,8 @@ export class PayrollRunsService {
     const now = new Date();
     const m = (n: number) => round2(n).toFixed(2);
     const next = await this.prisma.$transaction(async (tx) => {
-      const run = await tx.payrollRun.update({
-        where: { id },
+      const { count } = await tx.payrollRun.updateMany({
+        where: { id, status: r.status },
         data: {
           status: 'RELEASED',
           lines: input.lines as Prisma.InputJsonValue,
@@ -219,6 +235,8 @@ export class PayrollRunsService {
           ...this.totals(input.lines),
         },
       });
+      if (!count) throw new ConflictException('This run was just approved or changed by someone else. Reload it.');
+      const run = await tx.payrollRun.findUniqueOrThrow({ where: { id } });
       await tx.payslip.deleteMany({ where: { payrollRunId: id } });
       await tx.payslip.createMany({
         data: input.lines.map((l) => {
@@ -248,7 +266,8 @@ export class PayrollRunsService {
           action: 'PAYROLL_RUN_APPROVED',
           entity: 'PayrollRun',
           entityId: id,
-          after: { label: r.label, employees: input.lines.length, takeHome: this.totals(input.lines).totalNet },
+          // What changed between the saved draft (the one reviewed) and what was approved is kept on record.
+          after: { label: r.label, employees: input.lines.length, takeHome: this.totals(input.lines).totalNet, draftTakeHome: r.totalNet ? Number(r.totalNet.toString()) : null, reviewedBy: r.reviewedBy ?? null },
         },
         tx,
       );

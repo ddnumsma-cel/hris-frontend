@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { Prisma } from '@msma/db';
 import { addDays, ClaimInput, ClaimPay, dateKeyToUtcDate, manilaToday, utcDateToDateKey } from '@msma/shared';
 import type { AuthUser } from '../common/auth.decorators';
+import { notSelf } from '../common/not-self';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -152,6 +153,9 @@ export class ClaimsService {
     const picked = await this.prisma.claim.findMany({ where: { id: { in: input.ids } }, include: this.include });
     if (picked.length !== input.ids.length) throw new NotFoundException('Some of those claims no longer exist');
     if (picked.some((c) => c.status !== 'approved' || c.paidAt)) throw new ConflictException("Only approved claims that aren't paid yet can be paid out");
+    for (const c of picked) notSelf(user, c.employeeId, 'release a reimbursement');
+    const today = manilaToday();
+    if (input.paidOn > addDays(today, 1) || input.paidOn < addDays(today, -366)) throw new BadRequestException('Enter the date it was actually released');
     const ref = input.reference || (input.method === 'cash' ? 'Cash' : '');
     const paidAt = new Date(`${input.paidOn}T04:00:00Z`);
     await this.prisma.$transaction(async (tx) => {

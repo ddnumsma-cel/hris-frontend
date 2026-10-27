@@ -15,13 +15,17 @@ import { z } from 'zod';
 import { AuthUser, CurrentUser, Roles } from '../common/auth.decorators';
 import { ApiZodBody, ApiZodResponse, ZodPipe } from '../common/zod';
 import { AccountsService } from './accounts.service';
+import { AuthService } from './auth.service';
 
 @ApiTags('accounts')
 @ApiBearerAuth()
 @Roles('PLATFORM_ADMIN', 'SYSTEM_ADMIN')
 @Controller()
 export class AccountsController {
-  constructor(private readonly accounts: AccountsService) {}
+  constructor(
+    private readonly accounts: AccountsService,
+    private readonly auth: AuthService,
+  ) {}
 
   @Get('admin/accounts')
   @ApiOperation({ operationId: 'listAccounts', summary: 'Every sign-in account, with role, status and lockout (no passwords)' })
@@ -77,11 +81,13 @@ export class AccountsController {
   }
 
   @Post('auth/change-password')
-  @HttpCode(204)
+  @HttpCode(200)
   @Roles('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN', 'PLATFORM_ADMIN')
   @ApiOperation({ operationId: 'changePassword', summary: 'Change your own password (replaces a temporary one)' })
   @ApiZodBody(ChangePasswordSchema)
   async changePassword(@CurrentUser() user: AuthUser, @Body(new ZodPipe(ChangePasswordSchema)) body: ChangePassword) {
     await this.accounts.changeOwnPassword(user, body.currentPassword, body.newPassword);
+    // Sessions started before the change end; this one carries on with a fresh token.
+    return { accessToken: await this.auth.tokenFor(user.userId) };
   }
 }

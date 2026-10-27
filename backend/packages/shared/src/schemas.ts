@@ -312,7 +312,10 @@ export const AttendanceDaysResponseSchema = z.object({
 });
 export type AttendanceDaysResponse = z.infer<typeof AttendanceDaysResponseSchema>;
 
-export const RecomputeQuerySchema = z.object({ from: DateKeySchema, to: DateKeySchema });
+export const RecomputeQuerySchema = z
+  .object({ from: DateKeySchema, to: DateKeySchema })
+  .refine((q) => q.from <= q.to, { message: '"from" must be on or before "to"', path: ['from'] })
+  .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= 62 * 86_400_000, { message: 'Pick at most 62 days', path: ['to'] });
 export type RecomputeQuery = z.infer<typeof RecomputeQuerySchema>;
 
 export const RecomputeResponseSchema = z.object({
@@ -496,7 +499,8 @@ export const EmployeeListItemSchema = z.object({
   site: Ref,
   department: Ref,
   position: z.string().nullable(),
-  dailyRate: MoneySchema,
+  /** Only for HR, Accounting and the Super Admin (null for an approver). */
+  dailyRate: MoneySchema.nullable(),
   todayStatus: DtrStatusSchema.nullable(),
   managerId: z.string().nullable().optional().describe('Who this person reports to (for the org chart)'),
   shiftId: z.string().optional().describe('Their usual shift'),
@@ -715,33 +719,36 @@ export type PayslipView = z.infer<typeof PayslipViewSchema>;
 // Payroll runs made on the website: it works the pay out with MSMA's workbook rules (its lib/pay/engine.ts) and the
 // backend keeps each run, locks it on approval and writes the payslips. Employees are keyed by employee number.
 const amount = z.number().finite();
+/** One person's pay figures for a cut-off: never negative, never absurd. */
+const pay = z.number().finite().min(0, 'Pay figures cannot be negative').max(10_000_000);
 export const PayRunAdjustmentSchema = z.object({
   id: z.string().min(1).max(60),
   label: z.string().trim().min(1).max(80),
-  amount,
+  amount: amount.min(-1_000_000).max(1_000_000),
   taxable: z.boolean(),
   reason: z.string().trim().max(300),
 });
-export const PayRunAdjustmentsSchema = z.record(z.string(), z.array(PayRunAdjustmentSchema));
+export const PayRunAdjustmentsSchema = z.record(z.string(), z.array(PayRunAdjustmentSchema).max(50));
 export const PayRunLineSchema = z.looseObject({
   person: z.looseObject({ id: z.string().min(1), name: z.string() }),
   pay: z.looseObject({}),
   time: z.looseObject({ present: z.number() }),
-  basic: amount,
-  deductions: amount,
-  overtime: amount,
-  premiums: amount,
-  gross: amount,
-  sssEe: amount,
-  phEe: amount,
-  piEe: amount,
-  tax: amount,
-  net: amount,
+  basic: pay,
+  deductions: pay,
+  overtime: pay,
+  premiums: pay,
+  gross: pay,
+  sssEe: pay,
+  phEe: pay,
+  piEe: pay,
+  tax: pay,
+  // Take-home can dip below zero when loans exceed pay; it is still bounded.
+  net: amount.min(-1_000_000).max(10_000_000),
 });
 export type PayRunLine = z.infer<typeof PayRunLineSchema>;
 const runPay = {
   lines: z.array(PayRunLineSchema).max(5000),
-  auto: z.record(z.string(), z.array(z.looseObject({ id: z.string(), amount }))),
+  auto: z.record(z.string(), z.array(z.looseObject({ id: z.string(), amount: amount.min(-1_000_000).max(1_000_000) })).max(50)),
 };
 export const CreatePayRunSchema = z.object({
   label: z.string().trim().min(1).max(80),
@@ -1162,7 +1169,8 @@ export const AccountRowSchema = z.looseObject({ id: z.string(), username: z.stri
 export const TempPasswordSchema = z.object({ username: z.string(), password: z.string() });
 export const ChangePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Enter your current password').max(200),
-  newPassword: z.string().min(8, 'Use at least 8 characters.').max(200),
+  // bcrypt reads only the first 72 bytes, so longer passwords would be cut without telling anyone.
+  newPassword: z.string().min(8, 'Use at least 8 characters.').max(72, 'Use 72 characters or fewer.'),
 });
 export type ChangePassword = z.infer<typeof ChangePasswordSchema>;
 

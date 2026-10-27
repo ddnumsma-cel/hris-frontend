@@ -16,6 +16,9 @@ import { PUNCH_PROTOCOL, type PunchProtocolAdapter } from './punch-protocol';
 
 export const MOBILE_DEVICE_SERIAL = 'MOBILE-APP';
 const ONLINE_WINDOW_MS = 5 * 60_000;
+/** Punches older than this (a long outage backlog) or this far ahead are not accepted from a clock. */
+const PUNCH_MAX_AGE_MS = 45 * 86_400_000;
+const PUNCH_MAX_AHEAD_MS = 86_400_000;
 /** Commands handed to a terminal per check-in. */
 const COMMANDS_PER_CHECKIN = 20;
 /** A sent command with no reply after this long is sent again. */
@@ -288,7 +291,12 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
     if (kind !== 'ATTLOG') return { received: 0, inserted: 0, unknownPins: 0, rejected: 0 };
     const { punches, rejected } = this.protocol.parseAttendance(body);
     const pins = await this.employees.resolvePins([...new Set(punches.map((p) => p.pin))]);
-    const known = punches.filter((p) => pins.has(p.pin));
+    // A clock's backlog after an outage is fine; punches dated far in the past or in the future are not real ones.
+    const now = Date.now();
+    const inWindow = (p: { punchedAt: Date }) => p.punchedAt.getTime() > now - PUNCH_MAX_AGE_MS && p.punchedAt.getTime() < now + PUNCH_MAX_AHEAD_MS;
+    const outOfWindow = punches.filter((p) => pins.has(p.pin) && !inWindow(p)).length;
+    if (outOfWindow) this.logger.warn(`${serial}: ${outOfWindow} punch(es) dated outside the last ${PUNCH_MAX_AGE_MS / 86_400_000} days ignored`);
+    const known = punches.filter((p) => pins.has(p.pin) && inWindow(p));
     const result = await this.attendance.recordPunches(
       known.map((p) => ({
         employeeId: pins.get(p.pin)!,
@@ -297,11 +305,11 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
         verifyMode: p.verifyMode,
       })),
     );
-    if (punches.length !== known.length)
+    if (punches.length - outOfWindow !== known.length)
       this.logger.warn(
-        `${serial}: ${punches.length - known.length} punch(es) with unknown PIN ignored`,
+        `${serial}: ${punches.length - outOfWindow - known.length} punch(es) with unknown PIN ignored`,
       );
-    return { ...result, unknownPins: punches.length - known.length, rejected };
+    return { ...result, unknownPins: punches.length - outOfWindow - known.length, rejected: rejected + outOfWindow };
   }
 
   async status(siteId?: string, now = new Date()): Promise<DeviceStatus[]> {

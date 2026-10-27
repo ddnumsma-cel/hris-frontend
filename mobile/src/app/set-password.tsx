@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { api } from '@/lib/backend/client';
+import { api, setToken } from '@/lib/backend/client';
 import { Button, Card, font, T } from '~/components/ui';
 import { useTheme } from '~/lib/theme';
 import { useSession } from '~/session';
@@ -31,7 +31,9 @@ export default function SetPasswordScreen() {
     setBusy(true);
     setError(null);
     try {
-      await api('/auth/change-password', { method: 'POST', body: { currentPassword: current, newPassword: next } });
+      // Older sessions end when the password changes; this one carries on with the fresh token sent back.
+      const r = await api<{ accessToken?: string } | null>('/auth/change-password', { method: 'POST', body: { currentPassword: current, newPassword: next } });
+      if (r?.accessToken) setToken(r.accessToken);
       setSaved(true);
       // Show the success note first; the app opens once the flag is cleared.
       setTimeout(passwordChanged, 1600);

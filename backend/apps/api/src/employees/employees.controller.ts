@@ -44,7 +44,6 @@ import { LeaveService } from '../leave/leave.service';
 import { EmployeesService } from './employees.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
-const mask = (v: string) => v.replace(/\d(?=[\d-]{4})/g, '•');
 
 @ApiTags('employees')
 @ApiBearerAuth()
@@ -61,11 +60,10 @@ export class EmployeesController {
     private readonly notifications: NotificationsService,
   ) {}
 
-  /** Managers only see their direct reports. */
+  /** Managers only see their direct reports (an approver login with no employee record has no team: nobody). */
   private async scope(user: AuthUser): Promise<string[] | undefined> {
-    return user.role === 'MANAGER' && user.employeeId
-      ? this.employees.teamIds(user.employeeId)
-      : undefined;
+    if (user.role !== 'MANAGER') return undefined;
+    return user.employeeId ? this.employees.teamIds(user.employeeId) : [];
   }
 
   @Get()
@@ -90,6 +88,8 @@ export class EmployeesController {
       ...result,
       items: result.items.map((i) => ({
         ...i,
+        // Pay is for HR, Accounting and the Super Admin; an approver sees their team without it.
+        dailyRate: canSeePay(user.role) ? i.dailyRate : null,
         todayStatus: statuses.get(i.id) ?? null,
         today: details.get(i.id) ?? null,
         record201: briefs.get(i.id) ?? null,
@@ -191,21 +191,16 @@ export class EmployeesController {
         this.attendance.statusForDate([id], manilaToday()),
       ],
     );
-    // Government IDs are sensitive: only HR, payroll and system admins see them in full.
-    const showIds = isHrLike(user.role) || user.role === 'PAYROLL_ADMIN';
-    const govIds =
-      profile.govIds && !showIds
-        ? {
-            tin: mask(profile.govIds.tin),
-            sss: mask(profile.govIds.sss),
-            philhealth: mask(profile.govIds.philhealth),
-            pagibig: mask(profile.govIds.pagibig),
-          }
-        : profile.govIds;
+    // Government IDs, pay and birth dates are for HR, Accounting and the Super Admin (and the person themselves);
+    // an approver sees the rest of their team member's record without them.
+    const showIds = isHrLike(user.role) || user.role === 'PAYROLL_ADMIN' || user.employeeId === id;
+    const govIds = showIds ? profile.govIds : null;
     // Personal data sheet (address, dependents, emergency contact): HR, System Admin and the employee only.
     const showPersonal = isHrLike(user.role) || user.employeeId === id;
     return {
       ...profile,
+      ...(canSeePay(user.role) ? {} : { dailyRate: null }),
+      ...(showIds ? {} : { birthDate: null }),
       govIds,
       todayStatus: status.get(id) ?? null,
       personal: showPersonal ? personal : null,

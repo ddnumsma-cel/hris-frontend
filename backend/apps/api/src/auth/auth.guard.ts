@@ -24,7 +24,12 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const header: string | undefined = request.headers.authorization;
     if (!header?.startsWith('Bearer ')) throw new UnauthorizedException('Please sign in');
-    request.user = await this.auth.verify(header.slice(7));
+    const user = await this.auth.verify(header.slice(7));
+    request.user = user;
+    // A temporary password (made or reset by someone else) opens nothing but the sign-in endpoints until it's replaced.
+    const path: string = (request.path ?? request.url ?? '').split('?')[0];
+    if (user.mustChangePassword && !path.startsWith('/auth/'))
+      throw new ForbiddenException({ message: 'Choose your own password first.', code: 'PASSWORD_CHANGE_REQUIRED' });
     return true;
   }
 }

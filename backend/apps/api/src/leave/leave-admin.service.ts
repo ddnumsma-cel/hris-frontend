@@ -16,6 +16,7 @@ import {
   utcDateToDateKey,
 } from '@msma/shared';
 import type { AuthUser } from '../common/auth.decorators';
+import { notSelf } from '../common/not-self';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -128,7 +129,8 @@ export class LeaveAdminService {
         start: utcDateToDateKey(r.startDate),
         end: utcDateToDateKey(r.endDate),
         days: Number(r.days.toString()),
-        reason: r.reason,
+        // Accounting counts leave days for pay; why someone filed it isn't theirs to read.
+        reason: user.role === 'PAYROLL_ADMIN' ? '' : r.reason,
         status: STATUS[r.status],
         filedBy: `${r.employee.firstName} ${r.employee.lastName}`,
         filedAt: r.createdAt.toISOString(),
@@ -157,6 +159,7 @@ export class LeaveAdminService {
     if (Math.abs(input.leaves) > LEAVE_CREDITS_PER_YEAR) throw new BadRequestException(`Change at most ${LEAVE_CREDITS_PER_YEAR} days at a time`);
     const e = await this.prisma.employee.findUnique({ where: { employeeNo: input.employeeId } });
     if (!e) throw new NotFoundException('That employee no longer exists');
+    notSelf(user, e.id, 'adjust leave credits');
     const data = await this.leave.ruleData(this.prisma, [e.id]);
     const credits = creditsOf(data.rules, e.id, manilaToday(), data.people.get(e.id)?.job.dateHired);
     if (credits.available + input.leaves < 0) throw new BadRequestException(`They only have ${fmtCredits(credits.available)} left`);

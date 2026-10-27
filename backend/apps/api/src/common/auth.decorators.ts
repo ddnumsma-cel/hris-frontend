@@ -13,6 +13,8 @@ export interface AuthUser {
   role: Role;
   employeeId: string | null;
   displayName: string;
+  /** Still on a temporary password: only the sign-in endpoints answer until it is changed. */
+  mustChangePassword?: boolean;
 }
 
 export const IS_PUBLIC = 'isPublic';

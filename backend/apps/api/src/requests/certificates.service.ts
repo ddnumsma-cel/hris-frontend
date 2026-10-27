@@ -1,6 +1,7 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@msma/db';
 import type { AuthUser } from '../common/auth.decorators';
+import { notSelf } from '../common/not-self';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -107,9 +108,13 @@ export class CertificatesService {
     const r = await this.prisma.certificateRequest.findUnique({ where: { id }, include: this.include });
     if (!r) throw new NotFoundException('That request no longer exists');
     if (!from.includes(r.status)) throw new ConflictException(`This request is already ${r.status.toLowerCase()}`);
+    notSelf(user, r.employeeId, 'handle a certificate request');
     const data = await change(r);
     const row = await this.prisma.$transaction(async (tx) => {
-      const u = await tx.certificateRequest.update({ where: { id }, data: { ...data, handledBy: user.displayName, handledAt: new Date() }, include: this.include });
+      // Only a request still in the state it was read in changes (two HR people acting at once can't both issue it).
+      const { count } = await tx.certificateRequest.updateMany({ where: { id, status: r.status }, data: { ...(data as Prisma.CertificateRequestUpdateManyMutationInput), handledBy: user.displayName, handledAt: new Date() } });
+      if (!count) throw new ConflictException('Someone else just handled this request');
+      const u = await tx.certificateRequest.findUniqueOrThrow({ where: { id }, include: this.include });
       await this.audit.log({ actorId: user.userId, action, entity: 'CertificateRequest', entityId: id, before: { status: r.status }, after: { status: u.status, number: (u.issued as unknown as Issued | null)?.number ?? null } }, tx);
       return u;
     });

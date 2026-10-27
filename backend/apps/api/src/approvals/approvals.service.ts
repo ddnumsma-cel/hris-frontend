@@ -179,6 +179,9 @@ export class ApprovalsService {
     const steps = this.stepsOf(approval);
     if (!(await this.workflows.canDecide(user, approval.employeeId, steps[approval.step])))
       throw new ForbiddenException(`This request is waiting for: ${this.workflows.stepName(steps[approval.step] ?? steps[0]!)}`);
+    // Each step needs a different person (except the Super Admin, who may approve everything).
+    if (user.role !== 'SYSTEM_ADMIN' && ((approval.stepLog as { byId?: string }[] | null) ?? []).some((s) => s.byId === user.userId))
+      throw new ForbiddenException('You already approved an earlier step. The next step needs someone else.');
     // Approving a step that isn't the last moves it to the next step; it stays waiting.
     if (decision === 'APPROVED' && approval.step + 1 < steps.length) {
       await this.prisma.$transaction(async (tx) => {
@@ -186,7 +189,7 @@ export class ApprovalsService {
           where: { id, status: 'PENDING', step: approval.step },
           data: {
             step: approval.step + 1,
-            stepLog: [...((approval.stepLog as object[]) ?? []), { step: this.workflows.stepName(steps[approval.step]!), by: user.displayName, at: new Date().toISOString(), reason: reason ?? null }],
+            stepLog: [...((approval.stepLog as object[]) ?? []), { step: this.workflows.stepName(steps[approval.step]!), by: user.displayName, byId: user.userId, at: new Date().toISOString(), reason: reason ?? null }],
           },
         });
         if (count === 0) throw new ConflictException('This request was just decided by someone else');
@@ -202,7 +205,7 @@ export class ApprovalsService {
     const effect = await this.prisma.$transaction(async (tx) => {
       // Guard against a concurrent decision: only flip a row that is still PENDING.
       const { count } = await tx.approvalRequest.updateMany({
-        where: { id, status: 'PENDING' },
+        where: { id, status: 'PENDING', step: approval.step },
         data: {
           status: decision,
           decidedById: user.userId,

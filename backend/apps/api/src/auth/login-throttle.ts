@@ -3,6 +3,8 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60_000;
 const MAX_TRACKED = 10_000;
+/** Wrong passwords from one network address in the window, across all accounts (stops trying one password on everyone). */
+const MAX_PER_ADDRESS = 30;
 
 /**
  * Slows down password guessing: at most 5 unsuccessful sign-ins per email within 15 minutes.
@@ -16,6 +18,7 @@ const MAX_TRACKED = 10_000;
 @Injectable()
 export class LoginThrottle {
   private readonly attempts = new Map<string, { count: number; firstAt: number }>();
+  private readonly fromAddress = new Map<string, { count: number; firstAt: number }>();
 
   private tooMany(minutes: number): never {
     throw new HttpException(
@@ -52,6 +55,33 @@ export class LoginThrottle {
     const e = this.attempts.get(email);
     if (!e || e.count < MAX_ATTEMPTS || now - e.firstAt > WINDOW_MS) return null;
     return new Date(e.firstAt + WINDOW_MS);
+  }
+
+  /** Call before checking the password. Throws 429 when this address has had too many wrong passwords lately. */
+  checkAddress(ip: string, now = Date.now()) {
+    const e = this.fromAddress.get(ip);
+    if (!e) return;
+    if (now - e.firstAt > WINDOW_MS) {
+      this.fromAddress.delete(ip);
+      return;
+    }
+    if (e.count >= MAX_PER_ADDRESS)
+      throw new HttpException(
+        `Too many wrong passwords from this network. Try again in ${Math.max(1, Math.ceil((WINDOW_MS - (now - e.firstAt)) / 60_000))} minutes.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+  }
+
+  /** Call after a wrong password. */
+  failedFrom(ip: string, now = Date.now()) {
+    let e = this.fromAddress.get(ip);
+    if (!e || now - e.firstAt > WINDOW_MS) {
+      if (this.fromAddress.size >= MAX_TRACKED) for (const [k, v] of this.fromAddress) if (now - v.firstAt > WINDOW_MS) this.fromAddress.delete(k);
+      if (this.fromAddress.size >= MAX_TRACKED) return;
+      e = { count: 0, firstAt: now };
+      this.fromAddress.set(ip, e);
+    }
+    e.count += 1;
   }
 
   /** Call after a successful sign-in. */

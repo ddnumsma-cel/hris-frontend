@@ -1,4 +1,6 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Req } from '@nestjs/common';
+import type { Request } from 'express';
+import { clientAddress } from '../common/lan-only.guard';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import {
   ApplicantSchema,
@@ -136,7 +138,7 @@ export class CareersController {
   @ApiZodResponse(ApplicantSchema, 201)
   @ApiResponse({ status: 409, description: 'Already applied for this role with this email' })
   @ApiResponse({ status: 429, description: 'Too many applications right now' })
-  apply(@Body(new ZodPipe(ApplicationInputSchema)) body: ApplicationInput) {
-    return this.onboarding.apply(body);
+  apply(@Body(new ZodPipe(ApplicationInputSchema)) body: ApplicationInput, @Req() req: Request) {
+    return this.onboarding.apply(body, clientAddress(req));
   }
 }

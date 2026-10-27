@@ -50,6 +50,11 @@ export class WorkflowsService {
     if (input.steps.length === 0) throw new BadRequestException('Add at least one approval step');
     if (input.steps.length > 3) throw new BadRequestException("Keep it to 3 steps or fewer so requests don't get stuck");
     if (input.steps.some((s) => s.approver === 'role' && !(s.roleId && ROLE_OF[s.roleId]))) throw new BadRequestException("Choose the role for each 'Anyone with a role' step");
+    // Only approvers and the Super Admin decide requests; HR handles profile changes (its own records work) and only looks
+    // at the rest. Roles that can't decide would leave requests stuck.
+    const deciders = input.kind === 'profile' ? ['approver', 'super-admin', 'hr'] : ['approver', 'super-admin'];
+    if (input.steps.some((s) => s.approver === 'role' && !deciders.includes(s.roleId ?? '')))
+      throw new BadRequestException(input.kind === 'profile' ? 'Only Approvers, HR or the Super Admin can decide profile changes' : 'Only Approvers or the Super Admin can decide these requests');
     const all = await this.list();
     const next = all.map((w) => (w.kind === input.kind ? input : w));
     await this.prisma.$transaction(async (tx) => {
@@ -89,13 +94,14 @@ export class WorkflowsService {
     const head = e?.departmentId
       ? (await this.prisma.siteDepartment.findUnique({ where: { siteId_departmentId: { siteId: e.siteId, departmentId: e.departmentId } }, select: { headEmployeeId: true } }))?.headEmployeeId
       : null;
-    return head ? { employeeIds: [head], roles: [] } : { employeeIds: [], roles: ['HR_ADMIN'] };
+    // No department head set: the Super Admin decides (HR only looks at requests).
+    return head ? { employeeIds: [head], roles: [] } : { employeeIds: [], roles: ['SYSTEM_ADMIN'] };
   }
 
   /**
    * May this person decide the step a request is at? The Super Admin always may. A supervisor step: the employee's
    * manager with an active Approver login (no such login: only the Super Admin). A department-head step: the head set
-   * in Maintenance > Departments (none: HR). A role step: anyone with that role.
+   * in Maintenance > Departments (none: only the Super Admin). A role step: anyone with that role.
    */
   async canDecide(user: AuthUser, employeeId: string, step: WorkflowStep | undefined): Promise<boolean> {
     if (user.role === 'SYSTEM_ADMIN') return true;
@@ -110,7 +116,7 @@ export class WorkflowsService {
       const head = e.departmentId
         ? (await this.prisma.siteDepartment.findUnique({ where: { siteId_departmentId: { siteId: e.siteId, departmentId: e.departmentId } }, select: { headEmployeeId: true } }))?.headEmployeeId
         : null;
-      return head ? user.employeeId === head && head !== employeeId : user.role === 'HR_ADMIN';
+      return !!head && user.employeeId === head && head !== employeeId;
     }
     return !!s.roleId && ROLE_OF[s.roleId] === user.role;
   }

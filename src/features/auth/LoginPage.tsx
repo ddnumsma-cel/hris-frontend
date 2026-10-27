@@ -180,7 +180,7 @@ export function LoginPage() {
             )}
 
             {/* Demo logins stay out of sight unless someone opens them. */}
-            {!serverMode && (<details className="mt-5 rounded-[var(--radius-dropdown)] bg-[var(--login-hover)] px-3.5 py-3 text-xs">
+            {!serverMode && (!backendOn() || BACKEND_DEMO_ACCOUNTS.length > 0) && (<details className="mt-5 rounded-[var(--radius-dropdown)] bg-[var(--login-hover)] px-3.5 py-3 text-xs">
               <summary className="cursor-pointer font-semibold text-[var(--login-ink-2)] select-none">Demo accounts — tap to fill</summary>
               <div className="mt-1.5 flex flex-col gap-1">
                 {(backendOn() ? BACKEND_DEMO_ACCOUNTS : getCredentials().filter((c) => c.listed !== false)).map((c) => (

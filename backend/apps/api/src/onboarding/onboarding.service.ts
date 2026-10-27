@@ -13,6 +13,8 @@ type TrainingRow = Prisma.TrainingRecordGetPayload<{ include: { employee: { sele
 const WEEK_MS = 7 * 86_400_000;
 /** At most this many applications an hour from the public job link, all together. */
 const APPLICATIONS_PER_HOUR = 200;
+/** From one network address in an hour (one person can't use up everyone's allowance). */
+const APPLICATIONS_PER_ADDRESS = 5;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** "2026-11-15" → "Nov 15, 2026", as the website shows due dates. */
@@ -34,7 +36,7 @@ const initials = (first: string, last: string) => `${first[0] ?? ''}${last[0] ??
  */
 @Injectable()
 export class OnboardingService {
-  private applications: number[] = [];
+  private applications: { at: number; from: string }[] = [];
 
   constructor(
     private readonly prisma: PrismaService,
@@ -123,25 +125,27 @@ export class OnboardingService {
   }
 
   /** Someone applies through the shared link (no sign-in); they land in the role's Applied column. */
-  async apply(input: ApplicationInput) {
+  async apply(input: ApplicationInput, from = 'unknown') {
     const now = Date.now();
-    this.applications = this.applications.filter((t) => now - t < 3_600_000);
-    if (this.applications.length >= APPLICATIONS_PER_HOUR)
+    this.applications = this.applications.filter((t) => now - t.at < 3_600_000);
+    if (this.applications.length >= APPLICATIONS_PER_HOUR || this.applications.filter((t) => t.from === from).length >= APPLICATIONS_PER_ADDRESS)
       throw new HttpException('Too many applications right now. Please try again in an hour.', HttpStatus.TOO_MANY_REQUESTS);
 
     let role = input.requisitionId
       ? await this.prisma.jobRequisition.findUnique({ where: { id: input.requisitionId } })
       : await this.prisma.jobRequisition.findFirst({ where: { approval: 'Approved', openings: { gt: 0 }, title: { equals: input.appliedRole, mode: 'insensitive' } } });
     if (input.requisitionId && (!role || role.approval !== 'Approved' || role.openings <= 0)) throw new BadRequestException('This role is no longer open.');
-    // A role from the catalog with no opening yet still reaches HR: it gets its own pipeline in Recruitment.
+    // A role from the catalog with no opening yet still reaches HR: it gets its own pipeline in Recruitment, with no
+    // openings, so an outsider can't publish a job on the careers page by applying for a made-up one.
+    if (!role) role = await this.prisma.jobRequisition.findFirst({ where: { createdBy: 'Shared job link', title: { equals: input.appliedRole, mode: 'insensitive' } } });
     if (!role)
       role = await this.prisma.jobRequisition.create({
-        data: { title: input.appliedRole, department: input.field || 'Other', office: 'Cebu HQ', openings: 1, stage: 'Sourcing', approval: 'Approved', createdBy: 'Shared job link' },
+        data: { title: input.appliedRole, department: input.field || 'Other', office: 'Cebu HQ', openings: 0, stage: 'Sourcing', approval: 'Approved', createdBy: 'Shared job link' },
       });
     const email = input.email.trim().toLowerCase();
     if (await this.prisma.applicant.findFirst({ where: { requisitionId: role.id, email } }))
       throw new ConflictException(`You've already applied for ${role.title} with this email. HR will contact you there.`);
-    this.applications.push(now);
+    this.applications.push({ at: now, from });
 
     const { requisitionId: _r, appliedRole: _a, field: _f, firstName, lastName, phone, email: _e, ...rest } = input;
     void _r, void _a, void _f, void _e;

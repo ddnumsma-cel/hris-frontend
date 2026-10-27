@@ -421,6 +421,8 @@ model User {
   status             String    @default("active")
   /// Set for a new account or a reset; cleared when they choose their own password
   mustChangePassword Boolean   @default(false)
+  /// When the password was last changed or reset: sessions started before it end
+  passwordChangedAt  DateTime? @db.Timestamptz(3)
   /// Who added the login (blank for the seeded ones)
   createdBy          String?
   role            Role

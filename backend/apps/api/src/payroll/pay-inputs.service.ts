@@ -10,6 +10,7 @@ import {
   utcDateToDateKey,
 } from '@msma/shared';
 import type { AuthUser } from '../common/auth.decorators';
+import { notSelf } from '../common/not-self';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -84,6 +85,7 @@ export class PayInputsService {
 
   async saveProfile(employeeNo: string, input: PayProfile, user: AuthUser): Promise<PayProfile> {
     const e = await this.employeeIdOf(employeeNo);
+    notSelf(user, e.id, 'change pay settings');
     const next: PayProfile = {
       ...input,
       transportAllowance: round2(input.transportAllowance),
@@ -149,6 +151,7 @@ export class PayInputsService {
 
   async saveLoan(id: string | undefined, input: LoanInput, user: AuthUser): Promise<Loan> {
     const e = await this.employeeIdOf(input.employeeId);
+    notSelf(user, e.id, 'add or change a loan deduction');
     const paid = await this.paidByLoan();
     const data = {
       employeeId: e.id,
@@ -165,6 +168,8 @@ export class PayInputsService {
         const old = await tx.loan.findUnique({ where: { id } });
         if (!old) throw new NotFoundException('That loan no longer exists');
         if (old.status !== 'active') throw new ConflictException('This loan is closed');
+        // A loan stays with the person who owes it; a different person's loan is added as a new one.
+        if (old.employeeId !== e.id) throw new BadRequestException("A loan can't be moved to another employee. Stop it and add a new one.");
         const already = paid.get(id) ?? 0;
         if (input.principal < already) throw new BadRequestException(`₱${already.toLocaleString('en-PH')} is already paid, so the total can't be less than that`);
         row = await tx.loan.update({ where: { id }, data, include: { employee: { select: { employeeNo: true } } } });
@@ -194,6 +199,7 @@ export class PayInputsService {
     const old = await this.prisma.loan.findUnique({ where: { id } });
     if (!old) throw new NotFoundException('That loan no longer exists');
     if (old.status !== 'active') throw new ConflictException('This loan is already closed');
+    notSelf(user, old.employeeId, 'stop a loan deduction');
     const row = await this.prisma.$transaction(async (tx) => {
       const r = await tx.loan.update({
         where: { id },

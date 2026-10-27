@@ -32,7 +32,8 @@ const ROLE_NAME: Record<WebRoleId, string> = {
 const ADMIN_ROLES: Role[] = ['HR_ADMIN', 'MANAGER', 'PAYROLL_ADMIN'];
 /** Who may give (or change accounts holding) which role, as the website's LIMITS.assignableRoles. */
 const ASSIGNABLE: Partial<Record<Role, Role[]>> = {
-  PLATFORM_ADMIN: ['PLATFORM_ADMIN', 'SYSTEM_ADMIN', 'HR_ADMIN', 'MANAGER', 'PAYROLL_ADMIN', 'EMPLOYEE'],
+  // The IT team's System Admin can't make, change or reset a Super Admin: that would open HR and pay data to it.
+  PLATFORM_ADMIN: ['PLATFORM_ADMIN', 'HR_ADMIN', 'MANAGER', 'PAYROLL_ADMIN', 'EMPLOYEE'],
   SYSTEM_ADMIN: ['SYSTEM_ADMIN', 'HR_ADMIN', 'MANAGER', 'PAYROLL_ADMIN', 'EMPLOYEE'],
 };
 
@@ -131,7 +132,7 @@ export class AccountsService {
     const password = tempPassword();
     const created = await this.prisma.$transaction(async (tx) => {
       const u = await tx.user.create({
-        data: { email, passwordHash: await bcrypt.hash(password, 10), role, displayName: input.name, employeeId, mustChangePassword: true, createdBy: user.displayName },
+        data: { email, passwordHash: await bcrypt.hash(password, 12), role, displayName: input.name, employeeId, mustChangePassword: true, createdBy: user.displayName },
       });
       await this.audit.log({ actorId: user.userId, action: 'ACCOUNT_ADDED', entity: 'User', entityId: u.id, after: { username: email, name: input.name, role: ROLE_NAME[input.roleId] } }, tx);
       return u;
@@ -182,7 +183,7 @@ export class AccountsService {
     if (!this.mayGive(user, u.role)) throw new ForbiddenException("You can't change that account.");
     const password = tempPassword();
     await this.prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: u.id }, data: { passwordHash: await bcrypt.hash(password, 10), mustChangePassword: true } });
+      await tx.user.update({ where: { id: u.id }, data: { passwordHash: await bcrypt.hash(password, 12), mustChangePassword: true, passwordChangedAt: new Date() } });
       await this.audit.log({ actorId: user.userId, action: 'ACCOUNT_PASSWORD_RESET', entity: 'User', entityId: u.id, after: { username: u.email } }, tx);
     });
     this.throttle.succeeded(u.email);
@@ -195,7 +196,7 @@ export class AccountsService {
     if (!u || !(await bcrypt.compare(current, u.passwordHash))) throw new BadRequestException('Your current password is incorrect.');
     if (current === next) throw new BadRequestException('Choose a password different from the current one.');
     await this.prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: u.id }, data: { passwordHash: await bcrypt.hash(next, 10), mustChangePassword: false } });
+      await tx.user.update({ where: { id: u.id }, data: { passwordHash: await bcrypt.hash(next, 12), mustChangePassword: false, passwordChangedAt: new Date() } });
       await this.audit.log({ actorId: user.userId, action: 'ACCOUNT_OWN_PASSWORD_CHANGED', entity: 'User', entityId: u.id, after: { username: u.email } }, tx);
     });
   }

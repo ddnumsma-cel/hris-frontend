@@ -37,12 +37,14 @@ export const ROLE_FROM_BACKEND: Record<BackendRole, RoleKey> = {
   PLATFORM_ADMIN: "system_admin",
 };
 
-/** The backend's seeded demo logins (synthetic data), shown on the sign-in page while it's connected. */
-export const BACKEND_DEMO_ACCOUNTS = [
+/**
+ * The backend's seeded demo logins (synthetic data), shown on the sign-in page while it's connected: only in the
+ * development copy, so a live build never ships working passwords. Real people's logins are never listed here.
+ */
+export const BACKEND_DEMO_ACCOUNTS = !import.meta.env.DEV ? [] : [
   { label: "Super Admin (Partner)", username: "partner@msma.test", password: "Demo@2026" },
   { label: "HR", username: "hr@msma.test", password: "Demo@2026" },
   { label: "Payroll", username: "payroll@msma.test", password: "Demo@2026" },
-  { label: "Approver (Cora Jane Marana)", username: "cjm.msma@gmail.com", password: "Demo@2026" },
   { label: "Employee", username: "employee@msma.test", password: "Demo@2026" },
 ];
 
@@ -69,11 +71,8 @@ export async function backendSignIn(email: string, password: string): Promise<Si
   const role = admin.roles.find((r) => r.key === key);
   if (!role) return { ok: false, error: "This account's role isn't set up in the app yet. Please contact HR." };
   setToken(result.accessToken);
-  if (key === "approver") {
-    // Team-scoped checks (lib/permissions.ts) need the team; the backend lists only the people a manager handles.
-    const res = await api<{ items: { employeeNo: string }[] }>("/employees", { query: { pageSize: 200 } }).catch(() => ({ items: [] }));
-    result.user.team = res.items.map((e) => e.employeeNo).filter((no) => no !== result.user.employeeNo);
-  }
+  // Team-scoped checks (lib/permissions.ts) need the team; with a temporary password it loads once that is replaced.
+  if (key === "approver" && !result.user.mustChangePassword) result.user.team = await loadTeam(result.user);
   try {
     localStorage.setItem(USER_KEY, JSON.stringify(result.user));
   } catch {
@@ -96,6 +95,26 @@ export async function backendSignIn(email: string, password: string): Promise<Si
   saveAdmin({ ...admin, accounts: [...admin.accounts.filter((a) => a.id !== account.id), account] });
   logAdmin({ actor: account.name, module: "Sign-in", action: "Signed in", target: account.username, detail: `${role.name} · HR server` });
   return { ok: true, workspace: role.workspace, account };
+}
+
+/** An approver's team, for the team-scoped checks (lib/permissions.ts): the people the backend lets them handle. */
+async function loadTeam(user: BackendUser) {
+  const res = await api<{ items: { employeeNo: string }[] }>("/employees", { query: { pageSize: 200 } }).catch(() => ({ items: [] }));
+  return res.items.map((e) => e.employeeNo).filter((no) => no !== user.employeeNo);
+}
+
+/** After choosing their own password: keep the fresh session token and load what a temporary password held back. */
+export async function backendPasswordChanged(accessToken?: string) {
+  if (accessToken) setToken(accessToken);
+  const user = backendUser();
+  if (!user) return;
+  user.mustChangePassword = false;
+  if (ROLE_FROM_BACKEND[user.role] === "approver") user.team = await loadTeam(user);
+  try {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  } catch {
+    // Kept for this page only.
+  }
 }
 
 /** Forget the backend sign-in (the token and who it was). */

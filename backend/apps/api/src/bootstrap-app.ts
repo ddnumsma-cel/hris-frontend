@@ -21,10 +21,12 @@ export async function createApp(
   app.enableCors({ origin: allowedOrigins, credentials: true });
   app.disable('x-powered-by');
   // Baseline security headers (the API only serves JSON and document files).
-  app.use((_req: unknown, res: { setHeader(k: string, v: string): void }, next: () => void) => {
+  app.use((req: { url?: string }, res: { setHeader(k: string, v: string): void }, next: () => void) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');
+    // JSON answers never run scripts or load anything (document files set their own policy; the dev API map needs its own).
+    if (!req.url?.startsWith('/docs')) res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
     next();
   });
   // Biometric terminals (ZKTeco ADMS) post plain-text bodies, sometimes without a proper content type.
