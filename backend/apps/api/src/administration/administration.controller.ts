@@ -98,7 +98,7 @@ export class AdministrationController {
   // ---------- The company's subscription ----------
 
   @Get('subscription')
-  @Roles('HR_ADMIN', 'SYSTEM_ADMIN', 'PAYROLL_ADMIN', 'MANAGER', 'PLATFORM_ADMIN')
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN', 'PAYROLL_ADMIN', 'PLATFORM_ADMIN')
   @ApiOperation({ operationId: 'getSubscription', summary: 'The plan, and employee seats and admin accounts in use (counted from the records)' })
   @ApiZodResponse(UsageSchema)
   usage() {

@@ -34,7 +34,6 @@ export class OnboardingController {
   // ---------- Recruitment (HR) ----------
 
   @Get('recruitment/requisitions')
-  @Roles('HR_ADMIN', 'SYSTEM_ADMIN', 'MANAGER')
   @ApiOperation({ operationId: 'listRequisitions', summary: 'Job requisitions with their applicant counts' })
   @ApiZodResponse(z.array(RequisitionSchema))
   requisitions() {
