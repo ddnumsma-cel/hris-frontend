@@ -21,12 +21,14 @@ const esc = (v: string) => v.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 /** The certificate's wording, made from the employee's record, as the website's (lib/certificates.ts). */
 function statementOf(e: Row['employee'], type: string) {
-  const name = esc(`${e.firstName} ${e.lastName}`);
+  // First name, middle initial, last name and suffix, as the website writes names (lib/corehr/store.ts fullName).
+  const mi = e.middleName?.trim() ? `${e.middleName.trim()[0]!.toUpperCase()}.` : '';
+  const name = esc([e.firstName, mi, e.lastName, e.suffix ?? ''].map((x) => x.trim()).filter(Boolean).join(' '));
   const id = esc(e.employeeNo);
   const position = esc(e.position?.title ?? 'Employee');
   const dept = esc(e.department?.name ?? '');
   if (type === 'Certificate of Employment')
-    return `This is to certify that <strong>${name}</strong> (Employee ID ${id}) is an employee of MSMA Group in ${esc(STATUS[e.status] ?? 'Regular').toLowerCase()} status, holding the position of <strong>${position}</strong> under the ${dept} department, ${esc(e.cluster ?? '')}, ${esc(e.site.name)} office.`;
+    return `This is to certify that <strong>${name}</strong> (Employee ID ${id}) is an employee of MSMA Group in ${esc(STATUS[e.status] ?? 'Regular').toLowerCase()} status, holding the position of <strong>${position}</strong> under the ${dept} department, ${e.cluster ? `${esc(e.cluster)}, ` : ''}${esc(e.site.name)} office.`;
   if (type === 'Certificate of Tax Withheld (2316)')
     return `This certifies that BIR Form 2316 for <strong>${name}</strong> (Employee ID ${id}) has been prepared and released by MSMA Group for the applicable taxable year.`;
   return `This is to certify that <strong>${name}</strong> (Employee ID ${id}) is employed with MSMA Group as <strong>${position}</strong>, ${dept} department.`;

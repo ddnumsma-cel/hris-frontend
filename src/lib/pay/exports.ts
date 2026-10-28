@@ -4,6 +4,8 @@
 import { state as core } from "../corehr/store";
 import { round2 } from "../reports/statutory";
 import { deny } from "../session";
+import { backendOn } from "../backend/client";
+import { backendPayrollPeople } from "../backend/payroll";
 import { allLoans } from "./loanStore";
 import { approvedRuns, loadRunsFromServer, type PayrollRun } from "./runs";
 
@@ -43,16 +45,18 @@ export interface BankLine {
   amount: number;
 }
 
-export function bankFile(runId: string): Promise<BankLine[]> {
+export async function bankFile(runId: string): Promise<BankLine[]> {
   const denied = deny("payrollRuns", "view");
   if (denied) return denied;
   const run = approvedRuns().find((r) => r.id === runId);
   if (!run) return respond([]);
+  // With the backend: each person's bank account from the payroll records (stored encrypted, read for Accounting).
+  const banks = backendOn() ? new Map((await backendPayrollPeople()).map((p) => [p.id, p.bank])) : null;
   return respond(
     run.lines
       .filter((l) => l.net > 0)
       .map((l) => {
-        const b = core.employees.find((e) => e.id === l.person.id)?.bank;
+        const b = banks ? banks.get(l.person.id) : core.employees.find((e) => e.id === l.person.id)?.bank;
         return { employeeId: l.person.id, name: l.person.name, bank: b?.bank ?? "", accountName: b?.accountName ?? "", accountNumber: b?.accountNumber ?? "", amount: l.net };
       })
       .sort((a, b) => a.bank.localeCompare(b.bank) || a.name.localeCompare(b.name)),

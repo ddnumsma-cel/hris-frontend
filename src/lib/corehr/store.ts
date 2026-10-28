@@ -334,7 +334,7 @@ function syncShared() {
       const prev = byId.get(c.id);
       const position = state.positions.find((p) => p.id === c.job.positionId);
       const team = ancestor(c.job.unitId, "team");
-      const cluster = (["RPM", "VCM", "ADS"].includes(team?.code ?? "") ? team!.code : (prev?.cluster ?? "ADS")) as Employee["cluster"];
+      const cluster = (["RPM", "VCM", "ADS"].includes(team?.code ?? "") ? team!.code : (prev?.cluster ?? (backendOn() ? "" : "ADS"))) as Employee["cluster"];
       return {
         ...prev,
         id: c.id,
@@ -352,6 +352,7 @@ function syncShared() {
         faceEnrolled: c.faceEnrolled ?? prev?.faceEnrolled,
         // The real hire date (Home "Recently joined", employment records); without it they would read as hired today.
         dateHired: c.job.dateHired || prev?.dateHired,
+        employmentStatus: c.job.employmentType === "Fixed-term" ? "Contractual" : c.job.employmentType,
       };
     }),
   );
