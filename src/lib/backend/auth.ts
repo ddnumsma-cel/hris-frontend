@@ -52,6 +52,24 @@ export const BACKEND_DEMO_ACCOUNTS = !import.meta.env.DEV || !onThisPc ? [] : [
   { label: "Employee", username: "employee@msma.test", password: "Demo@2026" },
 ];
 
+export type DemoAccount = { label: string; username: string; password: string };
+
+/**
+ * The real logins for checking each role, from dev-accounts.local on this PC (git-ignored; served only to this PC by
+ * vite.config.ts). Null when there is no such file or the page isn't opened on this PC: the seeded list applies then.
+ */
+export async function localDemoAccounts(): Promise<DemoAccount[] | null> {
+  if (!import.meta.env.DEV || !onThisPc) return null;
+  try {
+    const res = await fetch("/__dev/accounts", { cache: "no-store" });
+    if (!res.ok) return null;
+    const list = (await res.json()) as DemoAccount[];
+    return Array.isArray(list) ? list : null;
+  } catch {
+    return null;
+  }
+}
+
 const USER_KEY = "heyhr-api-user";
 
 /** The signed-in backend user (role, employee id), or null when signed out or not connected. */

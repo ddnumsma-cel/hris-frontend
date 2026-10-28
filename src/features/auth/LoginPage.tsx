@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -9,7 +9,7 @@ import { isGoogleConfigured, signInWithGoogle } from "@/lib/googleAuth";
 import type { Registered } from "./RegisterDialog";
 import { getCredentials } from "@/lib/credentials";
 import { backendOn } from "@/lib/backend/client";
-import { BACKEND_DEMO_ACCOUNTS, backendSignIn } from "@/lib/backend/auth";
+import { BACKEND_DEMO_ACCOUNTS, backendSignIn, localDemoAccounts, type DemoAccount } from "@/lib/backend/auth";
 import { serverMode } from "@/lib/http";
 import { landingPath } from "@/features/settings/landing";
 import { settingsFor } from "@/lib/settings/store";
@@ -38,6 +38,12 @@ export function LoginPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
+  // This PC's own list of logins for checking (dev-accounts.local); the seeded demo list otherwise.
+  const [localAccounts, setLocalAccounts] = useState<DemoAccount[] | null>(null);
+  useEffect(() => {
+    if (backendOn()) void localDemoAccounts().then(setLocalAccounts);
+  }, []);
+  const backendAccounts = localAccounts ?? BACKEND_DEMO_ACCOUNTS;
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(() => (endedForInactivity() ? `You were signed out after ${idleMinutes()} minutes without activity. Please sign in again.` : null));
   const [registerOpen, setRegisterOpen] = useState(false);
@@ -180,10 +186,10 @@ export function LoginPage() {
             )}
 
             {/* Demo logins stay out of sight unless someone opens them. */}
-            {!serverMode && (!backendOn() || BACKEND_DEMO_ACCOUNTS.length > 0) && (<details className="mt-5 rounded-[var(--radius-dropdown)] bg-[var(--login-hover)] px-3.5 py-3 text-xs">
+            {!serverMode && (!backendOn() || backendAccounts.length > 0) && (<details className="mt-5 rounded-[var(--radius-dropdown)] bg-[var(--login-hover)] px-3.5 py-3 text-xs">
               <summary className="cursor-pointer font-semibold text-[var(--login-ink-2)] select-none">Demo accounts — tap to fill</summary>
               <div className="mt-1.5 flex flex-col gap-1">
-                {(backendOn() ? BACKEND_DEMO_ACCOUNTS : getCredentials().filter((c) => c.listed !== false)).map((c) => (
+                {(backendOn() ? backendAccounts : getCredentials().filter((c) => c.listed !== false)).map((c) => (
                   <button key={c.username} type="button" onClick={() => quickFill(c.username, c.password)} className="flex items-center justify-between rounded-md px-1.5 py-1 text-left transition-colors hover:bg-[var(--login-hover)]">
                     <span className="text-[var(--login-ink-2)]">{c.label}</span>
                     <span className="font-num text-[var(--login-ink-3)]">

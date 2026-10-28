@@ -41,6 +41,27 @@ const resetOldServiceWorker = (): Plugin => ({
   },
 })
 
+// The sign-in page's quick-fill list on the developer's own PC: read from dev-accounts.local (git-ignored, never
+// pushed) and answered only to this PC itself, so the shared office link never sees the logins or their passwords.
+const devAccounts = (): Plugin => ({
+  name: 'dev-accounts',
+  apply: 'serve',
+  configureServer(server) {
+    server.middlewares.use((req, res, next) => {
+      if (req.url?.split('?')[0] !== '/__dev/accounts') return next()
+      const from = (req.socket.remoteAddress ?? '').replace(/^::ffff:/, '')
+      const file = path.resolve(__dirname, 'dev-accounts.local')
+      if (!['127.0.0.1', '::1'].includes(from) || !fs.existsSync(file)) {
+        res.statusCode = 404
+        return res.end()
+      }
+      res.setHeader('Content-Type', 'application/json')
+      res.setHeader('Cache-Control', 'no-store')
+      res.end(fs.readFileSync(file, 'utf8'))
+    })
+  },
+})
+
 // https://vite.dev/config/
 // The API server (server/) runs on 3001; the browser reaches it through this same origin.
 // API_PROXY_TARGET points it elsewhere (the end-to-end tests run their own server).
@@ -59,6 +80,7 @@ export default defineConfig({
   preview: { https, proxy: heyhrMode ? proxy : msmaProxy, headers },
   plugins: [
     resetOldServiceWorker(),
+    devAccounts(),
     react(),
     tailwindcss(),
     VitePWA({
