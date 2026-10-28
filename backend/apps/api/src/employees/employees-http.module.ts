@@ -7,12 +7,13 @@ import { LeaveModule } from '../leave/leave.module';
 import { EmployeesController } from './employees.controller';
 import { EmployeesModule } from './employees.module';
 import { OrgController } from './org.controller';
+import { EmployeeExtrasController, ExtrasService, MyExtrasController } from './extras';
 import { OrgService } from './org.service';
 
 /** HTTP endpoints for employees. Kept apart from EmployeesModule because the profile composes attendance, leave and the 201 file. */
 @Module({
   imports: [EmployeesModule, AttendanceModule, LeaveModule, DocumentsModule, DevicesModule, AdministrationModule],
-  controllers: [EmployeesController, OrgController],
-  providers: [OrgService],
+  controllers: [EmployeesController, OrgController, MyExtrasController, EmployeeExtrasController],
+  providers: [OrgService, ExtrasService],
 })
 export class EmployeesHttpModule {}

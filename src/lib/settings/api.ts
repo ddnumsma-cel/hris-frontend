@@ -13,6 +13,7 @@ import {
   updateAdminProfile,
   updateEmployeeProfile,
   updateManagerProfile,
+  removeMyPhoto,
   updateMyPhoto,
 } from "@/lib/api";
 import { admin, logAdmin, saveAdmin } from "@/lib/admin/store";
@@ -142,7 +143,7 @@ export async function saveMyProfile(user: AuthUser, input: MyProfileInput): Prom
   if (source === "employee") {
     await updateEmployeeProfile({ email: input.email, phone: input.phone, emergencyContact: input.emergencyContact ?? "" });
     if (input.photo) await updateMyPhoto(input.photo);
-    // TODO(backend): removing an employee's personnel photo needs a delete endpoint.
+    else if (backendOn()) await removeMyPhoto();
   } else if (source === "partner" || source === "hr") {
     const profile = { name: input.fullName.trim(), title: input.jobTitle, email: input.email, phone: input.phone, office: input.office ?? "Cebu HQ", emergencyContact: input.emergencyContact ?? "", about: input.about ?? "" };
     await (source === "partner" ? updateManagerProfile(profile) : updateAdminProfile(profile));
@@ -164,7 +165,7 @@ export async function saveMyProfile(user: AuthUser, input: MyProfileInput): Prom
 
 /** Photo for the top bar and the gear menu (personnel photo for employees). */
 export async function fetchMyAvatar(user: AuthUser): Promise<string | null> {
-  if (user.role === "employee") return fetchMyPhoto();
+  if (user.role === "employee" || sourceFor(user) === "employee") return fetchMyPhoto();
   return respond(loadPhotos()[settingsKeyFor(user)] ?? null);
 }
 

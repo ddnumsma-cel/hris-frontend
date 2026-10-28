@@ -722,3 +722,31 @@ describe('tardiness rule and attendance notices', () => {
     expect((await http().get('/timekeeping/notices').set(auth('hr')).expect(200)).body.find((n: { id: string }) => n.id === sent.id).acknowledgedAt).toBeTruthy();
   });
 });
+
+describe('profile photo and professional license', () => {
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+  it('the employee sets and removes their own photo; HR sees it, other teams’ approvers do not', async () => {
+    await http().put('/me/photo').set(auth('employee')).send({ dataUrl: 'data:text/html;base64,PHNjcmlwdD4=' }).expect(400);
+    await http().put('/me/photo').set(auth('employee')).send({ dataUrl: png }).expect(200);
+    expect((await http().get('/me/photo').set(auth('employee')).expect(200)).body.photo).toBe(png);
+    const id = (await prisma.user.findUniqueOrThrow({ where: { email: 'employee@msma.test' } })).employeeId!;
+    expect((await http().get(`/employees/${id}/photo`).set(auth('hr')).expect(200)).body.photo).toBe(png);
+    await http().get(`/employees/${id}/photo`).set(auth('employee')).expect(403);
+    await http().delete('/me/photo').set(auth('employee')).expect(204);
+    expect((await http().get('/me/photo').set(auth('employee')).expect(200)).body.photo).toBeNull();
+  });
+
+  it('the license card follows the record; CPD units are logged only by a licensed employee', async () => {
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: 'employee@msma.test' }, include: { employee: true } });
+    const before = user.employee!.licenseType;
+    await prisma.employee.update({ where: { id: user.employeeId! }, data: { licenseType: null } });
+    expect((await http().get('/me/license').set(auth('employee')).expect(200)).body).toEqual({});
+    await http().put('/me/license/cpd').set(auth('employee')).send({ cpdUnitsEarned: 10 }).expect(403);
+    await prisma.employee.update({ where: { id: user.employeeId! }, data: { licenseType: 'PRC (CPA)' } });
+    await http().put('/me/license/cpd').set(auth('employee')).send({ cpdUnitsEarned: -1 }).expect(400);
+    const card = (await http().put('/me/license/cpd').set(auth('employee')).send({ cpdUnitsEarned: 24 }).expect(200)).body;
+    expect(card).toMatchObject({ licenseType: 'CPA', cpdUnitsEarned: 24, cpdUnitsRequired: 60 });
+    await prisma.employee.update({ where: { id: user.employeeId! }, data: { licenseType: before, cpdUnitsEarned: null } });
+  });
+});

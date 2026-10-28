@@ -545,6 +545,18 @@ export const RemoteClockSchema = z.object({
 });
 export type RemoteClockInput = z.infer<typeof RemoteClockSchema>;
 
+/** A profile photo: a JPEG, PNG or WebP image as a data URL, up to about 500 KB. */
+export const PhotoInputSchema = z.object({
+  dataUrl: z
+    .string()
+    .max(700_000, 'That photo is too large; use one under 500 KB')
+    .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/, 'Use a JPEG, PNG or WebP photo'),
+});
+export type PhotoInput = z.infer<typeof PhotoInputSchema>;
+/** CPD units logged so far in the license's current cycle. */
+export const CpdUnitsSchema = z.object({ cpdUnitsEarned: z.number().int().min(0).max(999) });
+export type CpdUnitsInput = z.infer<typeof CpdUnitsSchema>;
+
 /** Rules › Tardiness: late this many work days in a row, or this many times in a month (0 turns one off). */
 export const TardinessRuleSchema = z.object({
   consecutive: z.number().int().min(0).max(10).refine((n) => n !== 1, 'Days in a row should be 2 to 10, or 0 to turn it off'),

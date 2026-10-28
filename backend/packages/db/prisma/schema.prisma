@@ -306,6 +306,8 @@ model Employee {
   emergencyPhone        String?
   /// e.g. "PRC (CPA)"; set when the role needs a professional license
   licenseType           String?
+  /// CPD units the employee has logged for the license's current cycle
+  cpdUnitsEarned        Int?
   regularizationDate    DateTime?    @db.Date
   separationDate        DateTime?    @db.Date
   separationReason      String?
@@ -338,6 +340,7 @@ model Employee {
   wfhDays              WfhDay[]
   cases                EmployeeCase[]
   attendanceNotices    AttendanceNotice[]
+  photo                EmployeePhoto?
   performanceReviews   PerformanceReview[]
   remotePunches        RemotePunch[]
   events            EmploymentEvent[]
@@ -503,6 +506,14 @@ model EmployeeCase {
   closedBy   String?
 
   @@index([employeeId])
+}
+
+/// The employee's profile photo (a small image data URL), kept apart so employee lists don't load it.
+model EmployeePhoto {
+  employeeId String   @id
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  dataUrl    String
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
 }
 
 /// A memo about repeated lateness or AWOL (never changes pay); the employee acknowledges it.

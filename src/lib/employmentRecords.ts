@@ -17,6 +17,7 @@ import {
   trainingRecords,
 } from "./mockData";
 import type { CompanyAsset, Employee, EmployeeCase, OffboardingCase, ProfessionalLicense, TrainingRecord } from "./types";
+import { backendOn } from "./backend/client";
 
 export type RecordStatus = "Verified" | "On file" | "Pending" | "Missing";
 
@@ -318,8 +319,9 @@ function buildDuring(employee: Employee, hired: Date, rand: () => number): Durin
   return {
     appraisals,
     trainings: trainingRecords.filter((t) => t.employeeName === employee.name),
-    licenses: professionalLicenses.filter((l) => l.employeeId === employee.id),
-    assets: companyAssets.filter((a) => a.assignedToName === employee.name),
+    // With the backend these are real people: no demo licenses or assets under their names.
+    licenses: backendOn() ? [] : professionalLicenses.filter((l) => l.employeeId === employee.id),
+    assets: backendOn() ? [] : companyAssets.filter((a) => a.assignedToName === employee.name),
     commendations,
     cases: employeeCases.filter((c) => c.employeeName === employee.name),
   };

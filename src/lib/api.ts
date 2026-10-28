@@ -3,6 +3,7 @@ import { remoteApi, remoteOn } from "./remote";
 import { api as backendApi, backendOn } from "./backend/client";
 import { backendDocumentAction, backendMyPapers, paperInfo } from "./backend/documents";
 import { loadMe } from "./backend/auth";
+import { backendIdOf } from "./backend/people";
 import { refreshCoreHr, state as coreState } from "./corehr/store";
 import { refreshLeave } from "./leave/store";
 import type { PayrollRun } from "./pay/runs";
@@ -245,8 +246,8 @@ export async function fetchMyTrainingRecords() {
 }
 
 export async function fetchMyProfessionalLicense() {
-  // License and CPD tracking isn't on the backend yet: no card, rather than a demo one.
-  if (backendOn()) return null;
+  // With the backend: the license type on the record, the license on file and the CPD units logged (null: none needed).
+  if (backendOn()) return currentEmployee.id ? backendApi<ProfessionalLicense | null>("/me/license") : null;
   if (serverMode) return api<ProfessionalLicense | null>("GET", "/me/license");
   return delay(professionalLicenses.find((l) => l.employeeId === currentEmployee.id) ?? null);
 }
@@ -257,6 +258,7 @@ export async function fetchProfessionalLicenses() {
 }
 
 export async function updateCpdUnits(id: string, cpdUnitsEarned: number) {
+  if (backendOn()) return backendApi<ProfessionalLicense>("/me/license/cpd", { method: "PUT", body: { cpdUnitsEarned } });
   if (serverMode) return api<ProfessionalLicense>("PUT", `/licenses/${encodeURIComponent(id)}/cpd`, { cpdUnitsEarned });
   const next = professionalLicenses.map((l) => (l.id === id ? { ...l, cpdUnitsEarned } : l));
   setProfessionalLicenses(next);
@@ -269,6 +271,7 @@ export async function fetchPersonnelProfile(employeeId: string) {
   const denied = deny("people", "view", employeeId);
   if (denied) return denied;
   if (serverMode) return api<PersonnelProfile | null>("GET", `/corehr/employees/${encodeURIComponent(employeeId)}/profile`);
+  if (backendOn()) return backendPersonnelProfile(employeeId);
   return delay(personnelProfiles.find((p) => p.employeeId === employeeId) ?? null);
 }
 
@@ -276,15 +279,19 @@ export async function fetchAllPersonnelProfiles() {
   const denied = deny("people", "view");
   if (denied) return denied;
   if (serverMode) return api<PersonnelProfile[]>("GET", "/corehr/profiles").catch(() => [] as PersonnelProfile[]);
+  // With the backend: one person at a time (fetchPersonnelProfile), never the demo profiles.
+  if (backendOn()) return [] as PersonnelProfile[];
   return delay(personnelProfiles);
 }
 
 export async function fetchMyPhoto() {
+  if (backendOn()) return currentEmployee.id ? (await backendApi<{ photo: string | null }>("/me/photo")).photo : null;
   if (serverMode) return currentEmployee.id ? ((await fetchPersonnelProfile(currentEmployee.id))?.photoDataUrl ?? null) : null;
   return delay(personnelProfiles.find((p) => p.employeeId === currentEmployee.id)?.photoDataUrl ?? null);
 }
 
 export async function updateMyPhoto(photoDataUrl: string) {
+  if (backendOn()) return backendApi<{ photo: string | null }>("/me/photo", { method: "PUT", body: { dataUrl: photoDataUrl } });
   return updatePersonnelProfile(currentEmployee.id, { photoDataUrl });
 }
 
@@ -305,6 +312,33 @@ export async function updatePersonnelProfile(
   setPersonnelProfiles([...personnelProfiles.filter((p) => p.employeeId !== employeeId), next]);
   if (actor) logPersonnelAccess(employeeId, actor, "Edited", "Personal profile");
   return delay(next);
+}
+
+/** Removes the signed-in employee's own photo. */
+export async function removeMyPhoto() {
+  if (backendOn()) return backendApi<void>("/me/photo", { method: "DELETE" });
+  return updatePersonnelProfile(currentEmployee.id, { photoDataUrl: undefined });
+}
+
+/** With the backend: birth date, civil status and dependents from the person's record, and their photo. */
+async function backendPersonnelProfile(employeeId: string): Promise<PersonnelProfile | null> {
+  const id = await backendIdOf(employeeId);
+  if (!id) return null;
+  const [detail, photo] = await Promise.all([
+    backendApi<{ personal?: { birthDate: string | null; civilStatus: string | null; dependents?: { name: string; relationship: string; birthDate: string | null }[] } }>(`/employees/${id}`),
+    backendApi<{ photo: string | null }>(`/employees/${id}/photo`).catch(() => ({ photo: null })),
+  ]);
+  const p = detail.personal;
+  const civil = (["Single", "Married", "Widowed", "Separated"] as const).find((c) => c.toUpperCase() === p?.civilStatus);
+  return {
+    employeeId,
+    ...(photo.photo ? { photoDataUrl: photo.photo } : {}),
+    ...(p?.birthDate ? { birthDate: p.birthDate } : {}),
+    ...(civil ? { civilStatus: civil } : {}),
+    dependents: (p?.dependents ?? [])
+      .filter((d) => d.relationship === "SPOUSE" || d.relationship === "CHILD")
+      .map((d, i) => ({ id: `${employeeId}-dep-${i}`, name: d.name, relationship: d.relationship === "SPOUSE" ? ("Spouse" as const) : ("Child" as const), ...(d.birthDate ? { birthDate: d.birthDate } : {}) })),
+  };
 }
 
 export async function fetchPersonnelDocuments(employeeId: string) {
