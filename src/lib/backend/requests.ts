@@ -192,10 +192,10 @@ export async function backendMyLeave(): Promise<MyLeave> {
   return { types, credits: creditsFor(myId), balances, requests };
 }
 
-export async function backendFileLeave(input: { typeId: string; start: string; end: string; reason: string }): Promise<LeaveRequest> {
+export async function backendFileLeave(input: { typeId: string; start: string; end: string; reason: string; halfDay?: "am" | "pm" }): Promise<LeaveRequest> {
   // The website picks a type by id; the backend files by its code.
   const code = leave.types.find((t) => t.id === input.typeId)?.code ?? input.typeId;
-  const r = await api<BackendRequest>("/me/leave-requests", { body: { leaveTypeCode: code, startDate: input.start, endDate: input.end, reason: input.reason.trim() } });
+  const r = await api<BackendRequest>("/me/leave-requests", { body: { leaveTypeCode: code, startDate: input.start, endDate: input.end, reason: input.reason.trim(), ...(input.halfDay && input.start === input.end ? { halfDay: input.halfDay } : {}) } });
   await refreshLeave();
   return toLeave(r)!;
 }

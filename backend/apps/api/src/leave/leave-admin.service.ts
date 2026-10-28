@@ -139,6 +139,7 @@ export class LeaveAdminService {
         ...(r.approval?.decidedBy ? { decidedBy: r.approval.decidedBy.displayName } : {}),
         ...(r.approval?.decidedAt ? { decidedAt: r.approval.decidedAt.toISOString() } : {}),
         ...(r.approval?.reason ? { note: r.approval.reason } : {}),
+        ...(r.halfDay === 'am' || r.halfDay === 'pm' ? { halfDay: r.halfDay } : {}),
       })),
       adjustments: adjustments.map((a) => this.adjustmentView(a, a.employee.employeeNo)),
       carryOver: {},

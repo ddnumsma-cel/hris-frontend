@@ -16,12 +16,14 @@ import {
   CreateTimeAdjustment,
   CreateUndertimeRequest,
   DateKey,
+  FileLeaveFor,
   dateKeyToUtcDate,
   formatDate,
   formatDateRange,
   formatMinutes,
   formatTime,
   manilaToday,
+  utcDateToDateKey,
   MyRequest,
   REQUEST_FILING_WINDOW_DAYS,
   shiftBounds,
@@ -297,6 +299,69 @@ export class ApprovalsService {
       return created;
     });
     await this.tellStep(approval.id, user.userId);
+    return this.toMyRequest(approval);
+  }
+
+  /**
+   * Withdraw (the employee) or cancel (their approver, the Super Admin) a leave request. Approved leave can be
+   * cancelled only before it starts; its days go back to the balance. `id` is the approval's or the leave request's.
+   */
+  async cancelLeave(user: AuthUser, id: string, note?: string) {
+    const approval = await this.prisma.approvalRequest.findFirst({ where: { type: 'LEAVE', OR: [{ id }, { leaveRequestId: id }] }, include: { leaveRequest: true } });
+    if (!approval?.leaveRequest) throw new NotFoundException('That leave request no longer exists');
+    const own = approval.employeeId === user.employeeId;
+    const team = user.role === 'MANAGER' && !!user.employeeId && (await this.employees.teamIds(user.employeeId)).includes(approval.employeeId);
+    if (!own && !team && user.role !== 'SYSTEM_ADMIN') throw new ForbiddenException('Only the employee, their approver or the Super Admin can cancel this leave');
+    if (approval.status !== 'PENDING' && approval.status !== 'APPROVED') throw new ConflictException(`This leave was already ${approval.status.toLowerCase()}`);
+    const start = utcDateToDateKey(approval.leaveRequest.startDate);
+    if (approval.status === 'APPROVED' && start <= manilaToday()) throw new ConflictException("This leave has already started and can't be cancelled");
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.approvalRequest.updateMany({
+        where: { id: approval.id, status: approval.status },
+        data: { status: 'CANCELLED', decidedById: user.userId, decidedAt: new Date(), reason: note?.trim() || (own ? 'Withdrawn by the employee' : null) },
+      });
+      if (!count) throw new ConflictException('This request was just decided by someone else');
+      await this.leave.cancel(tx, approval.leaveRequest!.id);
+      await this.audit.log({ actorId: user.userId, action: own ? 'LEAVE_WITHDRAWN' : 'LEAVE_CANCELLED', entity: 'ApprovalRequest', entityId: approval.id, before: { status: approval.status }, after: { status: 'CANCELLED', detail: approval.detail, note: note ?? null, employeeId: approval.employeeId } }, tx);
+    });
+    if (own) {
+      // Whoever had it to approve (or had approved it) hears it was withdrawn.
+      const manager = await this.employees.managerIdOf(approval.employeeId);
+      if (manager) await this.notifications.send({ topic: 'leave', kind: 'update', title: `${user.displayName} withdrew their leave`, body: approval.detail, employeeIds: [manager], actorId: user.userId });
+    } else {
+      await this.notifications.send({ topic: 'leave', kind: 'rejected', title: 'Your leave was cancelled', body: `${approval.detail} · cancelled by ${user.displayName}${note ? `. "${note}"` : '.'}`, employeeIds: [approval.employeeId], actorId: user.userId });
+    }
+    return { ok: true };
+  }
+
+  /** The Super Admin files leave for someone, already approved when they say so (approving it as they file it). */
+  async fileLeaveFor(user: AuthUser, body: FileLeaveFor): Promise<MyRequest> {
+    const e = await this.prisma.employee.findUnique({ where: { employeeNo: body.employeeId }, select: { id: true, separationDate: true } });
+    if (!e || e.separationDate) throw new NotFoundException('Choose a current employee');
+    if (body.approveNow && e.id === user.employeeId) throw new ForbiddenException('You cannot approve your own leave');
+    const approval = await this.prisma.$transaction(async (tx) => {
+      const { request, typeName, days } = await this.leave.createRequest(tx, e.id, body);
+      const now = new Date();
+      const created = await tx.approvalRequest.create({
+        data: {
+          type: 'LEAVE',
+          employeeId: e.id,
+          detail: `${LEAVE_LABEL[body.leaveTypeCode] ?? typeName} · ${formatDateRange(body.startDate, body.endDate)} · ${days} day${days === 1 ? '' : 's'} · ${body.reason}`,
+          leaveRequestId: request.id,
+          steps: await this.workflows.stepsFor('LEAVE', days),
+          ...(body.approveNow ? { status: 'APPROVED' as const, decidedById: user.userId, decidedAt: now, reason: 'Filed and approved by the Super Admin' } : {}),
+        },
+      });
+      if (body.approveNow) await this.leave.decide(tx, request.id, 'APPROVED');
+      await this.audit.log({ actorId: user.userId, action: body.approveNow ? 'LEAVE_FILED_AND_APPROVED' : 'LEAVE_FILED_FOR', entity: 'ApprovalRequest', entityId: created.id, after: { ...body, days } }, tx);
+      return created;
+    });
+    if (body.approveNow) {
+      if (body.startDate <= manilaToday()) await this.attendance.recompute(body.startDate, body.endDate > manilaToday() ? manilaToday() : body.endDate, [e.id]);
+      await this.notifications.send({ topic: 'leave', kind: 'approved', title: 'Leave was filed and approved for you', body: `${approval.detail} · by ${user.displayName}.`, employeeIds: [e.id], actorId: user.userId });
+    } else {
+      await this.tellStep(approval.id, user.userId);
+    }
     return this.toMyRequest(approval);
   }
 

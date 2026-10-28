@@ -846,3 +846,34 @@ describe('201 papers: the Super Admin reviews like HR', () => {
     await http().delete(`/me/documents/${med.id}`).set(auth('employee')).expect(204);
   });
 });
+
+describe('leave: half days, withdraw, cancel, and the Super Admin filing for someone', () => {
+  const file = (body: Record<string, unknown>) => http().post('/me/leave-requests').set(auth('employee')).send({ leaveTypeCode: 'VL', reason: 'Family errand', ...body });
+  const stateOf = async (who: string, id: string) => ((await http().get('/leave/state').set(auth(who)).expect(200)).body.requests as { id: string; status: string; days: number; halfDay?: string }[]).find((r) => r.id === id);
+
+  it('keeps a half day as half a day, morning or afternoon', async () => {
+    const r = (await file({ startDate: '2027-02-10', endDate: '2027-02-10', halfDay: 'pm' }).expect(201)).body;
+    expect(await stateOf('employee', r.id)).toMatchObject({ days: 0.5, halfDay: 'pm' });
+    await http().post(`/leave/requests/${r.id}/cancel`).set(auth('employee')).send({}).expect(200);
+  });
+
+  it('the employee withdraws; others outside the team cannot; a finished request stays', async () => {
+    const r = (await file({ startDate: '2027-02-11', endDate: '2027-02-11' }).expect(201)).body;
+    await http().post(`/leave/requests/${r.id}/cancel`).set(auth('payroll')).send({}).expect(403);
+    await http().post(`/leave/requests/${r.id}/cancel`).set(auth('employee')).send({}).expect(200);
+    expect((await stateOf('employee', r.id))?.status).toBe('cancelled');
+    await http().post(`/leave/requests/${r.id}/cancel`).set(auth('employee')).send({}).expect(409);
+  });
+
+  it('the approver cancels a team member’s approved leave before it starts, and the days come back', async () => {
+    const jose = (await prisma.user.findUniqueOrThrow({ where: { email: 'employee@msma.test' }, include: { employee: true } })).employee!;
+    const used = async () => Number((await prisma.leaveBalance.findMany({ where: { employeeId: jose.id, year: 2027 } })).reduce((n, b) => n + Number(b.used), 0));
+    const r = (await http().post('/leave/requests').set(auth('partner')).send({ employeeId: jose.employeeNo, leaveTypeCode: 'VL', startDate: '2027-02-12', endDate: '2027-02-12', reason: 'Filed for him', approveNow: true }).expect(201)).body;
+    expect((await stateOf('hr', r.id))?.status).toBe('approved');
+    const before = await used();
+    await http().post('/leave/requests').set(auth('hr')).send({ employeeId: jose.employeeNo, leaveTypeCode: 'VL', startDate: '2027-02-15', endDate: '2027-02-15', reason: 'HR may only view leave' }).expect(403);
+    await http().post(`/leave/requests/${r.id}/cancel`).set(auth('manager')).send({ note: 'Plans changed' }).expect(200);
+    expect((await stateOf('hr', r.id))?.status).toBe('cancelled');
+    expect(await used()).toBe(before - (before > 0 ? 1 : 0));
+  });
+});

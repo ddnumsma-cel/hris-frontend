@@ -423,7 +423,7 @@ export const LeaveStateSchema = z.object({
   requests: z.array(z.object({
     id: z.string(), employeeId: z.string(), typeId: z.string(), start: DateKeySchema, end: DateKeySchema, days: z.number(), reason: z.string(),
     status: z.enum(['pending', 'approved', 'rejected', 'cancelled']), filedBy: z.string(), filedAt: InstantSchema,
-    decidedBy: z.string().optional(), decidedAt: InstantSchema.optional(), note: z.string().optional(),
+    decidedBy: z.string().optional(), decidedAt: InstantSchema.optional(), note: z.string().optional(), halfDay: z.enum(['am', 'pm']).optional(),
   })),
   adjustments: z.array(LeaveAdjustmentViewSchema),
   carryOver: z.record(z.string(), z.number()),
@@ -669,6 +669,23 @@ export const AnnouncementInputSchema = z.object({
   body: z.string().trim().max(2000).optional(),
 });
 export type AnnouncementInput = z.infer<typeof AnnouncementInputSchema>;
+
+/** Withdraw or cancel a leave request, with an optional note. */
+export const CancelLeaveSchema = z.object({ note: z.string().trim().max(300).optional() });
+export type CancelLeave = z.infer<typeof CancelLeaveSchema>;
+/** The Super Admin files leave for someone (employeeId: the employee number), already approved if they say so. */
+export const FileLeaveForSchema = z
+  .object({
+    employeeId: z.string().trim().min(1).max(40),
+    leaveTypeCode: z.string().trim().min(1, 'Choose the leave type').max(12),
+    halfDay: z.enum(['am', 'pm']).optional(),
+    startDate: DateKeySchema,
+    endDate: DateKeySchema,
+    reason: z.string().trim().min(3, 'Please give a short reason').max(300),
+    approveNow: z.boolean().default(false),
+  })
+  .refine((v) => v.endDate >= v.startDate, { message: 'End date must be on or after the start date', path: ['endDate'] });
+export type FileLeaveFor = z.infer<typeof FileLeaveForSchema>;
 
 /** Org chart "Reports to": the manager's employee number, or null for no one. */
 export const SetManagerSchema = z.object({ managerNo: z.string().trim().min(1).max(40).nullable() });

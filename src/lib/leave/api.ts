@@ -122,6 +122,14 @@ export async function fileLeave(input: FileInput, actor: string, approveNow = fa
   if (denied) return denied;
   if (serverMode) return remote(api<LeaveRequest>("POST", "/leave/requests", { ...input, approveNow }));
   if (!input.reason.trim()) return fail("Give a short reason");
+  // With the backend: filed there (checked with the same rules); it tells the employee or the approver.
+  if (backendOn()) {
+    const code = leave.types.find((t) => t.id === input.typeId)?.code ?? input.typeId;
+    const r = await remote(remoteApi<{ id: string }>("POST", "/leave/requests", { employeeId: input.employeeId, leaveTypeCode: code, startDate: input.start, endDate: input.end, reason: input.reason.trim(), approveNow, ...(input.halfDay && input.start === input.end ? { halfDay: input.halfDay } : {}) }));
+    const filed = leave.requests.find((x) => x.id === r.id);
+    if (!filed) return fail("Filed, but the list didn't refresh. Reload the page.");
+    return filed;
+  }
   const p = previewRequest(input);
   if (p.errors.length) return fail(p.errors[0]!);
   const now = new Date().toISOString();
@@ -190,6 +198,13 @@ export async function cancelRequest(id: string, note: string, actor: string): Pr
   const who = sessionWho();
   if (!canFor(who, "approve", "leave", target?.employeeId) && !(target && target.employeeId === who.employeeId && canFor(who, "create", "leave", target.employeeId))) return forbidden();
   if (serverMode) return remote(api<LeaveRequest>("POST", `/leave/requests/${encodeURIComponent(id)}/cancel`, { note }));
+  // With the backend: cancelled there (the days go back to the balance); it tells the approver or the employee.
+  if (backendOn()) {
+    await remote(remoteApi<{ ok: boolean }>("POST", `/leave/requests/${encodeURIComponent(id)}/cancel`, { note: note.trim() || undefined }));
+    const cancelled = leave.requests.find((x) => x.id === id);
+    if (!cancelled) return fail("Cancelled, but the list didn't refresh. Reload the page.");
+    return cancelled;
+  }
   const r = leave.requests.find((x) => x.id === id);
   if (!r) return fail("That request no longer exists");
   if (r.status === "approved" && r.start <= isoToday()) return fail("This leave has already started and can't be cancelled");

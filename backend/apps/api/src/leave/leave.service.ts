@@ -145,10 +145,24 @@ export class LeaveService {
         startDate: dateKeyToUtcDate(body.startDate),
         endDate: dateKeyToUtcDate(body.endDate),
         days: new Prisma.Decimal(days),
+        // Kept only when it really counts as half a day (the leave policy may not allow half days).
+        halfDay: days === 0.5 && body.halfDay ? body.halfDay : null,
         reason: body.reason,
       },
     });
     return { request, typeName: type.name, days };
+  }
+
+  /** Cancel a leave request; approved leave gives its days back to the balance. */
+  async cancel(db: Db, leaveRequestId: string) {
+    const request = await db.leaveRequest.findUniqueOrThrow({ where: { id: leaveRequestId } });
+    await db.leaveRequest.update({ where: { id: leaveRequestId }, data: { status: 'CANCELLED' } });
+    if (request.status === 'APPROVED') {
+      await db.leaveBalance.updateMany({
+        where: { employeeId: request.employeeId, leaveTypeId: request.leaveTypeId, year: request.startDate.getUTCFullYear() },
+        data: { used: { decrement: request.days } },
+      });
+    }
   }
 
   /** Apply an approval decision to the leave request (and deduct the balance when approved). */

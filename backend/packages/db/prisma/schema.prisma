@@ -815,6 +815,8 @@ model LeaveRequest {
   startDate   DateTime         @db.Date
   endDate     DateTime         @db.Date
   days        Decimal          @db.Decimal(5, 1)
+  /// am or pm for a half day (one date, half the day); null for whole days
+  halfDay     String?
   reason      String
   status      RequestStatus    @default(PENDING)
   createdAt   DateTime         @default(now()) @db.Timestamptz(3)
