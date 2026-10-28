@@ -223,6 +223,8 @@ export async function enrollFaceId(): Promise<Employee> {
 }
 
 export function fetchMyAssets() {
+  // Company assets aren't recorded anywhere yet: none, rather than the demo ones.
+  if (backendOn()) return delay([] as typeof companyAssets);
   return delay(companyAssets.filter((a) => a.assignedToName === currentEmployee.name));
 }
 
@@ -232,6 +234,8 @@ export async function fetchMyTrainingRecords() {
 }
 
 export async function fetchMyProfessionalLicense() {
+  // License and CPD tracking isn't on the backend yet: no card, rather than a demo one.
+  if (backendOn()) return null;
   if (serverMode) return api<ProfessionalLicense | null>("GET", "/me/license");
   return delay(professionalLicenses.find((l) => l.employeeId === currentEmployee.id) ?? null);
 }

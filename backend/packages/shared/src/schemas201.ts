@@ -302,6 +302,9 @@ export const UpdatePersonalInfoSchema = z
   })
   .partial();
 export type UpdatePersonalInfo = z.infer<typeof UpdatePersonalInfoSchema>;
+/** What an employee may change about themselves (Employee › 201 File › Edit profile): contact details only. */
+export const SelfContactSchema = UpdatePersonalInfoSchema.pick({ address: true, city: true, province: true, mobileNo: true, personalEmail: true, emergencyContact: true });
+export type SelfContact = z.infer<typeof SelfContactSchema>;
 
 export const EmploymentEventSchema = z.object({
   id: z.string(),

@@ -28,6 +28,8 @@ import {
   MeTodaySchema,
   MyRequestSchema,
   PayslipViewSchema,
+  SelfContact,
+  SelfContactSchema,
   SessionUserSchema,
   UpdatePreferences,
   UpdatePreferencesSchema,
@@ -69,6 +71,16 @@ export class MeController {
   })
   async profile(@CurrentUser() user: AuthUser) {
     const id = requireEmployeeId(user);
+    const [profile, personal] = await Promise.all([this.employees.profile(id), this.employees.personal(id)]);
+    return { ...profile, personal };
+  }
+
+  @Patch('personal')
+  @ApiOperation({ operationId: 'updateMyContact', summary: 'Change your own contact details: mobile, personal email, address, emergency contact (audited)' })
+  @ApiZodBody(SelfContactSchema)
+  async updateContact(@CurrentUser() user: AuthUser, @Body(new ZodPipe(SelfContactSchema)) body: SelfContact) {
+    const id = requireEmployeeId(user);
+    await this.employees.updatePersonal(id, body, user.userId);
     const [profile, personal] = await Promise.all([this.employees.profile(id), this.employees.personal(id)]);
     return { ...profile, personal };
   }

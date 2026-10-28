@@ -175,12 +175,15 @@ export async function backendPeople(): Promise<TkPerson[]> {
  * built-in demo records. Government and bank numbers are left out: pages that need them ask the backend themselves.
  */
 export async function backendCoreState(): Promise<CoreHrState> {
-  const [list, offices, departments, requisitions] = await Promise.all([
-    fetchAll(),
+  const [list, offices, departments, requisitions, me] = await Promise.all([
+    // Employees may not list people: their store then holds just themselves (below).
+    fetchAll().catch(() => [] as BackendEmployee[]),
     api<{ id: string; name: string; code: string; address: string | null; contactName: string | null; contactPhone: string | null; active: boolean }[]>("/org/locations").catch(() => []),
     api<{ id: string; name: string; code: string; officeId: string; office: string; head: { id: string } | null; active: boolean }[]>("/org/departments").catch(() => []),
     // HR and the Super Admin only; others simply get no open slots.
     api<{ title: string; department: string; office: string; openings: number; approval?: string }[]>("/recruitment/requisitions").catch(() => []),
+    // The signed-in person's own record, with their own bank and government numbers (kept in memory only).
+    api<BackendEmployeeDetail>("/me/profile").catch(() => null),
   ]);
   const noOf = new Map(list.map((e) => [e.id, e.employeeNo]));
   const units: OrgUnit[] = [
@@ -234,7 +237,34 @@ export async function backendCoreState(): Promise<CoreHrState> {
       ?? departments.find((d) => d.name.toLowerCase() === r.department.toLowerCase());
     positionOf(dept?.id ?? "company", r.title).slots += r.openings;
   }
+  // "Me": always present (an employee's own bank account, BIR 2316 and name read it); the full record replaces the list row.
+  if (me) {
+    const own = coreFromDetail(me).employee;
+    const position = positionOf(own.job.unitId, me.position ?? "Unassigned");
+    if (!employees.some((e) => e.id === own.id)) position.slots += 1;
+    const mine = { ...own, job: { ...own.job, positionId: position.id, supervisorId: me.managerId ? noOf.get(me.managerId) : own.job.supervisorId } };
+    const at = employees.findIndex((e) => e.id === own.id);
+    if (at >= 0) employees[at] = mine;
+    else employees.push(mine);
+    if (me.site && !units.some((u) => u.id === me.site!.id)) units.push({ id: me.site.id, type: "branch", name: me.site.name, code: me.site.name.slice(0, 3).toUpperCase(), parentId: "company", active: true });
+    if (me.department && !units.some((u) => u.id === own.job.unitId)) units.push({ id: own.job.unitId, type: "department", name: me.department.name, code: me.department.name.slice(0, 3).toUpperCase(), parentId: me.site?.id ?? "company", active: true });
+  }
   return { units, positions: [...positions.values()], employees, documents: [], events: [], audit: [] };
+}
+
+/** Employee › Edit profile: their own contact details (the backend allows only these for oneself). */
+export async function backendUpdateMyContact(c: Pick<CoreEmployee["contact"], "mobile" | "personalEmail" | "address" | "city" | "province" | "emergencyName" | "emergencyRelationship" | "emergencyPhone">): Promise<void> {
+  await api("/me/personal", {
+    method: "PATCH",
+    body: {
+      address: c.address || null,
+      city: c.city || null,
+      province: c.province || null,
+      mobileNo: c.mobile || null,
+      personalEmail: c.personalEmail || null,
+      emergencyContact: c.emergencyName ? { name: c.emergencyName, relationship: c.emergencyRelationship, phone: c.emergencyPhone } : null,
+    },
+  });
 }
 
 /** Org chart "Reports to": saved on the backend, which decides who approves this person's requests. */
@@ -295,6 +325,18 @@ async function detailOf(employeeNo: string): Promise<BackendEmployeeDetail | nul
 export async function backendGetEmployee(employeeNo: string): Promise<EmployeeRecord | null> {
   const d = await detailOf(employeeNo);
   if (!d) return null;
+  const { employee, summary } = coreFromDetail(d);
+  return {
+    employee,
+    summary,
+    unitPath: [d.site?.name, d.department?.name].filter(Boolean).join(" › "),
+    // The backend names the manager but not their employee number, so the link uses its id.
+    supervisor: d.manager ? { id: d.manager.id, name: d.manager.fullName, positionTitle: "" } : undefined,
+  };
+}
+
+/** One backend employee record (with their personal sheet) as a people-store entry. */
+function coreFromDetail(d: BackendEmployeeDetail): { employee: CoreEmployee; summary: EmployeeSummary } {
   const summary = summarize(d, d);
   const p = d.personal;
   const employee: CoreEmployee = {
@@ -336,13 +378,7 @@ export async function backendGetEmployee(employeeNo: string): Promise<EmployeeRe
     },
     createdAt: d.hireDate,
   };
-  return {
-    employee,
-    summary,
-    unitPath: [d.site?.name, d.department?.name].filter(Boolean).join(" › "),
-    // The backend names the manager but not their employee number, so the link uses its id.
-    supervisor: d.manager ? { id: d.manager.id, name: d.manager.fullName, positionTitle: "" } : undefined,
-  };
+  return { employee, summary };
 }
 
 /** Plain digits in the groups the backend writes a government number in ("3417654321" → "34-1765432-1"). */

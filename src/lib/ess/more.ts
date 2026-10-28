@@ -2,10 +2,10 @@
 // work-from-home days, who's out in their department, and the notifications bell.
 
 import { certificateRequests } from "../mockData";
-import { fullName, state as core } from "../corehr/store";
+import { fullName, refreshCoreHr, state as core } from "../corehr/store";
 import { leave } from "../leave/store";
-import { allLoans } from "../pay/loanStore";
-import { approvedRuns, loanPaid } from "../pay/runs";
+import { allLoans, refreshLoans } from "../pay/loanStore";
+import { approvedRuns, loadRunsFromServer, loanPaid } from "../pay/runs";
 import { form2316 } from "../pay/yearend";
 import { policiesFor } from "../policies";
 import { fmtDay, fmtTime } from "../preferences";
@@ -35,7 +35,9 @@ export interface MyLoan {
   status: string;
 }
 
-export function myLoans(): Promise<MyLoan[]> {
+export async function myLoans(): Promise<MyLoan[]> {
+  // With the backend: their own loans and what approved runs paid (the loans list gives employees only theirs).
+  await refreshLoans().catch(() => undefined);
   const id = myId();
   return respond(
     allLoans()
@@ -50,10 +52,17 @@ export function myLoans(): Promise<MyLoan[]> {
 
 // ---- BIR 2316 and bank ----
 
-export const my2316 = (year: number) => respond(form2316(myId(), year));
+export const my2316 = async (year: number) => {
+  // Their own record and their own lines of the approved runs, from the backend.
+  await Promise.all([refreshCoreHr(2000), loadRunsFromServer()]);
+  return respond(form2316(myId(), year));
+};
 
 /** Where take-home pay goes. Read-only here; HR changes it on the 201 File. */
-export const myBank = () => respond(me()?.bank ?? null);
+export const myBank = async () => {
+  await refreshCoreHr(2000);
+  return respond(me()?.bank ?? null);
+};
 
 // ---- Everything they've filed ----
 

@@ -2,7 +2,9 @@
 // works with. Leave they file shows up in HR's Leave requests, time requests in
 // Timekeeping, and payslips use the same payroll engine as the Payroll register.
 
-import { fullName, state as core } from "../corehr/store";
+import { fullName, refreshCoreHr, state as core } from "../corehr/store";
+import { backendUpdateMyContact } from "../backend/people";
+import { loadMe } from "../backend/auth";
 import { cancelRequest, fileLeave, type FileInput } from "../leave/api";
 import { balanceFor, creditsFor, leave, refreshLeave, type Credits } from "../leave/store";
 import { currentEmployee } from "../mockData";
@@ -148,6 +150,12 @@ export const myContact = () => respond(me()?.contact ?? null);
 export async function updateMyContact(patch: Pick<CoreEmployee["contact"], "mobile" | "personalEmail" | "address" | "city" | "province" | "emergencyName" | "emergencyRelationship" | "emergencyPhone">) {
   const e = me();
   if (!e) throw new Error("Your employee record wasn't found. Please contact HR.");
+  // With the backend: saved through the self-service route (contact details only), then reloaded.
+  if (backendOn()) {
+    await backendUpdateMyContact({ ...e.contact, ...patch });
+    await Promise.all([refreshCoreHr(0), loadMe()]);
+    return;
+  }
   return updateEmployeeSection(myId(), "contact", { ...e.contact, ...patch }, `${myName()} (self-service)`);
 }
 

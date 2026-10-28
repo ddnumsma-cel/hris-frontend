@@ -651,3 +651,19 @@ describe('remote work days', () => {
     await http().post('/timekeeping/clock').set(auth(who)).send({ kind: 'in', match: 88 }).expect(403); // office day again
   });
 });
+
+describe('employee self-service contact details', () => {
+  it('an employee changes their own mobile and emergency contact, but nothing else', async () => {
+    const before = (await http().get('/me/profile').set(auth('employee')).expect(200)).body;
+    const res = await http()
+      .patch('/me/personal')
+      .set(auth('employee'))
+      .send({ mobileNo: '09171234567', emergencyContact: { name: 'Ana Reyes', relationship: 'Spouse', phone: '09170001111' }, workEmail: 'hacked@example.com', bank: { bankName: 'X', accountName: 'Y', accountNumber: '1' } })
+      .expect(200);
+    expect(res.body.mobileNo).toBe('09171234567');
+    expect(res.body.personal.emergencyContact.name).toBe('Ana Reyes');
+    expect(res.body.email).toBe(before.email); // work email is HR's to change
+    expect(JSON.stringify(res.body.personal.bank)).toBe(JSON.stringify(before.personal.bank)); // so is the bank account
+    await http().patch('/me/personal').set(auth('employee')).send({ mobileNo: before.mobileNo, emergencyContact: before.personal.emergencyContact }).expect(200);
+  });
+});
