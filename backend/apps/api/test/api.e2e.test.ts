@@ -471,3 +471,18 @@ describe('sign-in throttling under parallel guesses', () => {
     expect(results.filter((r) => r.status === 429)).toHaveLength(7);
   });
 });
+
+describe('me/profile', () => {
+  it("returns the signed-in person's own record, with their government numbers readable", async () => {
+    const res = await http().get('/me/profile').set(auth('employee')).expect(200);
+    const me = await prisma.user.findUniqueOrThrow({ where: { email: 'employee@msma.test' }, include: { employee: true } });
+    expect(res.body.employeeNo).toBe(me.employee!.employeeNo);
+    expect(res.body.fullName).toBe(`${me.employee!.firstName} ${me.employee!.lastName}`);
+    expect(res.body.personal).toBeTruthy();
+    expect(res.body.govIds?.tin).toMatch(/^\d{3}-\d{3}-\d{3}-\d{3}$/); // decrypted for their owner
+  });
+
+  it('is refused for a login without an employee record', async () => {
+    await http().get('/me/profile').set(auth('partner')).expect(403);
+  });
+});

@@ -40,6 +40,7 @@ import { AuthUser, CurrentUser, requireEmployeeId } from '../common/auth.decorat
 import { config } from '../config';
 import { ApiZodBody, ApiZodResponse, ZodPipe } from '../common/zod';
 import { MOBILE_DEVICE_SERIAL } from '../devices/devices.service';
+import { EmployeesService } from '../employees/employees.service';
 import { LeaveService } from '../leave/leave.service';
 import { PayrollService } from '../payroll/payroll.service';
 
@@ -57,7 +58,20 @@ export class MeController {
     private readonly approvals: ApprovalsService,
     private readonly payroll: PayrollService,
     private readonly auth: AuthService,
+    private readonly employees: EmployeesService,
   ) {}
+
+  @Get('profile')
+  @ApiOperation({
+    operationId: 'getMyProfile',
+    summary: 'My own employee record (the website shows it as "me": greeting, 201 file, account settings)',
+    description: 'Same shape as GET /employees/:id, for the signed-in person only. 404 when the login has no employee record.',
+  })
+  async profile(@CurrentUser() user: AuthUser) {
+    const id = requireEmployeeId(user);
+    const [profile, personal] = await Promise.all([this.employees.profile(id), this.employees.personal(id)]);
+    return { ...profile, personal };
+  }
 
   @Get('today')
   @ApiOperation({

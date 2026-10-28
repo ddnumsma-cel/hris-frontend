@@ -6,6 +6,7 @@ import type { EmployeeRecord, EmployeeSummary, PositionSummary, UnitSummary } fr
 import type { NewEmployeeValues } from "../corehr/schemas";
 import type { CivilStatus, CoreEmployee, DocumentType, EmployeeDocument, EmploymentType, JobEvent } from "../corehr/types";
 import type { TkPerson } from "../timekeeping/api";
+import type { Cluster, Employee } from "../types";
 import { api } from "./client";
 
 interface BackendEmployee {
@@ -96,6 +97,46 @@ function summarize(e: BackendEmployee, detail?: BackendEmployeeDetail): Employee
     workEmail: detail?.email ?? "",
     mobile: detail?.mobileNo ?? "",
     documents,
+  };
+}
+
+const EMPLOYMENT_STATUS: Record<BackendEmployee["status"], NonNullable<Employee["employmentStatus"]>> = {
+  PROBATIONARY: "Probationary",
+  REGULAR: "Regular",
+  CONTRACTUAL: "Contractual",
+  PROJECT: "Project-Based",
+};
+
+/** The signed-in person's own record ("me" on the employee pages), from GET /me/profile; null without an employee record. */
+export async function backendMyProfile(): Promise<Employee | null> {
+  let d: BackendEmployeeDetail;
+  try {
+    d = await api<BackendEmployeeDetail>("/me/profile");
+  } catch {
+    return null;
+  }
+  backendIds.set(d.employeeNo, d.id);
+  const ec = d.personal?.emergencyContact;
+  const g = d.govIds;
+  return {
+    id: d.employeeNo,
+    name: d.fullName,
+    initials: initials(d.firstName, d.lastName),
+    firstName: d.firstName,
+    lastName: d.lastName,
+    position: d.position ?? "Unassigned",
+    department: d.department?.name ?? "",
+    office: (d.site?.name ?? "") as Employee["office"],
+    // Not set on the records yet; blank rather than a made-up cluster.
+    cluster: "" as Cluster,
+    status: d.todayStatus === "ON_LEAVE" ? "On leave" : "Active",
+    email: d.email ?? undefined,
+    phone: d.mobileNo ?? undefined,
+    personalEmail: d.personal?.personalEmail ?? undefined,
+    emergencyContact: ec ? `${ec.name} (${ec.relationship}) · ${ec.phone}` : undefined,
+    dateHired: d.hireDate,
+    employmentStatus: EMPLOYMENT_STATUS[d.status],
+    ...(g ? { governmentNumbers: { tin: g.tin ?? undefined, sss: g.sss ?? undefined, philHealth: g.philhealth ?? undefined, pagIbig: g.pagibig ?? undefined } } : {}),
   };
 }
 

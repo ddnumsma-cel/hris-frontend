@@ -5,7 +5,10 @@
 import { admin, logAdmin, saveAdmin, type UserAccount } from "../admin/store";
 import type { SignInResult } from "../admin/auth";
 import type { RoleKey } from "../permissions";
-import { api, setToken } from "./client";
+import { api, backendOn, setToken } from "./client";
+import { setCurrentEmployee } from "../mockData";
+import type { Employee } from "../types";
+import { backendMyProfile } from "./people";
 
 export type BackendRole = "EMPLOYEE" | "MANAGER" | "HR_ADMIN" | "PAYROLL_ADMIN" | "SYSTEM_ADMIN" | "PLATFORM_ADMIN";
 
@@ -71,6 +74,43 @@ export async function localDemoAccounts(): Promise<DemoAccount[] | null> {
 }
 
 const USER_KEY = "heyhr-api-user";
+/** The signed-in person's own record, kept so a reload shows the right name before the backend answers. */
+const ME_KEY = "heyhr-api-me";
+
+/** "Me" for a login without an employee record (e.g. a partner's or IT's account). */
+function noRecord(name: string): Employee {
+  const initials = name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  return { id: "", name, initials, position: "No employee record linked", department: "", office: "" as Employee["office"], cluster: "" as Employee["cluster"], status: "Active" };
+}
+
+/**
+ * Makes the employee pages show the signed-in person instead of the built-in demo profile: their own record from the
+ * backend (GET /me/profile), or a placeholder when the login has no employee record. Skipped while a temporary
+ * password is still in use (the backend opens nothing else until it is replaced).
+ */
+export async function loadMe() {
+  const user = backendUser();
+  if (!user || user.mustChangePassword) return;
+  const me = user.employeeNo ? await backendMyProfile() : null;
+  const next = me ?? noRecord(user.displayName);
+  setCurrentEmployee(next);
+  try {
+    localStorage.setItem(ME_KEY, JSON.stringify(next));
+  } catch {
+    // Kept for this page only.
+  }
+}
+
+// A reload: show the last known "me" at once, then refresh it from the backend.
+if (backendOn()) {
+  try {
+    const cached = localStorage.getItem(ME_KEY);
+    if (cached && localStorage.getItem(USER_KEY)) setCurrentEmployee(JSON.parse(cached) as Employee);
+  } catch {
+    // Nothing cached.
+  }
+  if (typeof window !== "undefined") queueMicrotask(() => void loadMe());
+}
 
 /** The signed-in backend user (role, employee id), or null when signed out or not connected. */
 export function backendUser(): BackendUser | null {
@@ -115,6 +155,7 @@ export async function backendSignIn(email: string, password: string): Promise<Si
     createdBy: "HR server",
   };
   saveAdmin({ ...admin, accounts: [...admin.accounts.filter((a) => a.id !== account.id), account] });
+  await loadMe();
   logAdmin({ actor: account.name, module: "Sign-in", action: "Signed in", target: account.username, detail: `${role.name} · HR server` });
   return { ok: true, workspace: role.workspace, account };
 }
@@ -137,6 +178,7 @@ export async function backendPasswordChanged(accessToken?: string) {
   } catch {
     // Kept for this page only.
   }
+  await loadMe();
 }
 
 /** Forget the backend sign-in (the token and who it was). */
@@ -144,6 +186,7 @@ export function backendSignOut() {
   setToken(null);
   try {
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(ME_KEY);
   } catch {
     // Nothing to clear.
   }
