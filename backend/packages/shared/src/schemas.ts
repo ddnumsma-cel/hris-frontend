@@ -545,6 +545,26 @@ export const RemoteClockSchema = z.object({
 });
 export type RemoteClockInput = z.infer<typeof RemoteClockSchema>;
 
+/** Payroll › Final pay: open a case (employeeId: the employee number). */
+export const FinalPayOpenSchema = z.object({
+  employeeId: z.string().trim().min(1).max(40),
+  lastDay: DateKeySchema,
+  reason: z.string().trim().min(1, "Choose why they're leaving").max(80),
+});
+export type FinalPayOpen = z.infer<typeof FinalPayOpenSchema>;
+const PesoAmountSchema = z.number().finite().min(-100_000_000).max(100_000_000);
+/** Release final pay with the figures worked out and what they were based on. */
+export const FinalPayReleaseSchema = FinalPayOpenSchema.extend({
+  reference: z.string().trim().min(1, 'Enter the check or transfer reference').max(120),
+  items: z.array(z.object({ label: z.string().max(120), detail: z.string().max(500), amount: PesoAmountSchema })).min(1).max(40),
+  total: PesoAmountSchema,
+  basis: z.object({
+    claimIds: z.array(z.string().min(1).max(40)).max(200),
+    loans: z.array(z.object({ id: z.string().min(1).max(40), balance: PesoAmountSchema })).max(50),
+  }),
+});
+export type FinalPayRelease = z.infer<typeof FinalPayReleaseSchema>;
+
 /** Employee › HMO & Benefits: a benefit or dependent the employee adds. */
 export const BenefitInputSchema = z.object({
   name: z.string().trim().min(1, 'Name the benefit').max(120),

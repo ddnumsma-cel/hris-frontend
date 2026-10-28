@@ -10,7 +10,8 @@ import { creditsFor } from "../leave/store";
 import { payroll, type Period } from "../reports/api";
 import { round2, THIRTEENTH_MONTH_EXEMPT } from "../reports/statutory";
 import { claims, claimType, refreshClaims, saveClaims } from "../reimbursements/store";
-import { api, serverMode } from "../http";
+import { serverMode } from "../http";
+import { remoteApi, remoteOn } from "../remote";
 import { deny } from "../session";
 import { tellAssigned, tellEmployees } from "../requestNotices";
 import { outstandingLoans, settleLoans } from "./loans";
@@ -127,7 +128,7 @@ export interface FinalPayRow {
 export async function listFinalPay(): Promise<FinalPayRow[]> {
   const denied = deny("payrollRuns", "view");
   if (denied) return denied;
-  if (serverMode) await refreshCases();
+  if (remoteOn()) await refreshCases();
   // The people (and who has left) from the backend, not the demo records.
   await refreshCoreHr(2000);
   const cases = load();
@@ -152,10 +153,11 @@ export async function openFinalPay(input: { employeeId: string; lastDay: string;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.lastDay)) return fail("Enter their last day");
   if (input.lastDay < e.job.dateHired) return fail("The last day can't be before they were hired");
   if (!input.reason) return fail("Choose why they're leaving");
+  if (remoteOn()) await refreshCases();
   const cases = load();
   if (cases.some((c) => c.employeeId === input.employeeId)) return fail(`${fullName(e.personal)} already has a final pay case`);
-  if (serverMode) {
-    const opened = await api<FinalPayCase>("POST", "/payroll/final-pay", input);
+  if (remoteOn()) {
+    const opened = await remoteApi<FinalPayCase>("POST", "/payroll/final-pay", input);
     await refreshCases();
     return opened;
   }
@@ -172,8 +174,8 @@ export async function removeFinalPay(caseId: string): Promise<void> {
   const c = cases.find((x) => x.id === caseId);
   if (!c) return fail("That case no longer exists");
   if (c.released) return fail("Released final pay stays on record");
-  if (serverMode) {
-    await api("DELETE", `/payroll/final-pay/${encodeURIComponent(caseId)}`);
+  if (remoteOn()) {
+    await remoteApi("DELETE", `/payroll/final-pay/${encodeURIComponent(caseId)}`);
     await refreshCases();
     return;
   }
@@ -188,13 +190,14 @@ export async function releaseFinalPay(row: Pick<FinalPayRow, "employeeId" | "las
   if (!reference.trim()) return fail("Enter the check or transfer reference");
   const e = person(row.employeeId);
   if (!e) return fail("That employee no longer exists");
+  if (remoteOn()) await refreshCases();
   const cases = load();
   const existing = cases.find((c) => c.id === row.caseId || c.employeeId === row.employeeId);
   if (existing?.released) return fail("This final pay was already released");
   const { items, total, basis } = await computeFinalPay(row.employeeId, row.lastDay);
-  if (serverMode) {
-    // The server freezes the figures, settles the loans and marks the reimbursements paid.
-    const released = await api<FinalPayCase>("POST", "/payroll/final-pay/release", { employeeId: row.employeeId, lastDay: row.lastDay, reason: row.reason, reference: reference.trim(), items, total, basis });
+  if (remoteOn()) {
+    // The server or the backend freezes the figures, settles the loans and marks the reimbursements paid.
+    const released = await remoteApi<FinalPayCase>("POST", "/payroll/final-pay/release", { employeeId: row.employeeId, lastDay: row.lastDay, reason: row.reason, reference: reference.trim(), items, total, basis });
     await Promise.all([refreshCases(), refreshLoans(), refreshClaims()]);
     return released;
   }

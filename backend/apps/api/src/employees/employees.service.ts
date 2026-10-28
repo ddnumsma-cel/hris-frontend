@@ -360,6 +360,8 @@ export class EmployeesService {
     await this.prisma.$transaction(async (tx) => {
       await tx.employee.update({ where: { id }, data: { separationDate: null } });
       await tx.employmentEvent.deleteMany({ where: { employeeId: id, type: 'SEPARATED' } });
+      // A final pay case not released yet goes with it (released final pay stays on record).
+      await tx.finalPayCase.deleteMany({ where: { employeeId: id, releasedAt: null } });
       await this.audit.log(
         { actorId, action: 'EMPLOYEE_SEPARATION_CANCELLED', entity: 'Employee', entityId: id, before: { lastDay } },
         tx,

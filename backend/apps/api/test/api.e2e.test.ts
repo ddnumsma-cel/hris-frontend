@@ -767,3 +767,26 @@ describe('HMO and benefits', () => {
     expect(((await http().get('/me/benefits').set(auth('employee')).expect(200)).body as { id: string }[]).some((b) => b.id === added.id)).toBe(false);
   });
 });
+
+describe('final pay cases', () => {
+  it('Accounting opens and releases final pay; loans settle and claims are paid; stale figures are refused', async () => {
+    const e = await prisma.employee.findFirstOrThrow({ where: { user: null, finalPay: null, separationDate: null } });
+    const loan = await prisma.loan.create({ data: { employeeId: e.id, kind: 'Cash advance', reference: 'CA-T', principal: 1000, installment: 500, startDate: new Date('2026-01-01'), createdBy: 'test' } });
+    const claim = await prisma.claim.create({ data: { employeeId: e.id, category: 'Transport', merchant: 'Grab', purchaseDate: new Date('2026-10-01'), amount: 250, description: 'Client visit', receipt: '', status: 'approved' } });
+    const open = { employeeId: e.employeeNo, lastDay: '2026-10-30', reason: 'Resigned' };
+    await http().post('/payroll/final-pay').set(auth('hr')).send(open).expect(403);
+    const c = (await http().post('/payroll/final-pay').set(auth('payroll')).send(open).expect(201)).body;
+    await http().post('/payroll/final-pay').set(auth('payroll')).send(open).expect(409);
+    const items = [{ label: 'Last salary', detail: 'Oct 26–30', amount: 5000 }, { label: 'Reimbursements', detail: '1 claim', amount: 250 }, { label: 'Loans', detail: 'CA-T', amount: -1000 }];
+    const release = { ...open, reference: 'CHK-1', items, total: 4250, basis: { claimIds: [claim.id], loans: [{ id: loan.id, balance: 1000 }] } };
+    await http().post('/payroll/final-pay/release').set(auth('payroll')).send({ ...release, total: 9999 }).expect(400);
+    await http().post('/payroll/final-pay/release').set(auth('payroll')).send({ ...release, basis: { claimIds: ['nope'], loans: [] } }).expect(409);
+    const done = (await http().post('/payroll/final-pay/release').set(auth('payroll')).send(release).expect(200)).body;
+    expect(done).toMatchObject({ id: c.id, released: { total: 4250, reference: 'CHK-1' } });
+    expect((await prisma.loan.findUniqueOrThrow({ where: { id: loan.id } })).status).toBe('settled');
+    expect((await prisma.claim.findUniqueOrThrow({ where: { id: claim.id } })).payoutMethod).toBe('final pay');
+    await http().post('/payroll/final-pay/release').set(auth('payroll')).send(release).expect(409);
+    await http().delete(`/payroll/final-pay/${c.id}`).set(auth('payroll')).expect(409);
+    expect(((await http().get('/payroll/final-pay').set(auth('payroll')).expect(200)).body as { id: string }[]).some((x) => x.id === c.id)).toBe(true);
+  });
+});

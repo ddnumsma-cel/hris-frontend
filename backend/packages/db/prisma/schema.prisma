@@ -342,6 +342,7 @@ model Employee {
   attendanceNotices    AttendanceNotice[]
   photo                EmployeePhoto?
   benefits             EmployeeBenefit[]
+  finalPay             FinalPayCase?
   performanceReviews   PerformanceReview[]
   remotePunches        RemotePunch[]
   events            EmploymentEvent[]
@@ -507,6 +508,25 @@ model EmployeeCase {
   closedBy   String?
 
   @@index([employeeId])
+}
+
+/// Final pay for someone leaving (Payroll › Final pay): one per employee; released figures are frozen.
+model FinalPayCase {
+  id         String    @id @default(cuid())
+  employeeId String    @unique
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  lastDay    DateTime  @db.Date
+  reason     String
+  openedBy   String
+  openedById String?
+  openedAt   DateTime  @default(now()) @db.Timestamptz(3)
+  releasedAt DateTime? @db.Timestamptz(3)
+  releasedBy String?
+  /// Check or transfer reference
+  reference  String?
+  /// The items as released: [{ label, detail, amount }]
+  items      Json?
+  total      Decimal?  @db.Decimal(14, 2)
 }
 
 /// An HMO or other benefit the employee added (Employee › HMO & Benefits). Removal keeps the row.

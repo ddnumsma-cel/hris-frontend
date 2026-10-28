@@ -2,7 +2,7 @@
 // without loading payroll (see finalpay.ts for the computation). With the API server they're kept
 // in the database: the server opens and drops cases with the separation (see refreshCases).
 
-import { api, serverMode } from "../http";
+import { remoteApi, remoteOn } from "../remote";
 
 export interface FinalPayItem {
   label: string;
@@ -23,16 +23,16 @@ export interface FinalPayCase {
 
 const KEY = "heyhr-final-pay-v1";
 
-/** With the API server: the cases as last loaded (refreshCases). */
+/** With the API server or the backend: the cases as last loaded (refreshCases). */
 let serverCases: FinalPayCase[] = [];
 
-/** With the API server: the cases this account may see. */
+/** With the API server or the backend: the cases this account may see. */
 export async function refreshCases() {
-  if (serverMode) serverCases = await api<FinalPayCase[]>("GET", "/payroll/final-pay");
+  if (remoteOn()) serverCases = await remoteApi<FinalPayCase[]>("GET", "/payroll/final-pay");
 }
 
 export function loadCases(): FinalPayCase[] {
-  if (serverMode) return serverCases;
+  if (remoteOn()) return serverCases;
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw) as FinalPayCase[];
@@ -43,7 +43,7 @@ export function loadCases(): FinalPayCase[] {
 }
 
 export function saveCases(next: FinalPayCase[]) {
-  if (serverMode) return;
+  if (remoteOn()) return;
   try {
     localStorage.setItem(KEY, JSON.stringify(next));
   } catch {
