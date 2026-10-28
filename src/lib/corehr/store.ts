@@ -350,6 +350,8 @@ function syncShared() {
         phone: c.contact.mobile || undefined,
         emergencyContact: c.contact.emergencyName || undefined,
         faceEnrolled: c.faceEnrolled ?? prev?.faceEnrolled,
+        // The real hire date (Home "Recently joined", employment records); without it they would read as hired today.
+        dateHired: c.job.dateHired || prev?.dateHired,
       };
     }),
   );
