@@ -21,6 +21,7 @@ import { SeatChip } from "@/features/subscription/shared";
 import { useMySettings } from "@/features/settings/useSettings";
 import { fetchMyAvatar } from "@/lib/settings/api";
 import { settingsKeyFor } from "@/lib/settings/store";
+import { listOfficeNames } from "@/lib/corehr/api";
 
 const offices: OfficeFilter[] = ["All offices", "Cebu HQ", "Manila", "Davao"];
 
@@ -79,6 +80,9 @@ export function TopBar() {
     return () => observer.disconnect();
   }, [user]);
   const announcementsQuery = useQuery({ queryKey: ["employee", "announcements"], queryFn: fetchAnnouncements });
+  // The real offices (Maintenance › Locations); the built-in list until they load.
+  const officeQuery = useQuery({ queryKey: ["office-names"], queryFn: listOfficeNames, staleTime: 60_000 });
+  const officeList: OfficeFilter[] = officeQuery.data ? ["All offices", ...(officeQuery.data as OfficeFilter[])] : offices;
   // Team alerts (a manager's people working from home today) come first.
   const teamQuery = useQuery({ queryKey: ["team-notices"], queryFn: teamNotices, refetchInterval: 60_000 });
   // Policies the signed-in employee still has to read and confirm (stays until they do). Their
@@ -175,7 +179,7 @@ export function TopBar() {
                 onClick={() => setOfficeMenuOpen(false)}
               />
               <div className="glass-surface panel-enter absolute left-0 top-full z-50 mt-1.5 w-44 rounded-[var(--radius-dropdown)] p-1">
-                {offices.map((o) => (
+                {officeList.map((o) => (
                   <button
                     key={o}
                     type="button"

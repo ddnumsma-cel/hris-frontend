@@ -486,3 +486,30 @@ describe('me/profile', () => {
     await http().get('/me/profile').set(auth('partner')).expect(403);
   });
 });
+
+describe('org chart: reports to', () => {
+  const idOf = async (email: string) => (await prisma.user.findUniqueOrThrow({ where: { email }, include: { employee: true } })).employee!;
+
+  it('changes who someone reports to, records it in their history, and puts it back', async () => {
+    const jose = await idOf('employee@msma.test');
+    const hr = await idOf('hr@msma.test');
+    const before = (await prisma.employee.findUniqueOrThrow({ where: { id: jose.id }, include: { manager: true } })).manager;
+    await http().put(`/employees/${jose.id}/manager`).set(auth('hr')).send({ managerNo: hr.employeeNo }).expect(200);
+    expect((await prisma.employee.findUniqueOrThrow({ where: { id: jose.id } })).managerId).toBe(hr.id);
+    const activity = (await http().get(`/employees/${jose.id}/activity`).set(auth('hr')).expect(200)).body;
+    expect(activity[0].section).toBe('Manager changed');
+    await http().put(`/employees/${jose.id}/manager`).set(auth('hr')).send({ managerNo: before?.employeeNo ?? null }).expect(200);
+  });
+
+  it('refuses a loop, reporting to yourself, and HR changing their own manager', async () => {
+    const jose = await idOf('employee@msma.test');
+    const carlo = await idOf('manager@msma.test');
+    const hr = await idOf('hr@msma.test');
+    // Jose reports to Carlo, so Carlo can't report to Jose.
+    expect((await prisma.employee.findUniqueOrThrow({ where: { id: jose.id } })).managerId).toBe(carlo.id);
+    await http().put(`/employees/${carlo.id}/manager`).set(auth('hr')).send({ managerNo: jose.employeeNo }).expect(400);
+    await http().put(`/employees/${jose.id}/manager`).set(auth('hr')).send({ managerNo: jose.employeeNo }).expect(400);
+    await http().put(`/employees/${hr.id}/manager`).set(auth('hr')).send({ managerNo: carlo.employeeNo }).expect(403);
+    await http().put(`/employees/${jose.id}/manager`).set(auth('manager')).send({ managerNo: null }).expect(403);
+  });
+});

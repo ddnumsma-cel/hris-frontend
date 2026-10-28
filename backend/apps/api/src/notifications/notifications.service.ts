@@ -20,6 +20,7 @@ export type Topic =
   | 'support'
   | 'training'
   | 'subscription'
+  | 'orgchart'
   | 'claim'
   | 'certificate';
 
@@ -48,6 +49,7 @@ const LINKS: Record<Topic, Record<string, string>> = {
   training: { ...ADMIN('/admin/onboarding/trainings'), approver: '/manager/trainings', employee: '/employee/trainings' },
   claim: { ...ADMIN('/admin/requests/reimbursement'), approver: '/manager/approvals?tab=claims', employee: '/employee/reimbursements' },
   certificate: { ...ADMIN('/admin/requests/certificates'), employee: '/employee/certificates' },
+  orgchart: { ...ADMIN('/admin/maintenance/org-chart'), approver: '/manager/workforce' },
   subscription: { super_admin: '/admin/settings/subscription', hr: '/admin/settings/subscription', system_admin: '/admin/administration/subscription' },
 };
 

@@ -3,10 +3,12 @@
 // salary on file (full pay, that cutoff's contributions and withholding). Each result says how
 // many cutoffs were estimated, so nobody mistakes a projection for a filed figure.
 
-import { fullName, state as core } from "../corehr/store";
+import { fullName, refreshCoreHr, state as core } from "../corehr/store";
+import { backendOn } from "../backend/client";
+import { backendPayrollPeople } from "../backend/payroll";
 import { pagibig, philhealth, round2, sss, THIRTEENTH_MONTH_EXEMPT, withholding } from "../reports/statutory";
 import { deny } from "../session";
-import { approvedRuns } from "./runs";
+import { approvedRuns, loadRunsFromServer } from "./runs";
 import { cutoffsOf } from "./settings";
 
 export { cutoffsOf };
@@ -128,13 +130,18 @@ export function form2316(employeeId: string, year: number): Form2316 | null {
 }
 
 /** Every employee with pay in the year: the rows of the alphalist and the list of 2316s. */
-export function listYearEnd(year: number): Promise<Form2316[]> {
+export async function listYearEnd(year: number): Promise<Form2316[]> {
   const denied = deny("payrollRuns", "view");
   if (denied) return denied;
+  // With the backend: the real people and approved runs first; TINs come from the payroll records (stored encrypted,
+  // read for Accounting), since the people store never holds government numbers.
+  await Promise.all([refreshCoreHr(2000), loadRunsFromServer()]);
+  const tins = backendOn() ? new Map((await backendPayrollPeople()).map((p) => [p.id, p.tin])) : null;
   return respond(
     core.employees
       .map((e) => form2316(e.id, year))
       .filter((f): f is Form2316 => !!f)
+      .map((f) => (tins ? { ...f, tin: tins.get(f.employeeId) ?? f.tin } : f))
       .sort((a, b) => a.name.localeCompare(b.name)),
   );
 }

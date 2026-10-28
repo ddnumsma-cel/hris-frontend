@@ -4,7 +4,8 @@
 // marks the reimbursements paid. HR still records the separation itself on the 201 file.
 
 import { logAdmin } from "../admin/store";
-import { fullName, newId, state as core } from "../corehr/store";
+import { fullName, newId, refreshCoreHr, state as core } from "../corehr/store";
+import { backendOn } from "../backend/client";
 import { creditsFor } from "../leave/store";
 import { payroll, type Period } from "../reports/api";
 import { round2, THIRTEENTH_MONTH_EXEMPT } from "../reports/statutory";
@@ -43,10 +44,11 @@ export interface FinalPayBasis {
 
 /** The computation, item by item. */
 export async function computeFinalPay(employeeId: string, lastDay: string): Promise<{ items: FinalPayItem[]; total: number; notes: string[]; basis: FinalPayBasis }> {
+  await refreshCoreHr(2000);
   const e = person(employeeId);
   if (!e) throw new Error("That employee no longer exists");
-  // With the API server: the approved runs, loans and claims the figures come from.
-  if (serverMode) await Promise.all([loadRunsFromServer(), refreshLoans(), refreshClaims(), refreshPaySettings(2000)]);
+  // With the API server or the backend: the approved runs, loans and claims the figures come from.
+  if (serverMode || backendOn()) await Promise.all([loadRunsFromServer(), refreshLoans(), refreshClaims(), refreshPaySettings(2000)]);
   const salary = e.job.monthlySalary;
   const daily = (salary * 12) / WORKING_DAYS_PER_YEAR;
   const year = Number(lastDay.slice(0, 4));
@@ -126,6 +128,8 @@ export async function listFinalPay(): Promise<FinalPayRow[]> {
   const denied = deny("payrollRuns", "view");
   if (denied) return denied;
   if (serverMode) await refreshCases();
+  // The people (and who has left) from the backend, not the demo records.
+  await refreshCoreHr(2000);
   const cases = load();
   const year = String(new Date().getFullYear());
   const rows: FinalPayRow[] = cases.map((c) => {

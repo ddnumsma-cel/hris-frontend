@@ -4,7 +4,7 @@
 
 import type { EmployeeRecord, EmployeeSummary, PositionSummary, UnitSummary } from "../corehr/api";
 import type { NewEmployeeValues } from "../corehr/schemas";
-import type { CivilStatus, CoreEmployee, DocumentType, EmployeeDocument, EmploymentType, JobEvent, OrgUnit, Position as CorePosition } from "../corehr/types";
+import type { AuditEntry, CivilStatus, CoreEmployee, DocumentType, EmployeeDocument, EmploymentType, JobEvent, OrgUnit, Position as CorePosition } from "../corehr/types";
 import type { CoreHrState } from "../corehr/store";
 import type { TkPerson } from "../timekeeping/api";
 import type { Cluster, Employee } from "../types";
@@ -234,6 +234,20 @@ export async function backendCoreState(): Promise<CoreHrState> {
     positionOf(dept?.id ?? "company", r.title).slots += r.openings;
   }
   return { units, positions: [...positions.values()], employees, documents: [], events: [], audit: [] };
+}
+
+/** Org chart "Reports to": saved on the backend, which decides who approves this person's requests. */
+export async function backendSetManager(employeeNo: string, managerNo: string | null): Promise<void> {
+  const id = await backendIdOf(employeeNo);
+  if (!id) throw new Error("That employee no longer exists");
+  await api(`/employees/${id}/manager`, { method: "PUT", body: { managerNo } });
+}
+
+/** What was changed on one person's record, by whom and when (the record's history tab). */
+export async function backendEmployeeActivity(employeeNo: string): Promise<AuditEntry[]> {
+  const id = await backendIdOf(employeeNo);
+  if (!id) return [];
+  return api<AuditEntry[]>(`/employees/${id}/activity`);
 }
 
 /** Offices (the backend's sites) and the departments at each (Maintenance › Locations and Departments), with head counts. */

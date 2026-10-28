@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -31,6 +32,8 @@ import {
   RecordSeparationSchema,
   Separation,
   SeparationSchema,
+  SetManager,
+  SetManagerSchema,
   UpdatePersonalInfo,
   UpdatePersonalInfoSchema,
 } from '@msma/shared';
@@ -43,6 +46,8 @@ import { DocumentsService } from '../documents/documents.service';
 import { LeaveService } from '../leave/leave.service';
 import { EmployeesService } from './employees.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AuditService } from '../audit/audit.service';
+import { notSelf } from '../common/not-self';
 
 
 @ApiTags('employees')
@@ -58,6 +63,7 @@ export class EmployeesController {
     private readonly devices: DevicesService,
     private readonly subscription: SubscriptionService,
     private readonly notifications: NotificationsService,
+    private readonly audit: AuditService,
   ) {}
 
   /** Managers only see their direct reports (an approver login with no employee record has no team: nobody). */
@@ -230,6 +236,36 @@ export class EmployeesController {
       if (other.length) throw new ForbiddenException('Payroll can only update government numbers');
     }
     return this.employees.updatePersonal(id, body, user.userId);
+  }
+
+  @Put(':id/manager')
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'setManager', summary: 'Org chart: change who this person reports to (their approver)' })
+  @ApiZodBody(SetManagerSchema)
+  async setManager(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(SetManagerSchema)) body: SetManager) {
+    // Who approves your own requests isn't yours to change.
+    notSelf(user, id, 'change who you report to');
+    const r = await this.employees.setManager(id, body.managerNo, user.userId);
+    if (r.changed) {
+      await this.notifications.send({ topic: 'orgchart', kind: 'update', title: r.manager ? `You now report to ${r.manager}` : 'Your manager changed', body: r.manager ? 'They approve your leave, overtime and claims from now on.' : 'You no longer have a manager on the org chart.', employeeIds: [id], actorId: user.userId });
+      if (r.managerId) await this.notifications.send({ topic: 'orgchart', kind: 'update', title: `${r.name} now reports to you`, body: "You'll get their leave, overtime and claim requests to approve.", employeeIds: [r.managerId], actorId: user.userId });
+    }
+    return { reportsTo: r.manager };
+  }
+
+  @Get(':id/activity')
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'employeeActivity', summary: "What was changed on this person's record, by whom and when (newest first)" })
+  async activity(@Param('id') id: string) {
+    const e = await this.employees.profile(id);
+    const rows = await this.audit.forEntity('Employee', id, 200);
+    const kind = (a: string) => (/CREATED|ADDED|REGISTERED/.test(a) ? 'Created' : /VIEW|OPENED|REVEAL/.test(a) ? 'Viewed' : /UPLOAD/.test(a) ? 'Uploaded' : /VERIF/.test(a) ? 'Verified' : /REMOVED|DELETED|ARCHIV/.test(a) ? 'Deleted' : /SEPARAT|ENROLL|RECORDED/.test(a) ? 'Recorded' : 'Edited');
+    const label = (a: string) => a.replace(/^EMPLOYEE_/, '').toLowerCase().replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+    const line = (v: unknown) =>
+      v && typeof v === 'object'
+        ? Object.entries(v as Record<string, unknown>).filter(([, x]) => x !== null && x !== undefined && typeof x !== 'object').map(([k, x]) => `${k}: ${String(x)}`).join(' · ').slice(0, 240)
+        : '';
+    return rows.map((r) => ({ id: r.id, employeeId: e.employeeNo, actor: r.actor?.displayName ?? 'System', action: kind(r.action), section: label(r.action), summary: line(r.after) || (line(r.before) ? `was ${line(r.before)}` : ''), at: r.at.toISOString() }));
   }
 
   @Post(':id/biometric-enrollment')

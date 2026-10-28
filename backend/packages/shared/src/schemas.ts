@@ -488,6 +488,10 @@ export const EmployeeListQuerySchema = z.object({
 });
 export type EmployeeListQuery = z.infer<typeof EmployeeListQuerySchema>;
 
+/** Org chart "Reports to": the manager's employee number, or null for no one. */
+export const SetManagerSchema = z.object({ managerNo: z.string().trim().min(1).max(40).nullable() });
+export type SetManager = z.infer<typeof SetManagerSchema>;
+
 export const EmployeeListItemSchema = z.object({
   id: z.string(),
   employeeNo: z.string(),

@@ -27,7 +27,7 @@ import { notifyEmployees } from "../notifications";
 import { dates, tellApprover, tellAssigned, tellEmployees } from "../requestNotices";
 import { assertSeatsAvailable, checkSeatThresholds, isSeatLimitError } from "../subscription/api";
 import { backendOn } from "../backend/client";
-import { backendCancelSeparation, backendCreateEmployee, backendGetEmployee, backendListDocuments, backendListEmployees, backendListEvents, backendListPositions, backendListUnits, backendRecordSeparation, backendUpdateSection } from "../backend/people";
+import { backendCancelSeparation, backendCreateEmployee, backendGetEmployee, backendListDocuments, backendListEmployees, backendListEvents, backendListPositions, backendListUnits, backendRecordSeparation, backendUpdateSection, backendSetManager, backendEmployeeActivity } from "../backend/people";
 
 const DELAY_MS = 300;
 function respond<T>(value: T): Promise<T> {
@@ -472,6 +472,8 @@ export async function logGovernmentReveal(id: string, actor: string): Promise<vo
 export async function listAudit(employeeId: string): Promise<AuditEntry[]> {
   const denied = deny("people", "view", employeeId);
   if (denied) return denied;
+  // With the backend: the real audit history of this person's record.
+  if (backendOn()) return backendEmployeeActivity(employeeId);
   if (serverMode) await fresh();
   return respond(state.audit.filter((a) => a.employeeId === employeeId));
 }
@@ -545,6 +547,13 @@ export async function listPositions(): Promise<PositionSummary[]> {
   );
 }
 
+/** The offices for the top bar's office filter: the real ones (Maintenance › Locations), or the built-in three. */
+export async function listOfficeNames(): Promise<string[]> {
+  await refreshCoreHr(2000);
+  const names = state.units.filter((u) => u.type === "branch" && u.active).map((u) => u.name);
+  return names.length ? names : ["Cebu HQ", "Manila", "Davao"];
+}
+
 // ---- Organization chart ----
 
 export interface OrgChart {
@@ -557,7 +566,7 @@ export interface OrgChart {
 export async function getOrgChart(): Promise<OrgChart> {
   const denied = deny("orgChart", "view");
   if (denied) return denied;
-  if (serverMode) await fresh();
+  await fresh();
   reconcile();
   const company = state.units.find((u) => u.type === "company");
   const people = state.employees.filter(isCurrent).map((e) => ({ ...summarize(e), supervisorId: e.job.supervisorId }));
@@ -590,6 +599,11 @@ export async function setReportsTo(employeeId: string, supervisorId: string | nu
   const denied = deny("orgChart", "edit");
   if (denied) return denied;
   if (serverMode) return remote(api<void>("PUT", `/corehr/employees/${encodeURIComponent(employeeId)}/supervisor`, { supervisorId }));
+  // With the backend: saved there (it decides who approves this person's requests, and tells both people), then reloaded.
+  if (backendOn()) {
+    await backendSetManager(employeeId, supervisorId);
+    return refreshCoreHr(0);
+  }
   const e = employeeById(employeeId);
   if (!e || !isCurrent(e)) return fail("That employee no longer works here");
   if (supervisorId === employeeId) return fail("Someone can't report to themselves");

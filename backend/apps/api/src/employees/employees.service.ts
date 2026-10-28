@@ -412,6 +412,37 @@ export class EmployeesService {
     }));
   }
 
+  /**
+   * Org chart "Reports to": who approves this person's leave, overtime and claims. Refuses someone reporting to
+   * themselves, to a former employee, or to someone who already reports to them (directly or further down).
+   * Returns the two people's names for the notices.
+   */
+  async setManager(id: string, managerNo: string | null, actorId: string) {
+    const e = await this.prisma.employee.findUnique({ where: { id }, include: { manager: true } });
+    if (!e || !e.active || (e.separationDate && e.separationDate < dateKeyToUtcDate(manilaToday()))) throw new NotFoundException('That employee no longer works here');
+    let manager: { id: string; firstName: string; lastName: string } | null = null;
+    if (managerNo) {
+      const m = await this.prisma.employee.findUnique({ where: { employeeNo: managerNo } });
+      if (!m || !m.active || (m.separationDate && m.separationDate < dateKeyToUtcDate(manilaToday()))) throw new BadRequestException('Choose a current employee');
+      if (m.id === id) throw new BadRequestException("Someone can't report to themselves");
+      // Walk up from the new manager: reaching this person means a loop.
+      for (let x: string | null = m.managerId, hops = 0; x && hops < 50; hops++) {
+        if (x === id) throw new BadRequestException(`${fullName(m)} already reports to ${fullName(e)}, directly or through someone else`);
+        x = (await this.prisma.employee.findUnique({ where: { id: x }, select: { managerId: true } }))?.managerId ?? null;
+      }
+      manager = m;
+    }
+    if ((manager?.id ?? null) === e.managerId) return { name: fullName(e), manager: manager ? fullName(manager) : null, changed: false };
+    await this.prisma.$transaction(async (tx) => {
+      await tx.employee.update({ where: { id }, data: { managerId: manager?.id ?? null } });
+      await this.audit.log(
+        { actorId, action: 'EMPLOYEE_MANAGER_CHANGED', entity: 'Employee', entityId: id, before: { reportsTo: e.manager ? fullName(e.manager) : null }, after: { reportsTo: manager ? fullName(manager) : null } },
+        tx,
+      );
+    });
+    return { name: fullName(e), manager: manager ? fullName(manager) : null, managerId: manager?.id ?? null, changed: true };
+  }
+
   async managerIdOf(id: string): Promise<string | null> {
     const e = await this.prisma.employee.findUnique({ where: { id }, select: { managerId: true } });
     if (!e) throw new NotFoundException('Employee not found');
