@@ -893,3 +893,14 @@ describe('remote work day notices', () => {
     await http().delete(`/timekeeping/remote-days/${away.id}`).set(auth('hr')).expect(204);
   });
 });
+
+describe('contact numbers', () => {
+  it('a mobile number must be a PH mobile; an emergency phone must be digits', async () => {
+    await http().patch('/me/personal').set(auth('employee')).send({ mobileNo: 'abc' }).expect(400);
+    await http().patch('/me/personal').set(auth('employee')).send({ mobileNo: '0917 12' }).expect(400);
+    await http().patch('/me/personal').set(auth('employee')).send({ emergencyContact: { name: 'Aileen Reyes', relationship: 'Mother', phone: 'call me' } }).expect(400);
+    const before = (await http().get('/me/profile').set(auth('employee')).expect(200)).body.personal.mobileNo;
+    await http().patch('/me/personal').set(auth('employee')).send({ mobileNo: '+63 917 123 4567' }).expect(200);
+    await http().patch('/me/personal').set(auth('employee')).send({ mobileNo: before }).expect(200);
+  });
+});

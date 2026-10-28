@@ -27,6 +27,9 @@ const optionalText = (max: number) =>
     .transform((v) => (v === '' ? null : v))
     .nullable()
     .optional();
+/** A PH mobile number: 11 digits starting 09, or +63 9…; spaces and dashes allowed (as the website's forms ask). */
+const isPhMobile = (s: string) => /^(09\d{9}|\+639\d{9})$/.test(s.replace(/[\s-]/g, ''));
+const optionalMobile = optionalText(30).refine((v) => !v || isPhMobile(v), 'Use an 11-digit PH mobile number, e.g. 0917 123 4567');
 const optionalDate = DateKeySchema.nullable()
   .optional()
   .or(z.literal('').transform(() => null));
@@ -222,7 +225,8 @@ export type Dependent = z.infer<typeof DependentSchema>;
 export const EmergencyContactSchema = z.object({
   name: z.string().trim().min(2).max(120),
   relationship: z.string().trim().min(2).max(60),
-  phone: z.string().trim().min(7).max(30),
+  // A mobile or a landline: digits, with spaces, dashes, brackets or a leading +.
+  phone: z.string().trim().min(7).max(30).regex(/^\+?[\d\s()-]+$/, 'Enter a phone number using digits'),
 });
 
 export const SexSchema = z.enum(['MALE', 'FEMALE']);
@@ -282,7 +286,7 @@ export const UpdatePersonalInfoSchema = z
     city: optionalText(80),
     province: optionalText(80),
     bank: BankDetailsSchema.nullable(),
-    mobileNo: optionalText(30),
+    mobileNo: optionalMobile,
     personalEmail: z
       .email()
       .nullable()
