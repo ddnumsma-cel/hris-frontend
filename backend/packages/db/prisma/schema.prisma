@@ -418,6 +418,20 @@ model DocumentRequirement {
   @@id([employeeId, type])
 }
 
+/// A company announcement HR or the Super Admin posted (everyone sees it on their Home and in the bell).
+model Announcement {
+  id          String    @id @default(cuid())
+  title       String
+  body        String?
+  postedBy    String
+  postedById  String?
+  postedAt    DateTime  @default(now()) @db.Timestamptz(3)
+  /// Taken down (kept for the record)
+  removedAt   DateTime? @db.Timestamptz(3)
+
+  @@index([postedAt])
+}
+
 /// Effective-dated employment history: position, site and pay changes.
 model EmploymentEvent {
   id            String              @id @default(cuid())

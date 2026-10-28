@@ -427,6 +427,8 @@ export const LeaveStateSchema = z.object({
   })),
   adjustments: z.array(LeaveAdjustmentViewSchema),
   carryOver: z.record(z.string(), z.number()),
+  /** What leave filing allows (Rules › Time off & leave). */
+  policy: z.object({ allowHalfDays: z.boolean(), allowNegative: z.boolean(), defaultCarryOver: z.number(), accrual: z.enum(['yearly', 'monthly', 'per-payroll']) }).optional(),
   /** For the leave rules: sex, civil status, employment type and hire date by employee number. */
   people: z.record(z.string(), z.object({ name: z.string(), departmentName: z.string(), branch: z.string(), sex: z.string(), civilStatus: z.string(), employmentType: z.string(), dateHired: DateKeySchema })),
 });
@@ -487,6 +489,50 @@ export const EmployeeListQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(200).default(25),
 });
 export type EmployeeListQuery = z.infer<typeof EmployeeListQuerySchema>;
+
+/** Admin settings › Organization: company details and sign-in rules (the website's checks, enforced here too). */
+export const CompanySettingsSchema = z.object({
+  companyName: z.string().trim().min(1, 'Enter the company name').max(160),
+  tin: z.string().trim().max(30).refine((v) => !v || /^\d{3}-\d{3}-\d{3}(-\d{3,5})?$/.test(v), 'TIN looks like 000-000-000-00000'),
+  address: z.string().trim().max(300),
+  contactEmail: z.string().trim().max(160).refine((v) => !v || /^\S+@\S+\.\S+$/.test(v), 'Enter a valid HR email'),
+  minPasswordLength: z.number().int().min(8, 'Passwords should be at least 8 characters (up to 64)').max(64, 'Passwords should be at least 8 characters (up to 64)'),
+  lockAfterFailed: z.number().int().min(3, 'Lock after 3 to 10 wrong passwords').max(10, 'Lock after 3 to 10 wrong passwords'),
+  lockMinutes: z.number().int().min(5, 'Lock for 5 minutes to 24 hours').max(1440, 'Lock for 5 minutes to 24 hours'),
+  idleMinutes: z.number().int().min(5, 'Sign out after 5 minutes to 8 hours without activity').max(480, 'Sign out after 5 minutes to 8 hours without activity'),
+  /** A small picture as a data URL ("" = none). */
+  logo: z.string().max(700_000, 'Use a smaller logo (under about 500 KB)').refine((v) => !v || /^data:image\/(png|jpeg|webp|svg\+xml);base64,/.test(v), 'The logo must be a PNG, JPG, WebP or SVG picture'),
+  defaultTimezone: z.string().trim().min(1).max(60),
+  currency: z.string().trim().min(3).max(3),
+  workWeek: z.array(z.number().int().min(0).max(6)).min(1, 'Pick at least one working day').max(7),
+  workStart: z.string().regex(/^\d{2}:\d{2}$/),
+  workEnd: z.string().regex(/^\d{2}:\d{2}$/),
+  fiscalYearStartMonth: z.number().int().min(1, 'Pick the month the fiscal year starts').max(12, 'Pick the month the fiscal year starts'),
+  retentionMonths: z.number().int().min(0, 'Keep records for 0 to 240 months').max(240, 'Keep records for 0 to 240 months'),
+}).refine((s) => s.workStart < s.workEnd, { message: 'Working hours must end after they start', path: ['workEnd'] });
+export type CompanySettings = z.infer<typeof CompanySettingsSchema>;
+/** Rules › Scheduling. */
+export const SchedulingRulesInputSchema = z.object({
+  overtimeThresholdMinutes: z.number().int().min(0, 'Overtime threshold is 0 to 240 minutes.').max(240, 'Overtime threshold is 0 to 240 minutes.'),
+  defaultBreakMinutes: z.number().int().min(0, 'Default break is 0 to 120 minutes.').max(120, 'Default break is 0 to 120 minutes.'),
+  publishLeadDays: z.number().int().min(0, 'Publish 0 to 60 days ahead.').max(60, 'Publish 0 to 60 days ahead.'),
+});
+export type SchedulingRulesInput = z.infer<typeof SchedulingRulesInputSchema>;
+/** Rules › Time off & leave: what leave filing allows. */
+export const LeavePolicyInputSchema = z.object({
+  allowHalfDays: z.boolean(),
+  allowNegative: z.boolean(),
+  defaultCarryOver: z.number().int().min(0, 'Carry-over is 0 to 365 days.').max(365, 'Carry-over is 0 to 365 days.'),
+  accrual: z.enum(['yearly', 'monthly', 'per-payroll']),
+});
+export type LeavePolicyInput = z.infer<typeof LeavePolicyInputSchema>;
+
+/** A company announcement (Home and the bell). */
+export const AnnouncementInputSchema = z.object({
+  title: z.string().trim().min(3, 'Write the announcement').max(200, 'Keep the headline under 200 characters'),
+  body: z.string().trim().max(2000).optional(),
+});
+export type AnnouncementInput = z.infer<typeof AnnouncementInputSchema>;
 
 /** Org chart "Reports to": the manager's employee number, or null for no one. */
 export const SetManagerSchema = z.object({ managerNo: z.string().trim().min(1).max(40).nullable() });

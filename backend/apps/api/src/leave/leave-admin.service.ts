@@ -120,7 +120,9 @@ export class LeaveAdminService {
       }),
       this.prisma.leaveAdjustment.findMany({ where: ids ? { employeeId: { in: ids } } : {}, include: { employee: { select: { employeeNo: true } } }, orderBy: { at: 'desc' } }),
     ]);
+    const policyRow = await this.prisma.appSetting.findUnique({ where: { key: 'leave-policy' } });
     return {
+      ...(policyRow ? { policy: policyRow.value as LeaveState['policy'] } : {}),
       types,
       requests: requests.map((r) => ({
         id: r.approval?.id ?? r.id,

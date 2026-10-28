@@ -572,3 +572,37 @@ describe('201 document review', () => {
     await http().delete(`/me/documents/${mine.body.id}`).set(auth('employee')).expect(400);
   });
 });
+
+describe('announcements and company settings', () => {
+  it('HR posts an announcement everyone sees; employees cannot post; it can be taken down', async () => {
+    const posted = (await http().post('/announcements').set(auth('hr')).send({ title: 'Town hall on Friday', body: 'Main hall, 4 PM' }).expect(201)).body;
+    expect(posted.postedOn).toMatch(/^Posted /);
+    const seen = (await http().get('/announcements').set(auth('employee')).expect(200)).body;
+    expect(seen[0]).toMatchObject({ title: 'Town hall on Friday', postedBy: expect.any(String) });
+    await http().post('/announcements').set(auth('employee')).send({ title: 'Hello everyone' }).expect(403);
+    await http().delete(`/announcements/${posted.id}`).set(auth('hr')).expect(204);
+    expect((await http().get('/announcements').set(auth('employee')).expect(200)).body.some((a: { id: string }) => a.id === posted.id)).toBe(false);
+  });
+
+  it('only the Super Admin changes company settings, with the same checks as the website', async () => {
+    const current = (await http().get('/settings').set(auth('employee')).expect(200)).body;
+    expect(current.companyName).toBeTruthy();
+    await http().put('/admin/settings').set(auth('hr')).send(current).expect(403);
+    await http().put('/admin/settings').set(auth('partner')).send({ ...current, tin: '12345' }).expect(400);
+    await http().put('/admin/settings').set(auth('partner')).send({ ...current, workStart: '18:00', workEnd: '08:00' }).expect(400);
+    const saved = (await http().put('/admin/settings').set(auth('partner')).send({ ...current, idleMinutes: 45 }).expect(200)).body;
+    expect(saved.idleMinutes).toBe(45);
+    expect((await http().get('/settings').set(auth('employee')).expect(200)).body.idleMinutes).toBe(45);
+    await http().put('/admin/settings').set(auth('partner')).send(current).expect(200);
+  });
+
+  it('HR saves scheduling rules and the leave policy; the policy comes with the leave state', async () => {
+    const rules = (await http().put('/settings/scheduling').set(auth('hr')).send({ overtimeThresholdMinutes: 30, defaultBreakMinutes: 60, publishLeadDays: 7 }).expect(200)).body;
+    expect((await http().get('/settings/scheduling').set(auth('manager')).expect(200)).body).toEqual(rules);
+    await http().put('/settings/scheduling').set(auth('employee')).send(rules).expect(403);
+    await http().put('/settings/leave-policy').set(auth('hr')).send({ allowHalfDays: false, allowNegative: false, defaultCarryOver: 5, accrual: 'yearly' }).expect(200);
+    expect((await http().get('/leave/state').set(auth('hr')).expect(200)).body.policy).toMatchObject({ allowHalfDays: false, defaultCarryOver: 5 });
+    await http().put('/settings/leave-policy').set(auth('hr')).send({ allowHalfDays: true, allowNegative: false, defaultCarryOver: 0, accrual: 'yearly' }).expect(200);
+    await http().put('/settings/scheduling').set(auth('hr')).send({ overtimeThresholdMinutes: 0, defaultBreakMinutes: 60, publishLeadDays: 7 }).expect(200);
+  });
+});

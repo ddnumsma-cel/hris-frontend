@@ -69,7 +69,7 @@ export async function syncWorkflows() {
 }
 
 export async function syncSettings() {
-  const settings = await api<Settings>("GET", "/settings");
+  const settings = await remoteApi<Settings>("GET", "/settings");
   saveAdmin({ ...admin, settings });
 }
 
@@ -335,13 +335,13 @@ export function sampleEmployees() {
 
 // ---- Settings ----
 
-export const getSettings = () => (serverMode ? syncSettings().then(() => structuredClone(admin.settings)) : respond(admin.settings));
+export const getSettings = () => (remoteOn() ? syncSettings().then(() => structuredClone(admin.settings)) : respond(admin.settings));
 
 export async function saveSettings(input: Settings, actor: string, _actorAccountId?: string) {
   const denied = deny("systemSettings", "edit");
   if (denied) return denied;
-  if (serverMode) {
-    const settings = await api<Settings>("PUT", "/admin/settings", input);
+  if (remoteOn()) {
+    const settings = await remoteApi<Settings>("PUT", "/admin/settings", input);
     saveAdmin({ ...admin, settings });
     return settings;
   }

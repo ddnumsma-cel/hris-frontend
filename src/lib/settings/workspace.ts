@@ -11,7 +11,9 @@ import { admin, logAdmin, roleOf } from "@/lib/admin/store";
 import { fullName, state as core } from "@/lib/corehr/store";
 import { toCsv } from "@/lib/download";
 import { customHolidays, refreshHolidays, setCustomHolidays, type Holiday } from "@/lib/holidays";
-import { api, serverMode } from "@/lib/http";
+import { serverMode } from "@/lib/http";
+import { remoteApi, remoteOn } from "@/lib/remote";
+import { backendOn } from "@/lib/backend/client";
 import { leave, leavePolicy, refreshLeave, saveLeave, type LeavePolicy } from "@/lib/leave/store";
 import { refreshTimekeeping, save as saveTk, schedulingRules, tk, type SchedulingRules } from "@/lib/timekeeping/store";
 import { deny } from "@/lib/session";
@@ -23,15 +25,15 @@ const log = (actor: string, action: string, detail: string) => logAdmin({ actor,
 
 // ---- Time off & leave ----
 
-export const getLeavePolicy = () => deny("rules", "view") ?? (serverMode ? refreshLeave().then(leavePolicy) : respond(leavePolicy()));
+export const getLeavePolicy = () => deny("rules", "view") ?? (remoteOn() ? refreshLeave().then(leavePolicy) : respond(leavePolicy()));
 
 export async function saveLeavePolicy(input: LeavePolicy, actor: string) {
   const denied = deny("rules", "edit");
   if (denied) return denied;
   if (!(Number.isInteger(input.defaultCarryOver) && input.defaultCarryOver >= 0 && input.defaultCarryOver <= 365)) return fail("Carry-over is 0 to 365 days.");
-  if (serverMode) {
+  if (remoteOn()) {
     // The server records the change in the audit trail.
-    const policy = await api<LeavePolicy>("PUT", "/settings/leave-policy", input);
+    const policy = await remoteApi<LeavePolicy>("PUT", "/settings/leave-policy", input);
     saveLeave({ ...leave, policy });
     return leavePolicy();
   }
@@ -40,7 +42,7 @@ export async function saveLeavePolicy(input: LeavePolicy, actor: string) {
   return respond(leavePolicy());
 }
 
-export const getCustomHolidays = () => (serverMode ? refreshHolidays().then(customHolidays) : respond(customHolidays()));
+export const getCustomHolidays = () => (remoteOn() ? refreshHolidays().then(customHolidays) : respond(customHolidays()));
 
 export async function addCustomHoliday(input: { date: string; name: string; type: Holiday["type"] }, actor: string) {
   const denied = deny("rules", "edit");
@@ -48,9 +50,9 @@ export async function addCustomHoliday(input: { date: string; name: string; type
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return fail("Pick the holiday's date.");
   if (!input.name.trim()) return fail("Name the holiday.");
   if (customHolidays().some((h) => h.date === input.date)) return fail("There's already a company holiday on that date.");
-  if (serverMode) {
+  if (remoteOn()) {
     // A one-year holiday for every office, source "Company", like setCustomHolidays makes.
-    await api("POST", "/holidays", { date: input.date, name: input.name.trim(), type: input.type, everyYear: false, offices: [], source: "Company" });
+    await remoteApi("POST", "/holidays", { date: input.date, name: input.name.trim(), type: input.type, everyYear: false, offices: [], source: "Company" });
     await refreshHolidays();
     return customHolidays();
   }
@@ -64,8 +66,8 @@ export async function removeCustomHoliday(date: string, actor: string) {
   const denied = deny("rules", "edit");
   if (denied) return denied;
   const gone = customHolidays().find((h) => h.date === date);
-  if (serverMode) {
-    if (gone?.ruleId) await api("DELETE", `/holidays/${encodeURIComponent(gone.ruleId)}`);
+  if (remoteOn()) {
+    if (gone?.ruleId) await remoteApi("DELETE", `/holidays/${encodeURIComponent(gone.ruleId)}`);
     await refreshHolidays();
     return customHolidays();
   }
@@ -85,7 +87,10 @@ export function getLeaveApprovalSummary() {
 
 // ---- Scheduling ----
 
-export const getSchedulingRules = () => deny("rules", "view") ?? (serverMode ? refreshTimekeeping().then(schedulingRules) : respond(schedulingRules()));
+// With the backend, the saved rules are read from there into the timekeeping store first.
+export const getSchedulingRules = () =>
+  deny("rules", "view") ??
+  (backendOn() ? remoteApi<SchedulingRules>("GET", "/settings/scheduling").then((rules) => (saveTk({ ...tk, rules }), schedulingRules())) : serverMode ? refreshTimekeeping().then(schedulingRules) : respond(schedulingRules()));
 
 export async function saveSchedulingRules(input: SchedulingRules, actor: string) {
   const denied = deny("rules", "edit");
@@ -93,8 +98,8 @@ export async function saveSchedulingRules(input: SchedulingRules, actor: string)
   if (!(input.overtimeThresholdMinutes >= 0 && input.overtimeThresholdMinutes <= 240)) return fail("Overtime threshold is 0 to 240 minutes.");
   if (!(input.defaultBreakMinutes >= 0 && input.defaultBreakMinutes <= 120)) return fail("Default break is 0 to 120 minutes.");
   if (!(input.publishLeadDays >= 0 && input.publishLeadDays <= 60)) return fail("Publish 0 to 60 days ahead.");
-  if (serverMode) {
-    const rules = await api<SchedulingRules>("PUT", "/settings/scheduling", input);
+  if (remoteOn()) {
+    const rules = await remoteApi<SchedulingRules>("PUT", "/settings/scheduling", input);
     saveTk({ ...tk, rules });
     return schedulingRules();
   }

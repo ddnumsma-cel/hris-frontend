@@ -142,7 +142,7 @@ export function fetchPayslips() {
 export async function fetchAnnouncements() {
   const denied = deny("announcements", "view");
   if (denied) return denied;
-  if (serverMode) return api<Announcement[]>("GET", "/announcements");
+  if (remoteOn()) return remoteApi<Announcement[]>("GET", "/announcements");
   return delay(announcements);
 }
 
@@ -1212,7 +1212,7 @@ export interface CreateAnnouncementInput {
 export async function createAnnouncement(input: CreateAnnouncementInput): Promise<Announcement> {
   const denied = deny("announcements", "create");
   if (denied) return denied;
-  if (serverMode) return api<Announcement>("POST", "/announcements", input);
+  if (remoteOn()) return remoteApi<Announcement>("POST", "/announcements", input);
   const announcement: Announcement = {
     id: `an-${Date.now()}`,
     title: input.title,

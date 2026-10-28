@@ -91,6 +91,8 @@ function noRecord(name: string): Employee {
 export async function loadMe() {
   const user = backendUser();
   if (!user || user.mustChangePassword) return;
+  // The company's settings (idle sign-out, password length, work week…) as saved on the backend.
+  void api<typeof admin.settings>("/settings").then((settings) => saveAdmin({ ...admin, settings })).catch(() => undefined);
   const me = user.employeeNo ? await backendMyProfile() : null;
   const next = me ?? noRecord(user.displayName);
   setCurrentEmployee(next);

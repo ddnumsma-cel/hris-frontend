@@ -179,12 +179,15 @@ export class LeaveService {
    * request and credit change of theirs, the company holidays, and each person's sex, civil status and hire date.
    */
   async ruleData(db: Db, employeeIds: string[]): Promise<{ rules: LeaveData; people: Map<string, LeavePersonFacts> }> {
-    const [types, requests, adjustments, holidays, employees] = await Promise.all([
+    const [types, requests, adjustments, holidays, employees, policyRow, companyRow] = await Promise.all([
       db.leaveType.findMany(),
       db.leaveRequest.findMany({ where: { employeeId: { in: employeeIds } } }),
       db.leaveAdjustment.findMany({ where: { employeeId: { in: employeeIds } } }),
       db.holiday.findMany(),
       db.employee.findMany({ where: { id: { in: employeeIds } } }),
+      // Rules › Time off & leave and the company work week (Admin settings › Organization).
+      db.appSetting.findUnique({ where: { key: 'leave-policy' } }),
+      db.appSetting.findUnique({ where: { key: 'company-settings' } }),
     ]);
     const lower = { PENDING: 'pending', APPROVED: 'approved', REJECTED: 'rejected', CANCELLED: 'cancelled' } as const;
     const civil: Record<string, string> = { SINGLE: 'Single', MARRIED: 'Married', WIDOWED: 'Widowed', SEPARATED: 'Separated', ANNULLED: 'Annulled' };
@@ -208,6 +211,8 @@ export class LeaveService {
       adjustments: adjustments.map((a) => ({ employeeId: a.employeeId, typeId: a.typeId, days: Number(a.days.toString()), at: a.at.toISOString() })),
       carryOver: {},
       holidays: holidays.map((h) => ({ date: utcDateToDateKey(h.date), name: h.name })),
+      ...(policyRow ? { policy: policyRow.value as LeaveData['policy'] } : {}),
+      ...((companyRow?.value as { workWeek?: number[] } | null)?.workWeek?.length ? { workWeek: (companyRow!.value as { workWeek: number[] }).workWeek } : {}),
     };
     const people = new Map<string, LeavePersonFacts>(
       employees.map((e) => [
