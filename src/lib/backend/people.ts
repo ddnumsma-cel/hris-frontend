@@ -174,14 +174,27 @@ export async function backendPeople(): Promise<TkPerson[]> {
  * every page that reads it (Home figures, org chart, directory, payroll helpers) shows the real company instead of the
  * built-in demo records. Government and bank numbers are left out: pages that need them ask the backend themselves.
  */
+/** The signed-in backend role (read where backend/auth.ts keeps it, without importing it: it imports this file). */
+function signedInRole(): string | null {
+  try {
+    return (JSON.parse(localStorage.getItem("heyhr-api-user") ?? "null") as { role?: string } | null)?.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function backendCoreState(): Promise<CoreHrState> {
+  // Only ask for what this login may see, so employees' pages don't make calls the backend refuses.
+  const role = signedInRole();
+  const staff = role === "HR_ADMIN" || role === "PAYROLL_ADMIN" || role === "SYSTEM_ADMIN" || role === "MANAGER";
+  const hr = role === "HR_ADMIN" || role === "SYSTEM_ADMIN";
   const [list, offices, departments, requisitions, me] = await Promise.all([
     // Employees may not list people: their store then holds just themselves (below).
-    fetchAll().catch(() => [] as BackendEmployee[]),
-    api<{ id: string; name: string; code: string; address: string | null; contactName: string | null; contactPhone: string | null; active: boolean }[]>("/org/locations").catch(() => []),
-    api<{ id: string; name: string; code: string; officeId: string; office: string; head: { id: string } | null; active: boolean }[]>("/org/departments").catch(() => []),
+    staff ? fetchAll().catch(() => [] as BackendEmployee[]) : ([] as BackendEmployee[]),
+    staff ? api<{ id: string; name: string; code: string; address: string | null; contactName: string | null; contactPhone: string | null; active: boolean }[]>("/org/locations").catch(() => []) : [],
+    staff ? api<{ id: string; name: string; code: string; officeId: string; office: string; head: { id: string } | null; active: boolean }[]>("/org/departments").catch(() => []) : [],
     // HR and the Super Admin only; others simply get no open slots.
-    api<{ title: string; department: string; office: string; openings: number; approval?: string }[]>("/recruitment/requisitions").catch(() => []),
+    hr ? api<{ title: string; department: string; office: string; openings: number; approval?: string }[]>("/recruitment/requisitions").catch(() => []) : [],
     // The signed-in person's own record, with their own bank and government numbers (kept in memory only).
     api<BackendEmployeeDetail>("/me/profile").catch(() => null),
   ]);

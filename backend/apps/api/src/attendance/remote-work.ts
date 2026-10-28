@@ -14,6 +14,10 @@ export const REMOTE_DEVICE_SERIAL = 'REMOTE-WEB';
 const EVERYONE = ['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN'] as const;
 const ROLES_TOLD = ['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN'] as const;
 /** "Oct 28" or "Oct 28 – Oct 30". */
+/** "Everyone", "Manila office", "Cebu HQ and Manila offices". */
+const whoWorks = (offices: string[]) =>
+  !offices.length ? 'Everyone works' : offices.length === 1 ? `${offices[0]} office works` : `${offices.slice(0, -1).join(', ')} and ${offices.at(-1)} offices work`;
+
 const when = (from: string, to: string) => {
   const d = (k: string) => new Date(`${k}T12:00:00+08:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
   return from === to ? d(from) : `${d(from)} – ${d(to)}`;
@@ -95,7 +99,7 @@ export class RemoteWorkService {
       await this.audit.log({ actorId: user.userId, action: 'REMOTE_DAY_DECLARED', entity: 'RemoteDay', entityId: d.id, after: { from: input.from, to: input.to, offices: input.offices.join(', ') || 'Everyone', reason: input.reason } }, tx);
       return d;
     });
-    await this.notifications.send({ topic: 'attendance', kind: 'update', title: `Remote work day: ${when(input.from, input.to)}`, body: `${input.offices.length ? `${input.offices.join(', ')} offices` : 'Everyone'} works from home. "${input.reason}" Clock in from home with a face scan.`, roles: [...ROLES_TOLD], actorId: user.userId });
+    await this.tell(input.offices, user, `Remote work day: ${when(input.from, input.to)}`, `${whoWorks(input.offices)} from home. "${input.reason}" Clock in from home with a face scan.`);
     return this.view(day);
   }
 
@@ -109,6 +113,18 @@ export class RemoteWorkService {
       await tx.remoteDay.update({ where: { id }, data: { cancelledAt: new Date() } });
       await this.audit.log({ actorId: user.userId, action: 'REMOTE_DAY_CANCELLED', entity: 'RemoteDay', entityId: id, before: { from: utcDateToDateKey(d.fromDate), to: utcDateToDateKey(d.toDate), reason: d.reason } }, tx);
     });
+    const range = when(utcDateToDateKey(d.fromDate), utcDateToDateKey(d.toDate));
+    await this.tell(d.offices, user, `Remote work day called off: ${range}`, `${whoWorks(d.offices)} from the office as usual on ${range}. "${d.reason}" was cancelled by ${user.displayName}.`);
+  }
+
+  /** Everyone at the offices concerned (everyone when none are named), plus HR, Accounting and the Super Admin. */
+  private async tell(offices: string[], user: AuthUser, title: string, body: string) {
+    if (!offices.length) {
+      await this.notifications.send({ topic: 'attendance', kind: 'update', title, body, roles: [...ROLES_TOLD], actorId: user.userId });
+      return;
+    }
+    const people = await this.prisma.employee.findMany({ where: { separationDate: null, site: { name: { in: offices } } }, select: { id: true } });
+    await this.notifications.send({ topic: 'attendance', kind: 'update', title, body, employeeIds: people.map((p) => p.id), roles: ['HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN'], actorId: user.userId });
   }
 
   /** Work from home today, or back to an office day (today's home punches are set aside, kept on record). */

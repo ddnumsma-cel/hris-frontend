@@ -877,3 +877,19 @@ describe('leave: half days, withdraw, cancel, and the Super Admin filing for som
     expect(await used()).toBe(before - (before > 0 ? 1 : 0));
   });
 });
+
+describe('remote work day notices', () => {
+  it('only the offices concerned (and HR) are told, and told again when it is called off', async () => {
+    const jose = (await prisma.user.findUniqueOrThrow({ where: { email: 'employee@msma.test' }, include: { employee: { include: { site: true } } } })).employee!;
+    const other = await prisma.site.findFirstOrThrow({ where: { id: { not: jose.siteId } } });
+    const titles = async (who: string) => ((await http().get('/notifications').set(auth(who)).expect(200)).body as { items?: { title: string }[] }).items ?? ((await http().get('/notifications').set(auth(who))).body as { title: string }[]);
+    const away = (await http().post('/timekeeping/remote-days').set(auth('partner')).send({ from: '2027-04-05', to: '2027-04-05', offices: [other.name], reason: 'Power outage at the other office' }).expect(201)).body;
+    expect((await titles('employee')).some((n) => n.title === 'Remote work day: Apr 5')).toBe(false);
+    expect((await titles('hr')).some((n) => n.title === 'Remote work day: Apr 5')).toBe(true);
+    const mine = (await http().post('/timekeeping/remote-days').set(auth('partner')).send({ from: '2027-04-06', to: '2027-04-06', offices: [jose.site.name], reason: 'Office repairs' }).expect(201)).body;
+    expect((await titles('employee')).some((n) => n.title === 'Remote work day: Apr 6')).toBe(true);
+    await http().delete(`/timekeeping/remote-days/${mine.id}`).set(auth('hr')).expect(204);
+    expect((await titles('employee')).some((n) => n.title === 'Remote work day called off: Apr 6')).toBe(true);
+    await http().delete(`/timekeeping/remote-days/${away.id}`).set(auth('hr')).expect(204);
+  });
+});
