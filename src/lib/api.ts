@@ -159,6 +159,8 @@ export function fetchEmployeeThirteenthMonth() {
 
 export async function fetchEmployeeBenefits() {
   if (serverMode) return api<EmployeeBenefit[]>("GET", "/me/benefits");
+  // With the backend: the benefits you added and the government memberships on your record.
+  if (backendOn()) return currentEmployee.id ? backendApi<EmployeeBenefit[]>("/me/benefits") : [];
   return delay(employeeBenefits);
 }
 
@@ -166,6 +168,7 @@ export async function confirmBenefitEnrollment(id: string) {
   const denied = deny("selfService", "create");
   if (denied) return denied;
   if (serverMode) return api<EmployeeBenefit>("POST", `/me/benefits/${encodeURIComponent(id)}/confirm`);
+  if (backendOn()) return backendApi<EmployeeBenefit>(`/me/benefits/${encodeURIComponent(id)}/confirm`, { method: "POST" });
   const next = employeeBenefits.map((b) => (b.id === id ? { ...b, status: "Active" as const } : b));
   setEmployeeBenefits(next);
   return delay(next.find((b) => b.id === id)!);
@@ -181,6 +184,7 @@ export async function addEmployeeBenefit(input: AddBenefitInput): Promise<Employ
   const denied = deny("selfService", "create");
   if (denied) return denied;
   if (serverMode) return api<EmployeeBenefit>("POST", "/me/benefits", input);
+  if (backendOn()) return backendApi<EmployeeBenefit>("/me/benefits", { method: "POST", body: input });
   const benefit: EmployeeBenefit = { id: `b-${Date.now()}`, status: "Pending", ...input };
   setEmployeeBenefits([benefit, ...employeeBenefits]);
   return delay(benefit);
@@ -190,6 +194,7 @@ export async function removeEmployeeBenefit(id: string): Promise<void> {
   const denied = deny("selfService", "create");
   if (denied) return denied;
   if (serverMode) return void (await api("DELETE", `/me/benefits/${encodeURIComponent(id)}`));
+  if (backendOn()) return void (await backendApi(`/me/benefits/${encodeURIComponent(id)}`, { method: "DELETE" }));
   setEmployeeBenefits(employeeBenefits.filter((b) => b.id !== id));
   return delay(undefined);
 }

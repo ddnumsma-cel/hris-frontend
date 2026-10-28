@@ -545,6 +545,14 @@ export const RemoteClockSchema = z.object({
 });
 export type RemoteClockInput = z.infer<typeof RemoteClockSchema>;
 
+/** Employee › HMO & Benefits: a benefit or dependent the employee adds. */
+export const BenefitInputSchema = z.object({
+  name: z.string().trim().min(1, 'Name the benefit').max(120),
+  provider: z.string().trim().min(1, 'Name the provider').max(120),
+  memberId: z.string().trim().min(1, 'Add the member ID or a note').max(120),
+});
+export type BenefitInput = z.infer<typeof BenefitInputSchema>;
+
 /** A profile photo: a JPEG, PNG or WebP image as a data URL, up to about 500 KB. */
 export const PhotoInputSchema = z.object({
   dataUrl: z

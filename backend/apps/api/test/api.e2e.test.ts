@@ -750,3 +750,20 @@ describe('profile photo and professional license', () => {
     await prisma.employee.update({ where: { id: user.employeeId! }, data: { licenseType: before, cpdUnitsEarned: null } });
   });
 });
+
+describe('HMO and benefits', () => {
+  it('the employee adds, confirms and removes their own benefits; government rows come from the record', async () => {
+    await http().post('/me/benefits').set(auth('employee')).send({ name: '', provider: 'Maxicare', memberId: 'x' }).expect(400);
+    const added = (await http().post('/me/benefits').set(auth('employee')).send({ name: 'HMO', provider: 'Maxicare', memberId: 'MX-1' }).expect(201)).body;
+    expect(added).toMatchObject({ name: 'HMO', memberId: 'MX-1', status: 'Pending' });
+    const stored = await prisma.employeeBenefit.findUniqueOrThrow({ where: { id: added.id } });
+    expect(stored.memberId.startsWith('enc:')).toBe(true);
+    await http().post(`/me/benefits/${added.id}/confirm`).set(auth('manager')).expect(404);
+    expect((await http().post(`/me/benefits/${added.id}/confirm`).set(auth('employee')).expect(200)).body.status).toBe('Active');
+    const list = (await http().get('/me/benefits').set(auth('employee')).expect(200)).body as { id: string }[];
+    expect(list.some((b) => b.id === added.id)).toBe(true);
+    await http().delete('/me/benefits/gov-sss').set(auth('employee')).expect(400);
+    await http().delete(`/me/benefits/${added.id}`).set(auth('employee')).expect(204);
+    expect(((await http().get('/me/benefits').set(auth('employee')).expect(200)).body as { id: string }[]).some((b) => b.id === added.id)).toBe(false);
+  });
+});

@@ -341,6 +341,7 @@ model Employee {
   cases                EmployeeCase[]
   attendanceNotices    AttendanceNotice[]
   photo                EmployeePhoto?
+  benefits             EmployeeBenefit[]
   performanceReviews   PerformanceReview[]
   remotePunches        RemotePunch[]
   events            EmploymentEvent[]
@@ -504,6 +505,24 @@ model EmployeeCase {
   filedAt    DateTime  @default(now()) @db.Timestamptz(3)
   closedAt   DateTime? @db.Timestamptz(3)
   closedBy   String?
+
+  @@index([employeeId])
+}
+
+/// An HMO or other benefit the employee added (Employee › HMO & Benefits). Removal keeps the row.
+model EmployeeBenefit {
+  id          String    @id @default(cuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  name        String
+  provider    String
+  /// Member number or note, encrypted (sealed)
+  memberId    String
+  /// PENDING until the employee confirms the enrollment, then ACTIVE
+  status      String    @default("PENDING")
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  confirmedAt DateTime? @db.Timestamptz(3)
+  removedAt   DateTime? @db.Timestamptz(3)
 
   @@index([employeeId])
 }
