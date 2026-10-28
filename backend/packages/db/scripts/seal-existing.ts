@@ -1,12 +1,15 @@
 // Encrypts the government and bank numbers saved before encryption came in (run once; running it again changes
 // nothing). Back up the database first. Usage: pnpm --filter @msma/db seal:existing
 import { PrismaClient } from '@prisma/client';
+import { resolve } from 'node:path';
+import { ensureDataKey } from '../src/data-key';
 import { assertDataKey, isSealed, seal, sealGovIds, unseal } from '../src/sealed';
 
 async function main() {
-  assertDataKey();
   const prisma = new PrismaClient();
   try {
+    await ensureDataKey(prisma, resolve(__dirname, '../../../.env'));
+    assertDataKey();
     const ids = await prisma.govId.findMany();
     let govRows = 0;
     for (const g of ids) {

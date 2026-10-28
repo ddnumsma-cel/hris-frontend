@@ -41,6 +41,11 @@ Progress and the resume point live in `PROGRESS.md`. Read it first.
 - Retention periods are SAMPLE values (`RETENTION_VERIFIED = false`) until the Firm confirms them.
 - Payroll is a **SAMPLE**. Statutory rates are approximate and flagged `"verified": false`. Always show the "SAMPLE" banner.
 - **No secrets in git:** commit `.env.example` only. Never print or read `.env` contents in chat.
+- **Encrypted numbers:** TIN, SSS, PhilHealth, Pag-IBIG and bank account numbers are stored encrypted (`packages/db/src/sealed.ts`)
+  with `HRIS_DATA_KEY` in `backend/.env`. A fresh copy needs nothing: the API (or `pnpm db:seed`) creates the key on first start
+  while the database holds no encrypted numbers (`ensureDataKey`). If it says the key is missing but encrypted numbers exist, put
+  the original key back; never generate a new one, never copy another machine's key, never commit or print it. Live servers
+  (`NODE_ENV=production`) must set it on purpose. Read and write these fields only through `seal`/`unseal`.
 - Keep scripts cross-platform (Windows cmd/PowerShell + macOS/Linux): pnpm scripts and Node, no bash-only commands.
 
 ## UI and design decisions

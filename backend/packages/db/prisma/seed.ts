@@ -42,6 +42,8 @@ import {
 } from './seed-data';
 import { printRowCounts } from '../src/row-counts';
 import { sealGovIds } from '../src/sealed';
+import { ensureDataKey } from '../src/data-key';
+import { resolve } from 'node:path';
 import { seed201 } from './seed-201';
 
 const prisma = new PrismaClient();
@@ -321,6 +323,8 @@ function rateFor(spec: EmployeeSpec): string {
 const monthlyOf = (daily: string) => roundMoney(Number(daily) * 261 / 12).toFixed(2);
 
 async function main() {
+  // The sample government numbers are stored encrypted: a fresh copy gets its own key here (backend/.env).
+  if ((await ensureDataKey(prisma, resolve(__dirname, '../../../.env'))) === 'created') console.log('Created an encryption key in backend/.env (HRIS_DATA_KEY).');
   console.log(`Seeding synthetic data (today in Manila: ${formatDate(TODAY)})…`);
 
   const tables = await prisma.$queryRaw<{ tablename: string }[]>`

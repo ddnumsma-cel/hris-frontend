@@ -3,7 +3,8 @@ import 'reflect-metadata';
 import { SwaggerModule } from '@nestjs/swagger';
 import { buildOpenApi, createApp } from './bootstrap-app';
 import { config } from './config';
-import { assertDataKey } from '@msma/db';
+import { resolve } from 'node:path';
+import { assertDataKey, createPrismaClient, ensureDataKey } from '@msma/db';
 
 async function main() {
   const production = process.env.NODE_ENV === 'production';
@@ -15,7 +16,15 @@ async function main() {
         '  Set a long random value before anyone else can reach this PC (pnpm share does this for you).',
     );
   }
-  // Government and bank numbers are encrypted with HRIS_DATA_KEY: refuse to start without a valid one.
+  // Government and bank numbers are encrypted with HRIS_DATA_KEY. A fresh copy gets its own key on first start; a
+  // database that already holds encrypted numbers never gets a new one (see ensureDataKey).
+  const db = createPrismaClient();
+  try {
+    if ((await ensureDataKey(db, resolve(__dirname, '../../../.env'))) === 'created')
+      console.log('Created an encryption key for this database in backend/.env (HRIS_DATA_KEY). Keep a copy somewhere safe.');
+  } finally {
+    await db.$disconnect();
+  }
   assertDataKey();
   const app = await createApp();
   // The API map is for development; a live server doesn't publish it.
