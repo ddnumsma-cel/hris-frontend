@@ -182,7 +182,8 @@ export interface MyPolicy extends Policy {
 /** Published policies for one employee, unacknowledged first. */
 export function policiesFor(employeeId: string): Promise<MyPolicy[]> {
   // The server answers for the signed-in person (employeeId is always theirs).
-  if (remoteOn()) return remoteApi<MyPolicy[]>("GET", "/policies/mine");
+  // A login with no employee record (e.g. the System Admin) has no policies to acknowledge.
+  if (remoteOn()) return employeeId ? remoteApi<MyPolicy[]>("GET", "/policies/mine") : respond([]);
   return respond(
     saved.policies
       .filter((p) => p.status === "published")

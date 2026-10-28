@@ -174,10 +174,10 @@ export async function backendPeople(): Promise<TkPerson[]> {
  * every page that reads it (Home figures, org chart, directory, payroll helpers) shows the real company instead of the
  * built-in demo records. Government and bank numbers are left out: pages that need them ask the backend themselves.
  */
-/** The signed-in backend role (read where backend/auth.ts keeps it, without importing it: it imports this file). */
-function signedInRole(): string | null {
+/** The signed-in backend user (read where backend/auth.ts keeps it, without importing it: it imports this file). */
+function signedIn(): { role?: string; employeeNo?: string | null } | null {
   try {
-    return (JSON.parse(localStorage.getItem("heyhr-api-user") ?? "null") as { role?: string } | null)?.role ?? null;
+    return JSON.parse(localStorage.getItem("heyhr-api-user") ?? "null") as { role?: string; employeeNo?: string | null } | null;
   } catch {
     return null;
   }
@@ -185,7 +185,8 @@ function signedInRole(): string | null {
 
 export async function backendCoreState(): Promise<CoreHrState> {
   // Only ask for what this login may see, so employees' pages don't make calls the backend refuses.
-  const role = signedInRole();
+  const user = signedIn();
+  const role = user?.role ?? null;
   const staff = role === "HR_ADMIN" || role === "PAYROLL_ADMIN" || role === "SYSTEM_ADMIN" || role === "MANAGER";
   const hr = role === "HR_ADMIN" || role === "SYSTEM_ADMIN";
   const [list, offices, departments, requisitions, me] = await Promise.all([
@@ -196,7 +197,7 @@ export async function backendCoreState(): Promise<CoreHrState> {
     // HR and the Super Admin only; others simply get no open slots.
     hr ? api<{ title: string; department: string; office: string; openings: number; approval?: string }[]>("/recruitment/requisitions").catch(() => []) : [],
     // The signed-in person's own record, with their own bank and government numbers (kept in memory only).
-    api<BackendEmployeeDetail>("/me/profile").catch(() => null),
+    user?.employeeNo ? api<BackendEmployeeDetail>("/me/profile").catch(() => null) : null,
   ]);
   const noOf = new Map(list.map((e) => [e.id, e.employeeNo]));
   const units: OrgUnit[] = [
