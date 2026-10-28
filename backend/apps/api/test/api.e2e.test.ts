@@ -833,3 +833,16 @@ describe('outbox and data export', () => {
     expect(await prisma.auditLog.count({ where: { action: 'DATA_EXPORTED', entityId: 'export:accounts' } })).toBeGreaterThan(0);
   });
 });
+
+describe('201 papers: the Super Admin reviews like HR', () => {
+  it('the Super Admin returns an employee upload; IDs and health papers stay HR only', async () => {
+    const pdf = Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n');
+    const up = (type: string) => http().post('/me/documents').set(auth('employee')).field('type', type).attach('file', pdf, { filename: 'scan.pdf', contentType: 'application/pdf' });
+    const coe = (await up('PREVIOUS_COE').expect(201)).body;
+    await http().post(`/documents/${coe.id}/return`).set(auth('payroll')).send({ note: 'Rescan please' }).expect(403);
+    await http().post(`/documents/${coe.id}/return`).set(auth('partner')).send({ note: 'Rescan please' }).expect(200);
+    const med = (await up('MEDICAL_RESULTS').expect(201)).body;
+    await http().post(`/documents/${med.id}/verify`).set(auth('partner')).expect(403);
+    await http().delete(`/me/documents/${med.id}`).set(auth('employee')).expect(204);
+  });
+});

@@ -611,9 +611,10 @@ export function canOpenDocument(access: DocAccess, ctx: AccessContext): boolean 
   }
 }
 
-/** May the caller add or change documents of this type? */
+/** May the caller add or change documents of this type? The Super Admin as HR, except IDs and health papers (HR only). */
 export function canManageDocument(access: DocAccess, role: Role): boolean {
   if (role === 'HR_ADMIN') return true;
+  if (role === 'SYSTEM_ADMIN') return access !== 'RESTRICTED' && access !== 'HEALTH';
   return access === 'PAYROLL' && role === 'PAYROLL_ADMIN';
 }
 

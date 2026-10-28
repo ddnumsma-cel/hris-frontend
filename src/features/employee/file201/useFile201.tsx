@@ -46,7 +46,7 @@ function toRow(item: PersonnelDocumentChecklistItem): DocRow {
     const expired = item.expiry.status === "Overdue";
     return { item, label: expired ? "Expired" : "Expires soon", tone: expired ? "crit" : "warn", meta: item.expiry.note, needsAction: true, uploadLabel: "Upload new", canRemove: false, accept };
   }
-  if (item.status === "Missing") return { item, label: "Missing", tone: "warn", meta: "Not submitted yet", needsAction: true, uploadLabel: "Upload", canRemove: false, accept };
+  if (item.status === "Missing") return { item, label: "Missing", tone: "warn", meta: item.returnNote ? `Sent back by HR: ${item.returnNote}` : "Not submitted yet", needsAction: true, uploadLabel: "Upload", canRemove: false, accept };
   if (item.status === "Verified") return { item, label: "Verified", tone: "good", meta: "Checked by HR", needsAction: false, canRemove: false };
   return {
     item,

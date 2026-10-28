@@ -201,7 +201,10 @@ describe('document access', () => {
     expect(canManageDocument('PAYROLL', 'PAYROLL_ADMIN')).toBe(true);
     expect(canManageDocument('GENERAL', 'PAYROLL_ADMIN')).toBe(false);
     expect(canManageDocument('RESTRICTED', 'HR_ADMIN')).toBe(true);
-    expect(canManageDocument('GENERAL', 'SYSTEM_ADMIN')).toBe(false);
+    // The Super Admin manages papers as HR does, except IDs and health papers (HR only).
+    expect(canManageDocument('GENERAL', 'SYSTEM_ADMIN')).toBe(true);
+    expect(canManageDocument('RESTRICTED', 'SYSTEM_ADMIN')).toBe(false);
+    expect(canManageDocument('HEALTH', 'SYSTEM_ADMIN')).toBe(false);
   });
 
   it('lets employees open their own general records but not someone else’s', () => {

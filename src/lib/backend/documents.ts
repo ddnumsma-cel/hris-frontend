@@ -89,7 +89,7 @@ export async function backendAllPapers(): Promise<EmployeeDocument[]> {
 /** The signed-in person's own papers (Employee › 201 File). */
 export async function backendMyPapers(employeeNo: string): Promise<PersonnelDocument[]> {
   const file = await api<{ items: BackendChecklistItem[] }>("/me/201-file");
-  return mapPapers(employeeNo, file.items).map((d) => ({ id: d.id, employeeId: d.employeeId, type: d.type, status: d.status, fileName: d.fileName, uploadedOn: d.uploadedAt?.slice(0, 10), idExpiry: d.expiresOn, licenseExpiry: d.expiresOn }));
+  return mapPapers(employeeNo, file.items).map((d) => ({ id: d.id, employeeId: d.employeeId, type: d.type, status: d.status, fileName: d.fileName, uploadedOn: d.uploadedAt?.slice(0, 10), idExpiry: d.expiresOn, licenseExpiry: d.expiresOn, ...(d.status === "Missing" && d.note ? { returnNote: d.note } : {}) }));
 }
 
 /** A multipart upload with the signed-in session (the JSON client can't send files). */

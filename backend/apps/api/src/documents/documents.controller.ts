@@ -90,7 +90,7 @@ export class DocumentsController {
 
   @Post('documents/:id/verify')
   @HttpCode(200)
-  @Roles('HR_ADMIN', 'PAYROLL_ADMIN')
+  @Roles('HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ operationId: 'verifyDocument', summary: "Checked against the original: the employee's upload counts toward their 201 file" })
   async verify(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     const r = await this.documents.verify(user, id);
@@ -100,7 +100,7 @@ export class DocumentsController {
 
   @Post('documents/:id/return')
   @HttpCode(200)
-  @Roles('HR_ADMIN', 'PAYROLL_ADMIN')
+  @Roles('HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ operationId: 'returnDocument', summary: 'Send an upload back with what to fix (the file is kept in the archive)' })
   @ApiZodBody(ReturnDocumentSchema)
   async sendBack(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(ReturnDocumentSchema)) body: { note: string }) {
@@ -110,7 +110,7 @@ export class DocumentsController {
   }
 
   @Put('employees/:id/201-file/:type')
-  @Roles('HR_ADMIN', 'PAYROLL_ADMIN')
+  @Roles('HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ operationId: 'setDocumentRequirement', summary: 'This paper does not apply to this person, or is required although the usual rule says not' })
   @ApiZodBody(DocumentRequirementSchema)
   async setRequirement(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('type') type: string, @Body(new ZodPipe(DocumentRequirementSchema)) body: DocumentRequirementInput) {
@@ -148,7 +148,7 @@ export class DocumentsController {
   }
 
   @Post('employees/:id/documents')
-  @Roles('HR_ADMIN', 'PAYROLL_ADMIN')
+  @Roles('HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN')
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 10 } }),
   )
@@ -201,7 +201,7 @@ export class DocumentsController {
   }
 
   @Patch('documents/:id')
-  @Roles('HR_ADMIN', 'PAYROLL_ADMIN')
+  @Roles('HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({ operationId: 'updateDocument', summary: 'Correct dates, reference or notes' })
   @ApiZodBody(UpdateDocumentSchema)
   @ApiZodResponse(EmployeeDocumentSchema)
@@ -215,7 +215,7 @@ export class DocumentsController {
 
   @Post('documents/:id/archive')
   @HttpCode(204)
-  @Roles('HR_ADMIN', 'PAYROLL_ADMIN')
+  @Roles('HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN')
   @ApiOperation({
     operationId: 'archiveDocument',
     summary: 'Remove a document from the 201 file (kept in the archive, with the reason)',

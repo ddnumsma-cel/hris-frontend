@@ -488,7 +488,7 @@ export async function fetchAuditLog(employeeId: string) {
 
 function toChecklistItem(doc: PersonnelDocument): PersonnelDocumentChecklistItem {
   const [expiry] = getExpiringPersonnelFields(doc);
-  return { id: doc.id, type: doc.type, status: doc.status, uploadedOn: doc.uploadedOn, ...(expiry ? { expiry: { status: expiry.status, note: expiry.note } } : {}) };
+  return { id: doc.id, type: doc.type, status: doc.status, uploadedOn: doc.uploadedOn, ...(expiry ? { expiry: { status: expiry.status, note: expiry.note } } : {}), ...(doc.returnNote ? { returnNote: doc.returnNote } : {}) };
 }
 
 export async function fetchMyPersonnelChecklist() {

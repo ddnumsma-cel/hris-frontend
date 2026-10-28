@@ -405,6 +405,8 @@ export type PersonnelDocumentStatus = "Missing" | "Submitted" | "Verified" | "No
 export interface PersonnelDocument {
   id: string;
   employeeId: string;
+  /** HR's note when they sent the employee's upload back (the paper is missing again). */
+  returnNote?: string;
   type: PersonnelDocumentType;
   status: PersonnelDocumentStatus;
   fileName?: string;
@@ -434,6 +436,8 @@ export interface PersonnelDocumentChecklistItem {
   uploadedOn?: string;
   /** The ID or license on file has expired or expires soon. No numbers, just the warning. */
   expiry?: { status: "Due soon" | "Overdue"; note: string };
+  /** HR sent the last upload back with this note. */
+  returnNote?: string;
 }
 
 export type CivilStatus = "Single" | "Married" | "Widowed" | "Separated";
