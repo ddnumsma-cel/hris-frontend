@@ -147,7 +147,7 @@ export function save(next: TimekeepingState) {
   if (serverMode) return;
   try {
     // With the backend, remote work days and home punches (with their GPS location) live there, not in the browser.
-    localStorage.setItem(KEY, JSON.stringify(backendOn() ? { ...tk, remoteDays: undefined, wfh: undefined, remotePunches: undefined } : tk));
+    localStorage.setItem(KEY, JSON.stringify(backendOn() ? { ...tk, remoteDays: undefined, wfh: undefined, remotePunches: undefined, notices: undefined } : tk));
   } catch {
     // Storage full or blocked: the change still applies for this session.
   }

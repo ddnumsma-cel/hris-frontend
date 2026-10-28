@@ -7,6 +7,8 @@ import {
   LeavePolicyInputSchema,
   SchedulingRulesInput,
   SchedulingRulesInputSchema,
+  TardinessRuleInput,
+  TardinessRuleSchema,
 } from '@msma/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser, CurrentUser, Roles } from '../common/auth.decorators';
@@ -35,7 +37,9 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
 export const DEFAULT_SCHEDULING: SchedulingRulesInput = { overtimeThresholdMinutes: 0, defaultBreakMinutes: 60, publishLeadDays: 7 };
 export const DEFAULT_LEAVE_POLICY_SETTING: LeavePolicyInput = { allowHalfDays: true, allowNegative: false, defaultCarryOver: 0, accrual: 'yearly' };
 
-const KEYS = { company: 'company-settings', scheduling: 'scheduling-rules', leave: 'leave-policy' } as const;
+export const DEFAULT_TARDINESS_RULE: TardinessRuleInput = { consecutive: 3, perMonth: 5 };
+
+const KEYS = { company: 'company-settings', scheduling: 'scheduling-rules', leave: 'leave-policy', tardiness: 'tardiness-rule' } as const;
 
 /**
  * Company-wide settings kept on the backend (they were only in each browser before): company details and sign-in
@@ -66,6 +70,10 @@ export class CompanySettingsService {
   company = () => this.read(KEYS.company, DEFAULT_COMPANY_SETTINGS);
   scheduling = () => this.read(KEYS.scheduling, DEFAULT_SCHEDULING);
   leavePolicy = () => this.read(KEYS.leave, DEFAULT_LEAVE_POLICY_SETTING);
+  tardiness = () => this.read(KEYS.tardiness, DEFAULT_TARDINESS_RULE);
+  async saveTardiness(input: TardinessRuleInput, user: AuthUser) {
+    return this.write(KEYS.tardiness, input, user, 'TARDINESS_RULE_CHANGED', await this.tardiness());
+  }
 
   async saveCompany(input: CompanySettings, user: AuthUser) {
     return this.write(KEYS.company, input, user, 'COMPANY_SETTINGS_CHANGED', await this.company());
@@ -112,6 +120,21 @@ export class CompanySettingsController {
   @ApiZodBody(SchedulingRulesInputSchema)
   saveScheduling(@CurrentUser() user: AuthUser, @Body(new ZodPipe(SchedulingRulesInputSchema)) body: SchedulingRulesInput) {
     return this.settings.saveScheduling(body, user);
+  }
+
+  @Get('timekeeping/tardiness-rule')
+  @Roles('MANAGER', 'HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'tardinessRule', summary: 'When lateness is flagged: days in a row, or times in a month' })
+  tardiness() {
+    return this.settings.tardiness();
+  }
+
+  @Put('timekeeping/tardiness-rule')
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'saveTardinessRule', summary: 'Change when lateness is flagged' })
+  @ApiZodBody(TardinessRuleSchema)
+  saveTardiness(@CurrentUser() user: AuthUser, @Body(new ZodPipe(TardinessRuleSchema)) body: TardinessRuleInput) {
+    return this.settings.saveTardiness(body, user);
   }
 
   @Put('settings/leave-policy')

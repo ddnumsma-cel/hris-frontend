@@ -545,6 +545,22 @@ export const RemoteClockSchema = z.object({
 });
 export type RemoteClockInput = z.infer<typeof RemoteClockSchema>;
 
+/** Rules › Tardiness: late this many work days in a row, or this many times in a month (0 turns one off). */
+export const TardinessRuleSchema = z.object({
+  consecutive: z.number().int().min(0).max(10).refine((n) => n !== 1, 'Days in a row should be 2 to 10, or 0 to turn it off'),
+  perMonth: z.number().int().min(0).max(31).refine((n) => n !== 1, 'Times a month should be 2 to 31, or 0 to turn it off'),
+});
+export type TardinessRuleInput = z.infer<typeof TardinessRuleSchema>;
+/** A tardiness or AWOL notice (employeeId: the employee number). */
+export const NoticeInputSchema = z.object({
+  employeeId: z.string().trim().min(1).max(40),
+  kind: z.enum(['tardiness', 'awol']),
+  subject: z.string().trim().min(1, 'Give the notice a subject').max(200),
+  message: z.string().trim().min(1, 'Write the message the employee will read').max(4000),
+  dates: z.array(DateKeySchema).max(62),
+});
+export type NoticeInput = z.infer<typeof NoticeInputSchema>;
+
 /** Employee relations cases (Approver › Cases). */
 export const CASE_TYPES = ['Attendance', 'Conduct', 'Performance', 'Grievance'] as const;
 export const CaseInputSchema = z.object({

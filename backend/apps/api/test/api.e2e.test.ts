@@ -699,3 +699,26 @@ describe('approver tools: cases and performance reviews', () => {
     await http().put(`/performance/reviews/${jose}`).set(auth('hr')).send({ status: 'Pending', year }).expect(403);
   });
 });
+
+describe('tardiness rule and attendance notices', () => {
+  it('HR and the Super Admin set the tardiness rule; bad values are refused', async () => {
+    await http().put('/timekeeping/tardiness-rule').set(auth('hr')).send({ consecutive: 1, perMonth: 5 }).expect(400);
+    const saved = (await http().put('/timekeeping/tardiness-rule').set(auth('hr')).send({ consecutive: 4, perMonth: 6 }).expect(200)).body;
+    expect(saved).toEqual({ consecutive: 4, perMonth: 6 });
+    expect((await http().get('/timekeeping/tardiness-rule').set(auth('manager')).expect(200)).body).toEqual(saved);
+    await http().get('/timekeeping/tardiness-rule').set(auth('employee')).expect(403);
+    await http().put('/timekeeping/tardiness-rule').set(auth('hr')).send({ consecutive: 3, perMonth: 5 }).expect(200);
+  });
+
+  it('the Super Admin sends a notice; the employee sees and acknowledges it; nobody else can', async () => {
+    const jose = (await prisma.user.findUniqueOrThrow({ where: { email: 'employee@msma.test' }, include: { employee: true } })).employee!.employeeNo;
+    const body = { employeeId: jose, kind: 'tardiness', subject: 'Late 4 days in a row', message: 'Please be on time.', dates: ['2026-10-20', '2026-10-21'] };
+    await http().post('/timekeeping/notices').set(auth('hr')).send(body).expect(403);
+    const sent = (await http().post('/timekeeping/notices').set(auth('partner')).send(body).expect(201)).body;
+    const mine = (await http().get('/timekeeping/notices').set(auth('employee')).expect(200)).body;
+    expect(mine.find((n: { id: string }) => n.id === sent.id)).toMatchObject({ subject: 'Late 4 days in a row', dates: ['2026-10-20', '2026-10-21'] });
+    await http().post(`/timekeeping/notices/${sent.id}/acknowledge`).set(auth('manager')).expect(404);
+    await http().post(`/timekeeping/notices/${sent.id}/acknowledge`).set(auth('employee')).expect(204);
+    expect((await http().get('/timekeeping/notices').set(auth('hr')).expect(200)).body.find((n: { id: string }) => n.id === sent.id).acknowledgedAt).toBeTruthy();
+  });
+});

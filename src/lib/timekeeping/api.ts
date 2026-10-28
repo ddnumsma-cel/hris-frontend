@@ -432,10 +432,23 @@ export async function fileRequest(input: { employeeId: string; date: string; typ
 
 // ---- Habitual tardiness ----
 
+/** With the backend: each person in scope with their days from its attendance, oldest first. */
+async function backendDayGroups(from: string, to: string): Promise<{ person: TkPerson; days: DayRow[] }[]> {
+  const by = new Map<string, { person: TkPerson; days: DayRow[] }>();
+  for (const r of await backendDays(from, to)) {
+    const g = by.get(r.person.id) ?? { person: r.person, days: [] };
+    g.days.push(r);
+    by.set(r.person.id, g);
+  }
+  for (const g of by.values()) g.days.sort((a, b) => a.date.localeCompare(b.date));
+  return [...by.values()];
+}
+
 export async function getTardinessRule() {
   const denied = deny("attendanceRecords", "view");
   if (denied) return denied;
   if (serverMode) await fresh();
+  if (backendOn()) save({ ...tk, tardinessRule: await backendApiCall<TardinessRule>("/timekeeping/tardiness-rule") });
   return respond(tardinessRule());
 }
 
@@ -445,6 +458,11 @@ export async function saveTardinessRule(rule: TardinessRule): Promise<TardinessR
   if (serverMode) return remote(api<TardinessRule>("PUT", "/timekeeping/tardiness-rule", rule));
   const problem = tardinessRuleProblem(rule);
   if (problem) return fail(problem);
+  if (backendOn()) {
+    const saved = await backendApiCall<TardinessRule>("/timekeeping/tardiness-rule", { method: "PUT", body: { consecutive: rule.consecutive, perMonth: rule.perMonth } });
+    save({ ...tk, tardinessRule: saved });
+    return tardinessRule();
+  }
   save({ ...tk, tardinessRule: { consecutive: rule.consecutive, perMonth: rule.perMonth } });
   return respond(tardinessRule());
 }
@@ -467,15 +485,18 @@ export interface TardinessFlag {
 export async function listTardinessFlags(): Promise<TardinessFlag[]> {
   if (!can(sessionWho(), "view", "attendanceRecords")) return forbidden();
   if (serverMode) await fresh();
-  ensureRequests();
+  if (backendOn()) await getTardinessRule();
+  else ensureRequests();
   const rule = tardinessRule();
   const today = todayIso();
   const month = today.slice(0, 7);
   const from = [`${month}-01`, addDays(today, -29)].sort()[0]!;
   const span = dates(from, today);
+  // With the backend: everyone in scope and their real days (its attendance), the same rule on top.
+  const groups = backendOn() ? await backendDayGroups(from, today) : seen().map((p) => ({ person: p, days: span.map((d) => day(p, d)) }));
   const flags: TardinessFlag[] = [];
-  for (const p of seen()) {
-    const work = span.map((d) => day(p, d)).filter((d) => d.kind === "work" && d.status !== "upcoming" && d.status !== "not-in");
+  for (const { person: p, days: rows } of groups) {
+    const work = rows.filter((d) => d.kind === "work" && d.status !== "upcoming" && d.status !== "not-in");
     const streaks: TardinessFlag["streaks"] = [];
     let run: string[] = [];
     const close = () => {
@@ -505,12 +526,13 @@ export interface AwolFlag {
 export async function listAwolFlags(): Promise<AwolFlag[]> {
   if (!can(sessionWho(), "view", "attendanceRecords")) return forbidden();
   if (serverMode) await fresh();
-  ensureRequests();
+  if (!backendOn()) ensureRequests();
   const today = todayIso();
   const span = dates(addDays(today, -29), today);
+  const groups = backendOn() ? await backendDayGroups(addDays(today, -29), today) : seen().map((p) => ({ person: p, days: span.map((d) => day(p, d)) }));
   const flags: AwolFlag[] = [];
-  for (const p of seen()) {
-    const awol = [...awolDates(span.map((d) => day(p, d)))].sort().reverse();
+  for (const { person: p, days: rows } of groups) {
+    const awol = [...awolDates(rows)].sort().reverse();
     if (awol.length) flags.push({ person: p, dates: awol });
   }
   return respond(flags.sort((a, b) => b.dates.length - a.dates.length));
@@ -692,6 +714,8 @@ export async function listNotices(employeeId?: string) {
   const who = sessionWho();
   if (!can(who, "view", "attendanceRecords")) return forbidden();
   if (serverMode) await fresh();
+  // With the backend: the notices in this login's scope (kept in memory only).
+  if (backendOn()) save({ ...tk, notices: await backendApiCall<AttendanceNotice[]>("/timekeeping/notices") });
   return respond(visible(who, "attendanceRecords", tk.notices ?? [], (n) => n.employeeId).filter((n) => !employeeId || n.employeeId === employeeId).sort((a, b) => b.sentAt.localeCompare(a.sentAt)));
 }
 
@@ -701,6 +725,8 @@ export async function sendNotice(input: Pick<AttendanceNotice, "employeeId" | "k
   if (serverMode) return remote(api<AttendanceNotice>("POST", "/timekeeping/notices", input));
   if (!input.subject.trim()) return fail("Give the notice a subject");
   if (!input.message.trim()) return fail("Write the message the employee will read");
+  // With the backend: saved there, and the employee is told.
+  if (backendOn()) return backendApiCall<AttendanceNotice>("/timekeeping/notices", { method: "POST", body: { ...input, subject: input.subject.trim(), message: input.message.trim() } });
   const notice: AttendanceNotice = { id: newId("nt"), ...input, subject: input.subject.trim(), message: input.message.trim(), sentBy: actor, sentAt: new Date().toISOString() };
   const workDate = input.dates[0] ?? todayIso();
   save({ ...tk, notices: [notice, ...(tk.notices ?? [])], audit: [audit(input.employeeId, workDate, actor, `Sent ${input.kind === "awol" ? "AWOL" : "tardiness"} notice`, notice.subject), ...tk.audit] });
@@ -712,6 +738,7 @@ export async function acknowledgeNotice(id: string, employeeId: string): Promise
   const who = sessionWho();
   if (employeeId !== who.employeeId) return forbidden();
   if (serverMode) return remote(api<void>("POST", `/timekeeping/notices/${encodeURIComponent(id)}/acknowledge`));
+  if (backendOn()) return backendApiCall<void>(`/timekeeping/notices/${encodeURIComponent(id)}/acknowledge`, { method: "POST" });
   const n = (tk.notices ?? []).find((x) => x.id === id && x.employeeId === employeeId);
   if (!n) return fail("That notice no longer exists");
   if (!n.acknowledgedAt) save({ ...tk, notices: (tk.notices ?? []).map((x) => (x.id === id ? { ...x, acknowledgedAt: new Date().toISOString() } : x)) });

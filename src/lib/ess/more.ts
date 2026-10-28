@@ -10,7 +10,7 @@ import { form2316 } from "../pay/yearend";
 import { policiesFor } from "../policies";
 import { fmtDay, fmtTime } from "../preferences";
 import { claims, claimType } from "../reimbursements/store";
-import { departmentOf, tk, todayIso } from "../timekeeping/store";
+import { departmentOf, refreshRemote, tk, todayIso } from "../timekeeping/store";
 import { myId } from "./api";
 import { approversFor, supervisorOf } from "../admin/approvers";
 import type { RequestKind } from "../admin/store";
@@ -117,9 +117,11 @@ export interface MyWfhDay {
   located: boolean;
 }
 
-export function myWfhDays(): Promise<MyWfhDay[]> {
+export async function myWfhDays(): Promise<MyWfhDay[]> {
+  await refreshRemote(2000);
   const id = myId();
-  const punches = (tk.remotePunches ?? []).filter((p) => p.employeeId === id && !tk.voided[p.id]);
+  // Punches set aside (switched back to an office day) don't count.
+  const punches = (tk.remotePunches ?? []).filter((p) => p.employeeId === id && !tk.voided[p.id] && !p.voided);
   const dates = [...new Set([...(tk.wfh ?? []).filter((w) => w.employeeId === id).map((w) => w.date), ...punches.map((p) => p.workDate)])];
   return respond(
     dates

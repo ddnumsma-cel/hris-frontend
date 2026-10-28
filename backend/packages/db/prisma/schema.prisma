@@ -337,6 +337,7 @@ model Employee {
   documentRequirements DocumentRequirement[]
   wfhDays              WfhDay[]
   cases                EmployeeCase[]
+  attendanceNotices    AttendanceNotice[]
   performanceReviews   PerformanceReview[]
   remotePunches        RemotePunch[]
   events            EmploymentEvent[]
@@ -500,6 +501,25 @@ model EmployeeCase {
   filedAt    DateTime  @default(now()) @db.Timestamptz(3)
   closedAt   DateTime? @db.Timestamptz(3)
   closedBy   String?
+
+  @@index([employeeId])
+}
+
+/// A memo about repeated lateness or AWOL (never changes pay); the employee acknowledges it.
+model AttendanceNotice {
+  id             String    @id @default(cuid())
+  employeeId     String
+  employee       Employee  @relation(fields: [employeeId], references: [id])
+  /// tardiness or awol
+  kind           String
+  subject        String
+  message        String
+  /// The days it is about (yyyy-mm-dd)
+  dates          String[]
+  sentBy         String
+  sentById       String?
+  sentAt         DateTime  @default(now()) @db.Timestamptz(3)
+  acknowledgedAt DateTime? @db.Timestamptz(3)
 
   @@index([employeeId])
 }
