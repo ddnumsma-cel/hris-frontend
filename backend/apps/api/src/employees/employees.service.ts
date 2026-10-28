@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@msma/db';
+import { Prisma, seal, sealGovIds, unseal, unsealGovIds } from '@msma/db';
 import {
   ChecklistEmployee,
   CreatedEmployee,
@@ -64,7 +64,7 @@ function dashGov(value: string | undefined, groups: number[]): string {
 }
 
 /** Employee master data (the 201 file). Other modules use this service instead of the Employee table. */
-const NUMBER_FIELDS = new Set(['tin', 'sss', 'philhealth', 'pagibig', 'bankAccountNo']);
+const NUMBER_FIELDS = new Set(['tin', 'sss', 'philhealth', 'pagibig', 'bankAccountNo', 'accountNo', 'accountNumber']);
 /** A copy with government and bank numbers cut to their last four digits (for the audit trail). */
 const hideNumbers = <T>(o: T): T =>
   JSON.parse(JSON.stringify(o ?? null), (k, v) => (NUMBER_FIELDS.has(k) && typeof v === 'string' && v ? `••••${v.replace(/\D/g, '').slice(-4)}` : v));
@@ -145,12 +145,12 @@ export class EmployeesService {
       manager: e.manager ? { id: e.manager.id, fullName: fullName(e.manager) } : null,
       shift: { name: e.shift.name, startTime: e.shift.startTime, endTime: e.shift.endTime },
       govIds: e.govId
-        ? {
+        ? unsealGovIds({
             tin: e.govId.tin,
             sss: e.govId.sss,
             philhealth: e.govId.philhealth,
             pagibig: e.govId.pagibig,
-          }
+          })
         : null,
     };
   }
@@ -172,7 +172,7 @@ export class EmployeesService {
       province: e.province,
       bank:
         e.bankName && e.bankAccountName && e.bankAccountNo
-          ? { bankName: e.bankName, accountName: e.bankAccountName, accountNo: e.bankAccountNo }
+          ? { bankName: e.bankName, accountName: e.bankAccountName, accountNo: unseal(e.bankAccountNo) }
           : null,
       mobileNo: e.mobileNo,
       personalEmail: e.personalEmail,
@@ -223,7 +223,8 @@ export class EmployeesService {
     actorId: string,
   ): Promise<PersonalInfo> {
     const before = await this.personal(id);
-    const beforeIds = await this.prisma.govId.findUnique({ where: { employeeId: id } });
+    const storedIds = await this.prisma.govId.findUnique({ where: { employeeId: id } });
+    const beforeIds = storedIds ? unsealGovIds(storedIds) : null;
     if (patch.workEmail) {
       const clash = await this.prisma.employee.findFirst({
         where: { id: { not: id }, email: { equals: patch.workEmail, mode: 'insensitive' } },
@@ -247,7 +248,7 @@ export class EmployeesService {
       if (patch.bank !== undefined) {
         data.bankName = patch.bank?.bankName ?? null;
         data.bankAccountName = patch.bank?.accountName ?? null;
-        data.bankAccountNo = patch.bank?.accountNo ?? null;
+        data.bankAccountNo = seal(patch.bank?.accountNo ?? null);
       }
       if (patch.civilStatus !== undefined) data.civilStatus = patch.civilStatus;
       if (patch.address !== undefined) data.address = patch.address;
@@ -278,8 +279,8 @@ export class EmployeesService {
       if (patch.govIds)
         await tx.govId.upsert({
           where: { employeeId: id },
-          create: { employeeId: id, ...patch.govIds },
-          update: patch.govIds,
+          create: { employeeId: id, ...sealGovIds(patch.govIds) },
+          update: sealGovIds(patch.govIds),
         });
       await this.audit.log(
         {
@@ -531,7 +532,7 @@ export class EmployeesService {
           positionId: position?.id ?? null,
           managerId: manager?.id ?? null,
           shiftId: shift.id,
-          ...(govIds ? { govId: { create: govIds } } : {}),
+          ...(govIds ? { govId: { create: sealGovIds(govIds) } } : {}),
         },
       });
       await tx.employmentEvent.create({

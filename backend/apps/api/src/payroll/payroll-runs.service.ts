@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@msma/db';
+import { Prisma, unseal } from '@msma/db';
 import {
   ApprovePayRun,
   CreatePayRun,
@@ -311,11 +311,11 @@ export class PayrollRunsService {
         ...(separated ? { separated } : {}),
         salary: monthly,
         sex: e.sex === 'MALE' ? 'Male' : e.sex === 'FEMALE' ? 'Female' : '',
-        sssNo: e.govId?.sss ?? '',
-        philhealthNo: e.govId?.philhealth ?? '',
-        pagibigNo: e.govId?.pagibig ?? '',
-        tin: e.govId?.tin ?? '',
-        ...(e.bankName ? { bank: { bank: e.bankName, accountName: e.bankAccountName ?? '', accountNumber: e.bankAccountNo ?? '' } } : {}),
+        sssNo: unseal(e.govId?.sss) ?? '',
+        philhealthNo: unseal(e.govId?.philhealth) ?? '',
+        pagibigNo: unseal(e.govId?.pagibig) ?? '',
+        tin: unseal(e.govId?.tin) ?? '',
+        ...(e.bankName ? { bank: { bank: e.bankName, accountName: e.bankAccountName ?? '', accountNumber: unseal(e.bankAccountNo) ?? '' } } : {}),
       };
     });
   }

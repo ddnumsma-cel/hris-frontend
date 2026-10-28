@@ -41,6 +41,7 @@ import {
   SURNAMES,
 } from './seed-data';
 import { printRowCounts } from '../src/row-counts';
+import { sealGovIds } from '../src/sealed';
 import { seed201 } from './seed-201';
 
 const prisma = new PrismaClient();
@@ -415,13 +416,16 @@ async function main() {
     if (managerId) await prisma.employee.update({ where: { id: s.id }, data: { managerId } });
   }
   await prisma.govId.createMany({
-    data: specs.map((s) => ({
-      employeeId: s.id,
-      tin: `${digits(3)}-${digits(3)}-${digits(3)}-000`,
-      sss: `${int(1, 9)}${digits(1)}-${digits(7)}-${digits(1)}`,
-      philhealth: `${int(1, 9)}${digits(1)}-${digits(9)}-${digits(1)}`,
-      pagibig: `${int(1, 9)}${digits(3)}-${digits(4)}-${digits(4)}`,
-    })),
+    // Stored encrypted, as the API saves them (packages/db/src/sealed.ts).
+    data: specs.map((s) =>
+      sealGovIds({
+        employeeId: s.id,
+        tin: `${digits(3)}-${digits(3)}-${digits(3)}-000`,
+        sss: `${int(1, 9)}${digits(1)}-${digits(7)}-${digits(1)}`,
+        philhealth: `${int(1, 9)}${digits(1)}-${digits(9)}-${digits(1)}`,
+        pagibig: `${int(1, 9)}${digits(3)}-${digits(4)}-${digits(4)}`,
+      }),
+    ),
   });
 
   // Users (all with password Demo@2026)

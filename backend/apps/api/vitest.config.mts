@@ -10,6 +10,9 @@ const fileEnv = existsSync(envFile) ? parseEnv(readFileSync(envFile, 'utf8')) : 
 // 201 documents uploaded by the tests (and the seed's sample PDFs) go to their own folder.
 const testStorage = resolve(import.meta.dirname, '../../storage/test-documents');
 process.env.DOCUMENT_STORAGE_DIR = testStorage; // also seen by the global setup (test DB seed)
+// A fixed key for the test database only (the seed and the API encrypt government numbers with it).
+const testDataKey = Buffer.alloc(32, 7).toString('base64');
+process.env.HRIS_DATA_KEY = testDataKey;
 
 export default defineConfig({
   // SWC keeps NestJS decorator metadata, which the default esbuild transform drops.
@@ -34,6 +37,7 @@ export default defineConfig({
       JWT_SECRET: 'e2e-test-secret',
       JWT_EXPIRES_IN: '1h',
       DOCUMENT_STORAGE_DIR: testStorage,
+      HRIS_DATA_KEY: testDataKey,
     },
   },
 });

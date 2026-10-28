@@ -3,6 +3,7 @@ import 'reflect-metadata';
 import { SwaggerModule } from '@nestjs/swagger';
 import { buildOpenApi, createApp } from './bootstrap-app';
 import { config } from './config';
+import { assertDataKey } from '@msma/db';
 
 async function main() {
   const production = process.env.NODE_ENV === 'production';
@@ -14,6 +15,8 @@ async function main() {
         '  Set a long random value before anyone else can reach this PC (pnpm share does this for you).',
     );
   }
+  // Government and bank numbers are encrypted with HRIS_DATA_KEY: refuse to start without a valid one.
+  assertDataKey();
   const app = await createApp();
   // The API map is for development; a live server doesn't publish it.
   if (!production) SwaggerModule.setup('docs', app, buildOpenApi(app), { jsonDocumentUrl: 'docs-json' });

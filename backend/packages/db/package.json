@@ -14,6 +14,7 @@
     "migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "migrate:reset": "dotenv -e ../../.env -- prisma migrate reset --force --skip-seed",
     "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
+    "seal:existing": "dotenv -e ../../.env -- tsx scripts/seal-existing.ts",
     "studio": "dotenv -e ../../.env -- prisma studio"
   },
   "dependencies": {
