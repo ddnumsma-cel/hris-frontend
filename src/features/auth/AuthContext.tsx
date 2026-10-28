@@ -10,6 +10,18 @@ import { markSignInTime } from "@/lib/session";
 import { backendOn, whenSignedOut } from "@/lib/backend/client";
 import { backendSignOut } from "@/lib/backend/auth";
 import type { Role } from "@/lib/types";
+import { queryClient } from "@/lib/queryClient";
+
+/**
+ * Forget everything loaded for the last person: the pages' cached data and the people, leave and attendance
+ * stores. Otherwise the next person to sign in on this PC would briefly see (or keep) the previous one's data.
+ */
+function forgetLoadedData() {
+  queryClient.clear();
+  clearCoreHr();
+  clearLeave();
+  clearTimekeeping();
+}
 
 export interface AuthUser {
   role: Role;
@@ -96,12 +108,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Storage blocked: the session still works until the tab closes.
     }
+    queryClient.clear();
     setUser(userFor(role, account));
   }
 
   function logout() {
     recordSignOut(user?.accountId, "manual");
     if (backendOn()) backendSignOut();
+    forgetLoadedData();
     try {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(ACCOUNT_KEY);
@@ -115,9 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!serverMode) return;
     const onSignedOut = () => {
-      clearCoreHr();
-      clearLeave();
-      clearTimekeeping();
+      forgetLoadedData();
       try {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(ACCOUNT_KEY);
@@ -137,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Connected to the HR server: when it says the sign-in expired, go back to the sign-in page.
   useEffect(() => {
     whenSignedOut(() => {
+      forgetLoadedData();
       try {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(ACCOUNT_KEY);
@@ -156,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const expire = () => {
       recordSignOut(accountId, "idle");
       if (backendOn()) backendSignOut();
+      forgetLoadedData();
       try {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(ACCOUNT_KEY);

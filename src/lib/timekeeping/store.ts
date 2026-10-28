@@ -340,7 +340,14 @@ export function refreshTimekeeping(maxAgeMs = 0): Promise<void> {
 }
 
 export function clearTimekeeping() {
-  if (!serverMode) return;
-  loadedAt = 0;
-  tk = empty();
+  if (serverMode) {
+    loadedAt = 0;
+    tk = empty();
+    return;
+  }
+  // With the backend: drop what came from it for the last person (remote days, notices…); this browser's own data stays.
+  if (backendOn()) {
+    loadedAt = 0;
+    tk = load();
+  }
 }
