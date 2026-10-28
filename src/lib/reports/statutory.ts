@@ -4,7 +4,7 @@
 // never an edit of the old one, so past pay can still be worked out. Verify on
 // the official site before using these for real pay.
 
-import { api, serverMode } from "../http";
+import { remoteApi, remoteOn } from "../remote";
 import { BUILT_IN_RATES } from "../pay/rateRules";
 
 export interface Rule<T> {
@@ -39,8 +39,8 @@ const BUILT_IN = BUILT_IN_RATES;
 const KEY = "heyhr-contributions-v1";
 
 function load(): RateBook {
-  // With the API server, the built-in rates stand in until the database's arrive (see refreshRates).
-  if (serverMode) return BUILT_IN;
+  // With the API server or the backend, the built-in rates stand in until the saved ones arrive (see refreshRates).
+  if (remoteOn()) return BUILT_IN;
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -55,10 +55,10 @@ function load(): RateBook {
 
 let book: RateBook = load();
 
-/** With the API server: loads every agency's versions from the database. */
+/** With the API server or the backend: loads every agency's saved versions. */
 export async function refreshRates() {
-  if (!serverMode) return;
-  const next = await api<RateBook>("GET", "/payroll/rates");
+  if (!remoteOn()) return;
+  const next = await remoteApi<RateBook>("GET", "/payroll/rates");
   book = { sss: next.sss?.length ? next.sss : BUILT_IN.sss, philhealth: next.philhealth?.length ? next.philhealth : BUILT_IN.philhealth, pagibig: next.pagibig?.length ? next.pagibig : BUILT_IN.pagibig, bir: next.bir?.length ? next.bir : BUILT_IN.bir };
 }
 

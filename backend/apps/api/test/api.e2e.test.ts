@@ -790,3 +790,19 @@ describe('final pay cases', () => {
     expect(((await http().get('/payroll/final-pay').set(auth('payroll')).expect(200)).body as { id: string }[]).some((x) => x.id === c.id)).toBe(true);
   });
 });
+
+describe('government contribution rates', () => {
+  it('Accounting adds dated versions; past ones stay; bad rates and other roles are refused', async () => {
+    const ph = { rate: 0.05, floor: 10000, ceiling: 100000 };
+    await http().post('/payroll/rates/philhealth').set(auth('employee')).send({ effectiveFrom: '2030-01-01', source: 'x', rates: ph }).expect(403);
+    await http().post('/payroll/rates/philhealth').set(auth('payroll')).send({ effectiveFrom: '2030-01-01', source: 'x', rates: { ...ph, rate: 5 } }).expect(400);
+    await http().post('/payroll/rates/nope').set(auth('payroll')).send({ effectiveFrom: '2030-01-01', source: 'x', rates: ph }).expect(400);
+    const past = (await http().post('/payroll/rates/philhealth').set(auth('payroll')).send({ effectiveFrom: '2024-01-01', source: 'Circular 2024', rates: ph }).expect(201)).body;
+    await http().post('/payroll/rates/philhealth').set(auth('payroll')).send({ effectiveFrom: '2023-01-01', source: 'Older', rates: ph }).expect(400);
+    const future = (await http().post('/payroll/rates/philhealth').set(auth('payroll')).send({ effectiveFrom: '2030-01-01', source: 'Circular 2030', rates: ph }).expect(201)).body;
+    const book = (await http().get('/payroll/rates').set(auth('employee')).expect(200)).body;
+    expect(book.philhealth.map((v: { id: string }) => v.id)).toEqual(expect.arrayContaining([past.id, future.id]));
+    await http().delete(`/payroll/rates/philhealth/${past.id}`).set(auth('payroll')).expect(409);
+    await http().delete(`/payroll/rates/philhealth/${future.id}`).set(auth('payroll')).expect(204);
+  });
+});

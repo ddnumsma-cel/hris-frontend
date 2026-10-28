@@ -545,6 +545,30 @@ export const RemoteClockSchema = z.object({
 });
 export type RemoteClockInput = z.infer<typeof RemoteClockSchema>;
 
+/** Payroll › Government contributions: the agencies with dated rate versions. */
+export const RATE_AGENCIES = { sss: 'sss', philhealth: 'philhealth', pagibig: 'pagibig', bir: 'bir' } as const;
+export type RateAgency = keyof typeof RATE_AGENCIES;
+const RateAmount = z.number().finite().min(0, 'Rates and amounts can\'t be negative').max(100_000_000);
+const RatePercent = RateAmount.max(0.5, 'That rate looks too high. Enter it as a percent, for example 5 for 5%');
+const TaxBracketsSchema = z.array(z.object({ over: RateAmount, base: RateAmount, rate: RatePercent }).strict()).min(1).max(12);
+/** Each agency's rate fields (rates as fractions: 0.05 for 5%). */
+export const RATES_SCHEMAS = {
+  sss: z
+    .object({ eeRate: RatePercent, erRate: RatePercent, mscMin: RateAmount, mscMax: RateAmount, mscStep: RateAmount, ecLow: RateAmount, ecHigh: RateAmount, ecThreshold: RateAmount })
+    .strict()
+    .refine((r) => r.mscMin < r.mscMax && r.mscStep > 0, 'Check the salary credit range and step'),
+  philhealth: z.object({ rate: RatePercent, floor: RateAmount, ceiling: RateAmount }).strict().refine((r) => r.floor < r.ceiling, 'The salary floor must be below the ceiling'),
+  pagibig: z.object({ eeRate: RatePercent, eeLowRate: RatePercent, lowLimit: RateAmount, erRate: RatePercent, maxFundSalary: RateAmount }).strict(),
+  bir: z.object({ monthly: TaxBracketsSchema, semiMonthly: TaxBracketsSchema }).strict(),
+} as const;
+/** A new rate version: when it takes effect, where it comes from, and the rates (checked per agency). */
+export const RateVersionInputSchema = z.object({
+  effectiveFrom: DateKeySchema,
+  source: z.string().trim().min(1, 'Name the source, for example the circular number').max(200),
+  rates: z.record(z.string(), z.unknown()),
+});
+export type RateVersionInput = z.infer<typeof RateVersionInputSchema>;
+
 /** Payroll › Final pay: open a case (employeeId: the employee number). */
 export const FinalPayOpenSchema = z.object({
   employeeId: z.string().trim().min(1).max(40),

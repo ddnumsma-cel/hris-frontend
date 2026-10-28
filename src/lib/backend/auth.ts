@@ -2,6 +2,7 @@
 // and the person's role; the app then keeps a matching account in its own account list (so the
 // sidebars, access checks and pages work unchanged) and sends the token with every backend call.
 
+import { refreshRates } from "../reports/statutory";
 import { admin, logAdmin, saveAdmin, type UserAccount } from "../admin/store";
 import type { SignInResult } from "../admin/auth";
 import type { RoleKey } from "../permissions";
@@ -48,7 +49,7 @@ const onThisPc = typeof window !== "undefined" && ["localhost", "127.0.0.1", "[:
  * development copy opened on the developer's own PC, so neither a live build nor the shared office link shows working
  * passwords. Real people's logins are never listed here.
  */
-export const BACKEND_DEMO_ACCOUNTS = !import.meta.env.DEV || !onThisPc ? [] : [
+export const BACKEND_DEMO_ACCOUNTS = !import.meta.env?.DEV || !onThisPc ? [] : [
   { label: "Super Admin (Partner)", username: "partner@msma.test", password: "Demo@2026" },
   { label: "HR", username: "hr@msma.test", password: "Demo@2026" },
   { label: "Payroll", username: "payroll@msma.test", password: "Demo@2026" },
@@ -62,7 +63,7 @@ export type DemoAccount = { label: string; username: string; password: string };
  * vite.config.ts). Null when there is no such file or the page isn't opened on this PC: the seeded list applies then.
  */
 export async function localDemoAccounts(): Promise<DemoAccount[] | null> {
-  if (!import.meta.env.DEV || !onThisPc) return null;
+  if (!import.meta.env?.DEV || !onThisPc) return null;
   try {
     const res = await fetch("/__dev/accounts", { cache: "no-store" });
     if (!res.ok) return null;
@@ -93,6 +94,8 @@ export async function loadMe() {
   if (!user || user.mustChangePassword) return;
   // The company's settings (idle sign-out, password length, work week…) as saved on the backend.
   void api<typeof admin.settings>("/settings").then((settings) => saveAdmin({ ...admin, settings })).catch(() => undefined);
+  // The saved government contribution rates the pay figures use (the built-in ones until then).
+  void refreshRates().catch(() => undefined);
   const me = user.employeeNo ? await backendMyProfile() : null;
   const next = me ?? noRecord(user.displayName);
   setCurrentEmployee(next);

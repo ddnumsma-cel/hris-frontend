@@ -2,7 +2,7 @@
 // payroll and reports use. Each call stands in for an HTTP request.
 
 import { logAdmin } from "./admin/store";
-import { api, serverMode } from "./http";
+import { remoteApi, remoteOn } from "./remote";
 import { addVersion, refreshRates, removeVersion, versionsOf, type Agency, type AgencyRates, type RateVersion } from "./reports/statutory";
 import { AGENCIES, rateProblem } from "./pay/rateRules";
 import { deny } from "./session";
@@ -16,7 +16,7 @@ const fail = (m: string): Promise<never> => new Promise((_, rej) => setTimeout((
 export async function listVersions<A extends Agency>(agency: A): Promise<RateVersion<A>[]> {
   const denied = deny("contributions", "view");
   if (denied) return denied;
-  if (serverMode) await refreshRates();
+  if (remoteOn()) await refreshRates();
   return respond(versionsOf(agency));
 }
 
@@ -25,13 +25,14 @@ const label = (a: Agency) => AGENCIES.find((x) => x.id === a)!.label;
 export async function saveVersion<A extends Agency>(agency: A, input: { effectiveFrom: string; source: string; rates: AgencyRates[A] }, actor: string): Promise<RateVersion<A>> {
   const denied = deny("contributions", "create");
   if (denied) return denied;
-  if (serverMode) {
-    const v = await api<RateVersion<A>>("POST", `/payroll/rates/${agency}`, input);
+  if (remoteOn()) await refreshRates();
+  const problem = rateProblem(agency, input, versionsOf(agency), new Date().toISOString().slice(0, 10));
+  if (problem) return fail(problem);
+  if (remoteOn()) {
+    const v = await remoteApi<RateVersion<A>>("POST", `/payroll/rates/${agency}`, { ...input, source: input.source.trim() });
     await refreshRates();
     return v;
   }
-  const problem = rateProblem(agency, input, versionsOf(agency), new Date().toISOString().slice(0, 10));
-  if (problem) return fail(problem);
   const v = addVersion(agency, input, actor);
   logAdmin({ actor, module: "Payroll", action: `Saved ${label(agency)} rates`, target: label(agency), detail: `Effective ${input.effectiveFrom} · ${input.source.trim()}` });
   return respond(v);
@@ -40,8 +41,8 @@ export async function saveVersion<A extends Agency>(agency: A, input: { effectiv
 export async function deleteVersion(agency: Agency, id: string, actor: string): Promise<void> {
   const denied = deny("contributions", "delete");
   if (denied) return denied;
-  if (serverMode) {
-    await api("DELETE", `/payroll/rates/${agency}/${encodeURIComponent(id)}`);
+  if (remoteOn()) {
+    await remoteApi("DELETE", `/payroll/rates/${agency}/${encodeURIComponent(id)}`);
     return refreshRates();
   }
   const v = versionsOf(agency).find((x) => x.id === id);
