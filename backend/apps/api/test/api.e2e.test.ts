@@ -498,6 +498,8 @@ describe('org chart: reports to', () => {
     expect((await prisma.employee.findUniqueOrThrow({ where: { id: jose.id } })).managerId).toBe(hr.id);
     const activity = (await http().get(`/employees/${jose.id}/activity`).set(auth('hr')).expect(200)).body;
     expect(activity[0].section).toBe('Manager changed');
+    // In plain words, with the old and new manager.
+    expect(activity[0].summary).toMatch(/^Reports to: .+ → .+$/);
     await http().put(`/employees/${jose.id}/manager`).set(auth('hr')).send({ managerNo: before?.employeeNo ?? null }).expect(200);
   });
 

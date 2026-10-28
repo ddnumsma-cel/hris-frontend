@@ -261,11 +261,24 @@ export class EmployeesController {
     const rows = await this.audit.forEntity('Employee', id, 200);
     const kind = (a: string) => (/CREATED|ADDED|REGISTERED/.test(a) ? 'Created' : /VIEW|OPENED|REVEAL/.test(a) ? 'Viewed' : /UPLOAD/.test(a) ? 'Uploaded' : /VERIF/.test(a) ? 'Verified' : /REMOVED|DELETED|ARCHIV/.test(a) ? 'Deleted' : /SEPARAT|ENROLL|RECORDED/.test(a) ? 'Recorded' : 'Edited');
     const label = (a: string) => a.replace(/^EMPLOYEE_/, '').toLowerCase().replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
-    const line = (v: unknown) =>
-      v && typeof v === 'object'
-        ? Object.entries(v as Record<string, unknown>).filter(([, x]) => x !== null && x !== undefined && typeof x !== 'object').map(([k, x]) => `${k}: ${String(x)}`).join(' · ').slice(0, 240)
-        : '';
-    return rows.map((r) => ({ id: r.id, employeeId: e.employeeNo, actor: r.actor?.displayName ?? 'System', action: kind(r.action), section: label(r.action), summary: line(r.after) || (line(r.before) ? `was ${line(r.before)}` : ''), at: r.at.toISOString() }));
+    // Plain words for HR: "Reports to: Kenneth Abella → Carlo Dizon", not "reportsTo: Carlo Dizon".
+    // Short forms people write in capitals stay that way (HMO, CPD, TIN…).
+    const ACRONYMS = /\b(hmo|cpd|tin|sss|id|prc|bir|coe|awol|ot|nbi|psa)\b/g;
+    const field = (k: string) => k.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(ACRONYMS, (w) => w.toUpperCase()).replace(/^./, (c) => c.toUpperCase());
+    // Enum values (MARRIED, ON_LEAVE) read as words; short capitals (HMO, SSS) are names and stay as they are.
+    const value = (x: unknown) => (x === null || x === undefined || x === '' ? 'none' : /^[A-Z]+(_[A-Z]+)*$/.test(String(x)) && String(x).length > 4 ? field(String(x).toLowerCase().replace(/_/g, ' ')) : String(x));
+    const flat = (v: unknown) =>
+      v && typeof v === 'object' ? Object.entries(v as Record<string, unknown>).filter(([, x]) => x === null || typeof x !== 'object') : [];
+    const line = (before: unknown, after: unknown) => {
+      const was = new Map(flat(before));
+      const now = flat(after);
+      if (!now.length) return was.size ? `Was ${[...was].map(([k, x]) => `${field(k)}: ${value(x)}`).join(' · ')}` : '';
+      return now
+        .filter(([, x]) => x !== null && x !== undefined)
+        .map(([k, x]) => (was.has(k) && was.get(k) !== x ? `${field(k)}: ${value(was.get(k))} → ${value(x)}` : `${field(k)}: ${value(x)}`))
+        .join(' · ');
+    };
+    return rows.map((r) => ({ id: r.id, employeeId: e.employeeNo, actor: r.actor?.displayName ?? 'System', action: kind(r.action), section: label(r.action), summary: line(r.before, r.after).slice(0, 240), at: r.at.toISOString() }));
   }
 
   @Post(':id/biometric-enrollment')
