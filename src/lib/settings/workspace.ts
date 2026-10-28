@@ -13,7 +13,7 @@ import { toCsv } from "@/lib/download";
 import { customHolidays, refreshHolidays, setCustomHolidays, type Holiday } from "@/lib/holidays";
 import { serverMode } from "@/lib/http";
 import { remoteApi, remoteOn } from "@/lib/remote";
-import { backendOn } from "@/lib/backend/client";
+import { api as backendApi, backendOn } from "@/lib/backend/client";
 import { leave, leavePolicy, refreshLeave, saveLeave, type LeavePolicy } from "@/lib/leave/store";
 import { refreshTimekeeping, save as saveTk, schedulingRules, tk, type SchedulingRules } from "@/lib/timekeeping/store";
 import { deny } from "@/lib/session";
@@ -156,6 +156,8 @@ function rowsFor(dataset: Dataset): Record<string, string | number>[] {
 export function exportDataset(dataset: Dataset, actor: string) {
   const denied = deny("systemSettings", "edit");
   if (denied) return denied;
+  // With the backend: made there from the real records, and recorded in its audit trail.
+  if (backendOn()) return backendApi<string>(`/admin/exports/${dataset}`, { text: true });
   const csv = toCsv(rowsFor(dataset));
   log(actor, "Exported data", DATASETS.find((d) => d.key === dataset)!.label);
   return respond(csv);

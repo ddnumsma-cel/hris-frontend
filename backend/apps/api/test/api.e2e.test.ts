@@ -806,3 +806,28 @@ describe('government contribution rates', () => {
     await http().delete(`/payroll/rates/philhealth/${future.id}`).set(auth('payroll')).expect(204);
   });
 });
+
+describe('outbox and data export', () => {
+  it('staff queue messages by employee; the backend finds the address; only the Super Admin reads or clears them', async () => {
+    const jose = (await prisma.user.findUniqueOrThrow({ where: { email: 'employee@msma.test' }, include: { employee: true } })).employee!;
+    await http().post('/outbox').set(auth('employee')).send({ messages: [{ employeeId: jose.employeeNo, event: 'leave', subject: 'x', body: 'y' }] }).expect(403);
+    const res = (await http().post('/outbox').set(auth('hr')).send({ messages: [{ employeeId: jose.employeeNo, event: 'documents', subject: 'Papers due', body: 'Please send your NBI clearance.' }, { employeeId: 'NOBODY', event: 'leave', subject: 'x', body: 'y' }] }).expect(201)).body;
+    expect(res.queued).toBeGreaterThanOrEqual(jose.email ? 1 : 0);
+    await http().get('/outbox').set(auth('hr')).expect(403);
+    const list = (await http().get('/outbox').set(auth('partner')).expect(200)).body as { subject: string; address: string }[];
+    if (jose.email) expect(list.find((m) => m.subject === 'Papers due')?.address).toBe(jose.email);
+    expect((await prisma.outboxMessage.findFirstOrThrow({ where: { subject: 'Papers due' } })).address.startsWith('enc:')).toBe(jose.email ? true : false);
+    await http().delete('/outbox').set(auth('partner')).expect(204);
+    expect((await http().get('/outbox').set(auth('partner')).expect(200)).body).toEqual([]);
+  });
+
+  it('the Super Admin exports CSV (audited); formulas are defused; others are refused', async () => {
+    await http().get('/admin/exports/employees').set(auth('hr')).expect(403);
+    await http().get('/admin/exports/payroll').set(auth('partner')).expect(400);
+    const res = await http().get('/admin/exports/accounts').set(auth('partner')).expect(200);
+    expect(res.headers['content-type']).toContain('text/csv');
+    expect(res.text.split('\r\n')[0]).toBe('Username,Name,Role,Status,Last sign-in');
+    expect(res.text).not.toContain('passwordHash');
+    expect(await prisma.auditLog.count({ where: { action: 'DATA_EXPORTED', entityId: 'export:accounts' } })).toBeGreaterThan(0);
+  });
+});

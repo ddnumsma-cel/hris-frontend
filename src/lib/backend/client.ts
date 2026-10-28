@@ -54,8 +54,8 @@ export function whenSignedOut(fn: () => void) {
   onSignedOut = fn;
 }
 
-/** One backend request: JSON in and out, the sign-in token attached. */
-export async function api<T>(path: string, init: { method?: string; body?: unknown; query?: Record<string, string | number | undefined> } = {}): Promise<T> {
+/** One backend request: JSON in and out (or text back, e.g. a CSV), the sign-in token attached. */
+export async function api<T>(path: string, init: { method?: string; body?: unknown; query?: Record<string, string | number | undefined>; text?: boolean } = {}): Promise<T> {
   const query = Object.entries(init.query ?? {}).filter(([, v]) => v !== undefined && v !== "");
   const url = `${BASE}${path}${query.length ? `?${new URLSearchParams(query.map(([k, v]) => [k, String(v)]))}` : ""}`;
   const token = getToken();
@@ -74,6 +74,7 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
     onSignedOut?.();
     throw new ApiError("Your sign-in has expired. Please sign in again.", 401);
   }
+  if (init.text && res.ok) return (await res.text()) as T;
   const body = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) {
     // A form error names the field's problem ("Enter the date") rather than the backend's general "Validation failed".

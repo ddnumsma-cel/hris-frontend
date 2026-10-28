@@ -251,6 +251,8 @@ export interface RoleRow extends SystemRole {
 }
 
 export async function listRoles(): Promise<RoleRow[]> {
+  // With the backend: count the real accounts, not the ones this browser last saw.
+  if (backendOn()) await syncAccounts().catch(() => undefined);
   if (!serverMode) return respond(admin.roles.map((r) => ({ ...r, users: admin.accounts.filter((a) => a.roleId === r.id).length })));
   const rows = await api<RoleRow[]>("GET", "/admin/roles");
   saveAdmin({ ...admin, roles: rows.map(({ users: _u, ...r }) => r) });

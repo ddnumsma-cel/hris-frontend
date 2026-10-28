@@ -7,6 +7,7 @@ import { AnnouncementsModule } from './announcements/announcements';
 import { CompanySettingsModule } from './settings/company-settings';
 import { PartnerToolsModule } from './partner-tools/partner-tools';
 import { BenefitsModule } from './benefits/benefits';
+import { DataToolsModule } from './administration/data-tools';
 import { HolidaysModule } from './holidays/holidays.module';
 import { Module } from '@nestjs/common';
 import { ApprovalsModule } from './approvals/approvals.module';
@@ -43,6 +44,7 @@ import { PrismaModule } from './prisma/prisma.service';
     CompanySettingsModule,
     PartnerToolsModule,
     BenefitsModule,
+    DataToolsModule,
     OnboardingModule,
     AdministrationModule,
     NotificationsModule,

@@ -6,7 +6,7 @@
 
 import { admin } from "./admin/store";
 import { fullName, state as core } from "./corehr/store";
-import { api, serverMode } from "./http";
+import { remoteApi, remoteOn } from "./remote";
 import { can } from "./permissions";
 import { sessionWho } from "./session";
 import { settingsFor, type NotificationEvent } from "./settings/store";
@@ -29,6 +29,15 @@ export interface OutboxMessage {
 const KEY = "heyhr-outbox-v1";
 const KEEP = 300;
 
+// With a server, messages (and the addresses in them) are never kept in this browser: drop any left from before.
+if (remoteOn()) {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    // Blocked storage: nothing to drop.
+  }
+}
+
 function load(): OutboxMessage[] {
   try {
     const raw = localStorage.getItem(KEY);
@@ -50,7 +59,8 @@ function wantsEmail(employeeId: string, event: MessageEvent) {
 
 /** Queue an email (and optionally a text) to an employee. Missing addresses are skipped. */
 export function notifyEmployee(employeeId: string | undefined, event: MessageEvent, subject: string, body: string, sms?: string) {
-  if (serverMode) {
+  // With the API server or the backend: queued there, which looks up the address (none kept in this browser).
+  if (remoteOn()) {
     if (employeeId) queueRemote({ employeeId, event, subject, body, ...(sms ? { sms } : {}) });
     return;
   }
@@ -80,7 +90,7 @@ function queueRemote(m: (typeof pending)[number]) {
   sending = Promise.resolve().then(async () => {
     const messages = pending;
     pending = [];
-    for (let i = 0; i < messages.length; i += 1000) await api("POST", "/outbox", { messages: messages.slice(i, i + 1000) }).catch((e) => console.warn(e));
+    for (let i = 0; i < messages.length; i += 1000) await remoteApi("POST", "/outbox", { messages: messages.slice(i, i + 1000) }).catch((e) => console.warn(e));
   });
 }
 let clearing: Promise<unknown> = Promise.resolve();
@@ -95,12 +105,12 @@ export const nameOf = (employeeId: string) => {
 
 export function listOutbox(): Promise<OutboxMessage[]> {
   if (!can(sessionWho(), "view", "systemSettings")) return Promise.reject(Object.assign(new Error("You don't have access to this."), { status: 403 }));
-  if (serverMode) return Promise.all([sending, clearing]).then(() => api<OutboxMessage[]>("GET", "/outbox"));
+  if (remoteOn()) return Promise.all([sending, clearing]).then(() => remoteApi<OutboxMessage[]>("GET", "/outbox"));
   return new Promise((r) => setTimeout(() => r(load()), 150));
 }
 
 export function clearOutbox() {
   // The list waits for this before it reloads.
-  if (serverMode) return void (clearing = api("DELETE", "/outbox").catch((e) => console.warn(e)));
+  if (remoteOn()) return void (clearing = remoteApi("DELETE", "/outbox").catch((e) => console.warn(e)));
   localStorage.removeItem(KEY);
 }

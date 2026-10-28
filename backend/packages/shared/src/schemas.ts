@@ -545,6 +545,26 @@ export const RemoteClockSchema = z.object({
 });
 export type RemoteClockInput = z.infer<typeof RemoteClockSchema>;
 
+/** Administration › Outbox: messages to queue (employeeId: the employee number; the backend finds the address). */
+export const OutboxInputSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        employeeId: z.string().trim().min(1).max(40),
+        event: z.string().trim().min(1).max(40),
+        subject: z.string().trim().min(1).max(200),
+        body: z.string().max(4000),
+        sms: z.string().max(320).optional(),
+      }),
+    )
+    .min(1)
+    .max(1000),
+});
+export type OutboxInput = z.infer<typeof OutboxInputSchema>;
+/** Admin settings › Data & privacy: what can be exported. */
+export const EXPORT_DATASETS = { employees: 'employees', leave: 'leave', accounts: 'accounts', audit: 'audit' } as const;
+export type ExportDataset = keyof typeof EXPORT_DATASETS;
+
 /** Payroll › Government contributions: the agencies with dated rate versions. */
 export const RATE_AGENCIES = { sss: 'sss', philhealth: 'philhealth', pagibig: 'pagibig', bir: 'bir' } as const;
 export type RateAgency = keyof typeof RATE_AGENCIES;
