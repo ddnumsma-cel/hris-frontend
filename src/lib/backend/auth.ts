@@ -37,11 +37,15 @@ export const ROLE_FROM_BACKEND: Record<BackendRole, RoleKey> = {
   PLATFORM_ADMIN: "system_admin",
 };
 
+/** Opened on the developer's own PC (not through a shared link on the office network). */
+const onThisPc = typeof window !== "undefined" && ["localhost", "127.0.0.1", "[::1]"].includes(window.location?.hostname);
+
 /**
  * The backend's seeded demo logins (synthetic data), shown on the sign-in page while it's connected: only in the
- * development copy, so a live build never ships working passwords. Real people's logins are never listed here.
+ * development copy opened on the developer's own PC, so neither a live build nor the shared office link shows working
+ * passwords. Real people's logins are never listed here.
  */
-export const BACKEND_DEMO_ACCOUNTS = !import.meta.env.DEV ? [] : [
+export const BACKEND_DEMO_ACCOUNTS = !import.meta.env.DEV || !onThisPc ? [] : [
   { label: "Super Admin (Partner)", username: "partner@msma.test", password: "Demo@2026" },
   { label: "HR", username: "hr@msma.test", password: "Demo@2026" },
   { label: "Payroll", username: "payroll@msma.test", password: "Demo@2026" },
