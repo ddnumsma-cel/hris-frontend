@@ -15,6 +15,8 @@ import {
   setPersonnelDocuments,
 } from "../mockData";
 import { api, serverMode } from "../http";
+import { backendOn } from "../backend/client";
+import { backendCoreState } from "../backend/people";
 import type { Employee, PersonnelDocument } from "../types";
 import type {
   AuditEntry,
@@ -244,8 +246,8 @@ function seed(): CoreHrState {
 // ---- Persistence ----
 
 function load(): CoreHrState {
-  // With the API server, the records come from the database after sign-in (see refreshCoreHr).
-  if (serverMode) return { units: [], positions: [], employees: [], documents: [], events: [], audit: [] };
+  // With the API server or the backend, the records come from the database after sign-in (see refreshCoreHr), never the demo.
+  if (serverMode || backendOn()) return { units: [], positions: [], employees: [], documents: [], events: [], audit: [] };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -296,7 +298,8 @@ export let state: CoreHrState = withSeparationsDue(withSampleBanks(load()));
 
 export function commit(next: CoreHrState) {
   state = next;
-  if (serverMode) return syncShared();
+  // Server data isn't kept in the browser's storage (people's details stay on the server).
+  if (serverMode || backendOn()) return syncShared();
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
@@ -438,9 +441,21 @@ let loadedAt = 0;
 /** Loads Core HR from the API server into this store, so every module reads the database's records.
  * Reads within a moment of the last load reuse it, so one page opening doesn't fetch the same data many times. */
 export function refreshCoreHr(maxAgeMs = 0): Promise<void> {
-  if (!serverMode) return Promise.resolve();
+  if (!serverMode && !backendOn()) return Promise.resolve();
   if (loading) return loading;
   if (maxAgeMs && Date.now() - loadedAt < maxAgeMs) return Promise.resolve();
+  if (backendOn()) {
+    // Only what this login may see (an approver: their team). Accounts the backend refuses (employees) keep an empty store.
+    loading = backendCoreState()
+      .then((next) => {
+        state = next;
+        loadedAt = Date.now();
+        syncShared();
+      })
+      .catch(() => undefined)
+      .finally(() => (loading = null));
+    return loading;
+  }
   loading = api<CoreHrState>("GET", "/corehr/state")
     .then((next) => {
       state = next;
@@ -472,7 +487,7 @@ function applySignedInEmployee() {
 
 /** Signed out: drop everything the server sent. */
 export function clearCoreHr() {
-  if (!serverMode) return;
+  if (!serverMode && !backendOn()) return;
   loadedAt = 0;
   signedIn = null;
   state = load();

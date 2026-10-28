@@ -2,6 +2,7 @@ import { api, serverMode } from "./http";
 import { remoteApi, remoteOn } from "./remote";
 import { api as backendApi, backendOn } from "./backend/client";
 import { refreshCoreHr, state as coreState } from "./corehr/store";
+import { refreshLeave } from "./leave/store";
 import type { PayrollRun } from "./pay/runs";
 import { updateDocument as updateCoreDocument } from "./corehr/api";
 import {
@@ -104,7 +105,7 @@ import { tellAssigned, tellEmployees } from "./requestNotices";
 import { fileCertificate } from "./certificates";
 import { assertSeatsAvailable } from "./subscription/api";
 import { defaultComplianceCalendar, headcountByOffice, homeStats, newHirePipeline } from "./homeFigures";
-import { teamRosterFromCore } from "./teamFigures";
+import { loadTeamData, teamRosterFromCore } from "./teamFigures";
 import { formatPhMobile } from "./govIds";
 import { applicants, setApplicants, setJobRequisitions } from "./mockData";
 import { type Applicant, type ApplicantEducation, type ApplicantProfession, type ApplicantRole, type ApplicantStage, type EmploymentType, type JobRequisition } from "./types";
@@ -293,14 +294,14 @@ export async function updatePersonnelProfile(
 export async function fetchPersonnelDocuments(employeeId: string) {
   const denied = deny("documents", "view", employeeId);
   if (denied) return denied;
-  if (serverMode) await refreshCoreHr(2000);
+  await refreshCoreHr(2000);
   return delay(personnelDocuments.filter((d) => d.employeeId === employeeId));
 }
 
 export async function fetchAllPersonnelDocuments() {
   const denied = deny("documents", "view");
   if (denied) return denied;
-  if (serverMode) await refreshCoreHr(2000);
+  await refreshCoreHr(2000);
   return delay(personnelDocuments);
 }
 
@@ -436,7 +437,7 @@ function toChecklistItem(doc: PersonnelDocument): PersonnelDocumentChecklistItem
 }
 
 export async function fetchMyPersonnelChecklist() {
-  if (serverMode) await refreshCoreHr(2000);
+  await refreshCoreHr(2000);
   return delay(
     personnelDocuments.filter((d) => d.employeeId === currentEmployee.id).map(toChecklistItem),
   );
@@ -590,10 +591,11 @@ export function fetchWorkforceAlerts() {
   return delay(workforceAlerts);
 }
 
-export function fetchTeamRoster() {
+export async function fetchTeamRoster() {
   const denied = deny("partnerTools", "view");
   if (denied) return denied;
-  // The signed-in manager's direct reports, from Core HR.
+  // The signed-in manager's direct reports, from Core HR (loaded from the server first).
+  await loadTeamData();
   return delay(teamRosterFromCore());
 }
 
@@ -710,8 +712,8 @@ async function latestApprovedRun() {
 export async function fetchAdminOverviewStats(): Promise<AdminOverviewStats> {
   const denied = deny("dashboard", "view");
   if (denied) return denied;
-  // API server: load the real records first, then work the figures out the same way.
-  if (serverMode) await refreshCoreHr(2000);
+  // API server or backend: load the real records (and leave, for who's out today) first, then work the figures out.
+  await Promise.all([refreshCoreHr(2000), refreshLeave(2000)]);
   // Worked out from the real records (lib/homeFigures.ts).
   const s = homeStats();
   const label = new Date().toLocaleDateString("en-PH", { month: "long", year: "numeric" });
@@ -727,7 +729,7 @@ export function fetchPayrollRunSteps() {
 export async function fetchHeadcountByOffice(): Promise<OfficeHeadcount[]> {
   const denied = deny("dashboard", "view");
   if (denied) return denied;
-  if (serverMode) await refreshCoreHr(2000);
+  await refreshCoreHr(2000);
   return delay(headcountByOffice());
 }
 
@@ -761,7 +763,8 @@ export function fetchComplianceCalendar() {
   return delay(complianceCalendar);
 }
 
-export function fetchEmployeeDirectory() {
+export async function fetchEmployeeDirectory() {
+  await refreshCoreHr(2000);
   const denied = deny("people", "view");
   if (denied) return denied;
   return delay(employeeDirectory);

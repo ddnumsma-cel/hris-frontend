@@ -1,8 +1,9 @@
 // The approver's Home numbers for their own team (direct reports), from the real records:
 // who they are, who's on leave, and the team's attendance over the last two weeks.
 
-import { fullName, initialsOf, state as core } from "./corehr/store";
-import { leave } from "./leave/store";
+import { fullName, initialsOf, refreshCoreHr, state as core } from "./corehr/store";
+import { leave, refreshLeave } from "./leave/store";
+import { currentEmployee } from "./mockData";
 import { sessionWho } from "./session";
 import { listDays } from "./timekeeping/api";
 import { branchOf, departmentOf } from "./timekeeping/store";
@@ -12,8 +13,10 @@ const SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "O
 
 /** The signed-in manager: name, position, department and office, for the Home header. */
 export function managerProfile() {
-  const e = core.employees.find((x) => x.id === sessionWho().employeeId);
-  if (!e) return null;
+  const id = sessionWho().employeeId;
+  const e = core.employees.find((x) => x.id === id);
+  // The backend lists an approver's team, not the approver: their own record is the signed-in "me" (lib/backend/auth.ts).
+  if (!e) return id && currentEmployee.id === id ? { name: currentEmployee.name, title: currentEmployee.position, department: currentEmployee.department || "My team", office: currentEmployee.office } : null;
   return {
     name: fullName(e.personal),
     title: core.positions.find((p) => p.id === e.job.positionId)?.title ?? "",
@@ -22,11 +25,15 @@ export function managerProfile() {
   };
 }
 
+/** Loads the team and their leave from the server first (both no-ops with demo data), so the figures are real. */
+export const loadTeamData = () => Promise.all([refreshCoreHr(2000), refreshLeave(2000)]).then(() => undefined);
+
 const team = () => core.employees.filter((e) => sessionWho().team.includes(e.id) && e.job.status !== "Separated");
 export const teamSize = () => team().length;
 
 /** Team members on approved leave today, with the leave type and its last day. */
-export function teamOnLeaveToday() {
+export async function teamOnLeaveToday() {
+  await loadTeamData();
   const today = iso(new Date());
   return team().flatMap((e) => {
     const r = leave.requests.find((x) => x.employeeId === e.id && x.status === "approved" && x.start <= today && x.end >= today);
@@ -51,6 +58,7 @@ export function teamLeaveThisWeek() {
 
 /** On-time rate per workday over the last 14 days, the overall attendance rate, and late arrivals in the last 7 days. */
 export async function teamAttendanceTrend(): Promise<{ points: { date: string; rate: number }[]; rate: number; lateThisWeek: number }> {
+  await loadTeamData();
   const ids = new Set(team().map((e) => e.id));
   const to = new Date();
   const from = new Date(to.getTime() - 13 * 86_400_000);

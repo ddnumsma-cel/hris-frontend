@@ -503,6 +503,9 @@ export const EmployeeListItemSchema = z.object({
   dailyRate: MoneySchema.nullable(),
   todayStatus: DtrStatusSchema.nullable(),
   managerId: z.string().nullable().optional().describe('Who this person reports to (for the org chart)'),
+  middleName: z.string().nullable().optional(),
+  email: z.string().nullable().optional().describe('Work email'),
+  separationDate: DateKeySchema.nullable().optional().describe('Last day, once HR marks them separated'),
   shiftId: z.string().optional().describe('Their usual shift'),
   today: z
     .object({

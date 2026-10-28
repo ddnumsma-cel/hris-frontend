@@ -81,8 +81,10 @@ export class EmployeesService {
       id: e.id,
       employeeNo: e.employeeNo,
       firstName: e.firstName,
+      middleName: e.middleName,
       lastName: e.lastName,
       fullName: fullName(e),
+      email: e.email,
       status: e.status,
       hireDate: utcDateToDateKey(e.hireDate),
       site: { id: e.site.id, name: e.site.name },
@@ -92,6 +94,7 @@ export class EmployeesService {
       todayStatus: null,
       managerId: e.managerId,
       shiftId: e.shiftId,
+      separationDate: e.separationDate ? utcDateToDateKey(e.separationDate) : null,
       record201: null,
     };
   }

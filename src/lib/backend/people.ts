@@ -4,7 +4,8 @@
 
 import type { EmployeeRecord, EmployeeSummary, PositionSummary, UnitSummary } from "../corehr/api";
 import type { NewEmployeeValues } from "../corehr/schemas";
-import type { CivilStatus, CoreEmployee, DocumentType, EmployeeDocument, EmploymentType, JobEvent } from "../corehr/types";
+import type { CivilStatus, CoreEmployee, DocumentType, EmployeeDocument, EmploymentType, JobEvent, OrgUnit, Position as CorePosition } from "../corehr/types";
+import type { CoreHrState } from "../corehr/store";
 import type { TkPerson } from "../timekeeping/api";
 import type { Cluster, Employee } from "../types";
 import { api } from "./client";
@@ -24,6 +25,11 @@ interface BackendEmployee {
   todayStatus: string | null;
   /** Their usual shift. */
   shiftId?: string;
+  middleName?: string | null;
+  email?: string | null;
+  /** The backend id of who they report to. */
+  managerId?: string | null;
+  separationDate?: string | null;
   record201: { percent: number; missing: number; expiring: number; expired: number } | null;
 }
 
@@ -160,6 +166,74 @@ export async function backendPeople(): Promise<TkPerson[]> {
     .map((raw) => ({ raw, e: summarize(raw) }))
     .sort((a, b) => a.e.name.localeCompare(b.e.name))
     .map(({ raw, e }) => ({ id: e.id, name: e.name, initials: e.initials, positionTitle: e.positionTitle, departmentId: e.departmentId ?? "", departmentName: e.departmentName, branch: e.branchName, monthlySalary: 0, usualShiftId: raw.shiftId ?? null }));
+}
+
+/**
+ * The in-browser Core HR store's contents, built from the backend (people, offices, departments, open requisitions), so
+ * every page that reads it (Home figures, org chart, directory, payroll helpers) shows the real company instead of the
+ * built-in demo records. Government and bank numbers are left out: pages that need them ask the backend themselves.
+ */
+export async function backendCoreState(): Promise<CoreHrState> {
+  const [list, offices, departments, requisitions] = await Promise.all([
+    fetchAll(),
+    api<{ id: string; name: string; code: string; address: string | null; contactName: string | null; contactPhone: string | null; active: boolean }[]>("/org/locations").catch(() => []),
+    api<{ id: string; name: string; code: string; officeId: string; office: string; head: { id: string } | null; active: boolean }[]>("/org/departments").catch(() => []),
+    // HR and the Super Admin only; others simply get no open slots.
+    api<{ title: string; department: string; office: string; openings: number; approval?: string }[]>("/recruitment/requisitions").catch(() => []),
+  ]);
+  const noOf = new Map(list.map((e) => [e.id, e.employeeNo]));
+  const units: OrgUnit[] = [
+    { id: "company", type: "company", name: "MSMA Group", code: "MSMA", parentId: null, active: true },
+    ...offices.map((o): OrgUnit => ({ id: o.id, type: "branch", name: o.name, code: o.code, parentId: "company", address: o.address ?? undefined, contactName: o.contactName ?? undefined, contactPhone: o.contactPhone ?? undefined, active: o.active })),
+    ...departments.map((d): OrgUnit => ({ id: d.id, type: "department", name: d.name, code: d.code, parentId: d.officeId, headEmployeeId: d.head ? noOf.get(d.head.id) : undefined, active: d.active })),
+  ];
+  // The backend keeps a title per person, not position slots: one position per title and department, its slots the
+  // people holding it plus the openings HR posted for it (so "open positions" counts real requisitions).
+  const positions = new Map<string, CorePosition>();
+  const positionOf = (unitId: string, title: string) => {
+    const id = `${unitId}|${title}`;
+    if (!positions.has(id)) positions.set(id, { id, title, code: title.toUpperCase().replace(/[^A-Z0-9]+/g, "-").slice(0, 20), departmentId: unitId, level: "Rank and file", employmentType: "Regular", slots: 0, active: true });
+    return positions.get(id)!;
+  };
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  const employees: CoreEmployee[] = list.map((e) => {
+    backendIds.set(e.employeeNo, e.id);
+    const unitId = unitIdOf(e);
+    const position = positionOf(unitId, e.position ?? "Unassigned");
+    const separated = !!e.separationDate && e.separationDate < today;
+    if (!separated) position.slots += 1;
+    return {
+      id: e.employeeNo,
+      personal: { firstName: e.firstName, middleName: e.middleName ?? "", lastName: e.lastName, suffix: "", birthDate: "", sex: "", civilStatus: "", nationality: "" },
+      contact: { workEmail: e.email ?? "", personalEmail: "", mobile: "", address: "", city: "", province: "", emergencyName: "", emergencyRelationship: "", emergencyPhone: "" },
+      government: { sss: "", philhealth: "", pagibig: "", tin: "" },
+      job: {
+        positionId: position.id,
+        unitId,
+        supervisorId: e.managerId ? noOf.get(e.managerId) : undefined,
+        employmentType: EMPLOYMENT_TYPE[e.status] ?? "Regular",
+        status: separated ? "Separated" : e.todayStatus === "ON_LEAVE" ? "On leave" : "Active",
+        dateHired: e.hireDate,
+        ...(e.separationDate ? { separationDate: e.separationDate } : {}),
+        monthlySalary: monthlyOf(e.dailyRate),
+        workSchedule: "",
+      },
+      createdAt: `${e.hireDate}T00:00:00`,
+    };
+  });
+  // Someone whose office and department aren't paired in Maintenance › Departments yet still belongs to both.
+  for (const e of list) {
+    if (e.site && !units.some((u) => u.id === e.site!.id)) units.push({ id: e.site.id, type: "branch", name: e.site.name, code: e.site.name.slice(0, 3).toUpperCase(), parentId: "company", active: true });
+    const unitId = unitIdOf(e);
+    if (e.department && !units.some((u) => u.id === unitId)) units.push({ id: unitId, type: "department", name: e.department.name, code: e.department.name.slice(0, 3).toUpperCase(), parentId: e.site?.id ?? "company", active: true });
+  }
+  for (const r of requisitions) {
+    if (r.openings <= 0 || (r.approval && r.approval !== "Approved")) continue;
+    const dept = departments.find((d) => d.name.toLowerCase() === r.department.toLowerCase() && d.office.toLowerCase() === r.office.toLowerCase())
+      ?? departments.find((d) => d.name.toLowerCase() === r.department.toLowerCase());
+    positionOf(dept?.id ?? "company", r.title).slots += r.openings;
+  }
+  return { units, positions: [...positions.values()], employees, documents: [], events: [], audit: [] };
 }
 
 /** Offices (the backend's sites) and the departments at each (Maintenance › Locations and Departments), with head counts. */

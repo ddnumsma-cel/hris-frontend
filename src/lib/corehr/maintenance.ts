@@ -72,7 +72,7 @@ export async function listLocations(): Promise<LocationRow[]> {
   const who = sessionWho();
   if (!can(who, "view", "locations") && !can(who, "view", "departments")) return forbidden();
   if (backendOn()) return backendLocations();
-  if (serverMode) await refreshCoreHr(2000);
+  await refreshCoreHr(2000);
   return respond(
     state.units
       .filter((u) => u.type === "branch")
@@ -148,7 +148,7 @@ export async function listDepartments(): Promise<DepartmentRow[]> {
   const denied = deny("departments", "view");
   if (denied) return denied;
   if (backendOn()) return backendDepartments();
-  if (serverMode) await refreshCoreHr(2000);
+  await refreshCoreHr(2000);
   return respond(
     state.units
       .filter((u) => u.type === "department")
