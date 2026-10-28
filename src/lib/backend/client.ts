@@ -8,6 +8,8 @@ let BASE = ((import.meta.env?.VITE_API_URL as string | undefined) ?? "").trim().
 
 /** True when the app talks to the backend. */
 export const backendOn = () => BASE !== "";
+/** The backend's address prefix (e.g. "/api"), for calls the JSON client can't make (files). */
+export const backendBase = () => BASE;
 
 /** Point at the backend (or "" for the in-browser data). The mobile app (mobile/) sets it at start-up. */
 export function setBackendBase(url: string) {

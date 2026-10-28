@@ -27,7 +27,8 @@ import { notifyEmployees } from "../notifications";
 import { dates, tellApprover, tellAssigned, tellEmployees } from "../requestNotices";
 import { assertSeatsAvailable, checkSeatThresholds, isSeatLimitError } from "../subscription/api";
 import { backendOn } from "../backend/client";
-import { backendCancelSeparation, backendCreateEmployee, backendGetEmployee, backendListDocuments, backendListEmployees, backendListEvents, backendListPositions, backendListUnits, backendRecordSeparation, backendUpdateSection, backendSetManager, backendEmployeeActivity } from "../backend/people";
+import { backendCancelSeparation, backendCreateEmployee, backendGetEmployee, backendListDocuments, backendListEmployees, backendListEvents, backendListPositions, backendListUnits, backendRecordSeparation, backendUpdateSection, backendSetManager, backendEmployeeActivity, backendIdOf } from "../backend/people";
+import { backendDocumentAction, paperInfo } from "../backend/documents";
 
 const DELAY_MS = 300;
 function respond<T>(value: T): Promise<T> {
@@ -659,6 +660,17 @@ export type DocumentAction =
 export type ServerDocumentAction = { kind: "withdraw" } | { kind: "details"; idType?: string; referenceNo?: string; expiresOn?: string } | { kind: "reset" };
 
 export async function updateDocument(id: string, action: DocumentAction | ServerDocumentAction, actor: string): Promise<EmployeeDocument> {
+  if (backendOn()) {
+    // The backend checks who may do what (and tells the employee or HR); the paper is reloaded afterwards.
+    const info = paperInfo(id);
+    if (!info) return fail("Reload the page and try again.");
+    const denied = deny("documents", action.kind === "upload" || action.kind === "withdraw" ? "view" : "edit", info.employeeNo);
+    if (denied) return denied;
+    await backendDocumentAction(id, action, sessionWho().employeeId, backendIdOf);
+    const fresh = (await backendListDocuments(info.employeeNo)).find((d) => paperInfo(d.id)?.type === info.type);
+    if (!fresh) return fail("That document no longer exists");
+    return fresh;
+  }
   const target = state.documents.find((x) => x.id === id);
   const denied = deny("documents", "edit", target?.employeeId);
   if (denied) return denied;

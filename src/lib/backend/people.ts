@@ -9,6 +9,7 @@ import type { CoreHrState } from "../corehr/store";
 import type { TkPerson } from "../timekeeping/api";
 import type { Cluster, Employee } from "../types";
 import { api } from "./client";
+import { backendAllPapers, mapPapers, type BackendChecklistItem } from "./documents";
 
 interface BackendEmployee {
   id: string;
@@ -503,11 +504,11 @@ export function mapDocuments(employeeNo: string, file: Backend201): EmployeeDocu
 }
 
 export async function backendListDocuments(employeeNo?: string): Promise<EmployeeDocument[]> {
-  // shortcut: without an employee only the list's counts exist (one 201 call per person would be 180 calls); load a person's papers when their record opens.
-  if (!employeeNo) return [];
+  // Without an employee: everyone's papers in one call (the 201 documents page), with what waits for review.
+  if (!employeeNo) return backendAllPapers();
   const id = await backendIdOf(employeeNo);
   if (!id) return [];
-  return mapDocuments(employeeNo, await api<Backend201>(`/employees/${id}/201-file`));
+  return mapPapers(employeeNo, (await api<{ items: BackendChecklistItem[] }>(`/employees/${id}/201-file`)).items, id);
 }
 
 interface BackendFilters {

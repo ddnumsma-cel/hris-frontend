@@ -1,6 +1,7 @@
 import { api, serverMode } from "./http";
 import { remoteApi, remoteOn } from "./remote";
 import { api as backendApi, backendOn } from "./backend/client";
+import { backendDocumentAction, backendMyPapers, paperInfo } from "./backend/documents";
 import { refreshCoreHr, state as coreState } from "./corehr/store";
 import { refreshLeave } from "./leave/store";
 import type { PayrollRun } from "./pay/runs";
@@ -437,6 +438,7 @@ function toChecklistItem(doc: PersonnelDocument): PersonnelDocumentChecklistItem
 }
 
 export async function fetchMyPersonnelChecklist() {
+  if (backendOn()) return (await backendMyPapers(currentEmployee.id)).map(toChecklistItem);
   await refreshCoreHr(2000);
   return delay(
     personnelDocuments.filter((d) => d.employeeId === currentEmployee.id).map(toChecklistItem),
@@ -444,6 +446,13 @@ export async function fetchMyPersonnelChecklist() {
 }
 
 export async function uploadMyPersonnelDocument(id: string, fileName: string) {
+  if (backendOn()) {
+    // Goes to HR for review; HR is told on the backend.
+    const type = paperInfo(id)?.type;
+    await backendDocumentAction(id, { kind: "upload", fileName }, currentEmployee.id, async () => null);
+    const mine = await backendMyPapers(currentEmployee.id);
+    return toChecklistItem(mine.find((d) => paperInfo(d.id)?.type === type) ?? mine[0]!);
+  }
   if (serverMode) {
     await updateCoreDocument(id, { kind: "upload", fileName }, currentEmployee.name);
     return toChecklistItem(personnelDocuments.find((d) => d.id === id)!);
@@ -462,6 +471,12 @@ export async function uploadMyPersonnelDocument(id: string, fileName: string) {
 /** Employee undoing their own submission — only allowed before HR verifies
  * it (once Verified, only HR/manager can reset it, via removePersonnelDocument). */
 export async function removeMyPersonnelDocument(id: string) {
+  if (backendOn()) {
+    const type = paperInfo(id)?.type;
+    await backendDocumentAction(id, { kind: "withdraw" }, currentEmployee.id, async () => null);
+    const mine = await backendMyPapers(currentEmployee.id);
+    return toChecklistItem(mine.find((d) => paperInfo(d.id)?.type === type) ?? mine[0]!);
+  }
   if (serverMode) {
     await updateCoreDocument(id, { kind: "withdraw" }, currentEmployee.name);
     return toChecklistItem(personnelDocuments.find((d) => d.id === id)!);

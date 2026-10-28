@@ -47,6 +47,10 @@ export const EmployeeDocumentSchema = z.object({
   uploadedBy: z.string().nullable(),
   /** The caller may open the file (GET /documents/{id}/file). */
   canOpen: z.boolean(),
+  /** SUBMITTED: uploaded by the employee, waiting for HR; VERIFIED: checked against the original. */
+  reviewStatus: z.enum(['SUBMITTED', 'VERIFIED']).optional(),
+  reviewedBy: z.string().nullable().optional(),
+  reviewedAt: InstantSchema.nullable().optional(),
 });
 export type EmployeeDocument = z.infer<typeof EmployeeDocumentSchema>;
 
@@ -70,6 +74,10 @@ export const ChecklistItemSchema = z.object({
   canManage: z.boolean(),
   /** Documents of this type. Empty (with count > 0) when the caller may not see them. */
   documents: z.array(EmployeeDocumentSchema),
+  /** Why HR returned the last upload (until a new one comes in). */
+  note: z.string().nullable().optional(),
+  /** HR marked it not applicable, or required although the usual rule says not. */
+  override: z.enum(['NOT_APPLICABLE', 'REQUIRED']).nullable().optional(),
 });
 export type ChecklistItem = z.infer<typeof ChecklistItemSchema>;
 
@@ -102,6 +110,12 @@ export type UploadDocumentFields = z.infer<typeof UploadDocumentFieldsSchema>;
 
 export const UpdateDocumentSchema = UploadDocumentFieldsSchema.omit({ type: true });
 export type UpdateDocument = z.infer<typeof UpdateDocumentSchema>;
+
+/** HR sends an upload back: what the employee has to fix. */
+export const ReturnDocumentSchema = z.object({ note: z.string().trim().min(3, 'Say what needs fixing so they can resubmit').max(500) });
+/** HR: this paper doesn't apply to this person, or is required although the usual rule says not (null: the usual rule). */
+export const DocumentRequirementSchema = z.object({ state: z.enum(['NOT_APPLICABLE', 'REQUIRED']).nullable() });
+export type DocumentRequirementInput = z.infer<typeof DocumentRequirementSchema>;
 
 export const ArchiveDocumentSchema = z.object({
   reason: z

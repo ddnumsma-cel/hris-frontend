@@ -723,17 +723,22 @@ export interface ChecklistSummary {
  * Status of every checklist item for one employee.
  * For an item with an expiry, the newest document counts (a renewed NBI clearance replaces the old one).
  */
+/** HR's per-person decisions: a paper that doesn't apply to them, or one required although the usual rule says not. */
+export type RequirementOverrides = Partial<Record<DocumentType, 'NOT_APPLICABLE' | 'REQUIRED'>>;
+
 export function computeChecklist(
   employee: ChecklistEmployee,
   docs: ChecklistDoc[],
   today: DateKey,
+  overrides: RequirementOverrides = {},
 ): { items: ChecklistItemResult[]; summary: ChecklistSummary } {
   const byType = new Map<DocumentType, ChecklistDoc[]>();
   for (const d of docs) byType.set(d.type, [...(byType.get(d.type) ?? []), d]);
 
   const items = DOCUMENT_CATALOG.map((def): ChecklistItemResult => {
     const list = byType.get(def.code) ?? [];
-    const required = applies(def, employee);
+    const override = overrides[def.code];
+    const required = override === 'REQUIRED' ? true : override === 'NOT_APPLICABLE' ? false : applies(def, employee);
     const base = { type: def.code, required, count: list.length, expiresOn: null };
 
     if (def.requirement === 'SYSTEM') return { ...base, status: 'AUTOMATIC' };

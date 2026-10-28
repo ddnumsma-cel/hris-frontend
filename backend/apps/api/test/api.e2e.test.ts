@@ -513,3 +513,62 @@ describe('org chart: reports to', () => {
     await http().put(`/employees/${jose.id}/manager`).set(auth('manager')).send({ managerNo: null }).expect(403);
   });
 });
+
+describe('201 document review', () => {
+  const pdf = Buffer.from('%PDF-1.4\n% review test\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n');
+  const myFile = async () => (await http().get('/me/201-file').set(auth('employee')).expect(200)).body;
+  const joseId = async () => (await prisma.user.findUniqueOrThrow({ where: { email: 'employee@msma.test' } })).employeeId!;
+
+  it('an employee upload waits for HR, counts once verified, and can be sent back with a note', async () => {
+    const before = await myFile();
+    // A paper the employee may add and doesn't have yet.
+    const missing = before.items.find((i: { status: string; type: string }) => i.status === 'MISSING' && ['BIRTH_CERTIFICATE', 'DIPLOMA_TOR', 'GOVERNMENT_ID', 'RESUME', 'NBI_CLEARANCE', 'POLICE_CLEARANCE', 'PREVIOUS_COE'].includes(i.type));
+    // None missing: use a paper they already have (the review steps are the same; only the count check is skipped).
+    const pick = missing ?? before.items.find((i: { type: string }) => i.type === 'GOVERNMENT_ID');
+    const wasMissing = !!missing;
+    const up = await http().post('/me/documents').set(auth('employee')).field('type', pick.type).attach('file', pdf, 'mine.pdf').expect(201);
+    expect(up.body.reviewStatus).toBe('SUBMITTED');
+    let item = (await myFile()).items.find((i: { type: string }) => i.type === pick.type);
+    if (wasMissing) expect(item.status).toBe('MISSING'); // not counted until HR checks it
+    expect(item.documents.find((d: { id: string }) => d.id === up.body.id).reviewStatus).toBe('SUBMITTED');
+    const papers = (await http().get('/documents/papers').set(auth('hr')).expect(200)).body;
+    expect(papers.some((p: { items: { documents: { id: string; reviewStatus: string }[] }[] }) => p.items.some((i) => i.documents.some((d) => d.id === up.body.id && d.reviewStatus === 'SUBMITTED')))).toBe(true);
+    await http().post(`/documents/${up.body.id}/verify`).set(auth('hr')).expect(200);
+    item = (await myFile()).items.find((i: { type: string }) => i.type === pick.type);
+    expect(['ON_FILE', 'EXPIRING']).toContain(item.status);
+    // HR sees it verified (a verified restricted paper, like an ID, is hidden from the employee again).
+    const hrView = (await http().get(`/employees/${await joseId()}/201-file`).set(auth('hr')).expect(200)).body;
+    expect(hrView.items.find((i: { type: string }) => i.type === pick.type).documents.find((d: { id: string }) => d.id === up.body.id).reviewStatus).toBe('VERIFIED');
+    await http().post(`/documents/${up.body.id}/verify`).set(auth('hr')).expect(400); // already reviewed
+
+    // A second upload sent back: archived, and the employee sees why.
+    const again = await http().post('/me/documents').set(auth('employee')).field('type', pick.type).attach('file', pdf, 'blurry.pdf').expect(201);
+    await http().post(`/documents/${again.body.id}/return`).set(auth('hr')).send({ note: 'Too blurry, please rescan' }).expect(200);
+    item = (await myFile()).items.find((i: { type: string }) => i.type === pick.type);
+    expect(item.note).toBe('Too blurry, please rescan');
+    expect(item.documents.some((d: { id: string }) => d.id === again.body.id)).toBe(false);
+  });
+
+  it('HR marks a paper not applicable or required; employees cannot add restricted papers or review', async () => {
+    const id = await joseId();
+    const file = await myFile();
+    const target = file.items.find((i: { status: string }) => i.status === 'MISSING');
+    await http().put(`/employees/${id}/201-file/${target.type}`).set(auth('hr')).send({ state: 'NOT_APPLICABLE' }).expect(200);
+    let item = (await myFile()).items.find((i: { type: string }) => i.type === target.type);
+    expect(item.status).toBe('NOT_NEEDED');
+    expect(item.override).toBe('NOT_APPLICABLE');
+    await http().put(`/employees/${id}/201-file/${target.type}`).set(auth('hr')).send({ state: null }).expect(200);
+    item = (await myFile()).items.find((i: { type: string }) => i.type === target.type);
+    expect(item.status).toBe('MISSING');
+    await http().post('/me/documents').set(auth('employee')).field('type', 'DISCIPLINARY_RECORD').attach('file', pdf, 'case.pdf').expect(403);
+    await http().post('/me/documents').set(auth('employee')).field('type', 'EMPLOYMENT_CONTRACT').attach('file', pdf, 'contract.pdf').expect(403);
+    const mine = await http().post('/me/documents').set(auth('employee')).field('type', 'RESUME').attach('file', pdf, 'cv.pdf').expect(201);
+    await http().post(`/documents/${mine.body.id}/verify`).set(auth('employee')).expect(403);
+    await http().post(`/documents/${mine.body.id}/verify`).set(auth('hr')).expect(200);
+    // Withdraw: only your own, only before HR checks it.
+    const oops = await http().post('/me/documents').set(auth('employee')).field('type', 'RESUME').attach('file', pdf, 'wrong.pdf').expect(201);
+    await http().delete(`/me/documents/${oops.body.id}`).set(auth('hr')).expect(404);
+    await http().delete(`/me/documents/${oops.body.id}`).set(auth('employee')).expect(204);
+    await http().delete(`/me/documents/${mine.body.id}`).set(auth('employee')).expect(400);
+  });
+});

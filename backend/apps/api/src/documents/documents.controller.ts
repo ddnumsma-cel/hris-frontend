@@ -1,11 +1,14 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Res,
   StreamableFile,
@@ -25,6 +28,11 @@ import {
 import {
   ArchiveDocument,
   ArchiveDocumentSchema,
+  DocumentRequirementInput,
+  DocumentRequirementSchema,
+  DocumentTypeSchema,
+  documentType,
+  ReturnDocumentSchema,
   DocumentViewsSchema,
   EmployeeDocumentSchema,
   File201Schema,
@@ -43,12 +51,81 @@ import type { Response } from 'express';
 import { AuthUser, CurrentUser, requireEmployeeId, Roles } from '../common/auth.decorators';
 import { ApiZodBody, ApiZodQuery, ApiZodResponse, openApiSchema, ZodPipe } from '../common/zod';
 import { DocumentsService, type UploadedFileData } from './documents.service';
+import { NotificationsService } from '../notifications/notifications.service';
+
+const EVERYONE = ['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'PAYROLL_ADMIN', 'SYSTEM_ADMIN'] as const;
 
 @ApiTags('201 file')
 @ApiBearerAuth()
 @Controller()
 export class DocumentsController {
-  constructor(private readonly documents: DocumentsService) {}
+  constructor(
+    private readonly documents: DocumentsService,
+    private readonly notifications: NotificationsService,
+  ) {}
+
+  @Post('me/documents')
+  @Roles(...EVERYONE)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 10 } }))
+  @ApiOperation({ operationId: 'submitMyDocument', summary: 'Add one of your own papers (PDF, JPG or PNG, up to 8 MB); HR checks it against the original' })
+  @ApiConsumes('multipart/form-data')
+  @ApiZodResponse(EmployeeDocumentSchema, 201)
+  async submitOwn(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodPipe(UploadDocumentFieldsSchema)) fields: UploadDocumentFields,
+    @UploadedFile() file: UploadedFileData | undefined,
+  ) {
+    const doc = await this.documents.submitOwn(user, fields, file);
+    await this.notifications.send({ topic: 'documents', kind: 'request', title: `${user.displayName} uploaded their ${documentType(fields.type).label}`, body: 'Check it against the original on the 201 documents page.', roles: ['HR_ADMIN'], actorId: user.userId });
+    return doc;
+  }
+
+  @Delete('me/documents/:id')
+  @HttpCode(204)
+  @Roles(...EVERYONE)
+  @ApiOperation({ operationId: 'withdrawMyDocument', summary: 'Take back your own upload before HR reviews it' })
+  async withdrawOwn(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.documents.withdrawOwn(user, id);
+  }
+
+  @Post('documents/:id/verify')
+  @HttpCode(200)
+  @Roles('HR_ADMIN', 'PAYROLL_ADMIN')
+  @ApiOperation({ operationId: 'verifyDocument', summary: "Checked against the original: the employee's upload counts toward their 201 file" })
+  async verify(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    const r = await this.documents.verify(user, id);
+    await this.notifications.send({ topic: 'documents', kind: 'approved', title: `Your ${r.label} was checked`, body: `${user.displayName} verified it against the original. Nothing else to do.`, employeeIds: [r.employeeId], actorId: user.userId });
+    return { ok: true };
+  }
+
+  @Post('documents/:id/return')
+  @HttpCode(200)
+  @Roles('HR_ADMIN', 'PAYROLL_ADMIN')
+  @ApiOperation({ operationId: 'returnDocument', summary: 'Send an upload back with what to fix (the file is kept in the archive)' })
+  @ApiZodBody(ReturnDocumentSchema)
+  async sendBack(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body(new ZodPipe(ReturnDocumentSchema)) body: { note: string }) {
+    const r = await this.documents.sendBack(user, id, body.note);
+    await this.notifications.send({ topic: 'documents', kind: 'rejected', title: `Your ${r.label} was sent back`, body: `"${body.note}" Upload a new one from your 201 file.`, employeeIds: [r.employeeId], actorId: user.userId });
+    return { ok: true };
+  }
+
+  @Put('employees/:id/201-file/:type')
+  @Roles('HR_ADMIN', 'PAYROLL_ADMIN')
+  @ApiOperation({ operationId: 'setDocumentRequirement', summary: 'This paper does not apply to this person, or is required although the usual rule says not' })
+  @ApiZodBody(DocumentRequirementSchema)
+  async setRequirement(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('type') type: string, @Body(new ZodPipe(DocumentRequirementSchema)) body: DocumentRequirementInput) {
+    const parsed = DocumentTypeSchema.safeParse(type);
+    if (!parsed.success) throw new BadRequestException('Unknown paper');
+    await this.documents.setRequirement(user, id, parsed.data, body.state);
+    return { ok: true };
+  }
+
+  @Get('documents/papers')
+  @Roles('HR_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ operationId: 'allPapers', summary: "The 201 documents page: every current employee's checklist papers, with what waits for review" })
+  allPapers() {
+    return this.documents.allPapers();
+  }
 
   @Get('employees/:id/201-file')
   @ApiOperation({

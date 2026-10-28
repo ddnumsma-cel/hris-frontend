@@ -24,6 +24,7 @@ import {
   type RecordsListQuery,
   type RecordsListResponse,
   type RecordsSummary,
+  type RequirementOverrides,
   suggestedExpiry,
   type UpdateDocument,
   type UploadDocumentFields,
@@ -51,8 +52,19 @@ export interface UploadedFileData {
 type Facts = Awaited<ReturnType<EmployeesService['checklistFacts']>>[number];
 type DocMeta = Pick<
   DocumentRow,
-  'id' | 'employeeId' | 'type' | 'issuedOn' | 'expiresOn' | 'uploadedAt'
+  'id' | 'employeeId' | 'type' | 'issuedOn' | 'expiresOn' | 'uploadedAt' | 'reviewStatus'
 >;
+
+/** Only papers HR has checked count toward a complete 201 file; an employee's upload waits for review. */
+const verified = <T extends { reviewStatus: string }>(docs: T[]) => docs.filter((d) => d.reviewStatus !== 'SUBMITTED');
+
+/**
+ * Papers an employee may upload themselves: the pre-employment papers on the website's 201 checklist. Everything HR or
+ * Accounting makes or keeps (contracts, personnel actions, payroll and disciplinary records) is added by them. Who may
+ * open each paper afterwards is unchanged (canOpenDocument).
+ */
+const SELF_SUBMITTABLE: ReadonlySet<DocumentType> = new Set<DocumentType>(['RESUME', 'BIRTH_CERTIFICATE', 'MARRIAGE_CERTIFICATE', 'CHILD_BIRTH_CERTIFICATE', 'GOVERNMENT_ID', 'DIPLOMA_TOR', 'PROFESSIONAL_LICENSE', 'PREVIOUS_COE', 'NBI_CLEARANCE', 'POLICE_CLEARANCE', 'MEDICAL_RESULTS']);
+export const selfSubmittable = (type: DocumentType) => SELF_SUBMITTABLE.has(type);
 
 const toChecklistDoc = (d: DocMeta): ChecklistDoc => ({
   type: d.type,
@@ -109,7 +121,10 @@ export class DocumentsService {
     const [facts] = await this.employees.checklistFacts({ ids: [employeeId] });
     if (!facts) throw new NotFoundException('Employee not found');
     const docs = await this.currentDocs([employeeId]);
-    const { items, summary } = computeChecklist(facts.facts, docs.map(toChecklistDoc), today);
+    const req = (await this.requirements([employeeId])).get(employeeId);
+    const { items, summary } = computeChecklist(facts.facts, verified(docs).map(toChecklistDoc), today, req?.overrides);
+    const reviewerIds = [...new Set(docs.map((d) => d.reviewedById).filter((x): x is string => !!x))];
+    const reviewers = new Map((await this.prisma.user.findMany({ where: { id: { in: reviewerIds } }, select: { id: true, displayName: true } })).map((u) => [u.id, u.displayName]));
 
     return {
       employee: {
@@ -126,10 +141,14 @@ export class DocumentsService {
         return {
           ...item,
           canManage: uploadable && canManageDocument(def.access, user.role),
-          // Metadata of documents the caller may not open (ID numbers, case references) stays hidden.
-          documents: canOpen
+          note: req?.notes.get(item.type) ?? null,
+          override: req?.overrides[item.type] ?? null,
+          // Metadata of documents the caller may not open (ID numbers, case references) stays hidden. Exception: an
+          // employee sees their own upload while it waits for HR (not openable, no reference number or notes), so it
+          // doesn't look lost; once verified it is hidden again like every restricted paper.
+          documents: canOpen || ctx.isSelf
             ? docs
-                .filter((d) => d.type === item.type)
+                .filter((d) => d.type === item.type && (canOpen || d.reviewStatus === 'SUBMITTED'))
                 .map((d): EmployeeDocument => ({
                   id: d.id,
                   type: d.type,
@@ -138,11 +157,14 @@ export class DocumentsService {
                   sizeBytes: d.sizeBytes,
                   issuedOn: d.issuedOn ? utcDateToDateKey(d.issuedOn) : null,
                   expiresOn: d.expiresOn ? utcDateToDateKey(d.expiresOn) : null,
-                  referenceNo: d.referenceNo,
-                  notes: d.notes,
+                  referenceNo: canOpen ? d.referenceNo : null,
+                  notes: canOpen ? d.notes : null,
                   uploadedAt: d.uploadedAt.toISOString(),
                   uploadedBy: d.uploadedBy?.displayName ?? null,
                   canOpen,
+                  reviewStatus: d.reviewStatus === 'SUBMITTED' ? 'SUBMITTED' : 'VERIFIED',
+                  reviewedBy: d.reviewedById ? (reviewers.get(d.reviewedById) ?? null) : null,
+                  reviewedAt: d.reviewedAt?.toISOString() ?? null,
                 }))
             : [],
         };
@@ -163,6 +185,19 @@ export class DocumentsService {
     );
   }
 
+  /** HR's per-person decisions (not applicable / required) and return notes, by employee. */
+  private async requirements(employeeIds: string[]) {
+    const rows = await this.prisma.documentRequirement.findMany({ where: { employeeId: { in: employeeIds } } });
+    const out = new Map<string, { overrides: RequirementOverrides; notes: Map<DocumentType, string> }>();
+    for (const r of rows) {
+      const e = out.get(r.employeeId) ?? { overrides: {}, notes: new Map<DocumentType, string>() };
+      if (r.state === 'NOT_APPLICABLE' || r.state === 'REQUIRED') e.overrides[r.type] = r.state;
+      if (r.returnNote) e.notes.set(r.type, r.returnNote);
+      out.set(r.employeeId, e);
+    }
+    return out;
+  }
+
   /** Checklist summaries for many employees (one query for all their documents). */
   private async summaries(facts: Facts[], today: string) {
     const docs = await this.prisma.employeeDocument.findMany({
@@ -174,14 +209,16 @@ export class DocumentsService {
         issuedOn: true,
         expiresOn: true,
         uploadedAt: true,
+        reviewStatus: true,
       },
     });
+    const reqs = await this.requirements(facts.map((f) => f.id));
     const byEmployee = new Map<string, DocMeta[]>();
     for (const d of docs)
       byEmployee.set(d.employeeId, [...(byEmployee.get(d.employeeId) ?? []), d]);
     return facts.map((f) => {
       const own = byEmployee.get(f.id) ?? [];
-      return { facts: f, docs: own, ...computeChecklist(f.facts, own.map(toChecklistDoc), today) };
+      return { facts: f, docs: own, ...computeChecklist(f.facts, verified(own).map(toChecklistDoc), today, reqs.get(f.id)?.overrides) };
     });
   }
 
@@ -333,9 +370,28 @@ export class DocumentsService {
     fields: UploadDocumentFields,
     file: UploadedFileData | undefined,
   ): Promise<EmployeeDocument> {
-    const def = documentType(fields.type);
-    if (!canManageDocument(def.access, user.role))
+    if (!canManageDocument(documentType(fields.type).access, user.role))
       throw new ForbiddenException('Your role cannot add this kind of document');
+    // HR uploads from the originals, so the paper is verified as it is added.
+    return this.save(user, employeeId, fields, file, false);
+  }
+
+  /** An employee adds one of their own papers; HR checks it against the original (verify or return). */
+  async submitOwn(user: AuthUser, fields: UploadDocumentFields, file: UploadedFileData | undefined): Promise<EmployeeDocument> {
+    if (!user.employeeId) throw new ForbiddenException('This account is not linked to an employee record');
+    if (!selfSubmittable(fields.type))
+      throw new ForbiddenException(`HR adds your ${documentType(fields.type).label} themselves`);
+    return this.save(user, user.employeeId, fields, file, true);
+  }
+
+  private async save(
+    user: AuthUser,
+    employeeId: string,
+    fields: UploadDocumentFields,
+    file: UploadedFileData | undefined,
+    submitted: boolean,
+  ): Promise<EmployeeDocument> {
+    const def = documentType(fields.type);
     if (def.handling === 'FIELD')
       throw new BadRequestException(`${def.label} is filled in as data, not uploaded`);
     if (!file?.buffer?.length) throw new BadRequestException('Choose a file to upload');
@@ -371,12 +427,16 @@ export class DocumentsService {
           referenceNo: fields.referenceNo ?? null,
           notes: fields.notes ?? null,
           uploadedById: user.userId,
+          reviewStatus: submitted ? 'SUBMITTED' : 'VERIFIED',
+          ...(submitted ? {} : { reviewedById: user.userId, reviewedAt: new Date() }),
         },
       });
+      // A new upload answers any earlier return note.
+      await tx.documentRequirement.updateMany({ where: { employeeId, type: def.code }, data: { returnNote: null } });
       await this.audit.log(
         {
           actorId: user.userId,
-          action: 'DOCUMENT_UPLOADED',
+          action: submitted ? 'DOCUMENT_SUBMITTED' : 'DOCUMENT_UPLOADED',
           entity: 'EmployeeDocument',
           entityId: row.id,
           after: { employeeId, type: row.type, fileName: row.fileName, issuedOn, expiresOn },
@@ -385,7 +445,89 @@ export class DocumentsService {
       );
       return row;
     });
-    return this.toDto(doc, user.displayName, true);
+    return { ...this.toDto(doc, user.displayName, true), reviewStatus: submitted ? 'SUBMITTED' : 'VERIFIED' };
+  }
+
+  // ---------- review ----------
+
+  private async reviewable(user: AuthUser, id: string) {
+    const doc = await this.findCurrent(id);
+    if (!canManageDocument(documentType(doc.type).access, user.role)) throw new ForbiddenException('Your role cannot review this document');
+    if (doc.employeeId === user.employeeId) throw new ForbiddenException("You can't review your own papers. Ask a colleague to.");
+    if (doc.reviewStatus !== 'SUBMITTED') throw new BadRequestException('Only a paper waiting for review can be verified or returned');
+    return doc;
+  }
+
+  /** The employee takes back their own upload before HR reviews it (kept in the archive). */
+  async withdrawOwn(user: AuthUser, id: string) {
+    const doc = await this.findCurrent(id);
+    if (doc.employeeId !== user.employeeId) throw new NotFoundException('Document not found');
+    if (doc.reviewStatus !== 'SUBMITTED') throw new BadRequestException('HR has already checked this paper. Ask HR if it needs changing.');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.employeeDocument.update({ where: { id }, data: { archivedAt: new Date(), archivedReason: 'Withdrawn by the employee' } });
+      await this.audit.log({ actorId: user.userId, action: 'DOCUMENT_WITHDRAWN', entity: 'EmployeeDocument', entityId: id, after: { employeeId: doc.employeeId, type: doc.type } }, tx);
+    });
+  }
+
+  /** HR checked the upload against the original. */
+  async verify(user: AuthUser, id: string) {
+    const doc = await this.reviewable(user, id);
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.employeeDocument.updateMany({ where: { id, reviewStatus: 'SUBMITTED', archivedAt: null }, data: { reviewStatus: 'VERIFIED', reviewedById: user.userId, reviewedAt: new Date() } });
+      if (!count) throw new BadRequestException('Someone else just reviewed this paper');
+      await this.audit.log({ actorId: user.userId, action: 'DOCUMENT_VERIFIED', entity: 'EmployeeDocument', entityId: id, after: { employeeId: doc.employeeId, type: doc.type } }, tx);
+    });
+    return { employeeId: doc.employeeId, label: documentType(doc.type).label };
+  }
+
+  /** HR sends the upload back with what to fix; the file is archived (kept), the paper is missing again. */
+  async sendBack(user: AuthUser, id: string, note: string) {
+    const doc = await this.reviewable(user, id);
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.employeeDocument.updateMany({ where: { id, reviewStatus: 'SUBMITTED', archivedAt: null }, data: { archivedAt: new Date(), archivedReason: `Returned: ${note}`, reviewedById: user.userId, reviewedAt: new Date() } });
+      if (!count) throw new BadRequestException('Someone else just reviewed this paper');
+      await tx.documentRequirement.upsert({ where: { employeeId_type: { employeeId: doc.employeeId, type: doc.type } }, create: { employeeId: doc.employeeId, type: doc.type, returnNote: note, updatedById: user.userId }, update: { returnNote: note, updatedById: user.userId } });
+      await this.audit.log({ actorId: user.userId, action: 'DOCUMENT_RETURNED', entity: 'EmployeeDocument', entityId: id, after: { employeeId: doc.employeeId, type: doc.type, note } }, tx);
+    });
+    return { employeeId: doc.employeeId, label: documentType(doc.type).label };
+  }
+
+  /** HR: a paper doesn't apply to this person, or is required although the usual rule says not (null: the usual rule). */
+  async setRequirement(user: AuthUser, employeeId: string, type: DocumentType, state: 'NOT_APPLICABLE' | 'REQUIRED' | null) {
+    const def = documentType(type);
+    if (!canManageDocument(def.access, user.role)) throw new ForbiddenException('Your role cannot change this paper');
+    if (employeeId === user.employeeId) throw new ForbiddenException("You can't change what your own 201 file needs. Ask a colleague to.");
+    await this.employees.managerIdOf(employeeId); // 404 if the employee doesn't exist
+    await this.prisma.$transaction(async (tx) => {
+      await tx.documentRequirement.upsert({ where: { employeeId_type: { employeeId, type } }, create: { employeeId, type, state, updatedById: user.userId }, update: { state, updatedById: user.userId } });
+      await this.audit.log({ actorId: user.userId, action: state === 'NOT_APPLICABLE' ? 'DOCUMENT_NOT_APPLICABLE' : state === 'REQUIRED' ? 'DOCUMENT_REQUIRED' : 'DOCUMENT_RULE_RESTORED', entity: 'Employee', entityId: employeeId, after: { type: def.label } }, tx);
+    });
+  }
+
+  /** The 201 documents page: every current employee's checklist papers in one list (HR and the Super Admin). */
+  async allPapers(today = manilaToday()) {
+    const facts = await this.employees.checklistFacts({});
+    const [docs, reqs] = await Promise.all([this.currentDocs(facts.map((f) => f.id)), this.requirements(facts.map((f) => f.id))]);
+    const reviewerIds = [...new Set(docs.map((d) => d.reviewedById).filter((x): x is string => !!x))];
+    const reviewers = new Map((await this.prisma.user.findMany({ where: { id: { in: reviewerIds } }, select: { id: true, displayName: true } })).map((u) => [u.id, u.displayName]));
+    return facts.map((f) => {
+      const own = docs.filter((d) => d.employeeId === f.id);
+      const req = reqs.get(f.id);
+      const { items } = computeChecklist(f.facts, verified(own).map(toChecklistDoc), today, req?.overrides);
+      return {
+        employeeNo: f.employeeNo,
+        items: items.map((item) => ({
+          type: item.type,
+          status: item.status,
+          required: item.required,
+          expiresOn: item.expiresOn,
+          note: req?.notes.get(item.type) ?? null,
+          documents: own
+            .filter((d) => d.type === item.type)
+            .map((d) => ({ id: d.id, fileName: d.fileName, uploadedAt: d.uploadedAt.toISOString(), uploadedBy: d.uploadedBy?.displayName ?? null, expiresOn: d.expiresOn ? utcDateToDateKey(d.expiresOn) : null, referenceNo: d.referenceNo, notes: d.notes, reviewStatus: d.reviewStatus === 'SUBMITTED' ? 'SUBMITTED' : 'VERIFIED', reviewedBy: d.reviewedById ? (reviewers.get(d.reviewedById) ?? null) : null, reviewedAt: d.reviewedAt?.toISOString() ?? null })),
+        })),
+      };
+    });
   }
 
   private toDto(d: DocumentRow, uploadedBy: string | null, canOpen: boolean): EmployeeDocument {

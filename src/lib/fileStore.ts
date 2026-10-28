@@ -3,6 +3,8 @@
 // if storage is blocked, uploads still record their name, just without a preview.
 
 import { api, serverMode } from "./http";
+import { backendOn } from "./backend/client";
+import { backendOpenFile, stashFile } from "./backend/documents";
 
 const DB = "heyhr-files";
 const STORE = "files";
@@ -38,6 +40,8 @@ const asDataUrl = (file: Blob) =>
 export const uploadedPolicyFiles = new Map<string, string>();
 
 export async function saveFile(id: string, file: File): Promise<void> {
+  // With the backend, 201 papers are sent with their upload action (lib/backend/documents.ts); policy files stay as before.
+  if (backendOn() && !id.startsWith("policy-")) return stashFile(id, file);
   if (serverMode && id.startsWith("policy-")) {
     const { id: serverId } = await api<{ id: string }>("POST", "/policies/files", { fileName: file.name, dataUrl: await asDataUrl(file) });
     uploadedPolicyFiles.set(id, serverId);
@@ -60,6 +64,8 @@ export async function saveFile(id: string, file: File): Promise<void> {
 }
 
 export async function getFile(id: string): Promise<StoredFile | null> {
+  // With the backend, a 201 paper opens from there (every opening is recorded).
+  if (backendOn() && !id.startsWith("policy-")) return backendOpenFile(id);
   if (serverMode) {
     const res = await fetch(`/api/corehr/documents/${encodeURIComponent(id)}/file`, { credentials: "same-origin" });
     if (!res.ok) return null;
