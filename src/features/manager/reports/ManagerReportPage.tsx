@@ -18,11 +18,13 @@ import { reportTeamMembers, type ReportRow, type ReportStatus } from "@/lib/repo
 import { useRowsThatFit } from "@/lib/useRowsThatFit";
 import { getReportDefinition, reportDefinitions, type ReportColumn } from "./reportDefinitions";
 import { fmtDay } from "@/lib/preferences";
+import { backendOn } from "@/lib/backend/client";
 
 const PAGE_SIZE = 10;
-// The mock records cover September 2026, so the period opens on that month.
-const DEFAULT_FROM = "2026-09-01";
-const DEFAULT_TO = "2026-09-30";
+// The mock records cover September 2026, so the demo opens on that month; with real records, this month so far.
+const manilaToday = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+const DEFAULT_FROM = backendOn() ? `${manilaToday.slice(0, 7)}-01` : "2026-09-01";
+const DEFAULT_TO = backendOn() ? manilaToday : "2026-09-30";
 
 const statusVariant: Record<ReportStatus, ChipVariant> = {
   Approved: "good",
