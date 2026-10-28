@@ -52,7 +52,7 @@ export const PERMISSIONS = {
   leaveBalances: { label: "Leave balances and adjustments", system_admin: "none", super_admin: "full", hr: "full", approver: "view:team", accounting: "none", employee: "own" },
   leave: { label: "Leave applications", system_admin: "none", super_admin: "full", hr: "view", approver: "approve:team", accounting: "none", employee: "own" },
   attendanceSettings: { label: "Attendance settings (Shifts, Schedules)", system_admin: "none", super_admin: "full", hr: "full", approver: "none", accounting: "none", employee: "none" },
-  remoteDays: { label: "Attendance › Remote work days", system_admin: "none", super_admin: "full", hr: "none", approver: "view:team", accounting: "none", employee: "view" },
+  remoteDays: { label: "Attendance › Remote work days", system_admin: "none", super_admin: "full", hr: "full", approver: "view:team", accounting: "none", employee: "view" },
   rules: { label: "Maintenance › Rules", system_admin: "none", super_admin: "full", hr: "full", approver: "none", accounting: "none", employee: "none" },
   payrollRuns: { label: "Payroll runs", system_admin: "none", super_admin: "full", hr: "none", approver: "none", accounting: "manage+final", employee: "own" },
   payrollReports: { label: "Payroll reports (Payroll report, Government reports)", system_admin: "none", super_admin: "full", hr: "view", approver: "none", accounting: "manage", employee: "none" },

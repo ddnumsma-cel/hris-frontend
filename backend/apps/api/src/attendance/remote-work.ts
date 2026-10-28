@@ -25,7 +25,7 @@ const localAt = (d: Date) => {
 };
 
 /**
- * Remote work days: days the Super Admin declares (typhoons, emergencies) for some offices or all, and days someone
+ * Remote work days: days HR or the Super Admin declares (typhoons, emergencies) for some offices or all, and days someone
  * chooses to work from home themselves. On those days people clock in and out from the website with a face scan;
  * the punches count in attendance like the office machines'. Switching back to an office day sets that day's
  * home punches aside (kept on record, not counted).
@@ -177,7 +177,8 @@ export class RemoteWorkService {
 
 @ApiTags('attendance')
 @ApiBearerAuth()
-@Roles('SYSTEM_ADMIN')
+// Declaring and cancelling remote work days: HR and the Super Admin.
+@Roles('HR_ADMIN', 'SYSTEM_ADMIN')
 @Controller('timekeeping')
 export class RemoteWorkController {
   constructor(private readonly remote: RemoteWorkService) {}
@@ -190,7 +191,7 @@ export class RemoteWorkController {
   }
 
   @Post('remote-days')
-  @ApiOperation({ operationId: 'declareRemoteDay', summary: 'Super Admin: declare remote work days for some offices or everyone' })
+  @ApiOperation({ operationId: 'declareRemoteDay', summary: 'HR or the Super Admin: declare remote work days for some offices or everyone' })
   @ApiZodBody(RemoteDayInputSchema)
   declare(@CurrentUser() user: AuthUser, @Body(new ZodPipe(RemoteDayInputSchema)) body: RemoteDayInput) {
     return this.remote.declare(body, user);

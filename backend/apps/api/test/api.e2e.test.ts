@@ -612,10 +612,11 @@ describe('remote work days', () => {
   const officeOf = async (email: string) => (await prisma.user.findUniqueOrThrow({ where: { email }, include: { employee: { include: { site: true } } } })).employee!;
 
   // HR's office gets the declared day (HR hasn't clocked in this test run, so the double-tap guard stays out of the way).
-  it('only the Super Admin declares them; a covered employee clocks in from home and it counts in attendance', async () => {
+  it('HR or the Super Admin declares them; a covered employee clocks in from home and it counts in attendance', async () => {
     const princess = await officeOf('hr@msma.test');
-    await http().post('/timekeeping/remote-days').set(auth('hr')).send({ from: today(), to: today(), offices: [princess.site.name], reason: 'Typhoon test' }).expect(403);
-    const day = (await http().post('/timekeeping/remote-days').set(auth('partner')).send({ from: today(), to: today(), offices: [princess.site.name], reason: 'Typhoon test' }).expect(201)).body;
+    await http().post('/timekeeping/remote-days').set(auth('employee')).send({ from: today(), to: today(), offices: [princess.site.name], reason: 'Typhoon test' }).expect(403);
+    await http().post('/timekeeping/remote-days').set(auth('manager')).send({ from: today(), to: today(), offices: [princess.site.name], reason: 'Typhoon test' }).expect(403);
+    const day = (await http().post('/timekeeping/remote-days').set(auth('hr')).send({ from: today(), to: today(), offices: [princess.site.name], reason: 'Typhoon test' }).expect(201)).body;
     await http().post('/timekeeping/remote-days').set(auth('partner')).send({ from: today(), to: today(), offices: [], reason: 'Overlap' }).expect(409);
     const clock = (await http().post('/timekeeping/clock').set(auth('hr')).send({ kind: 'in', match: 93 }).expect(201)).body;
     expect(clock.kind).toBe('in');
