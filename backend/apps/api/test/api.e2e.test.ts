@@ -606,3 +606,47 @@ describe('announcements and company settings', () => {
     await http().put('/settings/scheduling').set(auth('hr')).send({ overtimeThresholdMinutes: 0, defaultBreakMinutes: 60, publishLeadDays: 7 }).expect(200);
   });
 });
+
+describe('remote work days', () => {
+  const today = () => new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+  const officeOf = async (email: string) => (await prisma.user.findUniqueOrThrow({ where: { email }, include: { employee: { include: { site: true } } } })).employee!;
+
+  // HR's office gets the declared day (HR hasn't clocked in this test run, so the double-tap guard stays out of the way).
+  it('only the Super Admin declares them; a covered employee clocks in from home and it counts in attendance', async () => {
+    const princess = await officeOf('hr@msma.test');
+    await http().post('/timekeeping/remote-days').set(auth('hr')).send({ from: today(), to: today(), offices: [princess.site.name], reason: 'Typhoon test' }).expect(403);
+    const day = (await http().post('/timekeeping/remote-days').set(auth('partner')).send({ from: today(), to: today(), offices: [princess.site.name], reason: 'Typhoon test' }).expect(201)).body;
+    await http().post('/timekeeping/remote-days').set(auth('partner')).send({ from: today(), to: today(), offices: [], reason: 'Overlap' }).expect(409);
+    const clock = (await http().post('/timekeeping/clock').set(auth('hr')).send({ kind: 'in', match: 93 }).expect(201)).body;
+    expect(clock.kind).toBe('in');
+    await http().post('/timekeeping/clock').set(auth('hr')).send({ kind: 'in', match: 90 }).expect(409); // already in
+    const raw = await prisma.rawPunch.findFirst({ where: { employeeId: princess.id, deviceSerial: 'REMOTE-WEB' }, orderBy: { punchedAt: 'desc' } });
+    expect(raw?.verifyMode).toBe('FACE');
+    const state = (await http().get('/timekeeping/remote').set(auth('hr')).expect(200)).body;
+    expect(state.remoteDays.some((d: { id: string }) => d.id === day.id)).toBe(true);
+    expect(state.remotePunches.some((p: { id: string; match: number }) => p.id === clock.id && p.match === 93)).toBe(true);
+    // Their office's remote day: switching their own day isn't needed, and it can't be cancelled once used.
+    await http().post('/timekeeping/wfh').set(auth('hr')).send({ on: true }).expect(409);
+    await http().delete(`/timekeeping/remote-days/${day.id}`).set(auth('partner')).expect(409);
+  });
+
+  it('working from home by choice: clock in, then switching back sets the home punch aside', async () => {
+    const princess = await officeOf('hr@msma.test');
+    // Someone in another office (not covered by the declared day above) who hasn't clocked in this run.
+    let who = '';
+    for (const w of ['manager', 'payroll']) if ((await officeOf(w + '@msma.test')).siteId !== princess.siteId) { who = w; break; }
+    expect(who).not.toBe('');
+    const me = await officeOf(who + '@msma.test');
+    void me;
+    await http().post('/timekeeping/clock').set(auth(who)).send({ kind: 'in', match: 88 }).expect(403); // not a remote day for them
+    await http().post('/timekeeping/wfh').set(auth(who)).send({ on: true }).expect(204);
+    const p = (await http().post('/timekeeping/clock').set(auth(who)).send({ kind: 'in', match: 88 }).expect(201)).body;
+    await http().post('/timekeeping/wfh').set(auth(who)).send({ on: false }).expect(204);
+    const row = await prisma.remotePunch.findUniqueOrThrow({ where: { id: p.id } });
+    expect(row.voidedAt).not.toBeNull();
+    expect(await prisma.punchVoid.findUnique({ where: { rawPunchId: row.rawPunchId! } })).not.toBeNull(); // the punch itself is untouched (append-only)
+    const state = (await http().get('/timekeeping/remote').set(auth(who)).expect(200)).body;
+    expect(state.remotePunches.find((x: { id: string }) => x.id === p.id).voided.reason).toBe('Switched back to an office day');
+    await http().post('/timekeeping/clock').set(auth(who)).send({ kind: 'in', match: 88 }).expect(403); // office day again
+  });
+});

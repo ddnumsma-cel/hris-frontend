@@ -2,7 +2,8 @@
 
 import { fullName, initialsOf, newId, state as core } from "../corehr/store";
 import { addDays, computeDay, longRuns, weekday } from "./compute";
-import { HISTORY_DAYS, branchOf, departmentOf, isOnLeave, leaveSpans, punchesFor, refreshTimekeeping, remoteDayFor, save, schedulingRules, shiftFor, tardinessRule, tk, todayIso, type LeaveSpan } from "./store";
+import { HISTORY_DAYS, branchOf, departmentOf, isOnLeave, leaveSpans, punchesFor, refreshRemote, refreshTimekeeping, remoteDayFor, save, schedulingRules, shiftFor, tardinessRule, tk, todayIso, type LeaveSpan } from "./store";
+import { api as backendApiCall } from "../backend/client";
 import { holidayOn, isDoubleHoliday } from "../holidays";
 import { api, serverMode } from "../http";
 import { DEFAULT_SHIFT_ID, shiftProblem, tardinessRuleProblem } from "./rules";
@@ -521,6 +522,7 @@ export async function listRemoteDays() {
   const denied = deny("remoteDays", "view");
   if (denied) return denied;
   if (serverMode) await fresh();
+  await refreshRemote(2000);
   return respond([...(tk.remoteDays ?? [])].sort((a, b) => b.from.localeCompare(a.from)));
 }
 
@@ -528,6 +530,12 @@ export async function declareRemoteDay(input: Pick<RemoteDay, "from" | "to" | "o
   const denied = deny("remoteDays", "create");
   if (denied) return denied;
   if (serverMode) return remote(api<RemoteDay>("POST", "/timekeeping/remote-days", input));
+  // With the backend: it checks the dates, records it, and tells everyone covered.
+  if (backendOn()) {
+    const day = await backendApiCall<RemoteDay>("/timekeeping/remote-days", { method: "POST", body: { ...input, reason: input.reason.trim() } });
+    await refreshRemote();
+    return day;
+  }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.from) || !/^\d{4}-\d{2}-\d{2}$/.test(input.to)) return fail("Choose the dates");
   if (input.to < input.from) return fail("The last day can't be before the first");
   if (input.to < todayIso()) return fail("Those days have passed. Fix past attendance with time adjustments instead.");
@@ -544,6 +552,10 @@ export async function cancelRemoteDay(id: string): Promise<void> {
   const denied = deny("remoteDays", "delete");
   if (denied) return denied;
   if (serverMode) return remote(api<void>("DELETE", `/timekeeping/remote-days/${encodeURIComponent(id)}`));
+  if (backendOn()) {
+    await backendApiCall<void>(`/timekeeping/remote-days/${encodeURIComponent(id)}`, { method: "DELETE" });
+    return refreshRemote();
+  }
   const d = (tk.remoteDays ?? []).find((x) => x.id === id);
   if (!d) return fail("That remote work day no longer exists");
   if (d.from <= todayIso() && (tk.remotePunches ?? []).some((p) => p.workDate >= d.from && p.workDate <= d.to)) {
@@ -568,6 +580,20 @@ export async function clockState(employeeId: string): Promise<ClockState> {
   const who = sessionWho();
   if (employeeId !== who.employeeId && !canFor(who, "view", "attendanceRecords", employeeId)) return forbidden();
   if (serverMode) await fresh();
+  if (backendOn()) {
+    // The backend's home punches and remote days; the office machines' times for today come from its DTR.
+    await refreshRemote();
+    const date = todayIso();
+    const mine = (tk.remotePunches ?? []).filter((p) => p.employeeId === employeeId && p.workDate === date && !p.voided);
+    const today = employeeId === who.employeeId ? await backendApiCall<{ timeIn: string | null; timeOut: string | null }>("/me/today").catch(() => null) : null;
+    const local = (iso: string) => new Date(iso).toLocaleString("sv-SE", { timeZone: "Asia/Manila" }).slice(0, 16).replace(" ", "T");
+    const fromHome = new Set(mine.map((p) => p.at));
+    const officeAt = (iso: string | null | undefined) => (iso && !fromHome.has(local(iso)) ? local(iso) : undefined);
+    const inAt = officeAt(today?.timeIn);
+    const outAt = officeAt(today?.timeOut);
+    const punch = (at: string, kind: "in" | "out"): Punch => ({ id: `office-${kind}`, employeeId, workDate: date, at, kind, source: "biometric", device: "Office", deviceRegistered: true });
+    return respond({ remoteDay: remoteDayFor(employeeId, date), office: { ...(inAt ? { in: punch(inAt, "in") } : {}), ...(outAt ? { out: punch(outAt, "out") } : {}) }, inAt: mine.find((p) => p.kind === "in")?.at, outAt: mine.filter((p) => p.kind === "out").pop()?.at });
+  }
   const date = todayIso();
   const mine = (tk.remotePunches ?? []).filter((p) => p.employeeId === employeeId && p.workDate === date && !tk.voided[p.id]);
   const remoteDay = remoteDayFor(employeeId, date);
@@ -587,6 +613,11 @@ export async function clockState(employeeId: string): Promise<ClockState> {
 export async function setWorkFromHome(employeeId: string, on: boolean, actor = "Employee"): Promise<void> {
   const who = sessionWho();
   if (employeeId !== who.employeeId) return forbidden();
+  // With the backend: saved there (it tells their manager, and sets today's home punches aside when switching back).
+  if (backendOn()) {
+    await backendApiCall<void>("/timekeeping/wfh", { method: "POST", body: { on } });
+    return refreshRemote();
+  }
   // With the API server the switch is saved in the database (so the face-scan clock-in is accepted).
   if (serverMode) {
     await remote(api<void>("POST", "/timekeeping/wfh", { on }));
@@ -610,6 +641,14 @@ export async function clockRemote(employeeId: string, kind: "in" | "out", match:
   const who = sessionWho();
   if (employeeId !== who.employeeId && !canFor(who, "edit", "attendanceRecords", employeeId)) return forbidden();
   if (serverMode) return remote(api<Punch>("POST", "/timekeeping/clock", { kind, match, location }));
+  // With the backend: it checks today is a remote day for them and records the punch (it counts in attendance).
+  if (backendOn()) {
+    const r = await backendApiCall<{ id: string }>("/timekeeping/clock", { method: "POST", body: { kind, match: Math.max(0, Math.min(100, Math.round(match))), ...(location ? { location } : {}) } });
+    await refreshRemote();
+    const p = (tk.remotePunches ?? []).find((x) => x.id === r.id);
+    if (!p) return fail("Clocked, but couldn't load it back. Refresh the page.");
+    return p;
+  }
   const date = todayIso();
   const day = remoteDayFor(employeeId, date);
   if (!day) return fail("Remote clock-in is only open on remote work days that HR declares");
@@ -640,6 +679,7 @@ export async function remoteAttendanceToday(): Promise<{ covered: TkPerson[]; cl
   const denied = deny("remoteDays", "view");
   if (denied) return denied;
   if (serverMode) await fresh();
+  await refreshRemote(2000);
   const date = todayIso();
   const covered = people().filter((p) => remoteDayFor(p.id, date) && shiftFor(p.id, date).kind === "work" && !isOnLeave(p.id, date));
   const clockedIn = [...new Set((tk.remotePunches ?? []).filter((p) => p.workDate === date && p.kind === "in" && !tk.voided[p.id]).map((p) => p.employeeId))];

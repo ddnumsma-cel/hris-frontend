@@ -118,7 +118,7 @@ export class AttendanceService {
 
   async lastPunchAt(employeeId: string): Promise<Date | null> {
     const p = await this.prisma.rawPunch.findFirst({
-      where: { employeeId },
+      where: { employeeId, setAside: { is: null } },
       orderBy: { punchedAt: 'desc' },
       select: { punchedAt: true },
     });
@@ -129,7 +129,7 @@ export class AttendanceService {
   async latestPunches(limit: number, siteId?: string) {
     const directory = await this.employees.directory(siteId);
     const rows = await this.prisma.rawPunch.findMany({
-      where: siteId ? { employeeId: { in: [...directory.keys()] } } : {},
+      where: { setAside: { is: null }, ...(siteId ? { employeeId: { in: [...directory.keys()] } } : {}) },
       orderBy: { punchedAt: 'desc' },
       take: limit,
     });
@@ -192,6 +192,7 @@ export class AttendanceService {
       }),
       this.prisma.rawPunch.findMany({
         where: {
+          setAside: { is: null },
           employeeId: { in: ids },
           punchedAt: {
             gte: new Date(fromManila(from).getTime() - DAY_MS),
@@ -357,6 +358,7 @@ export class AttendanceService {
       }),
       this.prisma.rawPunch.findMany({
         where: {
+          setAside: { is: null },
           employeeId: { in: inScope },
           punchedAt: { gte: fromManila(from), lt: fromManila(addDays(to, 1)) },
         },
@@ -536,7 +538,7 @@ export class AttendanceService {
       this.holidayMap(date, date),
       this.leave.approvedLeaveDays([employeeId], date, date),
       this.prisma.rawPunch.findMany({
-        where: { employeeId, punchedAt: { gte: windowStart, lt: windowEnd } },
+        where: { employeeId, setAside: { is: null }, punchedAt: { gte: windowStart, lt: windowEnd } },
         select: { punchedAt: true },
       }),
     ]);

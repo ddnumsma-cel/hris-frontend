@@ -7,6 +7,8 @@ import { state as core } from "../corehr/store";
 import { addDays, at, defaultBreakStart, isOvernight, toIsoDate, weekday } from "./compute";
 import { HOLIDAYS } from "../holidays";
 import { api, serverMode } from "../http";
+import { backendOn } from "../backend/client";
+import { api as backendApi } from "../backend/client";
 import { approvedLeaveSpans } from "../leave/store";
 import { DEFAULT_SHIFT_ID, DEFAULT_SHIFTS, DEFAULT_TARDINESS_RULE } from "./rules";
 import type { AttendanceNotice, Punch, RemoteDay, ShiftTemplate, TardinessRule, TimeAudit, FixRequest, TimeRequest } from "./types";
@@ -144,7 +146,8 @@ export function save(next: TimekeepingState) {
   tk = next;
   if (serverMode) return;
   try {
-    localStorage.setItem(KEY, JSON.stringify(tk));
+    // With the backend, remote work days and home punches (with their GPS location) live there, not in the browser.
+    localStorage.setItem(KEY, JSON.stringify(backendOn() ? { ...tk, remoteDays: undefined, wfh: undefined, remotePunches: undefined } : tk));
   } catch {
     // Storage full or blocked: the change still applies for this session.
   }
@@ -305,6 +308,24 @@ let loading: Promise<void> | null = null;
 let loadedAt = 0;
 
 /** Loads timekeeping from the API server. Reads within a moment of the last load reuse it. */
+let remoteLoading: Promise<void> | null = null;
+let remoteLoadedAt = 0;
+
+/** With the backend: remote work days, work-from-home days and home punches (in this login's scope) into the store. */
+export function refreshRemote(maxAgeMs = 0): Promise<void> {
+  if (!backendOn()) return Promise.resolve();
+  if (remoteLoading) return remoteLoading;
+  if (maxAgeMs && Date.now() - remoteLoadedAt < maxAgeMs) return Promise.resolve();
+  remoteLoading = backendApi<Pick<TimekeepingState, "remoteDays" | "wfh" | "remotePunches">>("/timekeeping/remote")
+    .then((r) => {
+      save({ ...tk, remoteDays: r.remoteDays ?? [], wfh: r.wfh ?? [], remotePunches: r.remotePunches ?? [] });
+      remoteLoadedAt = Date.now();
+    })
+    .catch(() => undefined)
+    .finally(() => (remoteLoading = null));
+  return remoteLoading;
+}
+
 export function refreshTimekeeping(maxAgeMs = 0): Promise<void> {
   if (!serverMode) return Promise.resolve();
   if (loading) return loading;

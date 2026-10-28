@@ -22,6 +22,7 @@ export type Topic =
   | 'subscription'
   | 'orgchart'
   | 'documents'
+  | 'attendance'
   | 'claim'
   | 'certificate';
 
@@ -51,6 +52,7 @@ const LINKS: Record<Topic, Record<string, string>> = {
   claim: { ...ADMIN('/admin/requests/reimbursement'), approver: '/manager/approvals?tab=claims', employee: '/employee/reimbursements' },
   certificate: { ...ADMIN('/admin/requests/certificates'), employee: '/employee/certificates' },
   orgchart: { ...ADMIN('/admin/maintenance/org-chart'), approver: '/manager/workforce' },
+  attendance: { ...ADMIN('/admin/reports/attendance-logs'), approver: '/manager/attendance', employee: '/employee/attendance' },
   documents: { ...ADMIN('/admin/maintenance/documents'), approver: '/employee/201-file', employee: '/employee/201-file' },
   subscription: { super_admin: '/admin/settings/subscription', hr: '/admin/settings/subscription', system_admin: '/admin/administration/subscription' },
 };

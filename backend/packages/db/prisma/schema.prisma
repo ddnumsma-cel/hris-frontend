@@ -335,6 +335,8 @@ model Employee {
   dependents        Dependent[]
   documents         EmployeeDocument[]
   documentRequirements DocumentRequirement[]
+  wfhDays              WfhDay[]
+  remotePunches        RemotePunch[]
   events            EmploymentEvent[]
 
   @@index([siteId])
@@ -416,6 +418,68 @@ model DocumentRequirement {
   updatedAt   DateTime     @updatedAt @db.Timestamptz(3)
 
   @@id([employeeId, type])
+}
+
+/// Remote work days the Super Admin declared (typhoons, emergencies): everyone, or the listed offices (site names).
+model RemoteDay {
+  id           String    @id @default(cuid())
+  fromDate     DateTime  @db.Date
+  toDate       DateTime  @db.Date
+  offices      String[]
+  reason       String
+  declaredBy   String
+  declaredById String?
+  declaredAt   DateTime  @default(now()) @db.Timestamptz(3)
+  cancelledAt  DateTime? @db.Timestamptz(3)
+
+  @@index([fromDate, toDate])
+}
+
+/// A punch set aside: kept on record but not counted (e.g. a home punch after switching back to an office day).
+/// Punches are append-only, so this is a separate record pointing at one.
+model PunchVoid {
+  rawPunchId String   @id
+  rawPunch   RawPunch @relation(fields: [rawPunchId], references: [id])
+  reason     String
+  by         String
+  at         DateTime @default(now()) @db.Timestamptz(3)
+}
+
+/// A day someone chose to work from home themselves (one per person per day).
+model WfhDay {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  declaredAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([employeeId, date])
+}
+
+/// A time-in or time-out made from home with the website's face scan; the punch itself is a RawPunch.
+model RemotePunch {
+  id           String    @id @default(cuid())
+  employeeId   String
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  workDate     DateTime  @db.Date
+  /// in or out
+  kind         String
+  punchedAt    DateTime  @db.Timestamptz(3)
+  /// Face match, 0–100
+  match        Int?
+  lat          Float?
+  lng          Float?
+  accuracy     Float?
+  /// Why there's no location (permission denied, no GPS)
+  locationNote String?
+  reason       String
+  recordedBy   String
+  rawPunchId   String?
+  voidedAt     DateTime? @db.Timestamptz(3)
+  voidReason   String?
+  voidedBy     String?
+
+  @@index([employeeId, workDate])
 }
 
 /// A company announcement HR or the Super Admin posted (everyone sees it on their Home and in the bell).
@@ -535,6 +599,8 @@ model RawPunch {
   punchedAt    DateTime   @db.Timestamptz(3)
   verifyMode   VerifyMode
   receivedAt   DateTime   @default(now()) @db.Timestamptz(3)
+  /// Set aside (kept on record, not counted). Punches themselves can't be changed (append-only).
+  setAside     PunchVoid?
 
   @@unique([deviceSerial, employeeId, punchedAt])
   @@index([employeeId, punchedAt])

@@ -527,6 +527,24 @@ export const LeavePolicyInputSchema = z.object({
 });
 export type LeavePolicyInput = z.infer<typeof LeavePolicyInputSchema>;
 
+/** Remote work days the Super Admin declares (offices empty: everyone). */
+export const RemoteDayInputSchema = z.object({
+  from: DateKeySchema,
+  to: DateKeySchema,
+  offices: z.array(z.string().trim().min(1).max(80)).max(50),
+  reason: z.string().trim().min(3, 'Give the reason, for example "Typhoon Kristine, Signal No. 3"').max(300),
+});
+export type RemoteDayInput = z.infer<typeof RemoteDayInputSchema>;
+export const WfhSchema = z.object({ on: z.boolean() });
+export type WfhInput = z.infer<typeof WfhSchema>;
+/** A time-in or time-out from home after the website's face scan. */
+export const RemoteClockSchema = z.object({
+  kind: z.enum(['in', 'out']),
+  match: z.number().min(0).max(100),
+  location: z.union([z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180), accuracy: z.number().min(0).max(100_000) }), z.object({ unavailable: z.string().trim().max(200) })]).optional(),
+});
+export type RemoteClockInput = z.infer<typeof RemoteClockSchema>;
+
 /** A company announcement (Home and the bell). */
 export const AnnouncementInputSchema = z.object({
   title: z.string().trim().min(3, 'Write the announcement').max(200, 'Keep the headline under 200 characters'),
