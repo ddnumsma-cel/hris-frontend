@@ -336,6 +336,8 @@ model Employee {
   documents         EmployeeDocument[]
   documentRequirements DocumentRequirement[]
   wfhDays              WfhDay[]
+  cases                EmployeeCase[]
+  performanceReviews   PerformanceReview[]
   remotePunches        RemotePunch[]
   events            EmploymentEvent[]
 
@@ -480,6 +482,39 @@ model RemotePunch {
   voidedBy     String?
 
   @@index([employeeId, workDate])
+}
+
+/// An employee relations case an approver (or the Super Admin) filed about someone on their team. Sensitive: never
+/// shown to the employee concerned; taken off the list (closedAt), never deleted.
+model EmployeeCase {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  /// Attendance, Conduct, Performance or Grievance
+  type       String
+  /// Open, Under review or Resolved
+  status     String    @default("Open")
+  summary    String
+  filedBy    String
+  filedById  String?
+  filedAt    DateTime  @default(now()) @db.Timestamptz(3)
+  closedAt   DateTime? @db.Timestamptz(3)
+  closedBy   String?
+
+  @@index([employeeId])
+}
+
+/// Whether someone's performance review for the year has been submitted.
+model PerformanceReview {
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  year       Int
+  /// Submitted or Pending
+  status     String
+  updatedBy  String
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  @@id([employeeId, year])
 }
 
 /// A company announcement HR or the Super Admin posted (everyone sees it on their Home and in the bell).

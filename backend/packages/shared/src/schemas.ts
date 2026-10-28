@@ -545,6 +545,24 @@ export const RemoteClockSchema = z.object({
 });
 export type RemoteClockInput = z.infer<typeof RemoteClockSchema>;
 
+/** Employee relations cases (Approver › Cases). */
+export const CASE_TYPES = ['Attendance', 'Conduct', 'Performance', 'Grievance'] as const;
+export const CaseInputSchema = z.object({
+  employeeNo: z.string().trim().min(1).max(40),
+  type: z.enum(CASE_TYPES),
+  summary: z.string().trim().min(3, 'Describe what happened').max(2000),
+});
+export type CaseInput = z.infer<typeof CaseInputSchema>;
+export const CaseUpdateSchema = z.object({
+  type: z.enum(CASE_TYPES).optional(),
+  summary: z.string().trim().min(3).max(2000).optional(),
+  status: z.enum(['Open', 'Under review', 'Resolved']).optional(),
+});
+export type CaseUpdate = z.infer<typeof CaseUpdateSchema>;
+/** Performance review status for someone, for a year (Approver › Performance). */
+export const ReviewStatusSchema = z.object({ status: z.enum(['Submitted', 'Pending']), year: z.number().int().min(2000).max(2100) });
+export type ReviewStatusInput = z.infer<typeof ReviewStatusSchema>;
+
 /** A company announcement (Home and the bell). */
 export const AnnouncementInputSchema = z.object({
   title: z.string().trim().min(3, 'Write the announcement').max(200, 'Keep the headline under 200 characters'),

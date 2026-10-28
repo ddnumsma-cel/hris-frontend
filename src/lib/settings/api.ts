@@ -80,6 +80,8 @@ export type MyProfileInput = Omit<MyProfile, "source" | "canEditName">;
 const sourceFor = (user: AuthUser): ProfileSource => {
   const account = admin.accounts.find((a) => a.id === user.accountId);
   if (user.role === "employee") return "employee";
+  // With the backend, anyone with an employee record (approvers, HR, Accounting…) edits their real record here too.
+  if (backendOn() && account?.employeeId) return "employee";
   if (user.role === "manager") return "partner";
   if (account?.demo === "hr" || !account) return "hr";
   return "account";

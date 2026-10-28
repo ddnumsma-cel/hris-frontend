@@ -2,6 +2,7 @@ import { api, serverMode } from "./http";
 import { remoteApi, remoteOn } from "./remote";
 import { api as backendApi, backendOn } from "./backend/client";
 import { backendDocumentAction, backendMyPapers, paperInfo } from "./backend/documents";
+import { loadMe } from "./backend/auth";
 import { refreshCoreHr, state as coreState } from "./corehr/store";
 import { refreshLeave } from "./leave/store";
 import type { PayrollRun } from "./pay/runs";
@@ -106,7 +107,8 @@ import { tellAssigned, tellEmployees } from "./requestNotices";
 import { fileCertificate } from "./certificates";
 import { assertSeatsAvailable } from "./subscription/api";
 import { defaultComplianceCalendar, headcountByOffice, homeStats, newHirePipeline } from "./homeFigures";
-import { loadTeamData, teamRosterFromCore } from "./teamFigures";
+import { loadTeamData, teamAttendanceTrend, teamOnLeaveToday, teamRosterFromCore } from "./teamFigures";
+import { syncTeamShared, teamLeaveSchedule, teamReport, teamWorkforceAlerts } from "./teamTools";
 import { formatPhMobile } from "./govIds";
 import { applicants, setApplicants, setJobRequisitions } from "./mockData";
 import { type Applicant, type ApplicantEducation, type ApplicantProfession, type ApplicantRole, type ApplicantStage, type EmploymentType, type JobRequisition } from "./types";
@@ -202,6 +204,15 @@ export interface UpdateProfileInput {
 }
 
 export async function updateEmployeeProfile(input: UpdateProfileInput): Promise<Employee> {
+  // With the backend: the phone and emergency contact go through the self-service route; the work email is HR's.
+  if (backendOn()) {
+    if ((input.email ?? "").trim() !== (currentEmployee.email ?? "")) throw new Error("Your work email is changed by HR. Ask them if it needs updating.");
+    const ec = /^(.+?) ((.+?)) · (.+)$/.exec(input.emergencyContact.trim());
+    if (input.emergencyContact.trim() && !ec) throw new Error("Write the emergency contact as: Name (Relationship) · phone number");
+    await backendApi("/me/personal", { method: "PATCH", body: { mobileNo: input.phone.trim() || null, ...(ec ? { emergencyContact: { name: ec[1], relationship: ec[2], phone: ec[3] } } : input.emergencyContact.trim() ? {} : { emergencyContact: null }) } });
+    await loadMe();
+    return structuredClone(currentEmployee);
+  }
   // With the API server the contact details were already saved (updateMyContact); just reload.
   if (serverMode) {
     await refreshCoreHr();
@@ -586,27 +597,35 @@ export async function updateApprovalStatus(id: string, status: "Approved" | "Dec
   return delay(next.find((r) => r.id === id)!);
 }
 
-export function fetchOnLeaveToday() {
+export async function fetchOnLeaveToday() {
   const denied = deny("partnerTools", "view");
   if (denied) return denied;
+  if (backendOn()) return teamOnLeaveToday();
   return delay(onLeaveToday);
 }
 
-export function fetchApprovedLeaveSchedule() {
+export async function fetchApprovedLeaveSchedule() {
   const denied = deny("partnerTools", "view");
   if (denied) return denied;
+  if (backendOn()) return teamLeaveSchedule();
   return delay(leaveRequests.filter((r) => r.status === "Approved"));
 }
 
-export function fetchAttendanceTrend() {
+export async function fetchAttendanceTrend() {
   const denied = deny("partnerTools", "view");
   if (denied) return denied;
+  if (backendOn()) {
+    const trend = await teamAttendanceTrend();
+    syncTeamShared(trend.rate);
+    return trend.points;
+  }
   return delay(attendanceTrend);
 }
 
-export function fetchWorkforceAlerts() {
+export async function fetchWorkforceAlerts() {
   const denied = deny("partnerTools", "view");
   if (denied) return denied;
+  if (backendOn()) return teamWorkforceAlerts();
   return delay(workforceAlerts);
 }
 
@@ -615,18 +634,32 @@ export async function fetchTeamRoster() {
   if (denied) return denied;
   // The signed-in manager's direct reports, from Core HR (loaded from the server first).
   await loadTeamData();
+  if (backendOn()) syncTeamShared();
   return delay(teamRosterFromCore());
 }
 
-export function fetchPerformanceReviewStatuses() {
+export async function fetchPerformanceReviewStatuses() {
   const denied = deny("partnerTools", "view");
   if (denied) return denied;
+  if (backendOn()) {
+    await loadTeamData();
+    syncTeamShared();
+    const saved = await backendApi<Record<string, "Submitted" | "Pending">>("/performance/reviews", { query: { year: new Date().getFullYear() } });
+    // Everyone on the team is Pending until their review is marked submitted.
+    const all = Object.fromEntries(teamRosterFromCore().map((m) => [m.id, saved[m.id] ?? ("Pending" as const)]));
+    setPerformanceReviewStatuses(all);
+    return all;
+  }
   return delay(performanceReviewStatuses);
 }
 
 export async function updatePerformanceReviewStatus(employeeId: string, status: "Submitted" | "Pending") {
   const denied = deny("partnerTools", "edit");
   if (denied) return denied;
+  if (backendOn()) {
+    await backendApi(`/performance/reviews/${encodeURIComponent(employeeId)}`, { method: "PUT", body: { status, year: new Date().getFullYear() } });
+    return fetchPerformanceReviewStatuses();
+  }
   const next = { ...performanceReviewStatuses, [employeeId]: status };
   setPerformanceReviewStatuses(next);
   return delay(next);
@@ -635,8 +668,8 @@ export async function updatePerformanceReviewStatus(employeeId: string, status: 
 export function fetchTeamTrainingRecords() {
   const denied = deny("trainings", "view");
   if (denied) return denied;
-  // On the backend: a manager gets their team's trainings.
-  if (backendOn()) return backendApi<TrainingRecord[]>("/trainings");
+  // On the backend: a manager gets their team's trainings (and the "assign to" list is their real team).
+  if (backendOn()) return loadTeamData().then(() => (syncTeamShared(), backendApi<TrainingRecord[]>("/trainings")));
   const teamNames = new Set(teamRosterFromCore().map((m) => m.name));
   return delay(trainingRecords.filter((t) => teamNames.has(t.employeeName)));
 }
@@ -661,9 +694,16 @@ export async function updateTrainingStatus(id: string, status: TrainingStatus) {
   return delay(next.find((t) => t.id === id)!);
 }
 
-export function fetchEmployeeCases() {
+export async function fetchEmployeeCases() {
   const denied = deny("partnerTools", "view");
   if (denied) return denied;
+  if (backendOn()) {
+    await loadTeamData();
+    syncTeamShared();
+    const rows = await backendApi<EmployeeCase[]>("/cases");
+    setEmployeeCases(rows);
+    return rows;
+  }
   return delay(employeeCases);
 }
 
@@ -678,6 +718,12 @@ export interface CreateCaseInput {
 export async function createEmployeeCase(input: CreateCaseInput): Promise<EmployeeCase> {
   const denied = deny("partnerTools", "create");
   if (denied) return denied;
+  if (backendOn()) {
+    // The dialog picks a team member by name; the backend files it by their employee number (and checks they're on your team).
+    const member = teamRosterFromCore().find((m) => m.name === input.employeeName);
+    if (!member) throw new Error("Choose someone on your team");
+    return backendApi<EmployeeCase>("/cases", { method: "POST", body: { employeeNo: member.id, type: input.type, summary: input.summary } });
+  }
   const record: EmployeeCase = {
     id: `case-${Date.now()}`,
     employeeName: input.employeeName,
@@ -695,6 +741,7 @@ export async function createEmployeeCase(input: CreateCaseInput): Promise<Employ
 export async function updateCaseStatus(id: string, status: CaseStatus) {
   const denied = deny("partnerTools", "edit");
   if (denied) return denied;
+  if (backendOn()) return backendApi<EmployeeCase>(`/cases/${encodeURIComponent(id)}`, { method: "PUT", body: { status } });
   const next = employeeCases.map((c) => (c.id === id ? { ...c, status } : c));
   setEmployeeCases(next);
   return delay(next.find((c) => c.id === id)!);
@@ -708,6 +755,7 @@ export interface UpdateCaseDetailsInput {
 export async function updateCaseDetails(id: string, input: UpdateCaseDetailsInput) {
   const denied = deny("partnerTools", "edit");
   if (denied) return denied;
+  if (backendOn()) return backendApi<EmployeeCase>(`/cases/${encodeURIComponent(id)}`, { method: "PUT", body: input });
   const next = employeeCases.map((c) => (c.id === id ? { ...c, ...input } : c));
   setEmployeeCases(next);
   return delay(next.find((c) => c.id === id)!);
@@ -716,6 +764,7 @@ export async function updateCaseDetails(id: string, input: UpdateCaseDetailsInpu
 export async function deleteEmployeeCase(id: string): Promise<void> {
   const denied = deny("partnerTools", "delete");
   if (denied) return denied;
+  if (backendOn()) return void (await backendApi(`/cases/${encodeURIComponent(id)}`, { method: "DELETE" }));
   setEmployeeCases(employeeCases.filter((c) => c.id !== id));
   return delay(undefined);
 }
@@ -1382,9 +1431,10 @@ export async function releaseApprovedPayroll(): Promise<number> {
 
 // ---- Partner reports ----
 
-export function fetchTeamReport(id: ReportId) {
+export async function fetchTeamReport(id: ReportId) {
   const denied = deny("analytics", "view");
   if (denied) return denied;
+  if (backendOn()) return teamReport(id);
   return delay(teamReports[id]);
 }
 

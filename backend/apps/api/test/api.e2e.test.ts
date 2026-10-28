@@ -667,3 +667,35 @@ describe('employee self-service contact details', () => {
     await http().patch('/me/personal').set(auth('employee')).send({ mobileNo: before.mobileNo, emergencyContact: before.personal.emergencyContact }).expect(200);
   });
 });
+
+describe('approver tools: cases and performance reviews', () => {
+  const noOf = async (email: string) => (await prisma.user.findUniqueOrThrow({ where: { email }, include: { employee: true } })).employee!.employeeNo;
+
+  it('an approver files and updates cases for their own team only; HR only looks; removing keeps the record', async () => {
+    const jose = await noOf('employee@msma.test'); // on the manager's team
+    const princess = await noOf('hr@msma.test'); // not on it
+    const filed = (await http().post('/cases').set(auth('manager')).send({ employeeNo: jose, type: 'Attendance', summary: 'Late three times this week' }).expect(201)).body;
+    expect(filed).toMatchObject({ employeeId: jose, status: 'Open', type: 'Attendance' });
+    await http().post('/cases').set(auth('manager')).send({ employeeNo: princess, type: 'Conduct', summary: 'Not my team' }).expect(403);
+    await http().post('/cases').set(auth('hr')).send({ employeeNo: jose, type: 'Conduct', summary: 'HR only looks' }).expect(403);
+    await http().post('/cases').set(auth('employee')).send({ employeeNo: jose, type: 'Conduct', summary: 'Employees cannot' }).expect(403);
+    expect((await http().get('/cases').set(auth('hr')).expect(200)).body.some((c: { id: string }) => c.id === filed.id)).toBe(true);
+    await http().get('/cases').set(auth('employee')).expect(403);
+    const updated = (await http().put(`/cases/${filed.id}`).set(auth('manager')).send({ status: 'Under review' }).expect(200)).body;
+    expect(updated.status).toBe('Under review');
+    await http().put(`/cases/${filed.id}`).set(auth('hr')).send({ status: 'Resolved' }).expect(403);
+    await http().delete(`/cases/${filed.id}`).set(auth('manager')).expect(204);
+    expect((await http().get('/cases').set(auth('manager')).expect(200)).body.some((c: { id: string }) => c.id === filed.id)).toBe(false);
+    expect((await prisma.employeeCase.findUniqueOrThrow({ where: { id: filed.id } })).closedAt).not.toBeNull(); // kept on record
+  });
+
+  it("an approver marks their team's performance reviews; others' are refused", async () => {
+    const jose = await noOf('employee@msma.test');
+    const princess = await noOf('hr@msma.test');
+    const year = new Date().getFullYear();
+    await http().put(`/performance/reviews/${jose}`).set(auth('manager')).send({ status: 'Submitted', year }).expect(200);
+    expect((await http().get('/performance/reviews').query({ year }).set(auth('manager')).expect(200)).body[jose]).toBe('Submitted');
+    await http().put(`/performance/reviews/${princess}`).set(auth('manager')).send({ status: 'Submitted', year }).expect(403);
+    await http().put(`/performance/reviews/${jose}`).set(auth('hr')).send({ status: 'Pending', year }).expect(403);
+  });
+});

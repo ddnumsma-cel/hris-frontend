@@ -6,7 +6,7 @@ import { admin, logAdmin, saveAdmin, type UserAccount } from "../admin/store";
 import type { SignInResult } from "../admin/auth";
 import type { RoleKey } from "../permissions";
 import { api, backendOn, setToken } from "./client";
-import { setCurrentEmployee } from "../mockData";
+import { setCurrentEmployee, setCurrentManager } from "../mockData";
 import type { Employee } from "../types";
 import { backendMyProfile } from "./people";
 
@@ -96,6 +96,8 @@ export async function loadMe() {
   const me = user.employeeNo ? await backendMyProfile() : null;
   const next = me ?? noRecord(user.displayName);
   setCurrentEmployee(next);
+  // An approver's own "manager profile" (account settings, who filed a case) is the same person.
+  if (me) setCurrentManager({ name: me.name, initials: me.initials, title: me.position, email: me.email ?? "", phone: me.phone ?? "", office: me.office, emergencyContact: me.emergencyContact ?? "", about: "" });
   try {
     localStorage.setItem(ME_KEY, JSON.stringify(next));
   } catch {
