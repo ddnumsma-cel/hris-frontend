@@ -49,6 +49,53 @@ export function HeadcountChart({ data }: { data: OfficeHeadcount[] }) {
 }
 
 /**
+ * Headcount per department: one bar split by department, then a two-column list with each
+ * department's count and share. Rows stretch to fill whatever height the card has.
+ */
+export function DepartmentSplit({ data }: { data: { name: string; count: number }[] }) {
+  const total = data.reduce((sum, d) => sum + d.count, 0);
+  const share = (count: number) => (total ? Math.round((count / total) * 100) : 0);
+  const color = (i: number) => officeColors[i % officeColors.length];
+  // The last row of each column has no divider under it.
+  const lastRow = Math.ceil(data.length / 2) - 1;
+
+  return (
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[13px] font-medium text-ink-2">By department</span>
+        <span className="text-xs text-ink-2">Share of staff</span>
+      </div>
+      <div
+        role="img"
+        aria-label={data.map((d) => `${d.name} ${d.count}`).join(", ")}
+        className="flex h-3 w-full gap-1 overflow-hidden rounded-[var(--radius-pill)]"
+      >
+        {data.map((d, i) => (
+          <span
+            key={d.name}
+            className="h-full first:rounded-l-[var(--radius-pill)] last:rounded-r-[var(--radius-pill)]"
+            style={{ flexGrow: d.count, flexBasis: 0, background: color(i) }}
+          />
+        ))}
+      </div>
+      <ul className="grid flex-1 auto-rows-[minmax(40px,1fr)] grid-cols-1 gap-x-8 sm:grid-cols-2">
+        {data.map((d, i) => (
+          <li
+            key={d.name}
+            className={`flex items-center gap-2 ${Math.floor(i / 2) < lastRow ? "border-b border-[var(--line)]" : ""}`}
+          >
+            <span className="h-2 w-2 flex-none rounded-full" style={{ background: color(i) }} />
+            <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{d.name}</span>
+            <span className="font-num text-sm font-semibold text-ink">{d.count}</span>
+            <span className="font-num w-10 text-right text-xs text-ink-2">{share(d.count)}%</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
  * The five newest hires as overlapping avatars, and who joined most recently. Information only.
  * Hire dates arrive already formatted ("Oct 3, 2026"), so they're parsed only to sort.
  */

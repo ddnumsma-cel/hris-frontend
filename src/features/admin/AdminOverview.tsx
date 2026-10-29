@@ -20,6 +20,7 @@ import {
 import { useToast } from "@/components/ui/ToastContext";
 import {
   BellIcon,
+  MapPinIcon,
   DownloadIcon,
   UsersIcon,
 } from "@/components/icons";
@@ -39,7 +40,7 @@ import { formatToday } from "@/lib/format";
 import { listDays } from "@/lib/timekeeping/api";
 import { headcountByDepartment } from "@/lib/homeFigures";
 import { useCan } from "@/lib/useCan";
-import { HeadcountChart, RecentlyJoined } from "./HeadcountChart";
+import { DepartmentSplit, RecentlyJoined } from "./HeadcountChart";
 import { PostAnnouncementDialog } from "./PostAnnouncementDialog";
 import { useCreateParam } from "@/lib/useCreateParam";
 
@@ -105,9 +106,21 @@ export function AdminOverview() {
             title="Total employees"
             value={stats?.totalHeadcount ?? <Skeleton className="h-10 w-24" />}
             label={
-              stats?.newHiresThisMonth ? (
-                <span className="inline-flex rounded-[var(--radius-pill)] bg-good-tint px-2.5 py-[3px] text-[11px] font-medium text-good">
-                  +{stats.newHiresThisMonth} this month
+              stats?.newHiresThisMonth || headcountQuery.data?.length ? (
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  {stats?.newHiresThisMonth ? (
+                    <span className="inline-flex rounded-[var(--radius-pill)] bg-good-tint px-2.5 py-[3px] text-[11px] font-medium text-good">
+                      +{stats.newHiresThisMonth} this month
+                    </span>
+                  ) : null}
+                  {headcountQuery.data?.length ? (
+                    <span className="inline-flex items-center gap-1">
+                      <MapPinIcon aria-hidden="true" className="h-4 w-4 flex-none" />
+                      {headcountQuery.data.length === 1
+                        ? `All at ${headcountQuery.data[0]!.office}`
+                        : headcountQuery.data.map((o) => `${o.office} ${o.count}`).join(" · ")}
+                    </span>
+                  ) : null}
                 </span>
               ) : undefined
             }
@@ -118,8 +131,8 @@ export function AdminOverview() {
             }
           >
             <div className="h-full">
-              {headcountQuery.data ? (
-                <HeadcountChart data={headcountQuery.data} />
+              {departments.length ? (
+                <DepartmentSplit data={departments} />
               ) : (
                 <Skeleton className="h-full min-h-36 w-full" />
               )}
@@ -228,24 +241,6 @@ export function AdminOverview() {
                   </>
                 );
               })()}
-            </CardBody>
-          </Card>
-        </BentoArea>
-
-        {/* Where people work: headcount per department. */}
-        <BentoArea area="cost">
-          <Card className="h-full">
-            <CardHeader title="Headcount by department" meta={stats ? `${stats.totalHeadcount} people` : undefined} />
-            <CardBody className="flex flex-col gap-2.5">
-              {departments.slice(0, 6).map((d) => (
-                <div key={d.name} className="flex items-center gap-3 text-[13px]">
-                  <span className="w-32 flex-none truncate text-ink-2">{d.name}</span>
-                  <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
-                    <span className="block h-full rounded-full bg-[var(--color-cat-1)]" style={{ width: `${(d.count / Math.max(1, departments[0]!.count)) * 100}%` }} />
-                  </span>
-                  <span className="w-6 text-right font-semibold">{d.count}</span>
-                </div>
-              ))}
             </CardBody>
           </Card>
         </BentoArea>

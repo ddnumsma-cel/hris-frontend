@@ -2173,7 +2173,7 @@ body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-la
 }
 
 .bento-admin {
-  grid-template-areas: "hero" "kpis" "actions" "payroll" "cost" "onboarding" "feed";
+  grid-template-areas: "hero" "kpis" "actions" "payroll" "onboarding" "feed";
 }
 
 .bento-employee {
@@ -2198,7 +2198,7 @@ body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-la
       "hero hero"
       "kpis actions"
       "kpis feed"
-      "payroll cost"
+      "payroll payroll"
       "onboarding onboarding";
   }
 
@@ -2226,7 +2226,7 @@ body[data-sidebar-anim] .sidebar-desktop:not(.sidebar-collapsed) :is(.sidebar-la
     grid-template-areas:
       "hero hero kpis actions"
       "hero hero kpis feed"
-      "payroll payroll cost feed"
+      "payroll payroll payroll feed"
       "onboarding onboarding onboarding feed";
   }
 
