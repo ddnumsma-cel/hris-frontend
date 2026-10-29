@@ -163,19 +163,19 @@ function LatestMove({ move, shiftName, dotOf, canUndo, undoing, onUndo, onShow }
         </span>
       </div>
       <div className="flex items-center gap-3">
-        <span className="flex">
+        <span className="flex flex-none -space-x-2">
           {move.people.slice(0, 4).map((p) => (
-            <span key={p.id} className="-mr-2 rounded-full border-2 border-[var(--field-bg)]">
+            <span key={p.id} className="rounded-full border-2 border-[var(--field-bg)]">
               <Initials initials={p.initials} size="sm" />
             </span>
           ))}
         </span>
-        <span className="ml-2 min-w-0 text-[13px] leading-snug">
+        <span className="min-w-0 text-[13px] leading-snug">
           <b className="font-semibold">{move.people.length === 1 ? names[0] : `${move.people.length} people`}</b>
           {move.people.length > 1 && (
-            <span className="block truncate text-xs text-ink-2">
-              {names.slice(0, 3).join(", ")}
-              {names.length > 3 && ` and ${names.length - 3} more`}
+            <span className="line-clamp-2 text-xs text-ink-2">
+              {names[0]}
+              {` and ${names.length - 1} more`}
             </span>
           )}
         </span>

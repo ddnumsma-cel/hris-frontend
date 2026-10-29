@@ -87,10 +87,16 @@ const RETIRED: Record<string, string> = { "sh-night": "sh-day", "sh-weekend": "s
 
 /** Brings saved data up to the current set of shifts: Busy season, Peak season, Mid shift and Six-day week. */
 function normalizeShifts(s: TimekeepingState): TimekeepingState {
-  const shifts = [...s.shifts.filter((x) => !RETIRED[x.id]), ...SHIFTS.filter((x) => !s.shifts.some((y) => y.id === x.id))].map((x) => ({ ...x, breakStart: x.breakStart ?? defaultBreakStart(x) }));
+  const shifts = [...s.shifts.filter((x) => !RETIRED[x.id]), ...SHIFTS.filter((x) => !s.shifts.some((y) => y.id === x.id))].map((x) => ({ ...x, ...peakHours(x), breakStart: x.breakStart ?? defaultBreakStart(x) }));
   const usualShift = Object.fromEntries(Object.entries(s.usualShift).map(([id, sh]) => [id, sh && RETIRED[sh] ? RETIRED[sh] : (sh ?? "sh-day")]));
   const overrides = Object.fromEntries(Object.entries(s.overrides).filter(([, v]) => !RETIRED[v]));
   return { ...s, shifts: s.seasonShifts ? shifts : toSeasonShifts(shifts), seasonShifts: true, usualShift, overrides };
+}
+
+/** Peak season saved with the earlier 5:30 PM end and Saturdays off (and not edited since) takes the workbook's Monday-to-Saturday, 5:00 PM hours. */
+function peakHours(x: ShiftTemplate): Partial<ShiftTemplate> {
+  const base = SHIFTS.find((d) => d.id === "sh-peak")!;
+  return x.id === base.id && x.end === "17:30" && x.restDays.join() === "0,6" ? { end: base.end, restDays: base.restDays } : {};
 }
 
 /** Saved shifts from before the 8:30 start: move the untouched 8:00 ones to 8:30 and use the 5-minute grace. */

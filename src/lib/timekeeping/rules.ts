@@ -6,7 +6,8 @@ import type { ShiftTemplate, TardinessRule } from "./types";
 
 export const DEFAULT_SHIFTS: ShiftTemplate[] = [
   { id: "sh-day", name: "Busy season", start: "08:30", end: "17:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0, 6], active: true },
-  { id: "sh-peak", name: "Peak season", start: "08:30", end: "17:30", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0, 6], active: true },
+  // Peak season: Monday to Saturday, 8:30 AM – 5:00 PM, lunch 12:00–1:00 (the workbook's DTR_FT office hours).
+  { id: "sh-peak", name: "Peak season", start: "08:30", end: "17:00", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0], active: true },
   { id: "sh-mid", name: "Mid shift", start: "09:00", end: "18:00", breakMinutes: 60, breakStart: "13:00", graceMinutes: 5, restDays: [0, 6], active: true },
   // Six-day week (payroll workbook): 7 hours Monday to Friday, 5 hours on Saturday.
   { id: "sh-6day", name: "Six-day week", start: "08:30", end: "16:30", breakMinutes: 60, breakStart: "12:00", graceMinutes: 5, restDays: [0], saturdayEnd: "13:30", active: true },
