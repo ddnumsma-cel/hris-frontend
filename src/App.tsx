@@ -145,6 +145,7 @@ const AppearanceSection = lazy(() => import("@/features/settings/AppearanceSecti
 const OrganizationSection = lazy(() => import("@/features/settings/OrganizationSection").then((m) => ({ default: m.OrganizationSection })));
 const TimeOffSection = lazy(() => import("@/features/settings/TimeOffSection").then((m) => ({ default: m.TimeOffSection })));
 const SchedulingSection = lazy(() => import("@/features/settings/SchedulingSection").then((m) => ({ default: m.SchedulingSection })));
+const UsersSection = lazy(() => import("@/features/settings/UsersSection").then((m) => ({ default: m.UsersSection })));
 const RolesSection = lazy(() => import("@/features/settings/RolesSection").then((m) => ({ default: m.RolesSection })));
 const DataSection = lazy(() => import("@/features/settings/DataSection").then((m) => ({ default: m.DataSection })));
 const SubscriptionSection = lazy(() => import("@/features/settings/SubscriptionSection").then((m) => ({ default: m.SubscriptionSection })));
@@ -164,6 +165,7 @@ function settingsRoutes(admin = false) {
           <Route path="time-off" element={<WorkspaceGuard section="time-off"><TimeOffSection /></WorkspaceGuard>} />
           <Route path="scheduling" element={<WorkspaceGuard section="scheduling"><SchedulingSection /></WorkspaceGuard>} />
           <Route path="roles" element={<WorkspaceGuard section="roles"><RolesSection /></WorkspaceGuard>} />
+          <Route path="users" element={<WorkspaceGuard section="users"><UsersSection /></WorkspaceGuard>} />
           <Route path="data" element={<WorkspaceGuard section="data"><DataSection /></WorkspaceGuard>} />
           <Route path="subscription" element={<WorkspaceGuard section="subscription"><SubscriptionSection /></WorkspaceGuard>} />
         </>
@@ -330,7 +332,7 @@ function App() {
 
               <Route path="administration" element={<Navigate to="/admin/administration/users" replace />} />
               <Route path="administration/users" element={<UsersPage />} />
-              {/* Roles are fixed, so the reference lives in Admin settings › Roles & permissions (with Users). */}
+              {/* Roles are fixed, so the reference lives in Admin settings › Roles & permissions (Users has its own section there). */}
               <Route path="administration/roles" element={<Moved to="/admin/settings/roles" />} />
               <Route path="administration/audit" element={<AuditTrailPage />} />
               <Route path="administration/settings" element={<SystemSettingsPage />} />

@@ -16,7 +16,11 @@ export interface Col<T> {
 }
 
 /** Plain table with 8 rows per page and Previous / Next. */
-export function SimpleTable<T>({ cols, rows, rowKey, empty, loading, pageSize = PAGE_SIZE }: { cols: Col<T>[]; rows: T[]; rowKey: (r: T) => string; empty: string; loading?: boolean; pageSize?: number }) {
+/**
+ * `onRowClick`: clicking anywhere on a row does the same as its main button (keep that button for keyboard users).
+ * `narrow`: a table with few columns that must fit Settings' 720px column without scrolling sideways.
+ */
+export function SimpleTable<T>({ cols, rows, rowKey, empty, loading, pageSize = PAGE_SIZE, onRowClick, narrow }: { cols: Col<T>[]; rows: T[]; rowKey: (r: T) => string; empty: string; loading?: boolean; pageSize?: number; onRowClick?: (r: T) => void; narrow?: boolean }) {
   const [page, setPage] = useState(0);
   // A new filter result starts again from the first page.
   const [seen, setSeen] = useState(rows.length);
@@ -31,7 +35,7 @@ export function SimpleTable<T>({ cols, rows, rowKey, empty, loading, pageSize = 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface">
       <div className="no-scrollbar overflow-x-auto">
-        <table className="w-full min-w-[44rem] text-sm">
+        <table className={clsx("w-full text-sm", narrow ? "min-w-[36rem]" : "min-w-[44rem]")}>
           <thead>
             <tr className="border-b border-border bg-surface-2/60 text-left text-xs text-ink-2">
               {cols.map((c) => (
@@ -56,7 +60,7 @@ export function SimpleTable<T>({ cols, rows, rowKey, empty, loading, pageSize = 
               </tr>
             ) : (
               shown.map((r) => (
-                <tr key={rowKey(r)} className="border-b border-border last:border-0">
+                <tr key={rowKey(r)} onClick={onRowClick && (() => onRowClick(r))} className={clsx("border-b border-border last:border-0", onRowClick && "cursor-pointer")}>
                   {cols.map((c) => (
                     <td key={c.header} className={clsx("px-4 py-2.5 whitespace-nowrap", c.align === "right" && "text-right")}>
                       {c.cell(r)}

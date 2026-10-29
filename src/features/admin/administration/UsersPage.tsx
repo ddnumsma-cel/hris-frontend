@@ -10,8 +10,8 @@ import { useCan, useWho } from "@/lib/useCan";
 import type { RoleRow } from "@/lib/admin/api";
 import { createAccount, employeesWithoutAccount, listAccounts, listRoles, resetPassword, setAccountRole, setAccountStatus, unlockAccount, type AccountRow } from "@/lib/admin/api";
 import { inputClass, useActor } from "../corehr/format";
-import { ErrorNote, Field, LoadError, Pill } from "../corehr/ui";
-import { Choice, Name, SearchBox, SimpleTable, Toolbar, type Col } from "../timekeeping/common";
+import { ErrorNote, Field, Initials, LoadError, Pill } from "../corehr/ui";
+import { Choice, Name, SearchBox, SimpleTable, Tabs, Toolbar, type Col } from "../timekeeping/common";
 import { shortDate } from "../timekeeping/format";
 import { useCreateParam } from "@/lib/useCreateParam";
 
@@ -190,11 +190,20 @@ function ManageDialog({ a, onClose }: { a: AccountRow; onClose: () => void }) {
   );
 }
 
+type StatusView = "all" | "active" | "locked" | "off";
+const statusOf = (a: AccountRow): Exclude<StatusView, "all"> => (a.locked ? "locked" : a.status === "active" ? "active" : "off");
+/** "Wendy Lacson" → "WL"; leaves out "(demo)" and suffixes such as "Jr.". */
+function initialsFromName(name: string) {
+  const words = name.replace(/\(.*?\)/g, "").split(/\s+/).filter((w) => w && !/^(jr|sr|ii|iii|iv)\.?$/i.test(w));
+  return `${words[0]?.[0] ?? ""}${words.length > 1 ? words[words.length - 1]![0] : ""}`.toUpperCase();
+}
+
 export function UsersPage() {
   const accounts = useQuery({ queryKey: KEYS.accounts, queryFn: listAccounts });
   const roles = useQuery({ queryKey: KEYS.roles, queryFn: listRoles });
   const [query, setQuery] = useState("");
   const [roleId, setRoleId] = useState("all");
+  const [view, setView] = useState<StatusView>("all");
   const [adding, setAdding] = useState(false);
   useCreateParam("user", () => setAdding(true));
   const [open, setOpen] = useState<AccountRow | null>(null);
@@ -203,18 +212,28 @@ export function UsersPage() {
   if (accounts.isError) return <LoadError onRetry={() => accounts.refetch()} />;
 
   const q = query.trim().toLowerCase();
-  const rows = (accounts.data ?? []).filter((a) => (roleId === "all" || a.roleId === roleId) && (!q || a.name.toLowerCase().includes(q) || a.username.includes(q)));
+  const matching = (accounts.data ?? []).filter((a) => (roleId === "all" || a.roleId === roleId) && (!q || a.name.toLowerCase().includes(q) || a.username.includes(q)));
+  const rows = matching.filter((a) => view === "all" || statusOf(a) === view);
+  const count = (v: Exclude<StatusView, "all">) => matching.filter((a) => statusOf(a) === v).length;
   const cols: Col<AccountRow>[] = [
-    { header: "User", cell: (a) => <Name name={a.name} sub={a.username} /> },
-    { header: "Role", cell: (a) => a.roleName },
-    { header: "Employee record", cell: (a) => <span className="text-ink-2">{a.employeeName ?? (a.demo ? "Demo login" : "Not linked")}</span> },
+    {
+      header: "User",
+      cell: (a) => (
+        <span className="flex items-center gap-3">
+          <Initials initials={initialsFromName(a.name)} size="sm" />
+          <Name name={a.name} sub={a.username} />
+        </span>
+      ),
+    },
+    // The employee record sits under the role, so the Manage button still fits in Settings' narrower column.
+    { header: "Role", cell: (a) => <Name name={a.roleName} sub={a.employeeName ?? (a.demo ? "Demo login" : "Not linked")} /> },
     { header: "Status", cell: (a) => (a.locked ? <Pill tone="warn">Locked</Pill> : a.status === "active" ? <Pill tone="good">Active</Pill> : <Pill tone="neutral">Turned off</Pill>) },
     { header: "Last sign-in", cell: (a) => <span className="text-ink-2">{a.lastSignIn ? shortDate(a.lastSignIn) : "Never"}</span> },
     {
       header: "",
       align: "right",
       cell: (a) => (
-        <Button size="sm" variant="ghost" onClick={() => setOpen(a)}>
+        <Button size="sm" variant="ghost" onClick={(e) => (e.stopPropagation(), setOpen(a))}>
           Manage
         </Button>
       ),
@@ -224,11 +243,21 @@ export function UsersPage() {
   return (
     <>
       <ContentHead title="Users" actions={canAdd ? <Button onClick={() => setAdding(true)}>Add user</Button> : undefined} />
+      <Tabs
+        value={view}
+        onChange={setView}
+        options={[
+          { value: "all", label: "All", count: matching.length },
+          { value: "active", label: "Active", count: count("active") },
+          { value: "locked", label: "Locked", count: count("locked") },
+          { value: "off", label: "Turned off", count: count("off") },
+        ]}
+      />
       <Toolbar>
         <SearchBox value={query} onChange={setQuery} placeholder="Search name or username" />
         <Choice label="Role" value={roleId} onChange={setRoleId} options={[{ value: "all", label: "All roles" }, ...(roles.data ?? []).map((r) => ({ value: r.id, label: r.name }))]} />
       </Toolbar>
-      <SimpleTable rows={rows} rowKey={(a) => a.id} cols={cols} loading={accounts.isLoading} empty="No users match." />
+      <SimpleTable rows={rows} rowKey={(a) => a.id} cols={cols} loading={accounts.isLoading} empty="No users match." onRowClick={setOpen} narrow />
       {adding && <AddUserDialog onClose={() => setAdding(false)} />}
       {open && <ManageDialog key={open.id} a={open} onClose={() => setOpen(null)} />}
     </>

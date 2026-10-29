@@ -1783,6 +1783,10 @@ tbody tr:hover {
 .settings-embed h1 {
   font-size: 16px;
 }
+/* …unless the page is the whole section: then its title is the section heading, sized like SettingsHeader. */
+.settings-embed[data-as-title] h1 {
+  font-size: 20px;
+}
 
 /* Compact density (Settings > Appearance, or the gear menu): tighter rows and padding so more
    fits on screen. Set as data-density on <html>; unlayered so it wins over spacing utilities. */

@@ -21,7 +21,7 @@ const PERSONAL: SectionLink[] = [
   { path: "appearance", label: "Appearance" },
 ];
 
-export type WorkspaceSection = "organization" | "time-off" | "scheduling" | "roles" | "data" | "subscription";
+export type WorkspaceSection = "organization" | "time-off" | "scheduling" | "roles" | "users" | "data" | "subscription";
 /** "hr": HR rules (leave, scheduling). "admin": system administration (company, access, data). */
 export type SettingsAreaKey = "my" | "hr" | "admin";
 
@@ -30,6 +30,7 @@ const WORKSPACE: (SectionLink & { path: WorkspaceSection; area: "hr" | "admin" }
   { path: "scheduling", label: "Scheduling", area: "hr" },
   { path: "organization", label: "Organization", area: "admin" },
   { path: "roles", label: "Roles & permissions", area: "admin" },
+  { path: "users", label: "Users", area: "admin" },
   { path: "data", label: "Data & privacy", area: "admin" },
   { path: "subscription", label: "Subscription", area: "admin" },
 ];
@@ -48,6 +49,7 @@ export function useWorkspaceSections() {
     "time-off": can(who, "edit", "rules") || can(who, "edit", "leaveTypes"),
     scheduling: can(who, "edit", "rules") || can(who, "edit", "attendanceSettings"),
     roles: can(who, "view", "roleAssignment"),
+    users: can(who, "view", "roleAssignment"),
     data: can(who, "edit", "systemSettings"),
     // The company's own plan: Super Admin and HR. System Admins manage every client's elsewhere.
     subscription: can(who, "view", "subscription") && !can(who, "view", "clients"),
@@ -180,9 +182,16 @@ export function ToMyAccount() {
   return <Navigate to={`/${user.role}/settings/account`} replace />;
 }
 
-/** Existing management pages shown inside a settings section: their page title shrinks to a sub-heading. */
-export function Embedded({ children }: { children: ReactNode }) {
-  return <div className="settings-embed flex min-w-0 flex-col gap-5">{children}</div>;
+/**
+ * Existing management pages shown inside a settings section: their page title shrinks to a sub-heading.
+ * `asTitle`: the page is the whole section, so its title stays the section's heading (no SettingsHeader above it).
+ */
+export function Embedded({ children, asTitle }: { children: ReactNode; asTitle?: boolean }) {
+  return (
+    <div className="settings-embed flex min-w-0 flex-col gap-5" data-as-title={asTitle || undefined}>
+      {children}
+    </div>
+  );
 }
 
 /** /settings and /settings/:section → the same section inside the person's workspace. */
